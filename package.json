@@ -2,6 +2,9 @@
   "name": "@bluecadet/launchpad",
   "version": "1.0.0",
   "description": "Suite of tools to manage media installations",
+  "engines": {
+    "npm": ">=7"
+  },
   "type": "module",
   "main": "./index.js",
   "bin": {
@@ -21,7 +24,21 @@
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
-  "author": "Bluecadet",
+  "author": {
+    "name": "Benjamin Bojko",
+    "email": "npm@bbojko.de"
+  },
+  "maintainers": [
+    {
+      "name": "Benjamin Bojko",
+      "email": "npm@bbojko.de"
+    },
+    {
+      "name": "Pete Inge"
+    }
+  ],
+  "contributors": [
+  ],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/bluecadet/launchpad/issues"
@@ -73,5 +90,36 @@
   ],
   "devDependencies": {
     "jsdoc": "^3.6.10"
-  }
+  },
+  "keywords": [
+    "bluecadet",
+    "cli",
+    "configuration-management",
+    "daemon",
+    "deploy",
+    "deployment",
+    "dev ops",
+    "devops",
+    "download-manager",
+    "exhibits",
+    "forever-monitor",
+    "forever",
+    "graceful",
+    "installations",
+    "keep process alive",
+    "log",
+    "logs",
+    "monitoring",
+    "node.js monitoring",
+    "nodemon",
+    "pm2",
+    "process configuration",
+    "process manager",
+    "production",
+    "profiling",
+    "runtime",
+    "sysadmin",
+    "tools",
+    "windows-desktop"
+  ]
 }

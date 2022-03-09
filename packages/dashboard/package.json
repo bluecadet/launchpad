@@ -1,0 +1,28 @@
+{
+  "name": "@bluecadet/launchpad-dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/launchpad-dashboard.js",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./test": "./test/test.js",
+    "./test/config": "./test/config.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "author": "Bluecadet",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "dependencies": {
+    "@bluecadet/launchpad-utils": "*"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/dashboard"
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@bluecadet/launchpad-utils",
+  "version": "1.0.0",
+  "description": "Common utilities used by multiple launchpad modules",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "author": "Bluecadet",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "peerDependencies": {
+    "@sindresorhus/slugify": "^2.1.0",
+    "auto-bind": "^5.0.1",
+    "chalk": "^5.0.0",
+    "fs-extra": "^10.0.0",
+    "logform": "^2.3.2",
+    "moment": "^2.29.1",
+    "strip-json-comments": "^4.0.0",
+    "winston": "^3.4.0",
+    "winston-daily-rotate-file": "^4.5.5",
+    "yargs": "^17.3.1"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/utils"
+}

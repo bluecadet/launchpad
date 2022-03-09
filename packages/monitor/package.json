@@ -1,0 +1,45 @@
+{
+  "name": "@bluecadet/launchpad-monitor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./test": "./test/test.js",
+    "./test/config": "./test/config.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "link": "npm link launchpad-utils && npm link",
+    "test": "node test/test.js",
+    "pm2": "pm2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "author": "Bluecadet",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
+  "dependencies": {
+    "@bluecadet/launchpad-utils": "*"
+  },
+  "peerDependencies": {
+    "auto-bind": "^5.0.1",
+    "axon": "^2.0.3",
+    "chalk": "^5.0.0",
+    "cross-spawn": "^7.0.3",
+    "ffi-napi": "^4.0.3",
+    "fs-extra": "^10.0.0",
+    "p-debounce": "^4.0.0",
+    "pm2": "^5.1.2",
+    "ref-napi": "^3.0.3",
+    "robotjs": "^0.6.0",
+    "semver": "^7.3.5",
+    "tail": "^2.2.4"
+  }
+}

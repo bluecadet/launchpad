@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "main": "index.js",

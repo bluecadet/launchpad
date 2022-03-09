@@ -31,7 +31,7 @@ const addCommand = (argv, commands, description) => {
 
 // Launched as standalone module
 launchFromCli(import.meta, {
-	relativePath: 'launchpad/index.js',
+	relativePaths: ['launchpad/index.js', '.bin/launchpad'],
 	yargsCallback: argv => {
 		argv = addCommand(argv, [StartupCommands.START, '$0'], 'Starts launchpad by updating content and starting apps.');
 		argv = addCommand(argv, [StartupCommands.CONTENT, 'update-content'], 'Only download content. Parses your config as `config.content || config`.');
@@ -41,13 +41,12 @@ launchFromCli(import.meta, {
 		return argv;
 	}
 }).then(async config => {
-	/**
-	 * @type {LaunchpadCore}
-	 */
 	const launchpad = new LaunchpadCore(config);
+	
 	onExit(async () => {
 		await launchpad.shutdown();
 	});
+	
 	switch (config.startupCommand) {
 		case StartupCommands.SCAFFOLD: {
 			await launchScaffold(config);
@@ -72,10 +71,6 @@ launchFromCli(import.meta, {
 			await launchpad.startup();
 			break;
 		}
-	}
-	
-	if (launchpad) {
-		
 	}
 
 }).catch(err => {

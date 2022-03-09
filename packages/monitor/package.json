@@ -33,13 +33,15 @@
     "axon": "^2.0.3",
     "chalk": "^5.0.0",
     "cross-spawn": "^7.0.3",
-    "ffi-napi": "^4.0.3",
     "fs-extra": "^10.0.0",
     "p-debounce": "^4.0.0",
     "pm2": "^5.1.2",
-    "ref-napi": "^3.0.3",
-    "robotjs": "^0.6.0",
     "semver": "^7.3.5",
     "tail": "^2.2.4"
+  },
+  "optionalDependencies": {
+    "ffi-napi": "^4.0.3",
+    "ref-napi": "^3.0.3",
+    "robotjs": "^0.6.0"
   }
 }

@@ -3,7 +3,7 @@
 import { LaunchpadMonitor } from './lib/launchpad-monitor.js';
 import { launchFromCli, onExit } from '@bluecadet/launchpad-utils';
 
-export * from './lib/windows-api.js';
+// export * from './lib/windows-api.js'; // Includes optional dependencies, so not exported here
 export * from './lib/launchpad-monitor.js';
 export * from './lib/monitor-options.js';
 export default LaunchpadMonitor;

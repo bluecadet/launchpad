@@ -406,6 +406,13 @@ export class LaunchpadMonitor {
 		
 		this._logger.info(`Applying window settings to apps: ${appNames}...`);
 		
+		let windowsApi = null;
+		try {
+			windowsApi = await this._getWindowsApi();
+		} catch (err) {
+			this._logger.error(`Could not retrieve Windows API libraries. Make sure optional deps are installed: 'npm i robotjs ffi-napi ref-napi'`, err);
+		}
+		
 		const fgPids = [];
 		const minPids = [];
 		const hidePids = [];
@@ -436,7 +443,6 @@ export class LaunchpadMonitor {
 			}
 		}
 		
-		const windowsApi = await this._getWindowsApi();
 		windowsApi.sortWindows(fgPids, minPids, hidePids);
 		
 		this._logger.debug(`...done applying window settings.`);

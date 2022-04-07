@@ -189,17 +189,13 @@ Below is an example for Airtable, Contentful and Strapi sources:
 
 The [`@bluecadet/launchpad-scaffold`](packages/scaffold) package is a collection of PS1 scripts to configure PCs for exhibit environments.
 
-Follow these steps to get started:
+To run the scaffold scripts, you can call `launchpad scaffold`, or manually run [`packages/scaffold/setup.bat`](packages/scaffold/setup.bat) _as administrator_.
 
-### 1. Configure
-
-- Option A: Create a copy of [`defaults.ps1`](packages/scaffold/config/defaults.ps1) as `user.ps1` and configure as needed.
-- Option B: Use [`defaults.ps1`](packages/scaffold/config/defaults.ps1) and follow the Y/N prompts to confirm each configuration step.
-
-### 2. Run
-
-- Option A: Right-click [`setup.bat`](setup.bat) (not the `.ps1`) and _Run as administrator_.
-- Option B: If you already have launchpad installed: `launchpad scaffold` (or `npx launchpad scaffold`)
+- On first run, you'll be prompted to edit your user config
+- Once you close the config editor, the script will continue
+- By default, all scripts must be confirmed with a y/n prompt
+- To automate execution of all scripts, set [`ConfirmAllScripts`](https://github.com/bluecadet/launchpad/blob/develop/packages/scaffold/config/defaults.ps1#L9) to `$false`
+- You can copy the generated user config from `packages/scaffold/config/user.ps1` to other PCs to apply the same settings
 
 ### Credit
 Most scripts and settings are based on examples and precedents from various existing resources. Besides StackOverflow, the following two repositories have been crucial references:

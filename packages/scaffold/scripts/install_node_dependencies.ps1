@@ -4,10 +4,10 @@
 # so we need to temporarily add NodeJS to the path here.
 # $env:Path += ";C:\ProgramData\nvm\;"
 
-# choco uninstall nodejs
-# choco install nvm --version 1.1.9 -y
-# nvm install 17.5.0
-# nvm use 17.5.0
+choco uninstall nodejs
+choco install nvm -y
+nvm install latest
+nvm use latest
 
 $env:Path += ";$env:ProgramFiles\nodejs\;"
 

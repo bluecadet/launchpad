@@ -15,7 +15,7 @@ Import-Module -DisableNameChecking ./scripts/functions.psm1;
 
 # Load config
 Write-Host 'Loading config...';
-./scripts/load_config.ps1
+./scripts/load_config.ps1 $Args[0]
 
 # Check for internet connection
 Write-Host 'Checking environment...';
@@ -102,6 +102,7 @@ if ($LaunchpadConfig.Windows.DisableUpdateCheck) { RunScript ./scripts/windows/d
 if ($LaunchpadConfig.Windows.DisableUpdateService) { RunScript ./scripts/windows/disable_update_service.ps1 "Disable update service?" }
 if ($LaunchpadConfig.Windows.DisableAppInstalls) { RunScript ./scripts/windows/disable_app_installs.ps1 "Disable automatic Windows app installs?" }
 if ($LaunchpadConfig.Windows.DisableAppRestore) { RunScript ./scripts/windows/disable_app_restore.ps1 "Disable app restoration on boot up?" }
+if ($LaunchpadConfig.Windows.EnableScriptExecution) { RunScript ./scripts/windows/enable_script_execution.ps1 "Enable execution of PS1 scripts?" }
 if ($LaunchpadConfig.Windows.ResetTextScale) { RunScript ./scripts/windows/reset_text_scale.ps1 "Reset text scale to 100%?" }
 if ($LaunchpadConfig.Windows.SetTimzone) { RunScript ./scripts/windows/set_timezone.ps1 ("Set current timezone to " + $LaunchpadConfig.Computer.Timezone + "?") }
 if ($LaunchpadConfig.Windows.UninstallBloatware) { RunScript ./scripts/windows/uninstall_bloatware.ps1 "Uninstall bloatware?" }

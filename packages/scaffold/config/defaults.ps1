@@ -59,6 +59,7 @@ $global:LaunchpadConfig.Windows.DisableScreensaver = $true
 $global:LaunchpadConfig.Windows.DisableTouchFeedback = $true
 $global:LaunchpadConfig.Windows.DisableUpdateCheck = $true
 $global:LaunchpadConfig.Windows.DisableUpdateService = $true
+$global:LaunchpadConfig.Windows.EnableScriptExecution = $true
 $global:LaunchpadConfig.Windows.ResetTextScale = $true
 $global:LaunchpadConfig.Windows.UninstallBloatware = $true
 $global:LaunchpadConfig.Windows.UninstallOneDrive = $true

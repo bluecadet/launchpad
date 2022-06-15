@@ -1,7 +1,12 @@
-$DefaultConfigPath = '.\config\defaults.ps1';
-param (
-    [Parameter(HelpMessage='Path to your config file. Defaults to .\config\user.ps1')] $config = ".\config\user.ps1"
+Param (
+    [Parameter(HelpMessage='Path to your config file. Defaults to .\config\user.ps1')] [string]$config=""
 )
+
+if ([string]::IsNullOrEmpty($config)) {
+    $config = ".\config\user.ps1"
+}
+
+$DefaultConfigPath = '.\config\defaults.ps1';
 $UserConfigPath = $config;
 
 Write-Host "Loading default config from $DefaultConfigPath" -ForegroundColor Cyan;

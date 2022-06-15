@@ -1,3 +1,7 @@
+@echo off
+
 cd /D "%~dp0"
 
-call PowerShell.exe -ExecutionPolicy ByPass -File ./setup.ps1
+set configPath=%~1
+
+call PowerShell.exe -ExecutionPolicy ByPass -Command "./setup.ps1 '%configPath%'"

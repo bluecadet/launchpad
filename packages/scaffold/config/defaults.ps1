@@ -16,7 +16,7 @@ $global:LaunchpadConfig.Computer.PowerConfig = "$PSScriptRoot\presets\exhibit_po
 
 # Install start up tasks to launch your app. Paths are relative to setup.bat
 $global:LaunchpadConfig.Computer.TaskSchedulerPath = "\Exhibit"					# The path where startup scripts will be stored
-$global:LaunchpadConfig.Computer.StartupWorkingDir = "$PSScriptRoot\..\..\..\..\..\"	# Working dir of the startup action
+$global:LaunchpadConfig.Computer.StartupWorkingDir = "$PSScriptRoot\..\..\..\..\..\..\"	# Working dir of the startup action
 $global:LaunchpadConfig.Computer.StartupCreateBat = $true							# Create a bat file to launch at startup
 $global:LaunchpadConfig.Computer.StartupBat = "launch.bat"						# The filename used for StartupCreateBat
 $global:LaunchpadConfig.Computer.StartupBatContent = "npx launchpad"		# The contents of the startup bat file

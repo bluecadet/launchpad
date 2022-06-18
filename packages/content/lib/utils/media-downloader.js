@@ -43,7 +43,7 @@ export class MediaDownloader {
    */
   async sync(urls, options) {
     this.logger.info(`Syncing ${chalk.cyan(urls.length)} files`);
-    
+
     if (!PQueue) {
       // @see https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c#pure-esm-package
       PQueue = (await import('p-queue')).default;
@@ -51,7 +51,7 @@ export class MediaDownloader {
     const queue = new PQueue({
       concurrency: options.maxConcurrent || 4,
     });
-    
+
     let tempDir = '';
     let progress = null;
 
@@ -66,7 +66,7 @@ export class MediaDownloader {
       //   keepFilter += '|' + options.keep;
       // }
       const keepFilter = options.keep;
-      
+
       if (options.clearOldFilesOnStart) {
         this.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(destDir)}`));
         await FileUtils.removeFilesFromDir(destDir, keepFilter);
@@ -76,7 +76,7 @@ export class MediaDownloader {
         this.logger.debug(chalk.gray(`Clearing temp dir: ${chalk.yellow(tempDir)}`));
         await fs.remove(tempDir);
       }
-      
+
       this.logger.debug(chalk.gray(`Creating temp dir: ${chalk.yellow(tempDir)}`));
       await fs.ensureDir(tempDir);
 
@@ -91,7 +91,7 @@ export class MediaDownloader {
         cliProgress.Presets.shades_classic
       );
       progress.start(uniqueUrls.length, 0);
-      
+
       // make functions which return async functions
       // that will download a url when executed
       let tasks = uniqueUrls.map((urlString) => async () => {
@@ -143,10 +143,10 @@ export class MediaDownloader {
             this.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(destDir)}`));
             FileUtils.removeFilesFromDir(destDir, keepFilter);
           }
-          
+
           this.logger.debug(chalk.gray(`Copying new files to: ${chalk.green(destDir)}`));
           fs.copySync(tempDir, destDir);
-          
+
           this.logger.debug(chalk.gray(`Removing temp dir: ${chalk.yellow(tempDir)}`));
           fs.removeSync(tempDir);
         })
@@ -174,12 +174,12 @@ export class MediaDownloader {
       return Promise.reject(error);
     }
   }
-  
+
   /**
-   * @param {string} urlString 
-   * @param {string} tempDir 
-   * @param {string} destDir 
-   * @param {ContentOptions} options 
+   * @param {string} urlString
+   * @param {string} tempDir
+   * @param {string} destDir
+   * @param {ContentOptions} options
    * @returns @type {Promise<string>} Resolves with the downloaded file path
    */
   async download(urlString, tempDir, destDir, options) {
@@ -190,7 +190,7 @@ export class MediaDownloader {
       let tempFilePathDir = path.dirname(tempFilePath);
       let isCached = false;
       fs.ensureDirSync(tempFilePathDir);
-      
+
       // check for cached image first
       if (!options.ignoreCache && fs.existsSync(destPath) && fs.lstatSync(destPath).isFile()) {
         let response = null;
@@ -221,24 +221,24 @@ export class MediaDownloader {
           fs.createWriteStream(tempFilePath)
         );
       }
-      
+
       // apply optional transforms
       await this._transformImage(tempFilePath, tempFilePathDir, options.imageTransforms, options.ignoreImageTransformErrors);
-      
+
       return Promise.resolve(tempFilePath);
-      
+
     } catch (error) {
       return Promise.reject(
         new Error(`Download failed for ${urlString} due to error (${error.message || error})`)
       );
     }
   }
-  
+
   /**
-   * 
-   * @param {string} tempFilePath 
-   * @param {string} tempFilePathDir 
-   * @param {Array<Object>} imageTransforms 
+   *
+   * @param {string} tempFilePath
+   * @param {string} tempFilePathDir
+   * @param {Array<Object>} imageTransforms
    * @param {boolean} ignoreErrors
    */
   async _transformImage(tempFilePath, tempFilePathDir, imageTransforms = [], ignoreErrors = true) {
@@ -249,15 +249,22 @@ export class MediaDownloader {
         const filenameNoExt = filename.slice(0, -extension.length);
         const image = sharp(tempFilePath);
         const metadata = await image.metadata();
-        let outputPath = path.join(tempFilePathDir, `${filenameNoExt}`);
-        
+        let outputPath = outputPath = path.join(tempFilePathDir, `${filenameNoExt}`)
+
         if (transform.scale) {
           outputPath += `@${transform.scale}x`;
           await this._scaleImage(image, metadata, transform.scale);
         }
-        
+        else if (transform.resize) {
+          outputPath += `@${transform.resize.width}x${transform.resize.height}`;
+          if (transform.resize.fit) {
+            outputPath += `-${transform.resize.fit}`;
+          }
+          await this._resizeImage(image, metadata, transform.resize);
+        }
+
         await image.toFile(`${outputPath}${extension}`);
-        
+
       } catch (err) {
         if (!ignoreErrors) {
           this.logger.error(`Couldn't transform image ${tempFilePath}`);
@@ -267,18 +274,32 @@ export class MediaDownloader {
       }
     }
   }
-  
+
   /**
-   * 
-   * @param {sharp.Sharp} image 
-   * @param {sharp.Metadata} metadata 
-   * @param {number} scale 
+   *
+   * @param {sharp.Sharp} image
+   * @param {sharp.Metadata} metadata
+   * @param {number} scale
    * @returns {Promise<sharp.Sharp>}
    */
   _scaleImage(image, metadata, scale) {
     return image.resize(
       Math.round(metadata.width * scale),
       Math.round(metadata.height * scale)
+    );
+  }
+
+  /**
+   *
+   * @param {sharp.Sharp} image
+   * @param {sharp.Metadata} metadata
+   * @param {object} resize, obtions object for Sharp resize()
+   * @returns {Promise<sharp.Sharp>}
+   */
+  _resizeImage(image, metadata, resize) {
+
+    return image.resize(
+      resize
     );
   }
 

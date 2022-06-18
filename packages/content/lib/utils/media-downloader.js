@@ -249,7 +249,7 @@ export class MediaDownloader {
         const filenameNoExt = filename.slice(0, -extension.length);
         const image = sharp(tempFilePath);
         const metadata = await image.metadata();
-        let outputPath = outputPath = path.join(tempFilePathDir, `${filenameNoExt}`)
+        let outputPath = path.join(tempFilePathDir, `${filenameNoExt}`)
 
         if (transform.scale) {
           outputPath += `@${transform.scale}x`;
@@ -297,7 +297,6 @@ export class MediaDownloader {
    * @returns {Promise<sharp.Sharp>}
    */
   _resizeImage(image, metadata, resize) {
-
     return image.resize(
       resize
     );

@@ -20,7 +20,7 @@ import toMarkdown from '@sanity/block-content-to-markdown';
 export class SanityOptions extends SourceOptions {
   constructor({
     apiVersion = 'v2021-10-21',
-    projectid = undefined,
+    projectId = undefined,
     dataset = 'production',
     apiToken = undefined,
     useCdn = false,
@@ -45,7 +45,7 @@ export class SanityOptions extends SourceOptions {
      * Sanity Project ID
      * @type {string}
      */
-    this.projectid = projectid;
+    this.projectId = projectId;
 
     /**
      * API Version
@@ -115,7 +115,7 @@ class SanitySource extends ContentSource {
 
     // Build and init the sanity Client to use here.
     this.client = sanityClient({
-      projectId: this.config.projectid,
+      projectId: this.config.projectId,
       dataset: this.config.dataset,
       apiVersion: this.config.apiVersion, // use current UTC date - see "specifying API version"!
       token: this.config.apiToken, // or leave blank for unauthenticated usage

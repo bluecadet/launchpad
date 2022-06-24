@@ -1,9 +1,15 @@
 {
-  "name": "@bluecadet/launchpad-core",
+  "name": "@bluecadet/launchpad",
   "version": "1.0.1",
-  "description": "Core launchpad package that combines all other sub packages",
+  "description": "Suite of tools to manage media installations",
+  "engines": {
+    "npm": ">=7"
+  },
   "type": "module",
-  "main": "index.js",
+  "main": "./index.js",
+  "bin": {
+    "launchpad": "./index.js"
+  },
   "scripts": {
     "start": "node index.js",
     "test": "cd test && node test.js"
@@ -12,7 +18,19 @@
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
-  "author": "Bluecadet",
+  "author": {
+    "name": "Benjamin Bojko",
+    "email": "npm@bbojko.de"
+  },
+  "maintainers": [
+    {
+      "name": "Benjamin Bojko",
+      "email": "npm@bbojko.de"
+    },
+    {
+      "name": "Pete Inge"
+    }
+  ],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/bluecadet/launchpad/issues"
@@ -28,6 +46,70 @@
     "@bluecadet/launchpad-dashboard": "~1.0.1",
     "@bluecadet/launchpad-monitor": "~1.0.1",
     "@bluecadet/launchpad-scaffold": "~1.0.1",
-    "@bluecadet/launchpad-content": "~1.0.1"
-  }
+    "@bluecadet/launchpad-content": "~1.0.1",
+    "@portabletext/to-html": "^1.0.3",
+    "@sanity/block-content-to-markdown": "^0.0.5",
+    "@sanity/client": "^3.3.2",
+    "@sindresorhus/slugify": "^2.1.0",
+    "airtable": "^0.11.1",
+    "async": "^3.2.3",
+    "auto-bind": "^5.0.1",
+    "axon": "^2.0.3",
+    "chalk": "^5.0.0",
+    "cli-progress": "^3.9.1",
+    "contentful": "^9.0.0",
+    "cross-spawn": "^7.0.3",
+    "formdata-node": "^4.3.1",
+    "fs-extra": "^10.0.0",
+    "get-urls": "^10.0.0",
+    "got": "^11.8.2",
+    "jsonpath": "^1.1.1",
+    "logform": "^2.3.2",
+    "markdown-it": "^12.2.0",
+    "moment": "^2.29.1",
+    "p-debounce": "^4.0.0",
+    "p-queue": "^7.1.0",
+    "pm2": "^5.1.2",
+    "rimraf": "^3.0.2",
+    "sanitize-html": "^2.5.1",
+    "semver": "^7.3.5",
+    "sharp": "^0.29.1",
+    "strip-json-comments": "^4.0.0",
+    "sudo-prompt": "^9.2.1",
+    "tail": "^2.2.4",
+    "winston": "^3.4.0",
+    "winston-daily-rotate-file": "^4.5.5",
+    "yargs": "^17.3.1"
+  },
+  "keywords": [
+    "bluecadet",
+    "cli",
+    "configuration-management",
+    "daemon",
+    "deploy",
+    "deployment",
+    "dev ops",
+    "devops",
+    "download-manager",
+    "exhibits",
+    "forever-monitor",
+    "forever",
+    "graceful",
+    "installations",
+    "keep process alive",
+    "log",
+    "logs",
+    "monitoring",
+    "node.js monitoring",
+    "nodemon",
+    "pm2",
+    "process configuration",
+    "process manager",
+    "production",
+    "profiling",
+    "runtime",
+    "sysadmin",
+    "tools",
+    "windows-desktop"
+  ]
 }

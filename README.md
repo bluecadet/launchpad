@@ -206,7 +206,7 @@ Most scripts and settings are based on examples and precedents from various exis
 
 This repo is a monorepo that includes the following packages:
 
-* [`@bluecadet/launchpad-core`](packages/core)
+* [`@bluecadet/launchpad`](packages/core)
 * [`@bluecadet/launchpad-content`](packages/content)
 * [`@bluecadet/launchpad-dashboard`](packages/dashboard)
 * [`@bluecadet/launchpad-monitor`](packages/monitor)

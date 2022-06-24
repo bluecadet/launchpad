@@ -255,9 +255,16 @@ export class MediaDownloader {
           outputPath += `@${transform.scale}x`;
           await this._scaleImage(image, metadata, transform.scale);
         }
-        
+        else if (transform.resize) {
+          outputPath += `@${transform.resize.width}x${transform.resize.height}`;
+          if (transform.resize.fit) {
+            outputPath += `-${transform.resize.fit}`;
+          }
+          await this._resizeImage(image, metadata, transform.resize);
+        }
+
         await image.toFile(`${outputPath}${extension}`);
-        
+
       } catch (err) {
         if (!ignoreErrors) {
           this.logger.error(`Couldn't transform image ${tempFilePath}`);
@@ -279,6 +286,19 @@ export class MediaDownloader {
     return image.resize(
       Math.round(metadata.width * scale),
       Math.round(metadata.height * scale)
+    );
+  }
+
+  /**
+   *
+   * @param {sharp.Sharp} image
+   * @param {sharp.Metadata} metadata
+   * @param {object} resize, obtions object for Sharp resize()
+   * @returns {Promise<sharp.Sharp>}
+   */
+  _resizeImage(image, metadata, resize) {
+    return image.resize(
+      resize
     );
   }
 

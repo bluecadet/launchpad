@@ -11,6 +11,9 @@
     "launchpad": "./index.js"
   },
   "scripts": {
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish",
     "start": "node ./index.js",
     "monitor": "npm run start -w @bluecadet/launchpad-monitor --",
     "monitor-kill": "npm run pm2 kill -w @bluecadet/launchpad-monitor --",

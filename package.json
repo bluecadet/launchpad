@@ -50,6 +50,7 @@
     "@bluecadet/launchpad-monitor": "~1.0.1",
     "@bluecadet/launchpad-scaffold": "~1.0.1",
     "@bluecadet/launchpad-utils": "~1.0.1",
+    "@changesets/cli": "^2.23.0",
     "@portabletext/to-html": "^1.0.3",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.3.2",

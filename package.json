@@ -37,20 +37,19 @@
       "name": "Pete Inge"
     }
   ],
-  "contributors": [
-  ],
+  "contributors": [],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "homepage": "https://github.com/bluecadet/launchpad#readme",
   "dependencies": {
-    "@bluecadet/launchpad-content": "file:./packages/content",
-    "@bluecadet/launchpad-core": "file:./packages/core",
-    "@bluecadet/launchpad-dashboard": "file:./packages/dashboard",
-    "@bluecadet/launchpad-monitor": "file:./packages/monitor",
-    "@bluecadet/launchpad-scaffold": "file:./packages/scaffold",
-    "@bluecadet/launchpad-utils": "file:./packages/utils",
+    "@bluecadet/launchpad-content": "~1.0.1",
+    "@bluecadet/launchpad-core": "~1.0.1",
+    "@bluecadet/launchpad-dashboard": "~1.0.1",
+    "@bluecadet/launchpad-monitor": "~1.0.1",
+    "@bluecadet/launchpad-scaffold": "~1.0.1",
+    "@bluecadet/launchpad-utils": "~1.0.1",
     "@portabletext/to-html": "^1.0.3",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.3.2",

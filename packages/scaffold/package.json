@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-scaffold",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
   "main": "index.js",
@@ -18,7 +18,7 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "*"
+    "@bluecadet/launchpad-utils": "~1.0.1"
   },
   "peerDependencies": {
     "sudo-prompt": "^9.2.1"

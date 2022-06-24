@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-content",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Content syncing pipeline for various sources",
   "main": "index.js",
   "exports": {
@@ -26,7 +26,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "*"
+    "@bluecadet/launchpad-utils": "~1.0.1"
   },
   "peerDependencies": {
     "airtable": "^0.11.1",

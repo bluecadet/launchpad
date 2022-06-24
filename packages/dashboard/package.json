@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-dashboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "lib/launchpad-dashboard.js",
   "type": "module",
@@ -22,7 +22,7 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "*"
+    "@bluecadet/launchpad-utils": "~1.0.1"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/dashboard"
 }

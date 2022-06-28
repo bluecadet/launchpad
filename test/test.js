@@ -1,6 +1,9 @@
-import Launchpad from '../index.js';
-import { launchFromCli } from '@bluecadet/launchpad-utils';
-import { default as testConfig } from './config.js';
+import LaunchpadCore from '@bluecadet/launchpad-core';
+import { ConfigManager, launchFromCli } from '@bluecadet/launchpad-utils';
+
+const getConfig = async (paths = ['user-config.js', 'config.js']) => {
+	return ConfigManager.importJsConfig(paths, import.meta);
+}
 
 const wait = async (seconds) => {
 	console.debug(`Waiting for ${seconds}s...`);
@@ -8,9 +11,9 @@ const wait = async (seconds) => {
 }
 
 launchFromCli(import.meta, {
-	userConfig: testConfig
+	userConfig: await getConfig()
 }).then(async config => {
-	const launchpad = new Launchpad(config);
+	const launchpad = new LaunchpadCore(config);
 	
 	await launchpad.startup();
 	

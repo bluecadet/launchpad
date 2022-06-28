@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Suite of tools to manage media installations",
   "engines": {
     "npm": ">=7"
@@ -17,7 +17,7 @@
     "scaffold": "npm run start -w @bluecadet/launchpad-scaffold --",
     "content": "npm run start -w @bluecadet/launchpad-content --",
     "download": "npm run content --",
-    "test": "cd packages/core/test && node test.js --",
+    "test": "cd test && node test.js --",
     "docs": "npx jsdoc ./packages/ --match *.js -r -d ./docs/"
   },
   "repository": {

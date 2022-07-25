@@ -33,7 +33,7 @@ $global:LaunchpadConfig.InstallApps.Apps = "nvm", "python", "vscode", "github-de
 $global:LaunchpadConfig.InstallApps.InstallNodeDependencies = $true				# Installs Launchpad dependencies
 
 # Computer/User Settings
-$global:LaunchpadConfig.Windows.SetComputerName = $true
+$global:LaunchpadConfig.Windows.SetComputerName = $false
 $global:LaunchpadConfig.Windows.SetPowerSettings = $true
 $global:LaunchpadConfig.Windows.EnableAutoLogin = $true
 $global:LaunchpadConfig.Windows.SetTimzone = $false

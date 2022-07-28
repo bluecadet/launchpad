@@ -35,7 +35,7 @@ $global:LaunchpadConfig.InstallApps.InstallNodeDependencies = $true				# Install
 # Computer/User Settings
 $global:LaunchpadConfig.Windows.SetComputerName = $false
 $global:LaunchpadConfig.Windows.SetPowerSettings = $true
-$global:LaunchpadConfig.Windows.EnableAutoLogin = $true
+$global:LaunchpadConfig.Windows.EnableAutoLogin = $false
 $global:LaunchpadConfig.Windows.SetTimzone = $false
 $global:LaunchpadConfig.Windows.EnableDailyReboot = $false
 $global:LaunchpadConfig.Windows.EnableStartupTask = $true

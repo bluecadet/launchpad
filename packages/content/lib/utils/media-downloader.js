@@ -201,6 +201,7 @@ export class MediaDownloader {
         let response = null;
         
         if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
+          // Get just the file header to check for modified date and file size
           response = await got.head(urlString, {
             headers: this._getRequestHeaders(destPath),
             timeout: {

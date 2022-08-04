@@ -105,6 +105,7 @@ export class MediaDownloader {
             };
           })
           .catch((error) => {
+            console.log(error);
             if (options.abortOnError) {
               throw error;
             }
@@ -189,21 +190,41 @@ export class MediaDownloader {
       let tempFilePath = path.join(tempDir, relativePath);
       let tempFilePathDir = path.dirname(tempFilePath);
       let isCached = false;
+      
       fs.ensureDirSync(tempFilePathDir);
       
+      const exists = fs.existsSync(destPath);
+      const stats = exists ? fs.lstatSync(destPath) : null;
+      
       // check for cached image first
-      if (!options.ignoreCache && fs.existsSync(destPath) && fs.lstatSync(destPath).isFile()) {
+      if (!options.ignoreCache && exists && stats.isFile()) {
         let response = null;
-
-        if (!options.skipModifiedCheck) {
+        
+        if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
+          // Get just the file header to check for modified date and file size
           response = await got.head(urlString, {
-            // check if we have the file on cache
             headers: this._getRequestHeaders(destPath),
-            timeout: 30000, // ms
+            timeout: {
+              response: options.maxTimeout
+            }
           });
         }
-
-        if (options.skipModifiedCheck || response.statusCode === 304) {
+        
+        let isRemoteNew = false;
+        
+        if (options.enableIfModifiedSinceCheck) {
+          // Remote file has been modified since the local file changed
+          isRemoteNew = isRemoteNew || (response.statusCode !== 304);
+        }
+        
+        if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
+          // Remote file has a different size than the local file
+          const remoteSize = parseInt(response.headers['content-length']);
+          const localSize  = stats.size;
+          isRemoteNew = isRemoteNew || (remoteSize !== localSize);
+        }
+        
+        if (!isRemoteNew) {
           // copy existing, cached file from dest dir
           fs.copyFileSync(destPath, tempFilePath);
           isCached = true;
@@ -215,7 +236,7 @@ export class MediaDownloader {
         await pipeline(
           got.stream(urlString, {
             timeout: {
-              response: 30000, // ms for initial response
+              response: options.maxTimeout
             },
           }),
           fs.createWriteStream(tempFilePath)

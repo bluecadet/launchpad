@@ -26,6 +26,7 @@ export class SanityOptions extends SourceOptions {
     useCdn = false,
     baseUrl = undefined,
     queries = [],
+    customQueries = [],
     textConverters = [],
     limit = 100,
     maxNumPages = -1,
@@ -70,6 +71,12 @@ export class SanityOptions extends SourceOptions {
      * @type {Array.<string>}
      */
     this.queries = queries;
+
+    /**
+     *
+     * @type {Array.<string>}
+     */
+    this.customQueries = customQueries;
 
     /**
      *

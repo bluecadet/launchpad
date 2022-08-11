@@ -16,8 +16,9 @@
   "bugs": {
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@sindresorhus/slugify": "^2.1.0",
+    "async": "^3.2.3",
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "fs-extra": "^10.0.0",

@@ -425,9 +425,11 @@ export class LaunchpadContent {
             this._logger.error(`Unsupported content transform: '${transformId}'`);
             continue;
           }
+          
           const transformIdStr = chalk.yellow(transformId);
           const pathStr = chalk.yellow(path);
           const localPathStr = chalk.yellow(resultData.localPath);
+          
           try {
             this._logger.debug(
               chalk.gray(`Applying content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)

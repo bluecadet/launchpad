@@ -5,9 +5,12 @@ import markdownItItalicBold from '../utils/markdown-it-italic-bold.js';
 import ContentTransform from './content-transform.js';
 
 class MdToHtmlTransform extends ContentTransform {
+  simplified = false
+  
 	constructor(simplified = false) {
     super();
 		this.simplified = simplified;
+    this.transform = this.transform.bind(this);
 	}
 	
 	transform(content) {

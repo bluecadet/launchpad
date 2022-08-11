@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-content",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Content syncing pipeline for various sources",
   "main": "index.js",
   "exports": {
@@ -36,12 +36,13 @@
     "contentful": "^9.0.0",
     "fs-extra": "^10.0.0",
     "get-urls": "^10.0.0",
-    "got": "^11.8.2",
+    "got": "^12.3.0",
     "jsonpath": "^1.1.1",
     "markdown-it": "^12.2.0",
     "p-queue": "^7.1.0",
     "rimraf": "^3.0.2",
     "sanitize-html": "^2.5.1",
-    "sharp": "^0.29.1"
+    "sharp": "^0.30.7",
+    "strip-json-comments": "^4.0.0"
   }
 }

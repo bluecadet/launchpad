@@ -12,16 +12,20 @@ export const launch = async (config) => {
   const monitor = new LaunchpadMonitor(config.monitor || config);
   await monitor.connect();
   await monitor.start();
-  
+
   onExit(async () => {
     await monitor.stop();
     await monitor.disconnect();
   });
 }
 
-launchFromCli(import.meta).then(launch).catch(err => {
-  if (err) {
-    console.error('Launch error', err);
-    process.exit(1);
-  }
-});
+launchFromCli(import.meta, {
+  relativePaths: ["launchpad-monitor/index.js", ".bin/launchpad-monitor"],
+})
+  .then(launch)
+  .catch((err) => {
+    if (err) {
+      console.error('Launch error', err);
+      process.exit(1);
+    }
+  });

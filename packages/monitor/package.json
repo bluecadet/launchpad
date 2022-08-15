@@ -4,11 +4,7 @@
   "description": "",
   "main": "index.js",
   "type": "module",
-  "exports": {
-    ".": "./index.js",
-    "./test": "./test/test.js",
-    "./test/config": "./test/config.js"
-  },
+  "bin": "index.js",
   "scripts": {
     "start": "node index.js",
     "link": "npm link launchpad-utils && npm link",

@@ -5,8 +5,6 @@
   "description": "monorepo for @bluecadet/launchpad and friends",
   "scripts": {
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "changeset publish",
     "start": "npm run start -w @bluecadet/launchpad -- ",
     "monitor": "npm run start -w @bluecadet/launchpad-monitor --",
     "monitor-kill": "npm run pm2 kill -w @bluecadet/launchpad-monitor --",

@@ -29,7 +29,7 @@
   "workspaces": [
     "./packages/*"
   ],
-  "devDependencies": {
+  "dependencies": {
     "@changesets/cli": "^2.23.0",
     "@changesets/changelog-github": "^0.4.6",
     "jsdoc": "^3.6.10"

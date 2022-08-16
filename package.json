@@ -2,7 +2,7 @@
   "name": "launchpad",
   "private": "true",
   "version": "0.0.1",
-	"description": "monorepo for @bluecadet/launchpad and friends",
+  "description": "monorepo for @bluecadet/launchpad and friends",
   "scripts": {
     "changeset": "changeset",
     "version": "changeset version",
@@ -26,13 +26,12 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "homepage": "https://github.com/bluecadet/launchpad#readme",
-  "dependencies": {
-    "@changesets/cli": "^2.23.0"
-  },
   "workspaces": [
     "./packages/*"
   ],
   "devDependencies": {
+    "@changesets/cli": "^2.23.0",
+    "@changesets/changelog-github": "^0.4.6",
     "jsdoc": "^3.6.10"
   }
 }

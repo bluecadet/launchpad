@@ -7,7 +7,7 @@ If you are contributing a user-facing or noteworthy change to Launchpad that sho
 To add a changeset, run this script locally:
 
 ```
-npm changeset
+npm run changeset
 ```
 
 Follow the prompts to select which package(s) are affected by your change, and whether the change is a major, minor or patch change. This will create a file in the `.changesets` directory of the repo. This change should be committed and included with your PR.

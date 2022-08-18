@@ -90,7 +90,7 @@ Each module has sensible defaults and is optional, so you could only define cont
 
 See the following classes for a full list of all available options:
 
-- [`LaunchpadOptions`](./packages/core/lib/launchpad-options.js): All options for launchpad combined into a single object
+- [`LaunchpadOptions`](./packages/launchpad/lib/launchpad-options.js): All options for launchpad combined into a single object
   - `monitor` ([`MonitorOptions`](./packages/monitor/lib/monitor-options.js)): Configures which apps to run
   - `content` ([`ContentOptions`](./packages/content/lib/content-options.js)): Configures which content to download
     - `sources`: An array containing any amount of the following content source options:
@@ -206,7 +206,7 @@ Most scripts and settings are based on examples and precedents from various exis
 
 This repo is a monorepo that includes the following packages:
 
-* [`@bluecadet/launchpad`](packages/core)
+* [`@bluecadet/launchpad`](packages/launchpad)
 * [`@bluecadet/launchpad-content`](packages/content)
 * [`@bluecadet/launchpad-dashboard`](packages/dashboard)
 * [`@bluecadet/launchpad-monitor`](packages/monitor)

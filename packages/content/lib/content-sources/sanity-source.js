@@ -30,6 +30,7 @@ export class SanityOptions extends SourceOptions {
     textConverters = [],
     limit = 100,
     maxNumPages = -1,
+    combinePaginatedFiles = false,
     pageNumZeroPad = 0,
     ...rest
   } = {}) {
@@ -97,6 +98,12 @@ export class SanityOptions extends SourceOptions {
     this.maxNumPages = maxNumPages;
 
     /**
+     * To combine paginated files into 1 file.
+     * @type {boolean}
+     */
+    this.combinePaginatedFiles = combinePaginatedFiles;
+
+    /**
      * How many zeros to pad each json filename index with. Default is 0
      * @type {number}
      */
@@ -134,13 +141,15 @@ class SanitySource extends ContentSource {
    * @returns {Promise<ContentResult>}
    */
   async fetchContent() {
-    const result = new ContentResult();
+    // const result = new ContentResult();
+    // console.log(this.config);
 
     let queryPromises = [];
     let customQueryPromises = [];
 
     for (const id of this.config.queries) {
       let query = '*[_type == "' + id + '" ]';
+      const result = new ContentResult();
 
       queryPromises.push(await this._fetchPages(id, query, result, {
         start: 0,
@@ -149,6 +158,7 @@ class SanitySource extends ContentSource {
     }
 
     for (const cqd of this.config.customQueries) {
+      const result = new ContentResult();
       customQueryPromises.push(await this._fetchPages(cqd.id, cqd.query, result, {
         start: 0,
         limit: this.config.limit
@@ -156,7 +166,10 @@ class SanitySource extends ContentSource {
     }
 
     return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
-      return result;
+      const masterResult = new ContentResult();
+      values.forEach(el => masterResult.combine(el));
+
+      return masterResult;
     }).catch((error) => {
       this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
       return error;
@@ -181,7 +194,7 @@ class SanitySource extends ContentSource {
   ) {
 
     const pageNum = params.start / params.limit;
-    const q = query + '[' + params.start + '..' + (params.start + params.limit) + ']';
+    const q = query + '[' + params.start + '..' + (params.start + params.limit - 1) + ']';
     const p = {};
 
     this.logger.debug(`Fetching page ${pageNum} of ${id}`);
@@ -189,6 +202,11 @@ class SanitySource extends ContentSource {
     return this.client.fetch(q, p).then((content) => {
 
       if (!content || !content.length) {
+        // If we are combining files, we do that here.
+        if (this.config.combinePaginatedFiles) {
+          result.collate(id);
+        }
+
         // Empty result or no more pages left
         return Promise.resolve(result);
       }

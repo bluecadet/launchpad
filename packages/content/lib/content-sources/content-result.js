@@ -9,17 +9,17 @@ class ContentResultDataFile {
    * @type {*}
    */
   content = '';
-	
+
 	/**
-	 * 
-	 * @param {string} localPath 
-	 * @param {string|JSON|Object|Array} content 
+	 *
+	 * @param {string} localPath
+	 * @param {string|JSON|Object|Array} content
 	 */
 	constructor(localPath, content) {
 		this.localPath = localPath;
 		this.content = content;
 	}
-	
+
 	/**
 	 * Returns the raw content if it's already a string,
 	 * otherwise returns the result of JSON.stringify(this.content).
@@ -48,7 +48,7 @@ class ContentResult {
    * @type {Array<string>}
    */
   mediaUrls = [];
-	
+
 	/**
 	 * @param {Array<ContentResultDataFile>} dataFiles All the data files and their contents that should be saved
 	 * @param {Array<string>} mediaUrls All the media files that should be saved
@@ -57,30 +57,59 @@ class ContentResult {
 		this.dataFiles = dataFiles;
 		this.mediaUrls = mediaUrls;
 	}
-	
+
 	/**
-	 * 
-	 * @param {string} localPath 
-	 * @param {*} content 
+	 *
+	 * @param {string} localPath
+	 * @param {*} content
 	 */
 	addDataFile(localPath, content) {
 		this.dataFiles.push(new ContentResultDataFile(localPath, content));
 	}
-	
+
 	/**
-	 * 
-	 * @param {string} url 
+	 *
+	 * @param {string} url
 	 */
 	addMediaUrl(url) {
 		this.mediaUrls.push(url);
 	}
-	
+
 	/**
-	 * 
-	 * @param {Iterable} files 
+	 *
+	 * @param {Iterable} files
 	 */
 	addMediaUrls(files) {
 		this.mediaUrls.push(...files);
+	}
+
+	/**
+	 * @param {ContentResult) otheContentResult
+	 */
+	combine(otheContentResult) {
+		this.addMediaUrls(otheContentResult.mediaUrls);
+
+		otheContentResult.dataFiles.forEach(item => {
+			this.dataFiles.push(item);
+		});
+	}
+
+	/**
+	 *
+	 * @param {string} id
+	 */
+	collate(id) {
+
+		// Collect all data into 1 object.
+		let collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
+			return [...previousValue, ...currentValue.content];
+		}, []);
+
+		// Remove old datafiles.
+		this.dataFiles = [];
+
+		const fileName = `${id}.json`;
+		this.addDataFile(fileName, collatedData);
 	}
 }
 

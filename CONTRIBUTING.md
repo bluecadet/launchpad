@@ -25,3 +25,22 @@ The [Changesets GitHub action](https://github.com/changesets/action#with-publish
 To release a new version of Launchpad, find the `Version Packages` PR, read it over, and merge it.
 
 The `main` branch is kept up to date with the latest releases.
+
+## Testing Launchpad
+
+If you want to test Launchpad as a local dependency and frequently make changes, then the best way to do that is to clone launchpad and link `npm @bluecadet/launchpad` in your local project.
+
+For example:
+
+```bat
+git clone git@github.com:bluecadet/launchpad.git
+cd launchpad
+npm i
+cd packages/launchpad
+npm link
+
+cd ../../my-test-project
+@REM If needed: npm init
+npm link @bluecadet/launchpad
+@REM  If needed for your project: npm i @bluecadet/launchpad
+```

@@ -76,12 +76,12 @@ Type `launchpad --help` for more info.
 
 Each package has more detailed documentation.
 
-[Core](./documentation/core.md)
-[Monitor](./documentation/monitor.md)
-[Content](./documentation/content.md)
-[Dashboard](./documentation/dashboard.md)
-[Scaffold](./documentation/scaffold.md)
-[Utils](./documentation/utils.md)
+- [Core](./documentation/core.md)
+- [Monitor](./documentation/monitor.md)
+- [Content](./documentation/content.md)
+- [Dashboard](./documentation/dashboard.md)
+- [Scaffold](./documentation/scaffold.md)
+- [Utils](./documentation/utils.md)
 
 ## Examples:
 [Simple JSON source](./examples/source-json)
@@ -134,35 +134,6 @@ See the following classes for a full list of all available options:
       - [`JsonOptions`](./packages/content/lib/content-sources/json-source.js): Download content from JSON endpoints
       - [`StrapiOptions`](./packages/content/lib/content-sources/strapi-source.js): Download content from Strapi
   - `logging` ([`LogOptions`](./packages/utils/lib/log-manager.js)): Configures how logs are routed to the console and to files
-
-
-### Content Credentials
-
-Some content sources require credentials to access their APIs.
-
-These can all be stored in a local `.credentials.json` file which maps content-source IDs to their credentials.
-
-Below is an example for Airtable, Contentful, Sanity and Strapi sources:
-
-```json
-{
-  "exampleAirtableSource": {
-    "apiKey": "<YOUR_AIRTABLE_API_KEY>"
-  },
-  "exampleContentfulSource": {
-    "previewToken": "<YOUR_CONTENTFUL_PREVIEW_TOKEN>",
-    "deliveryToken": "<YOUR_CONTENTFUL_DELIVERY_TOKEN>",
-    "usePreviewApi": false
-  },
-  "exampleStrapiSource": {
-    "identifier": "<YOUR_API_USER>",
-    "password": "<YOUR_API_PASS>"
-  },
-  "exampleSanitySource": {
-    "apiToken": "<YOUR_API_TOKEN>"
-  }
-}
-```
 
 
 ### Credit

@@ -84,17 +84,6 @@ class ContentResult {
 	}
 
 	/**
-	 * @param {ContentResult) otheContentResult
-	 */
-	combine(otheContentResult) {
-		this.addMediaUrls(otheContentResult.mediaUrls);
-
-		otheContentResult.dataFiles.forEach(item => {
-			this.dataFiles.push(item);
-		});
-	}
-
-	/**
 	 *
 	 * @param {string} id
 	 */

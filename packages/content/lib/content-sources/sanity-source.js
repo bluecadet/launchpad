@@ -26,7 +26,6 @@ export class SanityOptions extends SourceOptions {
     useCdn = false,
     baseUrl = undefined,
     queries = [],
-    customQueries = [],
     textConverters = [],
     limit = 100,
     maxNumPages = -1,
@@ -72,12 +71,6 @@ export class SanityOptions extends SourceOptions {
      * @type {Array.<string>}
      */
     this.queries = queries;
-
-    /**
-     *
-     * @type {Array.<string>}
-     */
-    this.customQueries = customQueries;
 
     /**
      *
@@ -147,29 +140,28 @@ class SanitySource extends ContentSource {
     let queryPromises = [];
     let customQueryPromises = [];
 
-    for (const id of this.config.queries) {
-      let query = '*[_type == "' + id + '" ]';
-      const result = new ContentResult();
+    for (const query of this.config.queries) {
 
-      queryPromises.push(await this._fetchPages(id, query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
-    }
+      if (typeof query === 'string' || query instanceof String) {
+        let query = '*[_type == "' + query + '" ]';
+        const result = new ContentResult();
 
-    for (const cqd of this.config.customQueries) {
-      const result = new ContentResult();
-      customQueryPromises.push(await this._fetchPages(cqd.id, cqd.query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
+        queryPromises.push(await this._fetchPages(query, query, result, {
+          start: 0,
+          limit: this.config.limit
+        }));
+      }
+      else {
+        const result = new ContentResult();
+        customQueryPromises.push(await this._fetchPages(query.id, query.query, result, {
+          start: 0,
+          limit: this.config.limit
+        }));
+      }
     }
 
     return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
-      const masterResult = new ContentResult();
-      values.forEach(el => masterResult.combine(el));
-
-      return masterResult;
+      return values;
     }).catch((error) => {
       this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
       return error;

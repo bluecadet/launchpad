@@ -37,6 +37,21 @@ class ContentResultDataFile {
 }
 
 class ContentResult {
+
+	/**
+   * List of data files to save
+   * @type {Array<ContentResult>}
+   */
+	static combineContentResults(results) {
+		let finalResult = results.reduce((previousValue, currentValue) => {
+			previousValue.addContentResultDataFiles(currentValue.dataFiles);
+			previousValue.addMediaUrls(currentValue.mediaUrls);
+			return previousValue;
+		}, new ContentResult());
+
+		return finalResult;
+	}
+
   /**
    * List of data files to save
    * @type {Array<ContentResultDataFile>}
@@ -65,6 +80,14 @@ class ContentResult {
 	 */
 	addDataFile(localPath, content) {
 		this.dataFiles.push(new ContentResultDataFile(localPath, content));
+	}
+
+	/**
+	 *
+	 * @param {Array<ContentResultDataFile>} contentResultDataFiles
+	 */
+	addContentResultDataFiles(contentResultDataFiles) {
+		this.dataFiles.push(...contentResultDataFiles);
 	}
 
 	/**

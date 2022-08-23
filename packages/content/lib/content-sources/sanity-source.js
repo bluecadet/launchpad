@@ -159,7 +159,8 @@ class SanitySource extends ContentSource {
     }
 
     return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
-      return values;
+
+      return ContentResult.combineContentResults(values);
     }).catch((error) => {
       this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
       return error;

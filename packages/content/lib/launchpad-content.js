@@ -114,17 +114,11 @@ export class LaunchpadContent {
       for (const source of sources) {
         const progress = (sourcesComplete + 1) + '/' + sources.length;
         this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
-        let sourceResults = await source.fetchContent();
+        let result = await source.fetchContent();
 
-        if (!Array.isArray(sourceResults)) {
-          sourceResults = [sourceResults];
-        }
-
-        for (let result of sourceResults) {
-          result = await this._downloadMedia(source, result);
-          result = await this._applyContentTransforms(source, result);
-          result = await this._saveDataFiles(source, result);
-        }
+        result = await this._downloadMedia(source, result);
+        result = await this._applyContentTransforms(source, result);
+        result = await this._saveDataFiles(source, result);
 
         sourcesComplete++;
       }

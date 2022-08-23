@@ -134,8 +134,6 @@ class SanitySource extends ContentSource {
    * @returns {Promise<ContentResult>}
    */
   async fetchContent() {
-    // const result = new ContentResult();
-    // console.log(this.config);
 
     let queryPromises = [];
     let customQueryPromises = [];
@@ -143,10 +141,10 @@ class SanitySource extends ContentSource {
     for (const query of this.config.queries) {
 
       if (typeof query === 'string' || query instanceof String) {
-        let query = '*[_type == "' + query + '" ]';
+        let queryFull = '*[_type == "' + query + '" ]';
         const result = new ContentResult();
 
-        queryPromises.push(await this._fetchPages(query, query, result, {
+        queryPromises.push(await this._fetchPages(query, queryFull, result, {
           start: 0,
           limit: this.config.limit
         }));

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad
 
+## 1.2.1
+
+### Patch Changes
+
+- [#50](https://github.com/bluecadet/launchpad/pull/50) [`5f42f28`](https://github.com/bluecadet/launchpad/commit/5f42f282ffb670701b3803d6c2c724e0f6475178) Thanks [@claytercek](https://github.com/claytercek)! - update readme
+
 ## 1.2.0
 
 ### Minor Changes

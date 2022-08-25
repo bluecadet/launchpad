@@ -1,0 +1,27 @@
+{
+  "monitor": {
+    "apps": [
+      {
+        "pm2": {
+          "name": "main-app",
+          "script": "my-main-app.exe",
+          "cwd": "../apps/"
+        },
+        "windows": {
+          "foreground": true
+        }
+      },
+      {
+        "pm2": {
+          "name": "side-app",
+          "script": "my-side-app.exe",
+          "cwd": "../apps/",
+          "args": "--custom-arg=true"
+        },
+        "windows": {
+          "minimize": true
+        }
+      }
+    ]
+  }
+}

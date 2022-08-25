@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
+import { LaunchpadCore } from './lib/launchpad-core.js';
 import { launch as launchContent } from '@bluecadet/launchpad-content';
-import { launch as launchCore, LaunchpadCore } from '@bluecadet/launchpad-core';
 import { launch as launchMonitor, LaunchpadMonitor } from '@bluecadet/launchpad-monitor';
 import { launch as launchScaffold } from '@bluecadet/launchpad-scaffold';
 import { launchFromCli, onExit } from '@bluecadet/launchpad-utils';
+
+export default LaunchpadCore;
 
 export class StartupCommands {
 	/** @type {string} */

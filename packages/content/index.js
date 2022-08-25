@@ -9,12 +9,16 @@ export default LaunchpadContent;
 
 export const launch = async (config) => {
   const content = new LaunchpadContent(config.content || config);
-  await content.start(); 
+  await content.start();
 };
 
-launchFromCli(import.meta).then(launch).catch(err => {
-  if (err) {
+launchFromCli(import.meta, {
+  relativePaths: ["launchpad-content/index.js", ".bin/launchpad-content"],
+})
+  .then(launch)
+  .catch((err) => {
+    if (err) {
     console.error('Launch error', err);
-    process.exit(1);
-  }
-});
+      process.exit(1);
+    }
+  });

@@ -16,12 +16,14 @@ export class ContentOptions {
     backupPath = `${Constants.DOWNLOAD_PATH_TOKEN}/.backups/`,
     backupAndRestore = true,
     maxConcurrent = 4,
+    maxTimeout = 30000,
     clearOldFilesOnStart = false,
     clearOldFilesOnSuccess = true,
     keep = '',
     strip = '',
     ignoreCache = false,
-    skipModifiedCheck = false,
+    enableIfModifiedSinceCheck = true,
+    enableContentLengthCheck = true,
     abortOnError = true,
     ignoreImageTransformErrors = true,
     forceClearTempFiles = true,
@@ -63,9 +65,15 @@ export class ContentOptions {
     
     /**
      * Max concurrent downloads.
-     * @type {boolean}
+     * @type {number}
      */
     this.maxConcurrent = maxConcurrent;
+    
+    /**
+     * Max request timeout in ms.
+     * @type {number}
+     */
+    this.maxTimeout = maxTimeout;
     
     /**
      * Remove all existing files in dest dir when downloads succeed. Ignores files that match `keep`
@@ -98,10 +106,16 @@ export class ContentOptions {
     this.ignoreCache = ignoreCache;
     
     /**
-     * Ignores the HTTP if modified check and only compare cached files for their existance
+     * Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true.
      * @type {boolean}
      */
-    this.skipModifiedCheck = skipModifiedCheck;
+    this.enableIfModifiedSinceCheck = enableIfModifiedSinceCheck;
+    
+    /**
+     * Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true.
+     * @type {boolean}
+     */
+    this.enableContentLengthCheck = enableContentLengthCheck;
     
     /**
      * If set to true, errors will cause syncing to abort all remaining tasks immediately

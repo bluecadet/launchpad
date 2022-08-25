@@ -12,3 +12,4 @@ To run the scaffold scripts, you can call `launchpad scaffold`, or manually run 
 
 
 ## How to contribute to Launchpad Scaffold
+@TODO: Add documentation.

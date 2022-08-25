@@ -9,7 +9,7 @@ Launchpad is a suite of configuration-driven tools to manage media installations
 
 <details>
   <summary>🔍 All Features</summary>
-  
+
   - **App Monitoring**
     - Start, monitor (relaunch on crash/quit), and stop any number of apps in parallel
     - Control which apps are in the foreground, minimized or hidden
@@ -49,7 +49,7 @@ Launchpad is a suite of configuration-driven tools to manage media installations
 - Run Launchpad
   - Global: `launchpad`
   - Local: `npx launchpad`
-  
+
 In all the following examples, we'll use `launchpad`, but you can always replace it with `npx launchpad` for local dependencies.
 
 ### Config Loading
@@ -68,7 +68,7 @@ The following commands are available when running `launchpad <command>` or `npx 
 - `launchpad stop`: Stops and kills any existing PM2 instance.
 - `launchpad content`: Only download content. Parses your config as `config.content || config`.
 - `launchpad monitor`: Only start apps. Parses your config as `config.monitor || config`.
-- `launchpad scaffold`: Configures the current PC for exhibit environments (with admin prompt). 
+- `launchpad scaffold`: Configures the current PC for exhibit environments (with admin prompt).
 
 Type `launchpad --help` for more info.
 
@@ -236,3 +236,5 @@ npm i -g npm@8.5.1
 
 - [ ] Web dashboard to manage apps and content
 - [ ] API to manage apps and content
+
+[More Details](/docs/core.md)

@@ -15,3 +15,4 @@ The general structure for your `launchpad.json` should be:
 ```
 
 ## How to contribute to Launchpad Core
+@TODO: Add documentation.

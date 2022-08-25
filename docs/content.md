@@ -44,7 +44,7 @@ LaunchPad Content currently supports these sources:
 Every source needs:
 
 - id: ID of the individual Source (required)
-- type: Source Type
+- type: Source Type (default: json)
 
 ## Credentials
 
@@ -73,4 +73,8 @@ Below is an example for Airtable, Contentful, Sanity and Strapi sources:
   }
 }
 ```
+
 ## How to contribute to Launchpad Core
+
+In order to add a new source you must
+@TODO: Add documentation.

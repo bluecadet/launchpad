@@ -19,16 +19,21 @@
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
   "author": {
-    "name": "Benjamin Bojko",
-    "email": "npm@bbojko.de"
+    "name": "Bluecadet",
+    "url": "https://bluecadet.com"
   },
   "maintainers": [
     {
       "name": "Benjamin Bojko",
-      "email": "npm@bbojko.de"
+      "url": "https://github.com/benjaminbojko"
     },
     {
-      "name": "Pete Inge"
+      "name": "Pete Inge",
+      "url": "https://github.com/pingevt"
+    },
+    {
+      "name": "Clay Tercek",
+      "url": "https://github.com/claytercek"
     }
   ],
   "license": "ISC",

@@ -9,3 +9,6 @@ To run the scaffold scripts, you can call `launchpad scaffold`, or manually run 
 - By default, all scripts must be confirmed with a y/n prompt
 - To automate execution of all scripts, set [`ConfirmAllScripts`](https://github.com/bluecadet/launchpad/blob/develop/packages/scaffold/config/defaults.ps1#L9) to `$false`
 - You can copy the generated user config from `packages/scaffold/config/user.ps1` to other PCs to apply the same settings
+
+
+## How to contribute to Launchpad Scaffold

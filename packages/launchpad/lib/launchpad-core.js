@@ -8,6 +8,7 @@ import LaunchpadOptions from './launchpad-options.js';
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
+import LaunchpadServer from '@bluecadet/launchpad-server';
 import CommandCenter, { Command } from './command-center.js';
 
 /**
@@ -25,7 +26,10 @@ export class LaunchpadCore {
 	
 	/** @type {LaunchpadMonitor} */
 	_monitor = null;
-	
+
+	/** @type {LaunchpadServer} */
+	_server = null;
+
 	/** @type {CommandCenter} */
 	_commands = null;
 	
@@ -55,6 +59,9 @@ export class LaunchpadCore {
 		this._commands.add(new Command({name: 'update-content', callback: this._runUpdateContent}));
 		
 		this._commands.addCommandHooks(this._config.hooks);
+
+		// Make sure to send full config to server.
+		this._server = new LaunchpadServer(this._config, this._logger, this._commands);
 	}
 	
 	/**
@@ -105,6 +112,7 @@ export class LaunchpadCore {
 	 * @private
 	 */
 	async _runStartup() {
+		await this._server.startUp();
 		await this.updateContent();
 		await this.startApps();
 	}
@@ -125,6 +133,9 @@ export class LaunchpadCore {
 			
 			await this._runStopApps();
 			
+
+			await this._server.shutdown();
+
 			this._logger.info('...launchpad shut down');
 			this._logger.close();
 			

@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
-  "bin": "index.js",
+  "bin": {
+    "lpuser": "lp-user-cli.js"
+  },
   "type": "module",
   "scripts": {
     "start": "node index.js"

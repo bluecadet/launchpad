@@ -9,7 +9,7 @@ import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import { Authentication } from './authentication.js';
 import { HttpTransport } from './transports/http.js';
 import { WebsocketsTransport } from './transports/websockets.js';
-// import { OscApi } from './oscApi.js';
+import { OscTransport } from './transports/osc.js';
 
 export class LaunchpadServer {
 
@@ -67,16 +67,16 @@ export class LaunchpadServer {
       this._httpApi.init();
     }
 
-    // ws API
+    // websockets API
     if (this._config.server.transports.websockets.enabled) {
       this._websocketsTransport = new WebsocketsTransport(this);
     }
 
-    // // esc API
-    // if (this._config.server.oscApi.enabled) {
-    //   this._oscApi = new OscApi(this);
-    //   this._oscApi.init();
-    // }
+    // OSC API
+    if (this._config.server.transports.osc.enabled) {
+      this._oscApi = new OscTransport(this);
+      this._oscApi.init();
+    }
 
     // Start express on the defined port
     this._server = this._app.listen(PORT, () => {

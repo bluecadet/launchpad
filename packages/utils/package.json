@@ -23,6 +23,7 @@
     "chalk": "^5.0.0",
     "fs-extra": "^10.0.0",
     "logform": "^2.3.2",
+    "lowdb": "^3.0.0",
     "moment": "^2.29.1",
     "strip-json-comments": "^4.0.0",
     "winston": "^3.4.0",

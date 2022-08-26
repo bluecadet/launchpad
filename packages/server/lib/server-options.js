@@ -6,13 +6,14 @@ export class ServerOptions {
     enabled = false,
     auth = {
       "enabled": true,
-      "jwtEXpiresIn": "48h", // TODO: enable this!
-      "loginUrl": "/url" // TODO: enable this!
+      "jwtEXpiresIn": "48h",
+      "loginUrl": "/login"
     },
     transports = {
       "http": {
         "enabled": false,
-        "port": 7676
+        "port": 7676,
+        "basePath": "/" // TODO: enable this!
       },
       "websockets": {
         "enabled": false,

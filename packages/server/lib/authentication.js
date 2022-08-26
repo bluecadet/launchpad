@@ -121,16 +121,20 @@ export class Authentication {
 
   _logger;
 
+  _loginUrl = "";
+
   constructor(launchpadServer) {
     this._launchpadServer = launchpadServer;
     this._logger = LogManager.getInstance().getLogger('authentication', launchpadServer._logger);
     this.getUserManagerInstance();
+
+    this._loginUrl = launchpadServer._config.server.auth.loginUrl;
   }
 
   init() {
 
     // Login.
-    this._launchpadServer._app.post("/login", (req, res) => {
+    this._launchpadServer._app.post(this._loginUrl, (req, res) => {
       try {
         // Get user input
         const { username, password } = req.body;
@@ -142,6 +146,7 @@ export class Authentication {
         }
 
         let um = this.getUserManagerInstance();
+        const jwtEXpiresIn = this._launchpadServer._config.server.auth.jwtEXpiresIn;
 
         // Validate if user exist in our database
         const user = um.findOne({ username });
@@ -156,7 +161,7 @@ export class Authentication {
               { user_id: user._id, username: user.username },
               process.env.TOKEN_KEY,
               {
-                expiresIn: "48h",
+                expiresIn: jwtEXpiresIn,
               }
             );
 
@@ -168,20 +173,19 @@ export class Authentication {
 
             try {
               const decoded = jwt.verify(user.token, process.env.TOKEN_KEY);
-              console.log(decoded);
+              // TODO: log more here...
             } catch (err) {
-              console.log(err);
-              console.log(err.name);
-              console.log(err.message);
+
               if (err.name == "TokenExpiredError") console.log(err.expiredAt);
 
+              // TODO: What to do when there is an expired token?
               this._logger.warn("Exisitng token expired, creating new token.");
               // Create token
               const token = jwt.sign(
                 { user_id: user._id, username: user.username },
                 process.env.TOKEN_KEY,
                 {
-                  expiresIn: "48h",
+                  expiresIn: jwtEXpiresIn,
                 }
               );
 

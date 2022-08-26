@@ -32,11 +32,26 @@ db.data ||= {"users": []};
 
 /** ========================================================================= */
 class UserManager {
+  getAllUsers = () => {
+    return db.data.users;
+  }
+
   findOne = (data) => {
     if (data.username) {
       let ud = false;
       db.data.users.forEach((u) => {
         if (u.username == data.username) ud = u;
+      });
+
+      return ud;
+    }
+  }
+
+  findOneById = (data) => {
+    if (data._id) {
+      let ud = false;
+      db.data.users.forEach((u, i) => {
+        if (u._id == data._id) ud = u;
       });
 
       return ud;

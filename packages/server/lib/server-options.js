@@ -11,16 +11,16 @@ export class ServerOptions {
     },
     transports = {
       "http": {
-        "enabled": true,
+        "enabled": false,
         "port": 7676
       },
       "websockets": {
-        "enabled": true,
+        "enabled": false,
         "port": 7676,  // TODO: enable this!
         "basePath": "/ws" // TODO: enable this!
       },
       "osc": {
-        "enabled": true,
+        "enabled": false,
         "port": 3000
       }
     },

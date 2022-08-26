@@ -11,9 +11,9 @@ import { Low, JSONFile } from 'lowdb';
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
 /** ========================================================================= */
-// @TODO: this DB stuff should be in a pre-startup hook or something.
+// TODO: this DB stuff should be in a pre-startup hook or something.
 // Use JSON file for storage
-// @TODO: validate location and fallback if not there.
+// TODO: validate location and fallback if not there.
 // const file = path.join(process.env.DB_LOC);
 const dir = path.resolve(process.env.DB_DIR);
 const file = path.join(dir, process.env.DB_FILE);
@@ -186,7 +186,7 @@ export class Authentication {
 
         res.status(400).send(err.message);
 
-        // todo: this should runn through the logger, i think...
+        // TODO: this should runn through the logger, i think...
         console.log(err);
       }
     });

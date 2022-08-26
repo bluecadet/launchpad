@@ -6,8 +6,8 @@ export class ServerOptions {
     enabled = false,
     auth = {
       "enabled": true,
-      "jwtEXpiresIn": "48h", // todo: enable this!
-      "loginUrl": "/url" // todo: enable this!
+      "jwtEXpiresIn": "48h", // TODO: enable this!
+      "loginUrl": "/url" // TODO: enable this!
     },
     transports = {
       "http": {
@@ -17,7 +17,7 @@ export class ServerOptions {
       "websockets": {
         "enabled": true,
         "port": 7676,
-        "basePath": "/ws" // todo: enable this!
+        "basePath": "/ws" // TODO: enable this!
       },
       "osc": {
         "enabled": true,
@@ -28,17 +28,17 @@ export class ServerOptions {
   } = {}) {
 
     /**
-     * @todo: add documentation
+     * TODO: add documentation
      */
     this.enabled = enabled;
 
     /**
-     * @todo: add documentation
+     * TODO: add documentation
      */
     this.auth = auth;
 
     /**
-     * @todo: add documentation
+     * TODO: add documentation
      */
     this.transports = transports;
 

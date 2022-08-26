@@ -87,9 +87,9 @@ export class WebsocketsTransport {
     switch (parsedData.type) {
       case 'status':
         let statusObj = {
-          appsRunning: "Okie Dokie", // todo: figure this out.
-          lastContentDownload: 0, // todo: figure this out.
-          recentLogMessages: [] // todo: figure this out.
+          appsRunning: "Okie Dokie", // TODO: figure this out.
+          lastContentDownload: 0, // TODO: figure this out.
+          recentLogMessages: [] // TODO: figure this out.
         };
 
         ws.send(JSON.stringify(statusObj));

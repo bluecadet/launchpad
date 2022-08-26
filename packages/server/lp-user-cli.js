@@ -28,9 +28,9 @@ yargs(hideBin(process.argv))
     }
   }, function (argv) { createNewUser(argv) })
 
-  // @TODO: create list-users command
-  // @TODO: create delete-user command
-  // @TODO: create update-password command
+  // TODO: create list-users command
+  // TODO: create delete-user command
+  // TODO: create update-password command
 
   .version(packageDetails.version)
   .help()

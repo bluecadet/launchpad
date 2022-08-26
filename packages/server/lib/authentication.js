@@ -6,22 +6,36 @@ import path from "path";
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-let userData = {};
-if (fs.existsSync('./users.json')) {
-  let rawdata = fs.readFileSync('./users.json');
-  userData = JSON.parse(rawdata);
-}
-else {
-  userData = {
-    "users": []
-  }
-}
+import { Low, JSONFile } from 'lowdb';
 
+import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+
+/** ========================================================================= */
+// @todo: this DB stuff should be in a pre-startup hook or something.
+// Use JSON file for storage
+// @todo: validate location and fallback if not there.
+// const file = path.join(process.env.DB_LOC);
+const dir = path.resolve(process.env.DB_DIR);
+const file = path.join(dir, process.env.DB_FILE);
+
+if (!fs.existsSync(file)) {
+  fs.ensureDirSync(dir);
+  fs.writeJson(file, {"users": []}, { spaces: 2 });
+}
+const adapter = new JSONFile(file);
+const db = new Low(adapter);
+
+await db.read();
+// If file.json doesn't exist, db.data will be null
+// Set default data
+db.data ||= {"users": []};
+
+/** ========================================================================= */
 class UserManager {
   findOne = (data) => {
     if (data.username) {
       let ud = false;
-      userData.users.forEach((u) => {
+      db.data.users.forEach((u) => {
         if (u.username == data.username) ud = u;
       });
 
@@ -29,33 +43,46 @@ class UserManager {
     }
   }
 
-  saveUser = (tmpUser) => {
-    console.log(tmpUser);
+  findOneByIdIndex = (data) => {
+    if (data._id) {
+      let ud = false;
+      db.data.users.forEach((u, i) => {
+        if (u._id == data._id) ud = i;
+      });
+
+      return ud;
+    }
+  }
+
+  saveUser = async (tmpUser) => {
+
     // Check if user has an ID.
     if (!("_id" in tmpUser) || tmpUser._id == null) {
       console.log("Checking for new user id");
       tmpUser._id = this.findNextUserId();
+
+      db.data.users.push(tmpUser);
+    }
+    else {
+      let index = this.findOneByIdIndex(tmpUser);
+      db.data.users[index] = tmpUser;
     }
 
-    console.log(tmpUser);
-
-    userData.users.push(tmpUser);
-
-    this.writeFile();
+    await this.writeDB();
   }
 
   findNextUserId = () => {
     let i = 0;
 
-    userData.users.forEach((u) => {
+    db.data.users.forEach((u) => {
       if (u._id > i) i = u._id;
     });
     console.log(i);
     return (i + 1);
   }
 
-  writeFile() {
-    fs.writeJson('./users.json', userData, { spaces: 2 });
+  async writeDB() {
+    await db.write();
   }
 }
 
@@ -77,12 +104,17 @@ export class Authentication {
 
   _launchpadServer;
 
+  _logger;
+
   constructor(launchpadServer) {
     this._launchpadServer = launchpadServer;
+    this._logger = LogManager.getInstance().getLogger('authentication', launchpadServer._logger);
     this.getUserManagerInstance();
   }
 
   init() {
+
+    // Login.
     this._launchpadServer._app.post("/login", (req, res) => {
       try {
         // Get user input
@@ -90,6 +122,7 @@ export class Authentication {
 
         // Validate user input
         if (!(username && password)) {
+          this._logger.error("All input is required");
           res.status(400).send("All input is required");
         }
 
@@ -100,6 +133,9 @@ export class Authentication {
         if (user && (bcrypt.compareSync(password, user.passEncrypt))) {
           // Check for token.
           if (user.token == null || user.token == "") {
+
+            this._logger.debug("User does not have token");
+
             // Create token
             const token = jwt.sign(
               { user_id: user._id, username: user.username },

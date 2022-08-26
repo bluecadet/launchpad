@@ -42,7 +42,9 @@ export class LaunchpadServer {
     }
 
     this._logger.info("Server Starting up!");
+    // console.log(this._config);
     const PORT = this._config.server.transports.http.port;
+    console.log(this._config.server.transports);
 
     // Initialize express and define a port
     this._app = express();
@@ -73,10 +75,10 @@ export class LaunchpadServer {
     //   this._oscApi.init();
     // }
 
-    // // Start express on the defined port
-    // this._server = this._app.listen(this._config.server.port, () => {
-    //   this._logger.info(`🚀 Server running on port ${this._config.server.port}`);
-    // });
+    // Start express on the defined port
+    this._server = this._app.listen(PORT, () => {
+      this._logger.info(`🚀 Server running on port ${PORT}`);
+    });
 
     // // Init wss after server is running.
     // if (this._config.server.wsApi.enabled) {

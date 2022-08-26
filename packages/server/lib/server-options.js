@@ -8,11 +8,11 @@ export class ServerOptions {
     transports = {
       "http": {
         "enabled": true,
-        "port": 8080
+        "port": 7676
       },
       "websockets": {
         "enabled": true,
-        "port": 3000
+        "port": 7676
       },
       "osc": {
         "enabled": true,

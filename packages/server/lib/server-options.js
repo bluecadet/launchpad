@@ -4,7 +4,11 @@
 export class ServerOptions {
   constructor({
     enabled = false,
-    auth = { "enabled": true },
+    auth = {
+      "enabled": true,
+      "jwtEXpiresIn": "48h", // todo: enable this!
+      "loginUrl": "/url" // todo: enable this!
+    },
     transports = {
       "http": {
         "enabled": true,
@@ -12,7 +16,8 @@ export class ServerOptions {
       },
       "websockets": {
         "enabled": true,
-        "port": 7676
+        "port": 7676,
+        "basePath": "/ws" // todo: enable this!
       },
       "osc": {
         "enabled": true,

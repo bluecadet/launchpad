@@ -11,9 +11,9 @@ import { Low, JSONFile } from 'lowdb';
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
 /** ========================================================================= */
-// @todo: this DB stuff should be in a pre-startup hook or something.
+// @TODO: this DB stuff should be in a pre-startup hook or something.
 // Use JSON file for storage
-// @todo: validate location and fallback if not there.
+// @TODO: validate location and fallback if not there.
 // const file = path.join(process.env.DB_LOC);
 const dir = path.resolve(process.env.DB_DIR);
 const file = path.join(dir, process.env.DB_FILE);
@@ -141,7 +141,7 @@ export class Authentication {
               { user_id: user._id, username: user.username },
               process.env.TOKEN_KEY,
               {
-                expiresIn: "2h",
+                expiresIn: "48h",
               }
             );
 
@@ -160,13 +160,13 @@ export class Authentication {
               console.log(err.message);
               if (err.name == "TokenExpiredError") console.log(err.expiredAt);
 
-              log.warning("Exisitng token expired, creating new token.");
+              this._logger.warn("Exisitng token expired, creating new token.");
               // Create token
               const token = jwt.sign(
                 { user_id: user._id, username: user.username },
                 process.env.TOKEN_KEY,
                 {
-                  expiresIn: "2h",
+                  expiresIn: "48h",
                 }
               );
 
@@ -183,7 +183,10 @@ export class Authentication {
         }
         res.status(400).send("Invalid Credentials");
       } catch (err) {
+
         res.status(400).send(err.message);
+
+        // todo: this should runn through the logger, i think...
         console.log(err);
       }
     });

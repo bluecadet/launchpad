@@ -8,12 +8,14 @@ import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
 import { Authentication } from './authentication.js';
 // import { HttpApi } from './httpApi.js';
-// import { WsApi } from './wsApi.js';
+import { WebsocketsTransport } from './transports/websockets.js';
 // import { OscApi } from './oscApi.js';
 
 export class LaunchpadServer {
 
   _config;
+
+  _commandCenter;
 
   _app;
 
@@ -25,13 +27,14 @@ export class LaunchpadServer {
 
   _httpApi = null;
 
-  _wsApi = null;
+  _websocketsTransport = null;
 
   _oscApi = null;
 
   constructor(config, parentLogger, commandCenter) {
     this._config = config;
     this._logger = LogManager.getInstance().getLogger('server', parentLogger);
+    this._commandCenter = commandCenter;
   }
 
   startUp() {
@@ -64,10 +67,10 @@ export class LaunchpadServer {
     //   this._httpApi.init();
     // }
 
-    // // ws API
-    // if (this._config.server.wsApi.enabled) {
-    //   this._wsApi = new WsApi(this);
-    // }
+    // ws API
+    if (this._config.server.transports.websockets.enabled) {
+      this._websocketsTransport = new WebsocketsTransport(this);
+    }
 
     // // esc API
     // if (this._config.server.oscApi.enabled) {
@@ -80,14 +83,40 @@ export class LaunchpadServer {
       this._logger.info(`🚀 Server running on port ${PORT}`);
     });
 
-    // // Init wss after server is running.
-    // if (this._config.server.wsApi.enabled) {
-    //   this._wsApi.init();
-    // }
+    // Init wss after server is running.
+    if (this._config.server.transports.websockets.enabled) {
+      this._websocketsTransport.init();
+    }
   }
 
   shutdown() {
     this._logger.info("Server shutting down...");
+
+    // Disconnect OSC server.
+    // @todo: how to do this correctly?
+
+    // Disconnect websockets server.
+    // @todo: how to do this correctly?
+
+    // Disconnect http server.
+    // @todo: how to do this correctly?
+
     this._logger.info("... server shut down");
+  }
+
+  updateContent() {
+    this._commandCenter.run('update-content');
+  }
+
+  shutdown() {
+    this._commandCenter.run('shutdown');
+  }
+
+  startApps() {
+    this._commandCenter.run('start-apps');
+  }
+
+  stopApps() {
+    this._commandCenter.run('stop-apps');
   }
 }

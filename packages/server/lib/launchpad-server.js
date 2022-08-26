@@ -7,7 +7,7 @@ import bodyParser from "body-parser";
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
 import { Authentication } from './authentication.js';
-// import { HttpApi } from './httpApi.js';
+import { HttpTransport } from './transports/http.js';
 import { WebsocketsTransport } from './transports/websockets.js';
 // import { OscApi } from './oscApi.js';
 
@@ -62,10 +62,10 @@ export class LaunchpadServer {
     }
 
     // http API
-    // if (this._config.server.httpApi.enabled) {
-    //   this._httpApi = new HttpApi(this);
-    //   this._httpApi.init();
-    // }
+    if (this._config.server.transports.http.enabled) {
+      this._httpApi = new HttpTransport(this);
+      this._httpApi.init();
+    }
 
     // ws API
     if (this._config.server.transports.websockets.enabled) {
@@ -93,13 +93,13 @@ export class LaunchpadServer {
     this._logger.info("Server shutting down...");
 
     // Disconnect OSC server.
-    // @todo: how to do this correctly?
+    // TODO: how to do this correctly?
 
     // Disconnect websockets server.
-    // @todo: how to do this correctly?
+    // TODO: how to do this correctly?
 
     // Disconnect http server.
-    // @todo: how to do this correctly?
+    // TODO: how to do this correctly?
 
     this._logger.info("... server shut down");
   }

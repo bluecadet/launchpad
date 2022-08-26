@@ -13,14 +13,16 @@ export class WebsocketsTransport {
 
   _launchpadServer;
 
-  _wss;
+  _websocketsServer;
 
   constructor(launchpadServer) {
     this._launchpadServer = launchpadServer;
   }
 
   init() {
-    this._wss = new WebSocketServer({
+
+    // TODO: handle seperate server.
+    this._websocketsServer = new WebSocketServer({
       noServer: true,
       path: "/ws"
     });
@@ -28,12 +30,12 @@ export class WebsocketsTransport {
     // Expose Websocket to the server.
     let self = this;
     this._launchpadServer._server.on('upgrade', function upgrade(request, socket, head) {
-      self._wss.handleUpgrade(request, socket, head, function done(ws) {
-        self._wss.emit('connection', ws, request);
+      self._websocketsServer.handleUpgrade(request, socket, head, function done(ws) {
+        self._websocketsServer.emit('connection', ws, request);
       });
     });
 
-    this._wss.on('connection', function connection(ws, connectionRequest) {
+    this._websocketsServer.on('connection', function connection(ws, connectionRequest) {
       console.log("CONNECTION");
       const [_path, params] = connectionRequest?.url?.split("?");
       const connectionParams = queryString.parse(params);
@@ -118,7 +120,7 @@ export class WebsocketsTransport {
     // Convert colors to html.
     info.message = convert.toHtml(info.message);
 
-    this._wss.clients.forEach(function each(client) {
+    this._websocketsServer.clients.forEach(function each(client) {
       // TODO: check if client should be recieving this.
       var msg = {
         type: "server:log",

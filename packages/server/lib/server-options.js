@@ -16,7 +16,7 @@ export class ServerOptions {
       },
       "websockets": {
         "enabled": true,
-        "port": 7676,
+        "port": 7676,  // TODO: enable this!
         "basePath": "/ws" // TODO: enable this!
       },
       "osc": {

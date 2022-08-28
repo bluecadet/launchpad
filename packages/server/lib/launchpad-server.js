@@ -47,7 +47,7 @@ export class LaunchpadServer {
     this._logger.info("Server Starting up!");
     // console.log(this._config);
     const PORT = this._config.server.transports.http.port;
-    console.log(this._config.server.transports);
+    // console.log(this._config.server.transports);
 
     // Initialize express and define a port
     this._app = express();

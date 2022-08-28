@@ -72,7 +72,7 @@ export class HttpTransport {
     try {
       const decoded = jwt.verify(token, process.env.TOKEN_KEY);
       // TODO: log more info here so we can keep track of whats going on and who is doing it.
-      console.log(decoded);
+      // console.log(decoded);
       return true;
     } catch (err) {
       console.log(err);

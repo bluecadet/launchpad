@@ -3,13 +3,24 @@
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 
-import {Authentication} from  './lib/authentication.js';
-const userManager = Authentication.getUserManagerInstanceStatic();
+import ServerOptions from './lib/server-options.js';
+
+import { LogManager, ConfigManager } from '@bluecadet/launchpad-utils';
+const log = LogManager.getInstance().getLogger('server:userCli');
+
+// TODO: Is this the right way to do this?
+ConfigManager.getInstance().loadConfig();
+const config = ConfigManager.getInstance().getConfig();
+config.server = new ServerOptions(config.server);
+console.log(config);
+
+import { Authentication, UserManager } from './lib/authentication.js';
+const userManager = new UserManager("users");
+await userManager.init();
 
 import bcrypt from 'bcryptjs';
 
-import { LogManager } from '@bluecadet/launchpad-utils';
-const log = LogManager.getInstance().getLogger('server:userCli');
+
 import chalk from "chalk";
 
 // TODO: how do we do this properly?

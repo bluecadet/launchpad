@@ -40,9 +40,9 @@ export class OscTransport {
     this._oscServer.on("ready", function () {
       var ipAddresses = transport._getIPAddresses();
 
-      console.log("Listening for OSC over UDP.");
+      // console.log("Listening for OSC over UDP.");
       ipAddresses.forEach(function (address) {
-          console.log(" Host:", address + ", Port:", transport._oscServer.options.localPort);
+          // console.log(" Host:", address + ", Port:", transport._oscServer.options.localPort);
       });
     });
 
@@ -58,15 +58,14 @@ export class OscTransport {
   }
 
   handleMessages(oscMessage) {
-    console.log(oscMessage);
+    // console.log(oscMessage);
 
 
     // TODO: need to figure out how to map these addresses.
     switch (oscMessage.address) {
       case "/syntien/basic/1/button1":
 
-        console.log(oscMessage.args);
-        console.log([0, 0]);
+        // console.log(oscMessage.args);
         if (oscMessage.args[0] == 0 && oscMessage.args[1] == 0 ) {
 
           console.log("Updating Content");

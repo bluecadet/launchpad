@@ -72,7 +72,6 @@ export class WebsocketsTransport {
 
     // Add in Transport for logging over ws.
     const mainLogger = LogManager.getInstance();
-    console.log(mainLogger);
 
     mainLogger._logger.add(new WebsocketsLogging({
       'websocketsTransport': this,

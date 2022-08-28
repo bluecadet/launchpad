@@ -1,45 +1,57 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import fs from "fs-extra";
-import path from "path";
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-import { Low, JSONFile } from 'lowdb';
-
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger, DatabaseManager } from '@bluecadet/launchpad-utils';
 
 /** ========================================================================= */
 // TODO: this DB stuff should be in a pre-startup hook or something.
 // Use JSON file for storage
 // TODO: validate location and fallback if not there.
 // const file = path.join(process.env.DB_LOC);
-const dir = path.resolve(process.env.DB_DIR);
-const file = path.join(dir, process.env.DB_FILE);
+// const dir = path.resolve(process.env.DB_DIR);
+// const file = path.join(dir, process.env.DB_FILE);
 
-if (!fs.existsSync(file)) {
-  fs.ensureDirSync(dir);
-  fs.writeJson(file, {"users": []}, { spaces: 2 });
-}
-const adapter = new JSONFile(file);
-const db = new Low(adapter);
+// if (!fs.existsSync(file)) {
+//   fs.ensureDirSync(dir);
+//   fs.writeJson(file, {"users": []}, { spaces: 2 });
+// }
+// const adapter = new JSONFile(file);
+// const db = new Low(adapter);
 
-await db.read();
-// If file.json doesn't exist, db.data will be null
-// Set default data
-db.data ||= {"users": []};
+// await db.read();
+// console.log(db);
+// // If file.json doesn't exist, db.data will be null
+// // Set default data
+// db.data ||= { "users": [] };
+
+
+
 
 /** ========================================================================= */
-class UserManager {
+export class UserManager {
+
+  _collectionName;
+  _userData;
+
+  constructor(collectionName = "users") {
+    this._collectionName = collectionName;
+  }
+
+  async init() {
+    this._userData = await DatabaseManager.getInstance().getCollection(this._collectionName, { "users": [] });
+  }
+
   getAllUsers = () => {
-    return db.data.users;
+    return this._userData.data.users;
   }
 
   findOne = (data) => {
     if (data.username) {
       let ud = false;
-      db.data.users.forEach((u) => {
+      this._userData.data.users.forEach((u) => {
         if (u.username == data.username) ud = u;
       });
 
@@ -50,7 +62,7 @@ class UserManager {
   findOneById = (data) => {
     if (data._id) {
       let ud = false;
-      db.data.users.forEach((u, i) => {
+      this._userData.data.users.forEach((u, i) => {
         if (u._id == data._id) ud = u;
       });
 
@@ -61,7 +73,7 @@ class UserManager {
   findOneByIdIndex = (data) => {
     if (data._id) {
       let ud = false;
-      db.data.users.forEach((u, i) => {
+      this._userData.data.users.forEach((u, i) => {
         if (u._id == data._id) ud = i;
       });
 
@@ -76,11 +88,11 @@ class UserManager {
       console.log("Checking for new user id");
       tmpUser._id = this.findNextUserId();
 
-      db.data.users.push(tmpUser);
+      this._userData.data.users.push(tmpUser);
     }
     else {
       let index = this.findOneByIdIndex(tmpUser);
-      db.data.users[index] = tmpUser;
+      this._userData.data.users[index] = tmpUser;
     }
 
     await this.writeDB();
@@ -89,30 +101,19 @@ class UserManager {
   findNextUserId = () => {
     let i = 0;
 
-    db.data.users.forEach((u) => {
+    this._userData.data.users.forEach((u) => {
       if (u._id > i) i = u._id;
     });
-    console.log(i);
+
     return (i + 1);
   }
 
   async writeDB() {
-    await db.write();
+    await this._userData.write();
   }
 }
 
 export class Authentication {
-
-  /** @type {UserManager} */
-  static _userManagerInstanceStatic = null;
-
-  /** @returns {UserManager} */
-  static getUserManagerInstanceStatic() {
-    if (this._userManagerInstanceStatic === null) {
-      this._userManagerInstanceStatic = new UserManager();
-    }
-    return this._userManagerInstanceStatic;
-  }
 
   /** @type {UserManager} */
   _userManagerInstance = null;
@@ -212,9 +213,10 @@ export class Authentication {
   }
 
   /** @returns {UserManager} */
-  getUserManagerInstance() {
+  async getUserManagerInstance() {
     if (this._userManagerInstance === null) {
-      this._userManagerInstance = new UserManager();
+      this._userManagerInstance = new UserManager(this._launchpadServer._config.server.auth.dbCollection);
+      await this._userManagerInstance.init();
     }
     return this._userManagerInstance;
   }

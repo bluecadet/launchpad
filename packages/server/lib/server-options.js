@@ -7,7 +7,8 @@ export class ServerOptions {
     auth = {
       "enabled": true,
       "jwtEXpiresIn": "48h",
-      "loginUrl": "/login"
+      "loginUrl": "/login",
+      "dbCollection": "users"
     },
     transports = {
       "http": {

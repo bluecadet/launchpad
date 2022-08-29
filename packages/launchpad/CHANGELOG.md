@@ -1,5 +1,12 @@
 # @bluecadet/launchpad
 
+## 0.0.0-sanity-source-20220829173144
+
+### Patch Changes
+
+- Updated dependencies [[`7f93181`](https://github.com/bluecadet/launchpad/commit/7f9318171c7d44ef812243454608d75810895d14)]:
+  - @bluecadet/launchpad-content@0.0.0-sanity-source-20220829173144
+
 ## 1.2.1
 
 ### Patch Changes

@@ -29,7 +29,7 @@ export class SanityOptions extends SourceOptions {
     textConverters = [],
     limit = 100,
     maxNumPages = -1,
-    combinePaginatedFiles = false,
+    mergePages = false,
     pageNumZeroPad = 0,
     ...rest
   } = {}) {
@@ -94,7 +94,7 @@ export class SanityOptions extends SourceOptions {
      * To combine paginated files into 1 file.
      * @type {boolean}
      */
-    this.combinePaginatedFiles = combinePaginatedFiles;
+    this.mergePages = mergePages;
 
     /**
      * How many zeros to pad each json filename index with. Default is 0
@@ -160,7 +160,7 @@ class SanitySource extends ContentSource {
 
     return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
 
-      return ContentResult.combineContentResults(values);
+      return ContentResult.combine(values);
     }).catch((error) => {
       this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
       return error;
@@ -194,7 +194,7 @@ class SanitySource extends ContentSource {
 
       if (!content || !content.length) {
         // If we are combining files, we do that here.
-        if (this.config.combinePaginatedFiles) {
+        if (this.config.mergePages) {
           result.collate(id);
         }
 

@@ -42,7 +42,7 @@ class ContentResult {
    * List of data files to save
    * @type {Array<ContentResult>}
    */
-	static combineContentResults(results) {
+	static combine(results) {
 		let finalResult = results.reduce((previousValue, currentValue) => {
 			previousValue.addContentResultDataFiles(currentValue.dataFiles);
 			previousValue.addMediaUrls(currentValue.mediaUrls);

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+import Koa from 'koa';
+import koaBody from 'koa-body';
 
-import express from "express";
-import cors from 'cors';
-import bodyParser from "body-parser";
+// import cors from 'cors';
+// import bodyParser from "body-parser";
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
@@ -49,10 +50,22 @@ export class LaunchpadServer {
     const PORT = this._config.server.transports.http.port;
     // console.log(this._config.server.transports);
 
-    // Initialize express and define a port
-    this._app = express();
-    this._app.use(cors());
-    this._app.use(bodyParser.json()); // Tell express to use body-parser's JSON parsing
+    // Initialize express and define a port.
+    this._app = new Koa();
+    this._app.use(koaBody());
+
+    // this._app = express();
+    // this._app.use(cors());
+    // this._app.use(bodyParser.json()); // Tell express to use body-parser's JSON parsing
+
+    this._app.use(async (ctx, next) => {
+
+      // Run All middleware.
+      // TODO: should routes finish? Or do we need more for loggin etc?
+      await next();
+
+      // Finalize everything here.
+    });
 
     // Check for use of Authentication.
     // At the moment, only http and ws server can use Authentication.
@@ -63,13 +76,13 @@ export class LaunchpadServer {
 
     // http API
     if (this._config.server.transports.http.enabled) {
-      this._httpApi = new HttpTransport(this);
-      this._httpApi.init();
+      // this._httpApi = new HttpTransport(this);
+      // this._httpApi.init();
     }
 
     // websockets API
     if (this._config.server.transports.websockets.enabled) {
-      this._websocketsTransport = new WebsocketsTransport(this);
+      // this._websocketsTransport = new WebsocketsTransport(this);
     }
 
     // OSC API
@@ -79,13 +92,15 @@ export class LaunchpadServer {
     }
 
     // Start express on the defined port
-    this._server = this._app.listen(PORT, () => {
-      this._logger.info(`🚀 Server running on port ${PORT}`);
-    });
+    // this._server = this._app.listen(PORT, () => {
+    //   this._logger.info(`🚀 Server running on port ${PORT}`);
+    // });
+
+    this._server = this._app.listen(PORT);
 
     // Init wss after server is running.
     if (this._config.server.transports.websockets.enabled) {
-      this._websocketsTransport.init();
+      // this._websocketsTransport.init();
     }
   }
 

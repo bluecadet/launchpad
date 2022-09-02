@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import Koa from 'koa';
 import koaBody from 'koa-body';
+import { KoaWsFilter } from '@zimtsui/koa-ws-filter';
+
+const filter = new KoaWsFilter();
 
 // import cors from 'cors';
 // import bodyParser from "body-parser";
@@ -82,6 +85,22 @@ export class LaunchpadServer {
 
     // websockets API
     if (this._config.server.transports.websockets.enabled) {
+      const wsRouter = new Router();
+
+      wsRouter.all('/ws', async (ctx, next) => {
+        // accept the websocket upgrade request
+        const ws = await ctx.upgrade();
+        await next();
+
+        // echo
+        ws.on('message', (message) => {
+          console.log(message);
+          // ws.send(message)
+        });
+      });
+      filter.ws(wsRouter.routes());
+      this._app.use(filter.protocols());
+
       // this._websocketsTransport = new WebsocketsTransport(this);
     }
 

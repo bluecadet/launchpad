@@ -1,4 +1,6 @@
 import { WebSocketServer } from 'ws';
+import Router from 'koa-router';
+
 import queryString from "query-string";
 import jwt from 'jsonwebtoken';
 import winston from 'winston';
@@ -13,64 +15,78 @@ export class WebsocketsTransport {
 
   _launchpadServer;
 
-  _websocketsServer;
-
   constructor(launchpadServer) {
     this._launchpadServer = launchpadServer;
   }
 
   init() {
 
-    // TODO: handle seperate server.
-    this._websocketsServer = new WebSocketServer({
-      noServer: true,
-      path: "/ws"
-    });
-
-    // Expose Websocket to the server.
     let self = this;
-    this._launchpadServer._server.on('upgrade', function upgrade(request, socket, head) {
-      self._websocketsServer.handleUpgrade(request, socket, head, function done(ws) {
-        self._websocketsServer.emit('connection', ws, request);
-      });
-    });
+    const wsRouter = new Router();
 
-    this._websocketsServer.on('connection', function connection(ws, connectionRequest) {
+    // TODO: handle seperate server.
+    // TODO: how to authenticate the connection?
+    wsRouter.use((ctx, next) => {
+      // return `next` to pass the context (ctx) on to the next ws middleware
+      console.log("Hi");
+      console.log(ctx.request);
+
       console.log("CONNECTION");
-      const [_path, params] = connectionRequest?.url?.split("?");
+      const [_path, params] = ctx.request?.url?.split("?");
       const connectionParams = queryString.parse(params);
       console.log(connectionParams);
 
-      // TODO: use connection Params to distinguish type of connection. [admin, app, etc.]
-      self._launchpadServer._logger.debug("Connection");
+      // Example of setting params on ws client so we know basic classification of who is connecting.
+      // if (connectionParams.admin === "true") {
+      //   ctx.websocket.admin = true;
+      // }
 
       // TODO: Validate Connection.
       const token = connectionParams.token || "";
 
       if (!token) {
-        ws.close(3000, "A token is required for authentication");
+        ctx.websocket.close(3000, "A token is required for authentication");
+        return next(ctx);
       }
 
       try {
         const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-        ws.user = decoded;
+        ctx.websocket.user = decoded;
         console.log(decoded);
       } catch (err) {
         console.log(err);
-        ws.close(3000, "Invalid Token");
+        ctx.websocket.close(3000, "Invalid Token");
+        return next(ctx);
       }
 
-      ws.on('message', (data) => {
-        // console.log(data);
-        // console.log(data.toString('utf-8'));
-        let parsedData = JSON.parse(data.toString('utf-8'));
-        // console.log(parsedData);
-
-        self.handleWsMessages(parsedData, ws);
-      });
+      return next(ctx);
     });
 
-    // Add in Transport for logging over ws.
+    wsRouter.all('/ws', async (ctx, next) => {
+
+      // `ctx` is the regular koa context created from the `ws` onConnection `socket.upgradeReq` object.
+      // the websocket is added to the context on `ctx.websocket`.
+      ctx.websocket.on('message', (message) => {
+        console.log(message.toString());
+
+        let parsedData = JSON.parse(message.toString('utf-8'));
+        self.handleWsMessages(parsedData, ws);
+      });
+      return next;
+    });
+
+    this._launchpadServer._app.ws.use(wsRouter.routes());
+    this._launchpadServer._app.ws.use(wsRouter.allowedMethods());
+
+
+
+
+
+
+
+
+
+    // Add in Winston Transport for logging over websockets.
     const mainLogger = LogManager.getInstance();
 
     mainLogger._logger.add(new WebsocketsLogging({
@@ -119,12 +135,13 @@ export class WebsocketsTransport {
     // Convert colors to html.
     info.message = convert.toHtml(info.message);
 
-    this._websocketsServer.clients.forEach(function each(client) {
+    this._launchpadServer._app.ws.server.clients.forEach(function each(client) {
       // TODO: check if client should be recieving this.
       var msg = {
         type: "server:log",
         data: info
       };
+
       client.send(JSON.stringify(msg));
     });
   }

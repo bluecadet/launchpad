@@ -28,13 +28,14 @@ export class WebsocketsTransport {
     // TODO: how to authenticate the connection?
     wsRouter.use((ctx, next) => {
       // return `next` to pass the context (ctx) on to the next ws middleware
-      console.log("Hi");
-      console.log(ctx.request);
+      //console.log("Hi");
+      // console.log(ctx.request);
+      // console.log(ctx.state);
 
-      console.log("CONNECTION");
+      // console.log("CONNECTION");
       const [_path, params] = ctx.request?.url?.split("?");
       const connectionParams = queryString.parse(params);
-      console.log(connectionParams);
+      // console.log(connectionParams);
 
       // Example of setting params on ws client so we know basic classification of who is connecting.
       // if (connectionParams.admin === "true") {
@@ -70,7 +71,7 @@ export class WebsocketsTransport {
         console.log(message.toString());
 
         let parsedData = JSON.parse(message.toString('utf-8'));
-        self.handleWsMessages(parsedData, ws);
+        self.handleWsMessages(parsedData, ctx.websocket);
       });
       return next;
     });

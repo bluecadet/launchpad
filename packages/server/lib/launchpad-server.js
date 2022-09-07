@@ -2,9 +2,7 @@
 import Koa from 'koa';
 import koaBody from 'koa-body';
 import websockify from 'koa-websocket';
-// import { KoaWsFilter } from '@zimtsui/koa-ws-filter';
-
-// const filter = new KoaWsFilter();
+import jwt from 'koa-jwt';
 
 // import cors from 'cors';
 // import bodyParser from "body-parser";
@@ -74,6 +72,31 @@ export class LaunchpadServer {
     // Check for use of Authentication.
     // At the moment, only http and ws server can use Authentication.
     if (this._config.server.auth.enabled && (this._config.server.transports.http.enabled || this._config.server.transports.http.enabled)) {
+      // Enable jwt token.
+      // Custom 401 handling if you don't want to expose koa-jwt errors to users
+      this._app.use(function(ctx, next){
+        return next().catch((err) => {
+          if (401 == err.status) {
+            ctx.status = 401;
+            ctx.body = 'Protected resource, use Authorization header to get access\n';
+          } else {
+            throw err;
+          }
+        });
+      });
+
+      this._app.use(jwt({
+        secret: process.env.TOKEN_KEY,
+        passthrough: true,
+        getToken: (opts) => {
+          console.log("Get Token");
+          console.log(this);
+          console.log(opts);
+          return null;
+        }
+      }));
+
+
       this._auth = new Authentication(this);
       this._auth.init();
     }
@@ -89,6 +112,7 @@ export class LaunchpadServer {
       this._app = websockify(this._app);
       this._websocketsTransport = new WebsocketsTransport(this);
       this._websocketsTransport.init();
+
     }
 
     // OSC API

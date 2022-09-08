@@ -76,6 +76,20 @@ export class UserManager {
     await this.writeDB();
   }
 
+  deleteUser = async (user) => {
+    if (!("_id" in user) || user._id == null) {
+      return;
+    }
+
+    let index = this.findOneByIdIndex(user);
+
+    if (index) {
+      this._userData.data.users.splice(index, 1);
+    }
+
+    await this.writeDB();
+  }
+
   findNextUserId = () => {
     let i = 0;
 

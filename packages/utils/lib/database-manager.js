@@ -53,6 +53,6 @@ export default class DatabaseManager {
     }
   }
 
-  // TODO: on shutdown, shoudl we write everything? Or write to backups?
+  // TODO: on shutdown, should we write everything? Or write to backups?
 
 }

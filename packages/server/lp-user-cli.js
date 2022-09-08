@@ -3,16 +3,16 @@
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 
-import ServerOptions from './lib/server-options.js';
+// import ServerOptions from './lib/server-options.js';
 
 import { LogManager, ConfigManager } from '@bluecadet/launchpad-utils';
 const log = LogManager.getInstance().getLogger('server:userCli');
 
 // TODO: Is this the right way to do this?
-ConfigManager.getInstance().loadConfig();
-const config = ConfigManager.getInstance().getConfig();
-config.server = new ServerOptions(config.server);
-console.log(config);
+// ConfigManager.getInstance().loadConfig();
+// const config = ConfigManager.getInstance().getConfig();
+// config.server = new ServerOptions(config.server);
+// console.log(config);
 
 import { Authentication, UserManager } from './lib/authentication.js';
 const userManager = new UserManager("users");
@@ -60,6 +60,13 @@ yargs(hideBin(process.argv))
 
   // TODO: create delete-user command - but does this need to be authenticated?
   // We can create users at will... so why not delete?
+  .command(["delete-user", "du"], "Delete User by ID", {
+    id: {
+      alias: 'i',
+      describe: "User ID",
+      demandOption: true
+    }
+  }, function (argv) { deleteUser(argv) })
 
   // .version(packageDetails.version)
   .version("0.0.1")
@@ -112,7 +119,7 @@ function updatePassword(argv) {
   //console.log(argv);
   // Find user by id.
   const user = userManager.findOneById({"_id": argv.id});
-  console.log(user);
+
   if (!user) {
     console.log(chalk.red("No User with that ID"));
     process.exit(0);
@@ -136,6 +143,18 @@ function updatePassword(argv) {
 
   // Save user.
   userManager.saveUser(user);
+}
+
+function deleteUser(argv) {
+  // Find user by id.
+  const user = userManager.findOneById({ "_id": argv.id });
+
+  if (!user) {
+    console.log(chalk.red("No User with that ID"));
+    process.exit(0);
+  }
+
+  userManager.deleteUser(user);
 }
 
 function _validateUserPassword(password) {

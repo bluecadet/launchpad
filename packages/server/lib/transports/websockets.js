@@ -21,11 +21,10 @@ export class WebsocketsTransport {
   }
 
   init() {
+    this._launchpadServer._logger.info("Initialising Websocket Transport...");
 
     let self = this;
     const wsRouter = new Router();
-
-    const loggerTest = this._launchpadServer._logger;
 
     // TODO: handle seperate server.
     // TODO: how to authenticate the connection?
@@ -82,14 +81,6 @@ export class WebsocketsTransport {
     this._launchpadServer._app.ws.use(wsRouter.routes());
     this._launchpadServer._app.ws.use(wsRouter.allowedMethods());
 
-
-
-
-
-
-
-
-
     // Add in Winston Transport for logging over websockets.
     const mainLogger = LogManager.getInstance();
 
@@ -101,6 +92,7 @@ export class WebsocketsTransport {
       )
     }));
 
+    this._launchpadServer._logger.info("...Websocket Transport initialised");
   }
 
   handleWsMessages(parsedData, ws) {

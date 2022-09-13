@@ -4,10 +4,9 @@ dotenv.config();
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-
 import Router from 'koa-router';
 
-import { LogManager, Logger, DatabaseManager } from '@bluecadet/launchpad-utils';
+import { LogManager, DatabaseManager } from '@bluecadet/launchpad-utils';
 
 export class UserManager {
 

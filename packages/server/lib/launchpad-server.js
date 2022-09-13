@@ -5,6 +5,7 @@ import websockify from 'koa-websocket';
 import jwt from 'koa-jwt';
 
 import { LogManager } from '@bluecadet/launchpad-utils';
+import chalk from "chalk";
 
 import { Authentication } from './authentication.js';
 import { HttpTransport } from './transports/http.js';
@@ -44,7 +45,7 @@ export class LaunchpadServer {
       return;
     }
 
-    this._logger.info("Server Starting up!");
+    this._logger.info("Server Starting up...");
     const PORT = this._config.server.transports.http.port;
 
     // Initialize express and define a port.
@@ -65,6 +66,9 @@ export class LaunchpadServer {
     // Check for use of Authentication.
     // At the moment, only http and ws server can use Authentication.
     if (this._config.server.auth.enabled && (this._config.server.transports.http.enabled || this._config.server.transports.http.enabled)) {
+
+      this._logger.debug("Server Requires Authentication");
+
       // Enable jwt token.
       // Custom 401 handling if you don't want to expose koa-jwt errors to users
       this._app.use(function(ctx, next){
@@ -83,8 +87,6 @@ export class LaunchpadServer {
         passthrough: true,
         // getToken: (opts) => {
         //   console.log("Get Token");
-        //   console.log(this);
-        //   console.log(opts);
         //   return null;
         // }
       }));
@@ -95,25 +97,40 @@ export class LaunchpadServer {
 
     // Http API
     if (this._config.server.transports.http.enabled) {
+      this._logger.debug("Starting Http Transport...");
+
       this._httpApi = new HttpTransport(this);
       this._httpApi.init();
+
+      this._logger.debug("...Http Transport initialised");
     }
 
     // Websockets API
     if (this._config.server.transports.websockets.enabled) {
+      this._logger.debug("Starting Websocket Transport...");
+
       this._app = websockify(this._app);
       this._websocketsTransport = new WebsocketsTransport(this);
       this._websocketsTransport.init();
+
+      this._logger.debug("...Websocket Transport initialised");
     }
 
     // OSC API
     if (this._config.server.transports.osc.enabled) {
+      this._logger.debug("Starting OSC Transport...");
+
       this._oscApi = new OscTransport(this);
       this._oscApi.init();
+
+      this._logger.debug("...OSC Transport initialised");
     }
 
-    // Start koa on the defined port
+    // Start koa on the defined port.
     this._server = this._app.listen(PORT);
+    this._logger.debug(chalk.yellow("Server listening on PORT: " + PORT));
+
+    this._logger.info("...Server Started");
   }
 
   shutdown() {
@@ -123,10 +140,14 @@ export class LaunchpadServer {
     // TODO: how to do this correctly?
 
     // Disconnect websockets server.
-    // TODO: how to do this correctly?
+    this._logger.debug("Closing Websocket clients");
+    this._app.ws.server.clients.forEach(function each(client) {
+      client.close(1000, "Server shutting down");
+    });
 
     // Disconnect http server.
-    // TODO: how to do this correctly?
+    this._logger.debug("Closing Koa server");
+    this._server.close();
 
     this._logger.info("...server shut down");
   }

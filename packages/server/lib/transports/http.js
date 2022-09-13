@@ -14,7 +14,7 @@ export class HttpTransport {
   }
 
   init() {
-    this._launchpadServer._logger.info("Starting http Transport...");
+    this._launchpadServer._logger.info("Initialising Http Transport...");
 
     const server = this._launchpadServer._app;
 
@@ -132,5 +132,7 @@ export class HttpTransport {
     });
 
     this._launchpadServer._app.use(this._router.routes());
+
+    this._launchpadServer._logger.info("...Http Transport Initialised");
   }
 }

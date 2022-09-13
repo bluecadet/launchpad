@@ -3,32 +3,27 @@
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 
-// import ServerOptions from './lib/server-options.js';
+import ServerOptions from './lib/server-options.js';
 
 import { LogManager, ConfigManager } from '@bluecadet/launchpad-utils';
 const log = LogManager.getInstance().getLogger('server:userCli');
+import chalk from "chalk";
 
-// TODO: Is this the right way to do this?
-// ConfigManager.getInstance().loadConfig();
-// const config = ConfigManager.getInstance().getConfig();
-// config.server = new ServerOptions(config.server);
-// console.log(config);
+const config = ConfigManager.getInstance().getConfig();
+config.server = new ServerOptions(config.server);
 
-import { Authentication, UserManager } from './lib/authentication.js';
-const userManager = new UserManager("users");
+import { UserManager } from './lib/authentication.js';
+const userManager = new UserManager(config.server.auth);
 await userManager.init();
 
 import bcrypt from 'bcryptjs';
-
-
-import chalk from "chalk";
 
 // TODO: how do we do this properly?
 // import packageDetails from './package.json' assert { type: 'json' };
 
 yargs(hideBin(process.argv))
   .command(["list-users", "lu"], "List current Users", {}, function (argv) { listUsers(argv) })
-  .command(["new-user", "nu"], "Create new Launchpad User", {
+  .command(["new-user [username] [password]", "nu"], "Create new Launchpad User", {
     username: {
       alias: 'u',
       describe: "Username",
@@ -75,7 +70,10 @@ yargs(hideBin(process.argv))
 
 
 function createNewUser(argv) {
-  // console.log(argv);
+  if (!argv.username || !argv.password) {
+    log.error(chalk.red("Username and Password are required"));
+    process.exit(0);
+  }
 
   let tmpUser = {
     username: argv.username,

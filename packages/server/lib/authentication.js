@@ -7,18 +7,20 @@ import bcrypt from 'bcryptjs';
 import Router from 'koa-router';
 
 import { LogManager, DatabaseManager } from '@bluecadet/launchpad-utils';
+import chalk from "chalk";
 
 export class UserManager {
 
-  _collectionName;
+  _authConfig;
+
   _userData;
 
-  constructor(collectionName = "users") {
-    this._collectionName = collectionName;
+  constructor(authConfig) {
+    this._authConfig = authConfig;
   }
 
   async init() {
-    this._userData = await DatabaseManager.getInstance().getCollection(this._collectionName, { "users": [], "userIdIncrement": 0 });
+    this._userData = await DatabaseManager.getInstance().getCollection(this._authConfig.dbCollection, { "users": [], "userIdIncrement": 0 });
   }
 
   getAllUsers = () => {
@@ -102,6 +104,24 @@ export class UserManager {
   async writeDB() {
     await this._userData.write();
   }
+
+  getPublicUserObject(user) {
+    return Object.fromEntries(Object.entries(user).filter(([key]) => !key.includes('passEncrypt')));
+  }
+
+  getUserToken(user) {
+    return jwt.sign(
+      {
+        user_id: user._id,
+        username: user.username,
+        iat: (Math.floor(Date.now() / 1000) - (60 * 60 * 24 * 3)) // TODO: remove this.
+      },
+      process.env.TOKEN_KEY,
+      {
+        expiresIn: this._authConfig.jwtExpiresIn
+      }
+    );
+  }
 }
 
 export class Authentication {
@@ -138,67 +158,69 @@ export class Authentication {
 
         // Validate user input
         if (!(username && password)) {
-          self._logger.error("All input is required");
-          res.status(400).send("All input is required");
+          self._logger.error("Username and Password are required");
+
+          ctx.status = 400;
+          ctx.body = {
+            message: "All fields are required"
+          };
+          return;
         }
 
         self.getUserManagerInstance().then((um) => {
-          const jwtEXpiresIn = self._launchpadServer._config.server.auth.jwtEXpiresIn;
           // Validate if user exist in our database
           const user = um.findOne({ username });
           if (user && (bcrypt.compareSync(password, user.passEncrypt))) {
             // Check for token.
+            // If no token.
             if (user.token == null || user.token == "") {
 
-              self._logger.debug("User does not have token");
+              self._logger.debug("User does not have token. Creating User Token");
 
               // Create token
-              const token = jwt.sign(
-                { user_id: user._id, username: user.username },
-                process.env.TOKEN_KEY,
-                {
-                  expiresIn: jwtEXpiresIn,
-                }
-              );
+              const token = um.getUserToken(user);
 
               // Save user token
+              self._logger.debug("User token created. Saving User");
               user.token = token;
               um.saveUser(user);
             }
+            // Token exists.
             else {
 
               try {
                 const decoded = jwt.verify(user.token, process.env.TOKEN_KEY);
-                // TODO: log more here...
+                this._logger.debug(chalk.green("User verified: "));
+                this._logger.debug(chalk.green(JSON.stringify(decoded)));
+
               } catch (err) {
+                // Token Expired.
+                if (err.name == "TokenExpiredError") {
 
-                if (err.name == "TokenExpiredError") console.log(err.expiredAt);
+                  // TODO: What to do when there is an expired token?
+                  // this._logger.error(chalk.red("TokenExpiredError: ") + chalk.yellow(err.expiredAt));
+                  this._logger.warn(chalk.yellow("Exisitng token expired, creating new token."));
 
-                // TODO: What to do when there is an expired token?
-                this._logger.warn("Exisitng token expired, creating new token.");
-                // Create token
-                const token = jwt.sign(
-                  { user_id: user._id, username: user.username },
-                  process.env.TOKEN_KEY,
-                  {
-                    expiresIn: jwtEXpiresIn,
-                  }
-                );
+                  // Create token
+                  const token = um.getUserToken(user);;
 
-                // Save user token
-                user.token = token;
-                um.saveUser(user);
+                  // Save user token
+                  self._logger.debug("New User token created. Saving User");
+                  user.token = token;
+                  um.saveUser(user);
+                }
               }
             }
 
-            // user
-            const publicUser = Object.fromEntries(Object.entries(user).filter(([key]) => !key.includes('passEncrypt')));
-            // res.status(200).json(publicUser);
+            // User
+            const publicUser = um.getPublicUserObject(user);
+
             ctx.status = 200;
             ctx.body = publicUser;
             return;
           }
-          // res.status(400).send("Invalid Credentials");
+
+          // If no user or password is invalid.
           ctx.status = 400;
           ctx.body = {
             message: "Invalid Credentials"
@@ -208,27 +230,22 @@ export class Authentication {
       } catch (err) {
 
         ctx.status = 500;
-
-        // TODO: this should not be sent to the end user.
-        // ctx.body = {
-        //   message: err.message
-        // };
+        ctx.body = "Internal Error";
 
         // TODO: this should run through the logger, i think...
-        console.log(err);
+        this._logger.error(chalk.red(err));
       }
 
       next();
     });
 
     this._launchpadServer._app.use(this._router.routes());
-
   }
 
   /** @returns {UserManager} */
   async getUserManagerInstance() {
     if (this._userManagerInstance === null) {
-      this._userManagerInstance = new UserManager(this._launchpadServer._config.server.auth.dbCollection);
+      this._userManagerInstance = new UserManager(this._launchpadServer._config.server.auth);
       await this._userManagerInstance.init();
     }
     return this._userManagerInstance;

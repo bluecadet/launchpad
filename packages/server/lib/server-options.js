@@ -6,7 +6,7 @@ export class ServerOptions {
     enabled = false,
     auth = {
       "enabled": true,
-      "jwtEXpiresIn": "48h",
+      "jwtExpiresIn": "48h",
       "loginUrl": "/login",
       "dbCollection": "users"
     },

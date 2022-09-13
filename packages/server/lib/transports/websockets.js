@@ -117,21 +117,20 @@ export class WebsocketsTransport {
         break;
 
       // TODO: the rest of these should be in config somewhere.
-      case 'content:update':
       case 'content':
-        this._launchpadServer.updateContent();
+        this._launchpadServer.updateContentCmd();
         break;
       // case 'monitor:startup':
       //   this._launchpadServer.startup();
       //   break;
-      case 'monitor:shutdown':
-        this._launchpadServer.shutdown();
+      case 'shutdown':
+        this._launchpadServer.shutdownCmd();
         break;
-      case 'monitor:start-apps':
-        this._launchpadServer.startApps();
+      case 'start-apps':
+        this._launchpadServer.startAppsCmd();
         break;
-      case 'monitor:stop-apps':
-        this._launchpadServer.stopApps();
+      case 'stop-apps':
+        this._launchpadServer.stopAppsCmd();
         break;
     }
   }

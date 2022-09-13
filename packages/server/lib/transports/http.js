@@ -1,12 +1,16 @@
 
+import Router from 'koa-router';
 import jwt from 'jsonwebtoken';
 
 export class HttpTransport {
 
   _launchpadServer;
 
+  _router;
+
   constructor(launchpadServer) {
     this._launchpadServer = launchpadServer;
+    this._router = new Router();
   }
 
   init() {
@@ -15,68 +19,121 @@ export class HttpTransport {
     const server = this._launchpadServer._app;
 
     // TODO: Variablize these??
+    this._router.patch("Status", "/status", async (ctx, next) => {
 
-    server.patch("/update-content", (req, res) => {
-
-      if (!this.isAuthorized(req.headers)) {
-        res.status(400).send("Unauthorized");
+      if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
+        ctx.status = 400;
+        ctx.body = {
+          "status": "error",
+          "message": "Unauthorized"
+        };
+        return;
       }
 
-      this._launchpadServer.updateContent();
-      res.status(200).json({"status": "ok"});
+      await next();
+
+      // this._launchpadServer.updateContentCmd();
+      ctx.status = 200;
+      ctx.body = {
+        "status": "ok",
+        "message": "status",
+        "data": {
+          appsRunning: "Okie Dokie", // TODO: figure this out.
+          lastContentDownload: 0, // TODO: figure this out.
+          recentLogMessages: [] // TODO: figure this out.
+        }
+      };
+
     });
 
-    server.patch("/shutdown", (req, res) => {
+    this._router.patch("Update Content", "/update-content", async (ctx, next) => {
 
-      if (!this.isAuthorized(req.headers)) {
-        res.status(400).send("Unauthorized");
+      if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
+        ctx.status = 400;
+        ctx.body = {
+          "status": "error",
+          "message": "Unauthorized"
+        };
+        return;
       }
 
-      this._launchpadServer.shutdown();
-      res.status(200).json({"status": "ok"});
+      await next();
+
+      this._launchpadServer.updateContentCmd();
+      ctx.status = 200;
+      ctx.body = {
+        "status": "ok",
+        "message": "updating content..."
+      };
+
     });
 
-    server.patch("/start-apps", (req, res) => {
+    this._router.patch("Start Apps", "/start-apps", async (ctx, next) => {
 
-      if (!this.isAuthorized(req.headers)) {
-        res.status(400).send("Unauthorized");
+      if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
+        ctx.status = 400;
+        ctx.body = {
+          "status": "error",
+          "message": "Unauthorized"
+        };
+        return;
       }
 
-      this._launchpadServer.startApps();
-      res.status(200).json({"status": "ok"});
+      await next();
+
+      this._launchpadServer.startAppsCmd();
+      ctx.status = 200;
+      ctx.body = {
+        "status": "ok",
+        "message": "starting apps..."
+      };
+
     });
 
-    server.patch("/stop-apps", (req, res) => {
+    this._router.patch("Stop Apps", "/stop-apps", async (ctx, next) => {
 
-      if (!this.isAuthorized(req.headers)) {
-        res.status(400).send("Unauthorized");
+      if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
+        ctx.status = 400;
+        ctx.body = {
+          "status": "error",
+          "message": "Unauthorized"
+        };
+        return;
       }
 
-      this._launchpadServer.stopApps();
-      res.status(200).json({"status": "ok"});
+      await next();
+
+      this._launchpadServer.stopAppsCmd();
+      ctx.status = 200;
+      ctx.body = {
+        "status": "ok",
+        "message": "stopping apps..."
+      };
+
     });
-  }
 
-  isAuthorized(headers) {
-    // If we are not requireing authentication, then return true.
-    if (!this._launchpadServer._config.server.auth.enabled) {
-      return true;
-    }
-    // TODO: Should we allow other places like url param for token?
-    const token = headers.authorization.split(' ')[1];
+    this._router.patch("Shutdown", "/shutdown", async (ctx, next) => {
 
-    if (!token) {
-      return false;
-    }
+      if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
+        ctx.status = 400;
+        ctx.body = {
+          "status": "error",
+          "message": "Unauthorized"
+        };
+        return;
+      }
 
-    try {
-      const decoded = jwt.verify(token, process.env.TOKEN_KEY);
-      // TODO: log more info here so we can keep track of whats going on and who is doing it.
-      // console.log(decoded);
-      return true;
-    } catch (err) {
-      console.log(err);
-      return false;
-    }
+      await next();
+
+      this._launchpadServer.stopAppsCmd();
+      ctx.status = 200;
+      ctx.body = {
+        "status": "ok",
+        "message": "shuting down..."
+      };
+
+    });
+
+    this._launchpadServer._app.use(this._router.routes());
   }
 }

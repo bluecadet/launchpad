@@ -81,14 +81,13 @@ export class LaunchpadServer {
       this._app.use(jwt({
         secret: process.env.TOKEN_KEY,
         passthrough: true,
-        getToken: (opts) => {
-          console.log("Get Token");
-          console.log(this);
-          console.log(opts);
-          return null;
-        }
+        // getToken: (opts) => {
+        //   console.log("Get Token");
+        //   console.log(this);
+        //   console.log(opts);
+        //   return null;
+        // }
       }));
-
 
       this._auth = new Authentication(this);
       this._auth.init();
@@ -96,8 +95,8 @@ export class LaunchpadServer {
 
     // Http API
     if (this._config.server.transports.http.enabled) {
-      // this._httpApi = new HttpTransport(this);
-      // this._httpApi.init();
+      this._httpApi = new HttpTransport(this);
+      this._httpApi.init();
     }
 
     // Websockets API
@@ -115,7 +114,6 @@ export class LaunchpadServer {
 
     // Start koa on the defined port
     this._server = this._app.listen(PORT);
-
   }
 
   shutdown() {
@@ -130,22 +128,22 @@ export class LaunchpadServer {
     // Disconnect http server.
     // TODO: how to do this correctly?
 
-    this._logger.info("... server shut down");
+    this._logger.info("...server shut down");
   }
 
-  updateContent() {
+  updateContentCmd() {
     this._commandCenter.run('update-content');
   }
 
-  shutdown() {
-    this._commandCenter.run('shutdown');
-  }
-
-  startApps() {
+  startAppsCmd() {
     this._commandCenter.run('start-apps');
   }
 
-  stopApps() {
+  stopAppsCmd() {
     this._commandCenter.run('stop-apps');
+  }
+
+  shutdownCmd() {
+    this._commandCenter.run('shutdown');
   }
 }

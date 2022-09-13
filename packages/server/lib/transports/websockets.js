@@ -7,6 +7,7 @@ import winston from 'winston';
 import WebsocketsLogging from '../logging/websockets-logging.js';
 
 import { LogManager } from '@bluecadet/launchpad-utils';
+import chalk from "chalk";
 
 import Convert from 'ansi-to-html';
 const convert = new Convert();
@@ -24,15 +25,13 @@ export class WebsocketsTransport {
     let self = this;
     const wsRouter = new Router();
 
+    const loggerTest = this._launchpadServer._logger;
+
     // TODO: handle seperate server.
     // TODO: how to authenticate the connection?
-    wsRouter.use((ctx, next) => {
+    let connection = (ctx, next) => {
       // return `next` to pass the context (ctx) on to the next ws middleware
-      //console.log("Hi");
-      // console.log(ctx.request);
-      // console.log(ctx.state);
-
-      // console.log("CONNECTION");
+      this._launchpadServer._logger.info("Websocket Connection...");
       const [_path, params] = ctx.request?.url?.split("?");
       const connectionParams = queryString.parse(params);
       // console.log(connectionParams);
@@ -53,15 +52,19 @@ export class WebsocketsTransport {
       try {
         const decoded = jwt.verify(token, process.env.TOKEN_KEY);
         ctx.websocket.user = decoded;
-        console.log(decoded);
+        this._launchpadServer._logger.info(decoded.username + " connected");
       } catch (err) {
-        console.log(err);
+        this._launchpadServer._logger.error(err.message);
         ctx.websocket.close(3000, "Invalid Token");
         return next(ctx);
       }
 
       return next(ctx);
-    });
+    };
+
+    // In order to pass this class into the function, we need to use bind().
+    connection.bind(self);
+    wsRouter.use(connection);
 
     wsRouter.all('/ws', async (ctx, next) => {
 
@@ -115,6 +118,7 @@ export class WebsocketsTransport {
 
       // TODO: the rest of these should be in config somewhere.
       case 'content:update':
+      case 'content':
         this._launchpadServer.updateContent();
         break;
       // case 'monitor:startup':
@@ -135,6 +139,11 @@ export class WebsocketsTransport {
   handleLogMessage(info) {
     // Convert colors to html.
     info.message = convert.toHtml(info.message);
+
+    if (!this._launchpadServer._app.ws.server) {
+      console.log(chalk.red("**There is no websocket server running**"));
+      return;
+    }
 
     this._launchpadServer._app.ws.server.clients.forEach(function each(client) {
       // TODO: check if client should be recieving this.

@@ -86,7 +86,7 @@ function createNewUser(argv) {
   // Validate user.
   // Check unique username.
   if (userManager.findOne(tmpUser)) {
-    console.log("User already exists");
+    log.error(chalk.red("User already exists"));
     process.exit(0);
   }
 
@@ -99,8 +99,9 @@ function createNewUser(argv) {
 
   tmpUser.passEncrypt = _encryptPassword(argv.password);
 
+  log.info('Saving user ' + tmpUser.username + '...');
   userManager.saveUser(tmpUser);
-  log.info("User saved");
+  log.info("...User saved");
 }
 
 function listUsers(argv) {

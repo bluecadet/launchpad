@@ -19,7 +19,7 @@ export class UserManager {
   }
 
   async init() {
-    this._userData = await DatabaseManager.getInstance().getCollection(this._collectionName, { "users": [] });
+    this._userData = await DatabaseManager.getInstance().getCollection(this._collectionName, { "users": [], "userIdIncrement": 0 });
   }
 
   getAllUsers = () => {
@@ -63,9 +63,7 @@ export class UserManager {
 
     // Check if user has an ID.
     if (!("_id" in tmpUser) || tmpUser._id == null) {
-      console.log("Checking for new user id");
-      tmpUser._id = this.findNextUserId();
-
+      tmpUser._id = await this.findNextUserId();
       this._userData.data.users.push(tmpUser);
     }
     else {
@@ -86,18 +84,20 @@ export class UserManager {
     if (index) {
       this._userData.data.users.splice(index, 1);
     }
+    else if (index == 0 && this._userData.data.users.length == 1) {
+      this._userData.data.users = [];
+    }
 
     await this.writeDB();
   }
 
-  findNextUserId = () => {
-    let i = 0;
+  async findNextUserId () {
 
-    this._userData.data.users.forEach((u) => {
-      if (u._id > i) i = u._id;
-    });
+    this._userData.data.userIdIncrement++;
 
-    return (i + 1);
+    await this.writeDB();
+
+    return this._userData.data.userIdIncrement;
   }
 
   async writeDB() {

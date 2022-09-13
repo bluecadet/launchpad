@@ -4,10 +4,7 @@ import koaBody from 'koa-body';
 import websockify from 'koa-websocket';
 import jwt from 'koa-jwt';
 
-// import cors from 'cors';
-// import bodyParser from "body-parser";
-
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager } from '@bluecadet/launchpad-utils';
 
 import { Authentication } from './authentication.js';
 import { HttpTransport } from './transports/http.js';
@@ -48,22 +45,18 @@ export class LaunchpadServer {
     }
 
     this._logger.info("Server Starting up!");
-    // console.log(this._config);
     const PORT = this._config.server.transports.http.port;
-    // console.log(this._config.server.transports);
 
     // Initialize express and define a port.
     this._app = new Koa();
     this._app.use(koaBody());
 
-    // this._app = express();
-    // this._app.use(cors());
-    // this._app.use(bodyParser.json()); // Tell express to use body-parser's JSON parsing
+    // TODO: enable CORS for koa.
 
     this._app.use(async (ctx, next) => {
 
       // Run All middleware.
-      // TODO: should routes finish? Or do we need more for loggin etc?
+      // TODO: should routes finish? Or do we need more for logging etc?
       await next();
 
       // Finalize everything here.
@@ -101,18 +94,17 @@ export class LaunchpadServer {
       this._auth.init();
     }
 
-    // http API
+    // Http API
     if (this._config.server.transports.http.enabled) {
       // this._httpApi = new HttpTransport(this);
       // this._httpApi.init();
     }
 
-    // websockets API
+    // Websockets API
     if (this._config.server.transports.websockets.enabled) {
       this._app = websockify(this._app);
       this._websocketsTransport = new WebsocketsTransport(this);
       this._websocketsTransport.init();
-
     }
 
     // OSC API
@@ -121,17 +113,9 @@ export class LaunchpadServer {
       this._oscApi.init();
     }
 
-    // Start express on the defined port
-    // this._server = this._app.listen(PORT, () => {
-    //   this._logger.info(`🚀 Server running on port ${PORT}`);
-    // });
-
+    // Start koa on the defined port
     this._server = this._app.listen(PORT);
 
-    // Init wss after server is running.
-    // if (this._config.server.transports.websockets.enabled) {
-      // this._websocketsTransport.init();
-    // }
   }
 
   shutdown() {

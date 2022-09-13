@@ -58,6 +58,8 @@ export class LaunchpadCore {
 		this._commands.add(new Command({name: 'stop-apps', callback: this._runStopApps}));
 		this._commands.add(new Command({name: 'update-content', callback: this._runUpdateContent}));
 		
+		this._commands.add(new Command({name: 'status', callback: this._getStatus, queued: false}));
+
 		this._commands.addCommandHooks(this._config.hooks);
 
 		// Make sure to send full config to server.
@@ -199,6 +201,23 @@ export class LaunchpadCore {
 		}
 	}
 	
+
+	/**
+	 * Provides a snapshot of the current Status of Launchpad.
+	 */
+	async _getStatus() {
+		const appsWereRunning = await this._monitor.isRunning();
+		const lastContentDownload = await this._content.getLastDownloadTime();
+
+		let status = {
+			appsRunning: appsWereRunning,
+			lastContentDownload: lastContentDownload,
+			// recentLogMessages: []  // TODO: This might be expensive. Not sure its worth it!?
+		};
+
+		return status;
+	}
+
 	_initHooks() {
 		// for (const hook)
 	}

@@ -19,7 +19,7 @@ import Constants from './utils/constants.js';
 import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
 import ContentTransform from './content-transforms/content-transform.js';
 
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger, DatabaseManager } from '@bluecadet/launchpad-utils';
 
 export class ContentSourceTypes {
   static airtable = 'airtable';
@@ -87,6 +87,10 @@ export class LaunchpadContent {
 		// onExit(() => {
     //   // TODO: Abort media downloader and wait for remaining downloads to finish
     // });
+
+    DatabaseManager.getInstance().getCollection("content", { "lastDownload": 0 }).then((db) => {
+      this._db = db;
+    });
   }
 
   /**
@@ -126,6 +130,10 @@ export class LaunchpadContent {
       this._logger.info(
         chalk.green(`Finished downloading ${sources.length} sources`)
       );
+
+      // If all complete, save time.
+      this._db.data.lastDownload = new Date();
+      await this._db.write();
     } catch (err) {
       this._logger.error(chalk.red(`Could not download all content:`), err);
       if (this._config.backupAndRestore) {
@@ -477,6 +485,10 @@ export class LaunchpadContent {
       tokenizedPath = tokenizedPath.replace(Constants.DOWNLOAD_PATH_TOKEN, downloadPath);
     }
     return path.resolve(tokenizedPath);
+  }
+
+  async getLastDownloadTime() {
+    return this._db.data.lastDownload;
   }
 }
 

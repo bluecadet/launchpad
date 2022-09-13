@@ -146,4 +146,8 @@ export class LaunchpadServer {
   shutdownCmd() {
     this._commandCenter.run('shutdown');
   }
+
+  async getStatus() {
+    return await this._commandCenter.run('status');
+  }
 }

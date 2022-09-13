@@ -32,16 +32,13 @@ export class HttpTransport {
 
       await next();
 
-      // this._launchpadServer.updateContentCmd();
+      let status = await this._launchpadServer.getStatus();
+
       ctx.status = 200;
       ctx.body = {
         "status": "ok",
         "message": "status",
-        "data": {
-          appsRunning: "Okie Dokie", // TODO: figure this out.
-          lastContentDownload: 0, // TODO: figure this out.
-          recentLogMessages: [] // TODO: figure this out.
-        }
+        "data": status
       };
 
     });

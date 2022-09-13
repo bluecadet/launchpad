@@ -169,6 +169,8 @@ export class Command {
 	 */
 	async run(...args) {
 		const logger = this.logger || console;
+		let returnVal = null;
+
 		for (const cb of this.preHooks) {
 			try {
 				await cb(...args);
@@ -177,7 +179,7 @@ export class Command {
 			}
 		}
 		try {
-			await this.callback(...args);
+			returnVal = await this.callback(...args);
 		} catch (err) {
 			logger.error(`Could not run command ${chalk.blue(this.name)}:`, err);
 		}
@@ -188,6 +190,8 @@ export class Command {
 				logger.error(`Could not run post-hook for command ${chalk.blue(this.name)}:`, err);
 			}
 		}
+
+		return returnVal;
 	}
 	toString() {
 		return this.name;

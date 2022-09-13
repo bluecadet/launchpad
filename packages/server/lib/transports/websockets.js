@@ -107,6 +107,9 @@ export class WebsocketsTransport {
 
     switch (parsedData.type) {
       case 'status':
+
+        // await this._commandCenter.run('status');
+
         let statusObj = {
           appsRunning: "Okie Dokie", // TODO: figure this out.
           lastContentDownload: 0, // TODO: figure this out.

@@ -204,7 +204,10 @@ class SanitySource extends ContentSource {
 
       const fileName = `${id}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
 
-      content = this._processText(content);
+      // Check for Sanity Text Converters.
+      if (this.config.textConverters.length > 0) {
+        content = this._processText(content);
+      }
 
       result.addDataFile(fileName, content);
       result.addMediaUrls(this._getMediaUrls(content));
@@ -251,7 +254,12 @@ class SanitySource extends ContentSource {
 
       Object.keys(d).forEach(key => {
 
-        if (Array.isArray(d[key]) && d[key][0]._type == 'block') {
+        if (
+          Array.isArray(d[key])
+          && d[key].length > 0
+          && d[key][0].hasOwnProperty('_type')
+          && d[key][0]._type == 'block'
+        ) {
 
           this.config.textConverters.forEach((el, i) => {
 
@@ -265,6 +273,8 @@ class SanitySource extends ContentSource {
               case 'toMarkdown':
                 content[j][key + '_toMarkdown'] = toMarkdown(d[key]);
                 break;
+              default:
+                this.logger.warn(`Bad Sanity Text converter: ${el}`);
             }
           });
         }

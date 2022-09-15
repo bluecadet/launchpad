@@ -16,10 +16,10 @@ export class HttpTransport {
   init() {
     this._launchpadServer._logger.info("Initialising Http Transport...");
 
-    const server = this._launchpadServer._app;
+    const apiBasePath = this._launchpadServer._config.server.transports.http.basePath;
 
     // TODO: Variablize these??
-    this._router.patch("Status", "/status", async (ctx, next) => {
+    this._router.patch("Status", apiBasePath + "/status", async (ctx, next) => {
 
       if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
         ctx.status = 400;
@@ -43,7 +43,7 @@ export class HttpTransport {
 
     });
 
-    this._router.patch("Update Content", "/update-content", async (ctx, next) => {
+    this._router.patch("Update Content", apiBasePath + "/update-content", async (ctx, next) => {
 
       if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
         ctx.status = 400;
@@ -65,7 +65,7 @@ export class HttpTransport {
 
     });
 
-    this._router.patch("Start Apps", "/start-apps", async (ctx, next) => {
+    this._router.patch("Start Apps", apiBasePath + "/start-apps", async (ctx, next) => {
 
       if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
         ctx.status = 400;
@@ -87,7 +87,7 @@ export class HttpTransport {
 
     });
 
-    this._router.patch("Stop Apps", "/stop-apps", async (ctx, next) => {
+    this._router.patch("Stop Apps", apiBasePath + "/stop-apps", async (ctx, next) => {
 
       if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
         ctx.status = 400;
@@ -109,7 +109,7 @@ export class HttpTransport {
 
     });
 
-    this._router.patch("Shutdown", "/shutdown", async (ctx, next) => {
+    this._router.patch("Shutdown", apiBasePath + "/shutdown", async (ctx, next) => {
 
       if (this._launchpadServer._config.server.auth.enabled && !ctx.state.user) {
         ctx.status = 400;

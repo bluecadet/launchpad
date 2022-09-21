@@ -1,5 +1,12 @@
 # @bluecadet/launchpad
 
+## 1.2.2
+
+### Patch Changes
+
+- Updated dependencies [[`7f93181`](https://github.com/bluecadet/launchpad/commit/7f9318171c7d44ef812243454608d75810895d14), [`c9a66e1`](https://github.com/bluecadet/launchpad/commit/c9a66e1416d49c1447d010ab08b3de9c45b4e0a0)]:
+  - @bluecadet/launchpad-content@1.4.0
+
 ## 1.2.1
 
 ### Patch Changes

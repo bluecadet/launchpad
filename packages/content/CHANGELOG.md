@@ -1,5 +1,18 @@
 # @bluecadet/launchpad-content
 
+## 1.4.0
+
+### Minor Changes
+
+- [#47](https://github.com/bluecadet/launchpad/pull/47) [`7f93181`](https://github.com/bluecadet/launchpad/commit/7f9318171c7d44ef812243454608d75810895d14) Thanks [@pingevt](https://github.com/pingevt)! - Updating Sanity source
+
+  Changes config for custom Queries
+  Adds an option for saving data in multiple files or in one file
+
+### Patch Changes
+
+- [#47](https://github.com/bluecadet/launchpad/pull/47) [`c9a66e1`](https://github.com/bluecadet/launchpad/commit/c9a66e1416d49c1447d010ab08b3de9c45b4e0a0) Thanks [@pingevt](https://github.com/pingevt)! - Add in better checking to process Sanity Text Blocks
+
 ## 1.3.0
 
 ### Minor Changes

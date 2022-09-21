@@ -26,10 +26,10 @@ export class SanityOptions extends SourceOptions {
     useCdn = false,
     baseUrl = undefined,
     queries = [],
-    customQueries = [],
     textConverters = [],
     limit = 100,
     maxNumPages = -1,
+    mergePages = false,
     pageNumZeroPad = 0,
     ...rest
   } = {}) {
@@ -76,12 +76,6 @@ export class SanityOptions extends SourceOptions {
      *
      * @type {Array.<string>}
      */
-    this.customQueries = customQueries;
-
-    /**
-     *
-     * @type {Array.<string>}
-     */
     this.textConverters = textConverters;
 
     /**
@@ -95,6 +89,12 @@ export class SanityOptions extends SourceOptions {
      * @type {number}
      */
     this.maxNumPages = maxNumPages;
+
+    /**
+     * To combine paginated files into 1 file.
+     * @type {boolean}
+     */
+    this.mergePages = mergePages;
 
     /**
      * How many zeros to pad each json filename index with. Default is 0
@@ -134,29 +134,33 @@ class SanitySource extends ContentSource {
    * @returns {Promise<ContentResult>}
    */
   async fetchContent() {
-    const result = new ContentResult();
 
     let queryPromises = [];
     let customQueryPromises = [];
 
-    for (const id of this.config.queries) {
-      let query = '*[_type == "' + id + '" ]';
+    for (const query of this.config.queries) {
 
-      queryPromises.push(await this._fetchPages(id, query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
-    }
+      if (typeof query === 'string' || query instanceof String) {
+        let queryFull = '*[_type == "' + query + '" ]';
+        const result = new ContentResult();
 
-    for (const cqd of this.config.customQueries) {
-      customQueryPromises.push(await this._fetchPages(cqd.id, cqd.query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
+        queryPromises.push(await this._fetchPages(query, queryFull, result, {
+          start: 0,
+          limit: this.config.limit
+        }));
+      }
+      else {
+        const result = new ContentResult();
+        customQueryPromises.push(await this._fetchPages(query.id, query.query, result, {
+          start: 0,
+          limit: this.config.limit
+        }));
+      }
     }
 
     return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
-      return result;
+
+      return ContentResult.combine(values);
     }).catch((error) => {
       this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
       return error;
@@ -181,7 +185,7 @@ class SanitySource extends ContentSource {
   ) {
 
     const pageNum = params.start / params.limit;
-    const q = query + '[' + params.start + '..' + (params.start + params.limit) + ']';
+    const q = query + '[' + params.start + '..' + (params.start + params.limit - 1) + ']';
     const p = {};
 
     this.logger.debug(`Fetching page ${pageNum} of ${id}`);
@@ -189,13 +193,21 @@ class SanitySource extends ContentSource {
     return this.client.fetch(q, p).then((content) => {
 
       if (!content || !content.length) {
+        // If we are combining files, we do that here.
+        if (this.config.mergePages) {
+          result.collate(id);
+        }
+
         // Empty result or no more pages left
         return Promise.resolve(result);
       }
 
       const fileName = `${id}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
 
-      content = this._processText(content);
+      // Check for Sanity Text Converters.
+      if (this.config.textConverters.length > 0) {
+        content = this._processText(content);
+      }
 
       result.addDataFile(fileName, content);
       result.addMediaUrls(this._getMediaUrls(content));
@@ -242,7 +254,12 @@ class SanitySource extends ContentSource {
 
       Object.keys(d).forEach(key => {
 
-        if (Array.isArray(d[key]) && d[key][0]._type == 'block') {
+        if (
+          Array.isArray(d[key])
+          && d[key].length > 0
+          && d[key][0].hasOwnProperty('_type')
+          && d[key][0]._type == 'block'
+        ) {
 
           this.config.textConverters.forEach((el, i) => {
 
@@ -256,6 +273,8 @@ class SanitySource extends ContentSource {
               case 'toMarkdown':
                 content[j][key + '_toMarkdown'] = toMarkdown(d[key]);
                 break;
+              default:
+                this.logger.warn(`Bad Sanity Text converter: ${el}`);
             }
           });
         }

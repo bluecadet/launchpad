@@ -218,7 +218,7 @@ export class LaunchpadContent {
         this._logger.debug(`Backing up ${source}`);
         await fs.copy(downloadPath, backupPath, {preserveTimestamps: true});
       } catch (err) {
-        this._logger.error(`Couldn't back up ${source}:`, err);
+        this._logger.warn(`Couldn't back up ${source}:`, err);
       }
     }
   }

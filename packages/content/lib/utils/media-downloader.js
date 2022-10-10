@@ -12,7 +12,7 @@ import cliProgress from 'cli-progress';
 import FileUtils from './file-utils.js';
 import Constants from './constants.js';
 import { ContentOptions } from '../content-options.js';
-import { ContentResultMediaDownload } from '../content-sources/content-result.js';
+import { MediaDownload } from '../content-sources/content-result.js';
 
 let PQueue = null; // Future import
 
@@ -40,7 +40,7 @@ export class MediaDownloader {
    * before/after all downloads start/complete. If anything fails during,
    * the downloads, `options.dest` will remain untouched.
    *
-   * @param {Array<ContentResultMediaDownload>} downloads
+   * @param {Array<MediaDownload>} downloads
    * @param {ContentOptions} options
    */
   async sync(downloads, options) {
@@ -190,7 +190,7 @@ export class MediaDownloader {
   }
   
   /**
-   * @param {ContentResultMediaDownload} task
+   * @param {MediaDownload} task
    * @param {string} tempDir Directory path for temporary files
    * @param {string} destDir Directory path for final downloaded files
    * @param {ContentOptions} options Content and source options
@@ -198,13 +198,11 @@ export class MediaDownloader {
    */
   async download(task, tempDir, destDir, options) {
     try {
-      let relativePath = task.relativePath.replace(options.strip, '');
-      let destPath = path.join(destDir, relativePath);
-      let tempFilePath = path.join(tempDir, relativePath);
+      let localPath = task.localPath.replace(options.strip, '');
+      let destPath = path.join(destDir, localPath);
+      let tempFilePath = path.join(tempDir, localPath);
       let tempFilePathDir = path.dirname(tempFilePath);
       let isCached = false;
-      
-      // this.logger.info(filename);
       
       fs.ensureDirSync(tempFilePathDir);
       

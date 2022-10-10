@@ -1,4 +1,4 @@
-export class ContentResultDataFile {
+export class DataFile {
   /**
 	 * The relative local path where the file should be saved.
    * @type {string}
@@ -35,10 +35,10 @@ export class ContentResultDataFile {
 		}
 	}
 }
-export class ContentResultMediaDownload {
+export class MediaDownload {
   constructor({
     url,
-		relativePath = undefined,
+		localPath = undefined,
     ...rest
   } = {}) {
     /**
@@ -51,7 +51,7 @@ export class ContentResultMediaDownload {
      * The path of this asset relative to this source's root asset dir.
 		 * Can optionally be overriden to save this file at another location.
      */
-    this.relativePath = relativePath || new URL(this.url).pathname;
+    this.localPath = localPath || new URL(this.url).pathname;
     
 		Object.assign(this, rest);
   }
@@ -62,7 +62,7 @@ export class ContentResultMediaDownload {
 	 * @returns {string}
 	 */
 	 getKey() {
-		return `${this.url}_${this.relativePath}`;
+		return `${this.url}_${this.localPath}`;
 	}
 }
 
@@ -74,7 +74,7 @@ export class ContentResult {
    */
 	static combine(results) {
 		let finalResult = results.reduce((previousValue, currentValue) => {
-			previousValue.addContentResultDataFiles(currentValue.dataFiles);
+			previousValue.addDataFiles(currentValue.dataFiles);
 			previousValue.addMediaDownloads(currentValue.mediaDownloads);
 			return previousValue;
 		}, new ContentResult());
@@ -84,19 +84,19 @@ export class ContentResult {
 
   /**
    * List of data files to save
-   * @type {Array<ContentResultDataFile>}
+   * @type {Array<DataFile>}
    */
   dataFiles = [];
 
   /**
    * List of media to download
-   * @type {Array<ContentResultMediaDownload>}
+   * @type {Array<MediaDownload>}
    */
   mediaDownloads = [];
 
 	/**
-	 * @param {Array<ContentResultDataFile>} dataFiles All the data files and their contents that should be saved
-	 * @param {Array<ContentResultMediaDownload>} mediaDownloads All the media files that should be saved
+	 * @param {Array<DataFile>} dataFiles All the data files and their contents that should be saved
+	 * @param {Array<MediaDownload>} mediaDownloads All the media files that should be saved
 	 */
 	constructor(dataFiles = [], mediaDownloads = []) {
 		this.dataFiles = dataFiles;
@@ -109,24 +109,24 @@ export class ContentResult {
 	 * @param {*} content
 	 */
 	addDataFile(localPath, content) {
-		this.dataFiles.push(new ContentResultDataFile(localPath, content));
+		this.dataFiles.push(new DataFile(localPath, content));
 	}
 
 	/**
 	 *
-	 * @param {Array<ContentResultDataFile>} contentResultDataFiles
+	 * @param {Array<DataFile>} DataFiles
 	 */
-	addContentResultDataFiles(contentResultDataFiles) {
-		this.dataFiles.push(...contentResultDataFiles);
+	addDataFiles(DataFiles) {
+		this.dataFiles.push(...DataFiles);
 	}
 
 	/**
 	 *
-	 * @param {ContentResultMediaDownload} urlOrDownload
+	 * @param {MediaDownload} urlOrDownload
 	 */
 	addMediaDownload(urlOrDownload) {
 		if (typeof myVar === 'string' || myVar instanceof String) {
-			urlOrDownload = new ContentResultMediaDownload({
+			urlOrDownload = new MediaDownload({
 				url: urlOrDownload
 			})
 		}

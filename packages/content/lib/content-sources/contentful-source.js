@@ -5,7 +5,7 @@
 import chalk from 'chalk';
 import contentful from 'contentful';
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 
@@ -143,7 +143,9 @@ class ContentfulSource extends ContentSource {
       .then((content) => {
         const result = new ContentResult();
         result.addDataFile(this.config.filename, content);
-        result.addMediaUrls(this._getMediaUrls(content.assets));
+        result.addMediaDownloads(
+          this._getMediaUrls(content.assets).map(url => new MediaDownload({url}))
+        );
         return result;
       })
       .catch((err) => {

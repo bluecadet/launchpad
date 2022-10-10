@@ -7,7 +7,7 @@ import jsonpath from 'jsonpath';
 import got from 'got';
 
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 
@@ -166,7 +166,9 @@ class StrapiSource extends ContentSource {
 				}
 				
         result.addDataFile(fileName, content);
-        result.addMediaUrls(this._getMediaUrls(content));
+        result.addMediaDownloads(
+					this._getMediaUrls(content).map(url => new MediaDownload({url}))
+				);
 				
 				if (this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) {
 					// Fetch next page

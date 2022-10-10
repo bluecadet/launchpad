@@ -11,7 +11,7 @@ import toMarkdown from '@sanity/block-content-to-markdown';
 import { toHTML } from '@portabletext/to-html';
 
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult, { ContentResultMediaDownload } from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 import FileUtils from '../utils/file-utils.js';
@@ -229,7 +229,7 @@ class SanitySource extends ContentSource {
     /**
     *
     * @param {Object} content
-    * @return @type {Array.<ContentResultMediaDownload>}
+    * @return @type {Array.<MediaDownload>}
     */
    _getMediaDownloads(content) {
       const downloads = [];
@@ -241,7 +241,7 @@ class SanitySource extends ContentSource {
           const url = new URL(contentUrl, this.config.baseUrl);
           contentUrl = url.toString();
         }
-        downloads.push(new ContentResultMediaDownload({
+        downloads.push(new MediaDownload({
           url: contentUrl
         }));
       }
@@ -255,12 +255,12 @@ class SanitySource extends ContentSource {
           continue;
         }
         const urlBuilder = builder.image(image);
-        const task = new ContentResultMediaDownload({
+        const task = new MediaDownload({
           url: urlBuilder.url()
         });
-        task.relativePath = FileUtils.addFilenameSuffix(task.relativePath, `_${image._key}`);
+        task.localPath = FileUtils.addFilenameSuffix(task.localPath, `_${image._key}`);
         // console.dir(image, {depth: null});
-        // console.log(task.relativePath);
+        // console.log(task.localPath);
         downloads.push(task);
       }
       

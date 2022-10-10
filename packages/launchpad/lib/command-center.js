@@ -164,8 +164,9 @@ export class Command {
 	}
 	
 	/**
-	 * 
+	 * Runs a command with optional pre- and post-command hooks.
 	 * @param  {...any} args 
+	 * @returns {*} Results of this command's callback function, if any
 	 */
 	async run(...args) {
 		const logger = this.logger || console;
@@ -176,8 +177,9 @@ export class Command {
 				logger.error(`Could not run pre-hook for command ${chalk.blue(this.name)}:`, err);
 			}
 		}
+		let result = undefined;
 		try {
-			await this.callback(...args);
+			result = await this.callback(...args);
 		} catch (err) {
 			logger.error(`Could not run command ${chalk.blue(this.name)}:`, err);
 		}
@@ -188,7 +190,10 @@ export class Command {
 				logger.error(`Could not run post-hook for command ${chalk.blue(this.name)}:`, err);
 			}
 		}
+		
+		return result;
 	}
+	
 	toString() {
 		return this.name;
 	}

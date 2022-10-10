@@ -20,6 +20,7 @@ import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
 import ContentTransform from './content-transforms/content-transform.js';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import ContentResult from './content-sources/content-result.js';
 
 export class ContentSourceTypes {
   static json = 'json';
@@ -367,10 +368,10 @@ export class LaunchpadContent {
    *
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _downloadMedia(source, result) {
-    await this._mediaDownloader.sync(result.mediaUrls, new ContentOptions({
+    await this._mediaDownloader.sync(result.mediaDownloads, new ContentOptions({
       ...this._config,
       ...source.config,
       ...{
@@ -386,7 +387,7 @@ export class LaunchpadContent {
    * Saves a result's data file to a local path
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _saveDataFiles(source, result) {
     for (const resultData of result.dataFiles) {
@@ -409,7 +410,7 @@ export class LaunchpadContent {
    * Saves a result's data file to a local path
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _applyContentTransforms(source, result) {
     const transforms = source.config.contentTransforms || this.config.contentTransforms;

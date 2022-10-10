@@ -5,15 +5,16 @@
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
 
-import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
-import Credentials from '../credentials.js';
-import { Logger } from '@bluecadet/launchpad-utils';
-
 import sanityClient from '@sanity/client';
 import imageUrlBuilder from '@sanity/image-url';
 import toMarkdown from '@sanity/block-content-to-markdown';
 import { toHTML } from '@portabletext/to-html';
+
+import ContentSource, { SourceOptions } from './content-source.js';
+import ContentResult, { ContentResultMediaDownload } from './content-result.js';
+import Credentials from '../credentials.js';
+import { Logger } from '@bluecadet/launchpad-utils';
+import FileUtils from '../utils/file-utils.js';
 
 /**
 * Options for SanitySource
@@ -207,7 +208,7 @@ class SanitySource extends ContentSource {
         }
         
         result.addDataFile(fileName, content);
-        result.addMediaUrls(this._getMediaUrls(content));
+        result.addMediaDownloads(this._getMediaDownloads(content));
         
         if (this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) {
           // Fetch next page
@@ -228,10 +229,10 @@ class SanitySource extends ContentSource {
     /**
     *
     * @param {Object} content
-    * @return @type {Array.<string>}
+    * @return @type {Array.<ContentResultMediaDownload>}
     */
-   _getMediaUrls(content) {
-      const mediaUrls = [];
+   _getMediaDownloads(content) {
+      const downloads = [];
       
       // Get all raw URLs
       const rawAssetUrls = jsonpath.query(content, '$..url');
@@ -240,18 +241,30 @@ class SanitySource extends ContentSource {
           const url = new URL(contentUrl, this.config.baseUrl);
           contentUrl = url.toString();
         }
-        mediaUrls.push(contentUrl);
+        downloads.push(new ContentResultMediaDownload({
+          url: contentUrl
+        }));
       }
       
-      // Get hotspot/cropped image URLs
+      // Get alternate image URLs for crops/hotspots
       const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
       const builder = imageUrlBuilder(this.client)
       for (let image of images) {
-        const url = builder.image(image) + '';
-        mediaUrls.push(url);
+        if (!image._key) {
+          // No alternate image defined
+          continue;
+        }
+        const urlBuilder = builder.image(image);
+        const task = new ContentResultMediaDownload({
+          url: urlBuilder.url()
+        });
+        task.relativePath = FileUtils.addFilenameSuffix(task.relativePath, `_${image._key}`);
+        // console.dir(image, {depth: null});
+        // console.log(task.relativePath);
+        downloads.push(task);
       }
       
-      return mediaUrls;
+      return downloads;
     }
     
     _processText(content) {

@@ -12,46 +12,10 @@ import cliProgress from 'cli-progress';
 import FileUtils from './file-utils.js';
 import Constants from './constants.js';
 import { ContentOptions } from '../content-options.js';
+import { ContentResultMediaDownload } from '../content-sources/content-result.js';
 
 let PQueue = null; // Future import
 
-export class MediaDownloaderTask {
-  constructor({
-    url,
-    tempDir = undefined,
-    destDir = undefined,
-    options = undefined,
-    filename = undefined,
-    ...rest
-  } = {}) {
-    /**
-     * The url to download
-     * @type {string}
-     */
-    this.url = url;
-    /**
-     * Directory path for temporary files
-     * @type {string}
-     */
-    this.tempDir = tempDir;
-    /**
-     * Directory path for final downloaded files
-     * @type {string}
-     */
-    this.destDir = destDir;
-    /**
-     * @type {ContentOptions}
-     */
-    this.options = options;
-    /**
-     * Optional override of the name for the downloaded file
-     * @type {string?}
-     */
-    this.filename = filename;
-    
-		Object.assign(this, rest);
-  }
-}
 
 /**
  * Downloads a batch of urls to a target directory.
@@ -76,11 +40,11 @@ export class MediaDownloader {
    * before/after all downloads start/complete. If anything fails during,
    * the downloads, `options.dest` will remain untouched.
    *
-   * @param {Iterable<string|Object>} urls
+   * @param {Array<ContentResultMediaDownload>} downloads
    * @param {ContentOptions} options
    */
-  async sync(urls, options) {
-    this.logger.info(`Syncing ${chalk.cyan(urls.length)} files`);
+  async sync(downloads, options) {
+    this.logger.info(`Syncing ${chalk.cyan(downloads.length)} files`);
     
     if (!PQueue) {
       // @see https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c#pure-esm-package
@@ -117,10 +81,20 @@ export class MediaDownloader {
       
       this.logger.debug(chalk.gray(`Creating temp dir: ${chalk.yellow(tempDir)}`));
       await fs.ensureDir(tempDir);
-
-      let uniqueUrls = [...new Set(urls)];
+      
+      // Remove duplicate download tasks
+      let uniqueKeys = new Set();
+      let uniqueDownloads = downloads.filter(download => {
+        const key = download.getKey();
+        if (uniqueKeys.has(key)) {
+          return false;
+        }
+        uniqueKeys.add(key);
+        return true;
+      });
       let numCompleted = 0;
-
+      
+      // Initialize progress meter
       const progressFormat = Constants.getProgressFormat('Downloading', 'files');
       progress = new cliProgress.Bar(
         {
@@ -128,38 +102,37 @@ export class MediaDownloader {
         },
         cliProgress.Presets.shades_classic
       );
-      progress.start(uniqueUrls.length, 0);
+      progress.start(uniqueDownloads.length, 0);
       
-      // make functions which return async functions
+      // Make functions which return async functions
       // that will download a url when executed
-      let tasks = uniqueUrls.map((urlString) => async () => {
-        return this.download(new MediaDownloaderTask({
-          url: urlString, tempDir, destDir, options
-        }))
+      let taskFns = uniqueDownloads.map((download) => async () => {
+        return this.download(download, tempDir, destDir, options)
           .then(async (tempFilePath) => {
             progress.update(++numCompleted);
             return {
-              url: urlString,
+              url: download.url,
               tempFilePath: tempFilePath,
               error: null
             };
           })
           .catch((error) => {
-            console.log(error);
+            // this.logger.error(error);
             if (options.abortOnError) {
               throw error;
             }
             progress.update(++numCompleted);
             return {
-              url: urlString,
+              url: download.url,
               tempFilePath: null,
               error: error
             };
           });
       });
-
+      
+      // Run download queue
       await queue
-        .addAll(tasks)
+        .addAll(taskFns)
         .then(async (results) => {
           // Finish progress animation before printing anything to console
           progress.stop();
@@ -217,15 +190,17 @@ export class MediaDownloader {
   }
   
   /**
-   * @param {MediaDownloaderTask} task
+   * @param {ContentResultMediaDownload} task
+   * @param {string} tempDir Directory path for temporary files
+   * @param {string} destDir Directory path for final downloaded files
+   * @param {ContentOptions} options Content and source options
    * @returns {Promise<string>} Resolves with the downloaded file path
    */
-  async download(task) {
+  async download(task, tempDir, destDir, options) {
     try {
-      let relativePath = new URL(task.url).pathname.replace(task.options.strip, '');
-      let filename = path.basename(relativePath);
-      let destPath = path.join(task.destDir, relativePath);
-      let tempFilePath = path.join(task.tempDir, relativePath);
+      let relativePath = task.relativePath.replace(options.strip, '');
+      let destPath = path.join(destDir, relativePath);
+      let tempFilePath = path.join(tempDir, relativePath);
       let tempFilePathDir = path.dirname(tempFilePath);
       let isCached = false;
       
@@ -237,27 +212,27 @@ export class MediaDownloader {
       const stats = exists ? fs.lstatSync(destPath) : null;
       
       // check for cached image first
-      if (!task.options.ignoreCache && exists && stats.isFile()) {
+      if (!options.ignoreCache && exists && stats.isFile()) {
         let response = null;
         
-        if (task.options.enableIfModifiedSinceCheck || task.options.enableContentLengthCheck) {
+        if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
           // Get just the file header to check for modified date and file size
           response = await got.head(task.url, {
             headers: this._getRequestHeaders(destPath),
             timeout: {
-              response: task.options.maxTimeout
+              response: options.maxTimeout
             }
           });
         }
         
         let isRemoteNew = false;
         
-        if (task.options.enableIfModifiedSinceCheck) {
+        if (options.enableIfModifiedSinceCheck) {
           // Remote file has been modified since the local file changed
           isRemoteNew = isRemoteNew || (response.statusCode !== 304);
         }
         
-        if (task.options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
+        if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
           // Remote file has a different size than the local file
           const remoteSize = parseInt(response.headers['content-length']);
           const localSize  = stats.size;
@@ -276,7 +251,7 @@ export class MediaDownloader {
         await pipeline(
           got.stream(task.url, {
             timeout: {
-              response: task.options.maxTimeout
+              response: options.maxTimeout
             },
           }),
           fs.createWriteStream(tempFilePath)
@@ -284,7 +259,7 @@ export class MediaDownloader {
       }
       
       // apply optional transforms
-      await this._transformImage(tempFilePath, task.options.imageTransforms, task.options.ignoreImageTransformErrors);
+      await this._transformImage(tempFilePath, options.imageTransforms, options.ignoreImageTransformErrors);
       
       return Promise.resolve(tempFilePath);
       

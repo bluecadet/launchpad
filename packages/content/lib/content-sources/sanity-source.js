@@ -246,12 +246,12 @@ class SanitySource extends ContentSource {
         }));
       }
       
-      // Get alternate image URLs for crops/hotspots
+      // Get derivative image URLs for crops/hotspots/etc
       const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
       const builder = imageUrlBuilder(this.client)
       for (let image of images) {
         if (!image._key) {
-          // No alternate image defined
+          // _key is only defined for derivative images. Skip if it doesn't exist
           continue;
         }
         const urlBuilder = builder.image(image);
@@ -259,8 +259,6 @@ class SanitySource extends ContentSource {
           url: urlBuilder.url()
         });
         task.localPath = FileUtils.addFilenameSuffix(task.localPath, `_${image._key}`);
-        // console.dir(image, {depth: null});
-        // console.log(task.localPath);
         downloads.push(task);
       }
       
@@ -268,22 +266,17 @@ class SanitySource extends ContentSource {
     }
     
     _processText(content) {
-      
       // Check for processing text.
       // TODO: Refactor to use jsonpath
       content.forEach((d, j) => {
-        
         Object.keys(d).forEach(key => {
-          
           if (
             Array.isArray(d[key])
             && d[key].length > 0
             && d[key][0].hasOwnProperty('_type')
             && d[key][0]._type == 'block'
             ) {
-              
               this.config.textConverters.forEach((el, i) => {
-                
                 switch (el) {
                   case 'toPlainText':
                   content[j][key + '_toPlainText'] = this._toPlainText(d[key]);
@@ -300,9 +293,7 @@ class SanitySource extends ContentSource {
               });
             }
           });
-          
         });
-        
         return content;
       }
       
@@ -310,13 +301,11 @@ class SanitySource extends ContentSource {
         return blocks
         // loop through each block
         .map(block => {
-          // if it's not a text block with children,
-          // return nothing
+          // if it's not a text block with children, return nothing
           if (block._type !== 'block' || !block.children) {
             return ''
           }
-          // loop through the children spans, and join the
-          // text strings
+          // loop through the children spans, and join the text strings
           return block.children.map(child => child.text).join('')
         })
         // join the paragraphs leaving split by two linebreaks

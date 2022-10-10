@@ -26,6 +26,7 @@
     "@portabletext/to-html": "^1.0.3",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.3.2",
+    "@sanity/image-url": "^1.0.1",
     "airtable": "^0.11.1",
     "chalk": "^5.0.0",
     "cli-progress": "^3.9.1",

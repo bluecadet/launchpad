@@ -257,6 +257,7 @@ class SanitySource extends ContentSource {
     _processText(content) {
       
       // Check for processing text.
+      // TODO: Refactor to use jsonpath
       content.forEach((d, j) => {
         
         Object.keys(d).forEach(key => {

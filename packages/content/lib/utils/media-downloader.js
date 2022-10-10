@@ -15,6 +15,44 @@ import { ContentOptions } from '../content-options.js';
 
 let PQueue = null; // Future import
 
+export class MediaDownloaderTask {
+  constructor({
+    url,
+    tempDir = undefined,
+    destDir = undefined,
+    options = undefined,
+    filename = undefined,
+    ...rest
+  } = {}) {
+    /**
+     * The url to download
+     * @type {string}
+     */
+    this.url = url;
+    /**
+     * Directory path for temporary files
+     * @type {string}
+     */
+    this.tempDir = tempDir;
+    /**
+     * Directory path for final downloaded files
+     * @type {string}
+     */
+    this.destDir = destDir;
+    /**
+     * @type {ContentOptions}
+     */
+    this.options = options;
+    /**
+     * Optional override of the name for the downloaded file
+     * @type {string?}
+     */
+    this.filename = filename;
+    
+		Object.assign(this, rest);
+  }
+}
+
 /**
  * Downloads a batch of urls to a target directory.
  * Existing files will be compared for date and size.
@@ -38,7 +76,7 @@ export class MediaDownloader {
    * before/after all downloads start/complete. If anything fails during,
    * the downloads, `options.dest` will remain untouched.
    *
-   * @param {Iterable<string>} urls
+   * @param {Iterable<string|Object>} urls
    * @param {ContentOptions} options
    */
   async sync(urls, options) {
@@ -95,7 +133,9 @@ export class MediaDownloader {
       // make functions which return async functions
       // that will download a url when executed
       let tasks = uniqueUrls.map((urlString) => async () => {
-        return this.download(urlString, tempDir, destDir, options)
+        return this.download(new MediaDownloaderTask({
+          url: urlString, tempDir, destDir, options
+        }))
           .then(async (tempFilePath) => {
             progress.update(++numCompleted);
             return {
@@ -177,19 +217,19 @@ export class MediaDownloader {
   }
   
   /**
-   * @param {string} urlString 
-   * @param {string} tempDir 
-   * @param {string} destDir 
-   * @param {ContentOptions} options 
-   * @returns @type {Promise<string>} Resolves with the downloaded file path
+   * @param {MediaDownloaderTask} task
+   * @returns {Promise<string>} Resolves with the downloaded file path
    */
-  async download(urlString, tempDir, destDir, options) {
+  async download(task) {
     try {
-      let relativePath = new URL(urlString).pathname.replace(options.strip, '');
-      let destPath = path.join(destDir, relativePath);
-      let tempFilePath = path.join(tempDir, relativePath);
+      let relativePath = new URL(task.url).pathname.replace(task.options.strip, '');
+      let filename = path.basename(relativePath);
+      let destPath = path.join(task.destDir, relativePath);
+      let tempFilePath = path.join(task.tempDir, relativePath);
       let tempFilePathDir = path.dirname(tempFilePath);
       let isCached = false;
+      
+      // this.logger.info(filename);
       
       fs.ensureDirSync(tempFilePathDir);
       
@@ -197,27 +237,27 @@ export class MediaDownloader {
       const stats = exists ? fs.lstatSync(destPath) : null;
       
       // check for cached image first
-      if (!options.ignoreCache && exists && stats.isFile()) {
+      if (!task.options.ignoreCache && exists && stats.isFile()) {
         let response = null;
         
-        if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
+        if (task.options.enableIfModifiedSinceCheck || task.options.enableContentLengthCheck) {
           // Get just the file header to check for modified date and file size
-          response = await got.head(urlString, {
+          response = await got.head(task.url, {
             headers: this._getRequestHeaders(destPath),
             timeout: {
-              response: options.maxTimeout
+              response: task.options.maxTimeout
             }
           });
         }
         
         let isRemoteNew = false;
         
-        if (options.enableIfModifiedSinceCheck) {
+        if (task.options.enableIfModifiedSinceCheck) {
           // Remote file has been modified since the local file changed
           isRemoteNew = isRemoteNew || (response.statusCode !== 304);
         }
         
-        if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
+        if (task.options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
           // Remote file has a different size than the local file
           const remoteSize = parseInt(response.headers['content-length']);
           const localSize  = stats.size;
@@ -234,9 +274,9 @@ export class MediaDownloader {
       // download new or modified file
       if (!isCached) {
         await pipeline(
-          got.stream(urlString, {
+          got.stream(task.url, {
             timeout: {
-              response: options.maxTimeout
+              response: task.options.maxTimeout
             },
           }),
           fs.createWriteStream(tempFilePath)
@@ -244,13 +284,13 @@ export class MediaDownloader {
       }
       
       // apply optional transforms
-      await this._transformImage(tempFilePath, tempFilePathDir, options.imageTransforms, options.ignoreImageTransformErrors);
+      await this._transformImage(tempFilePath, task.options.imageTransforms, task.options.ignoreImageTransformErrors);
       
       return Promise.resolve(tempFilePath);
       
     } catch (error) {
       return Promise.reject(
-        new Error(`Download failed for ${urlString} due to error (${error.message || error})`)
+        new Error(`Download failed for ${task.url} due to error (${error.message || error})`)
       );
     }
   }
@@ -258,34 +298,32 @@ export class MediaDownloader {
   /**
    * 
    * @param {string} tempFilePath 
-   * @param {string} tempFilePathDir 
    * @param {Array<Object>} imageTransforms 
    * @param {boolean} ignoreErrors
    */
-  async _transformImage(tempFilePath, tempFilePathDir, imageTransforms = [], ignoreErrors = true) {
+  async _transformImage(tempFilePath, imageTransforms = [], ignoreErrors = true) {
     for (const transform of imageTransforms) {
       try {
-        const filename = path.basename(tempFilePath);
-        const extension = path.extname(tempFilePath);
-        const filenameNoExt = filename.slice(0, -extension.length);
         const image = sharp(tempFilePath);
         const metadata = await image.metadata();
-        let outputPath = path.join(tempFilePathDir, `${filenameNoExt}`);
+        let suffix = '';
         
         if (transform.scale) {
-          outputPath += `@${transform.scale}x`;
+          suffix += `@${transform.scale}x`;
           await this._scaleImage(image, metadata, transform.scale);
         }
-        else if (transform.resize) {
-          outputPath += `@${transform.resize.width}x${transform.resize.height}`;
+        
+        if (transform.resize) {
+          suffix += `@${transform.resize.width}x${transform.resize.height}`;
           if (transform.resize.fit) {
-            outputPath += `-${transform.resize.fit}`;
+            suffix += `-${transform.resize.fit}`;
           }
           await this._resizeImage(image, metadata, transform.resize);
         }
-
-        await image.toFile(`${outputPath}${extension}`);
-
+        
+        const outputPath = FileUtils.addFilenameSuffix(tempFilePath, suffix);
+        await image.toFile(outputPath);
+        
       } catch (err) {
         if (!ignoreErrors) {
           this.logger.error(`Couldn't transform image ${tempFilePath}`);

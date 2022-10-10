@@ -22,11 +22,11 @@ import ContentTransform from './content-transforms/content-transform.js';
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 
 export class ContentSourceTypes {
-  static airtable = 'airtable';
   static json = 'json';
+  static airtable = 'airtable';
   static contentful = 'contentful';
-  static strapi = 'strapi';
   static sanity = 'sanity';
+  static strapi = 'strapi';
 }
 
 export class LaunchpadContent {
@@ -249,7 +249,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getDownloadPath(source = null) {
     if (source) {
@@ -261,7 +261,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getTempPath(source = null) {
     const downloadPath = this._config.downloadPath;
@@ -276,7 +276,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getBackupPath(source = null) {
     const downloadPath = this._config.downloadPath;

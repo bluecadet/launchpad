@@ -147,7 +147,7 @@ export class WindowInfo {
 
 /**
  * @param {*} hwnd 
- * @returns @type {string}
+ * @returns {string}
  */
  export const getWindowName = (hwnd) => {
 	const buffer = Buffer.alloc(255);
@@ -157,7 +157,7 @@ export class WindowInfo {
 
 /**
  * @param {*} hwnd 
- * @returns @type {boolean} If the specified window, its parent window, its parent's parent window, and so forth, have the WS_VISIBLE style, the return value is nonzero. Otherwise, the return value is zero.
+ * @returns {boolean} If the specified window, its parent window, its parent's parent window, and so forth, have the WS_VISIBLE style, the return value is nonzero. Otherwise, the return value is zero.
 
 Because the return value specifies whether the window has the WS_VISIBLE style, it may be nonzero even if the window is totally obscured by other windows.
  */
@@ -257,7 +257,7 @@ export const getWindowPlacement = function (hwnd) {
 
 /**
  * @param {*} hwnd 
- * @returns @type {number}
+ * @returns {number}
  */
 export const getWindowPid = (hwnd) => {
 	const buffer = ref.alloc(lpdwordPtr);

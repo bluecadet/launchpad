@@ -1,5 +1,12 @@
 # @bluecadet/launchpad-dashboard
 
+## 1.2.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [[`f9b2140`](https://github.com/bluecadet/launchpad/commit/f9b21407af6d4f874473eed860e7a925475b7e41)]:
+  - @bluecadet/launchpad-utils@1.2.1-next.0
+
 ## 1.2.0
 
 ### Minor Changes

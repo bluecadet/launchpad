@@ -257,7 +257,14 @@ export class MediaDownloader {
       }
       
       // apply optional transforms
-      await this._transformImage(tempFilePath, options.imageTransforms, options.ignoreImageTransformErrors);
+      const ignoreTransformCache = options.ignoreImageTransformCache || !isCached;
+      await this._transformImage(
+        tempFilePath,
+        destPath,
+        options.imageTransforms,
+        options.ignoreImageTransformErrors,
+        ignoreTransformCache
+      );
       
       return Promise.resolve(tempFilePath);
       
@@ -270,20 +277,23 @@ export class MediaDownloader {
   
   /**
    * 
-   * @param {string} tempFilePath 
-   * @param {Array<Object>} imageTransforms 
-   * @param {boolean} ignoreErrors
+   * @param {string} tempFilePath The file path of the image to transform
+   * @param {string} cachedFilePath The path where the previous image would be cached
+   * @param {Array<Object>} transforms Array of image transform objects
+   * @param {boolean} ignoreErrors Silently fails if set to true (helpful if your media folder contains non-image files like 3D models)
+   * @param {boolean} ignoreCache Set to true to force creating a new image for each transform, even if it already exists under that name.
    */
-  async _transformImage(tempFilePath, imageTransforms = [], ignoreErrors = true) {
-    for (const transform of imageTransforms) {
+  async _transformImage(tempFilePath, cachedFilePath, transforms = [], ignoreErrors = true, ignoreCache = false) {
+    for (const transform of transforms) {
       try {
         const image = sharp(tempFilePath);
         const metadata = await image.metadata();
+        const operations = [];
         let suffix = '';
         
         if (transform.scale) {
           suffix += `@${transform.scale}x`;
-          await this._scaleImage(image, metadata, transform.scale);
+          operations.push(async () => this._scaleImage(image, metadata, transform.scale));
         }
         
         if (transform.resize) {
@@ -291,18 +301,35 @@ export class MediaDownloader {
           if (transform.resize.fit) {
             suffix += `-${transform.resize.fit}`;
           }
-          await this._resizeImage(image, metadata, transform.resize);
+          operations.push(async () => this._resizeImage(image, metadata, transform.resize));
+        }
+        
+        if (transform.blur) {
+          suffix += `@blur_${transform.blur}`;
+          operations.push(async () => this._blurImage(image, metadata, transform.blur));
         }
         
         const outputPath = FileUtils.addFilenameSuffix(tempFilePath, suffix);
-        await image.toFile(outputPath);
+        const cachedPath = FileUtils.addFilenameSuffix(cachedFilePath, suffix);
+        
+        if (!ignoreCache && suffix.length > 0 && fs.existsSync(cachedPath)) {
+          this.logger.debug(`Using cached trasnformed image ${path.basename(outputPath)}`);
+          await fs.copyFile(cachedPath, outputPath);
+          
+        } else {
+          this.logger.debug(`Saving new transformed image ${path.basename(outputPath)}`);
+          for (const operation of operations) {
+            await operation();
+          }
+          await image.toFile(outputPath);
+        }
         
       } catch (err) {
-        if (!ignoreErrors) {
+        // if (!ignoreErrors) {
           this.logger.error(`Couldn't transform image ${tempFilePath}`);
           this.logger.error(err);
           throw err;
-        }
+        // }
       }
     }
   }
@@ -325,13 +352,22 @@ export class MediaDownloader {
    *
    * @param {sharp.Sharp} image
    * @param {sharp.Metadata} metadata
-   * @param {object} resize, obtions object for Sharp resize()
+   * @param {object} options Options for Sharp resize()
    * @returns {Promise<sharp.Sharp>}
    */
-  _resizeImage(image, metadata, resize) {
-    return image.resize(
-      resize
-    );
+  _resizeImage(image, metadata, options) {
+    return image.resize(options);
+  }
+
+  /**
+   *
+   * @param {sharp.Sharp} image
+   * @param {sharp.Metadata} metadata
+   * @param {object} amount Amount of blur in px
+   * @returns {Promise<sharp.Sharp>}
+   */
+  _blurImage(image, metadata, amount) {
+    return image.blur(amount);
   }
 
   _getRequestHeaders(filePath) {

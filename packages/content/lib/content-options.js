@@ -124,6 +124,12 @@ export class ContentOptions {
     this.abortOnError = abortOnError;
     
     /** 
+     * Set to true to always re-generate transformed images, even if cached versions of the original and transformed image already exist. Off by default.
+     * @type {boolean}
+     */
+    this.ignoreImageTransformCache = false;
+     
+    /** 
      * Set to false if you want to abort a content source from downloading if any of the image transforms fail. Leaving this to true will allow for non-image files to fail quietly.
      * @type {boolean}
      */

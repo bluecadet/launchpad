@@ -5,7 +5,7 @@
 import Constants from '../utils/constants.js';
 import JsonUtils from '../utils/json-utils.js';
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import got from 'got';
 import { Logger } from '@bluecadet/launchpad-utils';
 
@@ -77,7 +77,7 @@ class JsonSource extends ContentSource {
   async _scrapeMediaUrls(result) {
     for (const dataFile of result.dataFiles) {
       const mediaUrls = JsonUtils.getUrls(dataFile.content, null, this.config.mediaPattern);
-      result.addMediaUrls(mediaUrls);
+      result.addMediaDownloads([...mediaUrls].map(url => new MediaDownload({url})));
     }
     return result;
   }

@@ -37,7 +37,7 @@ export default class FileUtils {
      * Throws an error if the dir doesn't exist.
      * Returns null if the dir doesn't contain any files.
      * 
-     * @returns @type {string?}
+     * @returns {string?}
      */
     static getNewestFilePath(dirPath) {
         dirPath = path.resolve(dirPath);
@@ -130,6 +130,19 @@ export default class FileUtils {
             console.error(`Could check if dir is empty: '${dirPath}'`);
             return false;
         }
+    }
+    
+    /**
+    * Applies a suffix to a filename before the file extension
+    * @param {string} filePath The full or relative path to a file
+    * @returns {string} The same path, with the suffix applied before the file extension
+    */
+    static addFilenameSuffix(filePath, suffix = '') {
+        const dirname = path.dirname(filePath);
+        const filename = path.basename(filePath);
+        const extension = path.extname(filePath);
+        const filenameNoExt = filename.slice(0, -extension.length);
+        return `${path.join(dirname, filenameNoExt)}${suffix}${extension}`;
     }
 
     // static async copyFile(sourcePath, destPath) {

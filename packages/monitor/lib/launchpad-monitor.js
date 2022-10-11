@@ -261,7 +261,7 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @returns @type {Array.<string>} An array containing the names of all configured apps (not to be confused with running processes).
+	 * @returns {Array.<string>} An array containing the names of all configured apps (not to be confused with running processes).
 	 */
 	getAllAppNames() {
 		if ('apps' in this._config) {
@@ -316,7 +316,7 @@ export class LaunchpadMonitor {
 	/**
 	 * @param {string} appName 
 	 * @param {boolean} silent Disables error output if process info can't be retrieved. Defaults to true. 
-	 * @returns @type {Promise<boolean>}
+	 * @returns {Promise<boolean>}
 	 */
 	async _isAppRunning(appName, silent = true) {
 		return this.getAppProcess(appName, silent)
@@ -349,7 +349,7 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * @param @type {string|string[]|null} appNames 
-	 * @returns @type {string[]}
+	 * @returns {string[]}
 	 */
 	_validateAppNames(appNames = null) {
 		if (appNames === null || appNames === undefined) {

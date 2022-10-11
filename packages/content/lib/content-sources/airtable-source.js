@@ -4,7 +4,7 @@
 
 import Airtable from 'airtable';
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 
@@ -180,7 +180,9 @@ export class AirtableSource extends ContentSource {
 
     // Gather attachments
     if (!isKeyValueTable) {
-      result.addMediaUrls(this._getMediaUrls(simpData));
+      result.addMediaDownloads(
+        this._getMediaUrls(simpData).map(url => new MediaDownload({url}))
+      );
     }
 
     const simpDataPath = tableId + '.json';

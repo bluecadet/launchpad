@@ -1,4 +1,4 @@
-import LaunchpadCore from '@bluecadet/launchpad-core';
+import LaunchpadCore from '@bluecadet/launchpad';
 import { ConfigManager, launchFromCli } from '@bluecadet/launchpad-utils';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {

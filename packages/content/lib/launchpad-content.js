@@ -439,16 +439,13 @@ export class LaunchpadContent {
           const transformIdStr = chalk.yellow(transformId);
           const pathStr = chalk.yellow(path);
           const localPathStr = chalk.yellow(resultData.localPath);
+          const transformer = this._contentTransforms.get(transformId);
           
           try {
             this._logger.debug(
               chalk.gray(`Applying content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)
-            );
-            jsonpath.apply(
-              resultData.content,
-              path,
-              this._contentTransforms.get(transformId).transform
-            );
+              );
+            jsonpath.apply(resultData.content, path, transformer.transform);
           } catch (error) {
             this._logger.error(
               chalk.red(`Could not apply content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)

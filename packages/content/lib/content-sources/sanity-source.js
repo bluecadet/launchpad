@@ -278,9 +278,9 @@ class SanitySource extends ContentSource {
     if (config?.textConverters?.length > 0) {
       const exampleQuery = `\t"contentTransforms": {\n\t  "$..*[?(@._type=='block')]": ["sanityToPlain", "sanityToHtml", "sanityToMarkdown"]\n\t}`;
       this.logger.warn(
-        `The "${chalk.red(
+        `The Sanity source "${chalk.yellow(
           'textConverters'
-        )}" feature has been depcrecated.\n\tPlease use the following query instead (select only one transform):\n${chalk.green(
+        )}" feature has been deprecated. Please use the following query instead (select only one transform):\n${chalk.green(
           exampleQuery
         )}`
       );

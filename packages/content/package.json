@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-content",
-  "version": "1.5.0-next.0",
+  "version": "1.5.0",
   "description": "Content syncing pipeline for various sources",
   "main": "index.js",
   "bin": "index.js",
@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.2.1-next.0",
+    "@bluecadet/launchpad-utils": "~1.2.1",
     "@portabletext/to-html": "^1.0.3",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.3.2",

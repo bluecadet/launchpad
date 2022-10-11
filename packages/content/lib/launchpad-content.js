@@ -21,6 +21,9 @@ import ContentTransform from './content-transforms/content-transform.js';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-sources/content-result.js';
+import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
+import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
+import SanityToMarkdownTransform from './content-transforms/sanity-to-markdown.js';
 
 export class ContentSourceTypes {
   static json = 'json';
@@ -75,6 +78,12 @@ export class LaunchpadContent {
     this._mediaDownloader = new MediaDownloader(this._logger);
     this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
     this._contentTransforms.set('mdToHtmlSimplified', new MdToHtmlTransform(true));
+    this._contentTransforms.set('markdownToHtml', new MdToHtmlTransform(false));
+    this._contentTransforms.set('markdownToHtmlSimplified', new MdToHtmlTransform(true));
+    this._contentTransforms.set('sanityToPlain', new SanityToPlainTransform());
+    this._contentTransforms.set('sanityToHtml', new SanityToHtmlTransform());
+    this._contentTransforms.set('sanityToMd', new SanityToMarkdownTransform());
+    this._contentTransforms.set('sanityToMarkdown', new SanityToMarkdownTransform());
     
     if (this._config.credentialsPath) {
       try {

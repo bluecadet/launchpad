@@ -294,6 +294,11 @@ export class MediaDownloader {
           await this._resizeImage(image, metadata, transform.resize);
         }
         
+        if (transform.blur) {
+          suffix += `@blur_${transform.blur}`;
+          await this._blurImage(image, metadata, transform.blur);
+        }
+        
         const outputPath = FileUtils.addFilenameSuffix(tempFilePath, suffix);
         await image.toFile(outputPath);
         
@@ -325,13 +330,22 @@ export class MediaDownloader {
    *
    * @param {sharp.Sharp} image
    * @param {sharp.Metadata} metadata
-   * @param {object} resize, obtions object for Sharp resize()
+   * @param {object} options Options for Sharp resize()
    * @returns {Promise<sharp.Sharp>}
    */
-  _resizeImage(image, metadata, resize) {
-    return image.resize(
-      resize
-    );
+  _resizeImage(image, metadata, options) {
+    return image.resize(options);
+  }
+
+  /**
+   *
+   * @param {sharp.Sharp} image
+   * @param {sharp.Metadata} metadata
+   * @param {object} amount Amount of blur in px
+   * @returns {Promise<sharp.Sharp>}
+   */
+  _blurImage(image, metadata, amount) {
+    return image.blur(amount);
   }
 
   _getRequestHeaders(filePath) {

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.6.0
+
+### Minor Changes
+
+- [#62](https://github.com/bluecadet/launchpad/pull/62) [`a4132da`](https://github.com/bluecadet/launchpad/commit/a4132da0187f669ad95251e2f3903229e87d6123) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added caching and blur to image transforms
+
 ## 1.5.0
 
 ### Minor Changes

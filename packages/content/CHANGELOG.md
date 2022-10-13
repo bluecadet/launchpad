@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.7.0
+
+### Minor Changes
+
+- [`f3c7916`](https://github.com/bluecadet/launchpad/commit/f3c79169001dd157c7e3bce24da41409a3906d53) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Simplified json url parsing for better efficiency with large files
+
 ## 1.6.0
 
 ### Minor Changes

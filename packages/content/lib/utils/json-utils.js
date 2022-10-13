@@ -1,10 +1,17 @@
 import getUrls from 'get-urls';
 
 class JsonUtils {
-    // static getUrls(json, options, include = /.+(.jpg|.jpeg|.png)/ig, excludes = /.*/ig) {
+    /**
+     * Parses URLs from json object using include/exclude regexps
+     * @param {JSON} json 
+     * @param {Object} options 
+     * @param {RegExp|string} include 
+     * @param {RegExp|string} exclude 
+     * @returns {Set<string>}
+     */
     static getUrls(json, options, include, exclude) {
-        let urls = new Set();
-        let config = this.getUrlOptions(options);
+        const urls = new Set();
+        const config = this.getUrlOptions(options);
         
         // convert include/exclude to regexp (e.g. if they're strings)
         if (include) {
@@ -13,22 +20,17 @@ class JsonUtils {
         if (exclude) {
             exclude = new RegExp(exclude);
         }
-        
-        this.forEachLeaf(json, (value) => {
-            if (!this.isString(value)) {
-                return; // only parse strings
+
+        const possibleUrls = getUrls(JSON.stringify(json), config);
+        for (const url of possibleUrls) {
+            if (include && (include instanceof RegExp) && !url.match(include)) {
+                continue; // url doesn't match include
             }
-            const possibleUrls = getUrls(value, config);
-            for (const url of possibleUrls) {
-                if (include && (include instanceof RegExp) && !url.match(include)) {
-                    continue; // url doesn't match include
-                }
-                if (exclude && (exclude instanceof RegExp) && url.match(exclude)) {
-                    continue; // url matches exclude
-                }
-                urls.add(url);
+            if (exclude && (exclude instanceof RegExp) && url.match(exclude)) {
+                continue; // url matches exclude
             }
-        });
+            urls.add(url);
+        }
         return urls;
     }
 

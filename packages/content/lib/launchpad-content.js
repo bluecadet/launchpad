@@ -20,13 +20,17 @@ import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
 import ContentTransform from './content-transforms/content-transform.js';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import ContentResult from './content-sources/content-result.js';
+import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
+import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
+import SanityToMarkdownTransform from './content-transforms/sanity-to-markdown.js';
 
 export class ContentSourceTypes {
-  static airtable = 'airtable';
   static json = 'json';
+  static airtable = 'airtable';
   static contentful = 'contentful';
-  static strapi = 'strapi';
   static sanity = 'sanity';
+  static strapi = 'strapi';
 }
 
 export class LaunchpadContent {
@@ -74,6 +78,12 @@ export class LaunchpadContent {
     this._mediaDownloader = new MediaDownloader(this._logger);
     this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
     this._contentTransforms.set('mdToHtmlSimplified', new MdToHtmlTransform(true));
+    this._contentTransforms.set('markdownToHtml', new MdToHtmlTransform(false));
+    this._contentTransforms.set('markdownToHtmlSimplified', new MdToHtmlTransform(true));
+    this._contentTransforms.set('sanityToPlain', new SanityToPlainTransform());
+    this._contentTransforms.set('sanityToHtml', new SanityToHtmlTransform());
+    this._contentTransforms.set('sanityToMd', new SanityToMarkdownTransform());
+    this._contentTransforms.set('sanityToMarkdown', new SanityToMarkdownTransform());
     
     if (this._config.credentialsPath) {
       try {
@@ -217,7 +227,7 @@ export class LaunchpadContent {
         this._logger.debug(`Backing up ${source}`);
         await fs.copy(downloadPath, backupPath, {preserveTimestamps: true});
       } catch (err) {
-        this._logger.error(`Couldn't back up ${source}:`, err);
+        this._logger.warn(`Couldn't back up ${source}:`, err);
       }
     }
   }
@@ -249,7 +259,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getDownloadPath(source = null) {
     if (source) {
@@ -261,7 +271,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getTempPath(source = null) {
     const downloadPath = this._config.downloadPath;
@@ -276,7 +286,7 @@ export class LaunchpadContent {
   
   /**
    * @param {ContentSource} source 
-   * @returns @type {string}
+   * @returns {string}
    */
   getBackupPath(source = null) {
     const downloadPath = this._config.downloadPath;
@@ -367,10 +377,10 @@ export class LaunchpadContent {
    *
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _downloadMedia(source, result) {
-    await this._mediaDownloader.sync(result.mediaUrls, new ContentOptions({
+    await this._mediaDownloader.sync(result.mediaDownloads, new ContentOptions({
       ...this._config,
       ...source.config,
       ...{
@@ -386,7 +396,7 @@ export class LaunchpadContent {
    * Saves a result's data file to a local path
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _saveDataFiles(source, result) {
     for (const resultData of result.dataFiles) {
@@ -409,7 +419,7 @@ export class LaunchpadContent {
    * Saves a result's data file to a local path
    * @param {ContentSource} source
    * @param {ContentResult} result
-   * @returns {ContentResult}}
+   * @returns {ContentResult}
    */
   async _applyContentTransforms(source, result) {
     const transforms = source.config.contentTransforms || this.config.contentTransforms;
@@ -429,16 +439,13 @@ export class LaunchpadContent {
           const transformIdStr = chalk.yellow(transformId);
           const pathStr = chalk.yellow(path);
           const localPathStr = chalk.yellow(resultData.localPath);
+          const transformer = this._contentTransforms.get(transformId);
           
           try {
             this._logger.debug(
               chalk.gray(`Applying content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)
-            );
-            jsonpath.apply(
-              resultData.content,
-              path,
-              this._contentTransforms.get(transformId).transform
-            );
+              );
+            jsonpath.apply(resultData.content, path, transformer.transform);
           } catch (error) {
             this._logger.error(
               chalk.red(`Could not apply content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)

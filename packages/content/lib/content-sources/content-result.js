@@ -1,4 +1,4 @@
-class ContentResultDataFile {
+export class DataFile {
   /**
 	 * The relative local path where the file should be saved.
    * @type {string}
@@ -9,17 +9,17 @@ class ContentResultDataFile {
    * @type {*}
    */
   content = '';
-	
+
 	/**
-	 * 
-	 * @param {string} localPath 
-	 * @param {string|JSON|Object|Array} content 
+	 *
+	 * @param {string} localPath
+	 * @param {string|JSON|Object|Array} content
 	 */
 	constructor(localPath, content) {
 		this.localPath = localPath;
 		this.content = content;
 	}
-	
+
 	/**
 	 * Returns the raw content if it's already a string,
 	 * otherwise returns the result of JSON.stringify(this.content).
@@ -35,52 +35,128 @@ class ContentResultDataFile {
 		}
 	}
 }
+export class MediaDownload {
+  constructor({
+    url,
+		localPath = undefined,
+    ...rest
+  } = {}) {
+    /**
+     * The url to download
+     * @type {string}
+     */
+    this.url = url;
+    
+    /**
+     * The path of this asset relative to this source's root asset dir.
+		 * Can optionally be overriden to save this file at another location.
+     */
+    this.localPath = localPath || new URL(this.url).pathname;
+    
+		Object.assign(this, rest);
+  }
+	
+	/**
+	 * Returns a string unique to this URL and relative path.
+	 * Helpful for checking against duplicate download tasks.
+	 * @returns {string}
+	 */
+	 getKey() {
+		return `${this.url}_${this.localPath}`;
+	}
+}
 
-class ContentResult {
+export class ContentResult {
+
+	/**
+   * List of data files to save
+   * @type {Array<ContentResult>}
+   */
+	static combine(results) {
+		let finalResult = results.reduce((previousValue, currentValue) => {
+			previousValue.addDataFiles(currentValue.dataFiles);
+			previousValue.addMediaDownloads(currentValue.mediaDownloads);
+			return previousValue;
+		}, new ContentResult());
+
+		return finalResult;
+	}
+
   /**
    * List of data files to save
-   * @type {Array<ContentResultDataFile>}
+   * @type {Array<DataFile>}
    */
   dataFiles = [];
 
   /**
-   * List of URLs to download
-   * @type {Array<string>}
+   * List of media to download
+   * @type {Array<MediaDownload>}
    */
-  mediaUrls = [];
-	
+  mediaDownloads = [];
+
 	/**
-	 * @param {Array<ContentResultDataFile>} dataFiles All the data files and their contents that should be saved
-	 * @param {Array<string>} mediaUrls All the media files that should be saved
+	 * @param {Array<DataFile>} dataFiles All the data files and their contents that should be saved
+	 * @param {Array<MediaDownload>} mediaDownloads All the media files that should be saved
 	 */
-	constructor(dataFiles = [], mediaUrls = []) {
+	constructor(dataFiles = [], mediaDownloads = []) {
 		this.dataFiles = dataFiles;
-		this.mediaUrls = mediaUrls;
+		this.mediaDownloads = mediaDownloads;
 	}
-	
+
 	/**
-	 * 
-	 * @param {string} localPath 
-	 * @param {*} content 
+	 *
+	 * @param {string} localPath
+	 * @param {*} content
 	 */
 	addDataFile(localPath, content) {
-		this.dataFiles.push(new ContentResultDataFile(localPath, content));
+		this.dataFiles.push(new DataFile(localPath, content));
 	}
-	
+
 	/**
-	 * 
-	 * @param {string} url 
+	 *
+	 * @param {Array<DataFile>} DataFiles
 	 */
-	addMediaUrl(url) {
-		this.mediaUrls.push(url);
+	addDataFiles(DataFiles) {
+		this.dataFiles.push(...DataFiles);
 	}
-	
+
 	/**
-	 * 
-	 * @param {Iterable} files 
+	 *
+	 * @param {MediaDownload} urlOrDownload
 	 */
-	addMediaUrls(files) {
-		this.mediaUrls.push(...files);
+	addMediaDownload(urlOrDownload) {
+		if (typeof myVar === 'string' || myVar instanceof String) {
+			urlOrDownload = new MediaDownload({
+				url: urlOrDownload
+			})
+		}
+		this.mediaDownloads.push(urlOrDownload);
+	}
+
+	/**
+	 *
+	 * @param {Iterable} files
+	 */
+	addMediaDownloads(files) {
+		this.mediaDownloads.push(...files);
+	}
+
+	/**
+	 *
+	 * @param {string} id
+	 */
+	collate(id) {
+
+		// Collect all data into 1 object.
+		let collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
+			return [...previousValue, ...currentValue.content];
+		}, []);
+
+		// Remove old datafiles.
+		this.dataFiles = [];
+
+		const fileName = `${id}.json`;
+		this.addDataFile(fileName, collatedData);
 	}
 }
 

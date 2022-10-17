@@ -1,5 +1,52 @@
 # @bluecadet/launchpad
 
+## 1.2.5
+
+### Patch Changes
+
+- Updated dependencies [[`f3c7916`](https://github.com/bluecadet/launchpad/commit/f3c79169001dd157c7e3bce24da41409a3906d53)]:
+  - @bluecadet/launchpad-content@1.7.0
+
+## 1.2.4
+
+### Patch Changes
+
+- Updated dependencies [[`a4132da`](https://github.com/bluecadet/launchpad/commit/a4132da0187f669ad95251e2f3903229e87d6123)]:
+  - @bluecadet/launchpad-content@1.6.0
+
+## 1.2.3
+
+### Patch Changes
+
+- [#61](https://github.com/bluecadet/launchpad/pull/61) [`f9b2140`](https://github.com/bluecadet/launchpad/commit/f9b21407af6d4f874473eed860e7a925475b7e41) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Refactored media downloads to support alt local paths. Adds support for Sanity image hotspots.
+
+- Updated dependencies [[`f9b2140`](https://github.com/bluecadet/launchpad/commit/f9b21407af6d4f874473eed860e7a925475b7e41)]:
+  - @bluecadet/launchpad-content@1.5.0
+  - @bluecadet/launchpad-monitor@1.2.1
+  - @bluecadet/launchpad-utils@1.2.1
+  - @bluecadet/launchpad-dashboard@1.2.1
+  - @bluecadet/launchpad-scaffold@1.2.1
+
+## 1.2.3-next.0
+
+### Patch Changes
+
+- [#61](https://github.com/bluecadet/launchpad/pull/61) [`f9b2140`](https://github.com/bluecadet/launchpad/commit/f9b21407af6d4f874473eed860e7a925475b7e41) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Refactored media downloads to support alt local paths. Adds support for Sanity image hotspots.
+
+- Updated dependencies [[`f9b2140`](https://github.com/bluecadet/launchpad/commit/f9b21407af6d4f874473eed860e7a925475b7e41)]:
+  - @bluecadet/launchpad-content@1.5.0-next.0
+  - @bluecadet/launchpad-monitor@1.2.1-next.0
+  - @bluecadet/launchpad-utils@1.2.1-next.0
+  - @bluecadet/launchpad-dashboard@1.2.1-next.0
+  - @bluecadet/launchpad-scaffold@1.2.1-next.0
+
+## 1.2.2
+
+### Patch Changes
+
+- Updated dependencies [[`7f93181`](https://github.com/bluecadet/launchpad/commit/7f9318171c7d44ef812243454608d75810895d14), [`c9a66e1`](https://github.com/bluecadet/launchpad/commit/c9a66e1416d49c1447d010ab08b3de9c45b4e0a0)]:
+  - @bluecadet/launchpad-content@1.4.0
+
 ## 1.2.1
 
 ### Patch Changes

@@ -5,14 +5,14 @@
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
 
+import sanityClient from '@sanity/client';
+import imageUrlBuilder from '@sanity/image-url';
+
 import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult from './content-result.js';
+import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
-
-import sanityClient from '@sanity/client';
-import { toHTML } from '@portabletext/to-html';
-import toMarkdown from '@sanity/block-content-to-markdown';
+import FileUtils from '../utils/file-utils.js';
 
 /**
  * Options for SanitySource
@@ -26,14 +26,12 @@ export class SanityOptions extends SourceOptions {
     useCdn = false,
     baseUrl = undefined,
     queries = [],
-    customQueries = [],
-    textConverters = [],
     limit = 100,
     maxNumPages = -1,
+    mergePages = false,
     pageNumZeroPad = 0,
     ...rest
   } = {}) {
-
     super(rest);
 
     /**
@@ -73,18 +71,6 @@ export class SanityOptions extends SourceOptions {
     this.queries = queries;
 
     /**
-     *
-     * @type {Array.<string>}
-     */
-    this.customQueries = customQueries;
-
-    /**
-     *
-     * @type {Array.<string>}
-     */
-    this.textConverters = textConverters;
-
-    /**
      * Max number of entries per page. Default is 100.
      * @type {number}
      */
@@ -95,6 +81,12 @@ export class SanityOptions extends SourceOptions {
      * @type {number}
      */
     this.maxNumPages = maxNumPages;
+
+    /**
+     * To combine paginated files into 1 file.
+     * @type {boolean}
+     */
+    this.mergePages = mergePages;
 
     /**
      * How many zeros to pad each json filename index with. Default is 0
@@ -111,7 +103,6 @@ export class SanityOptions extends SourceOptions {
 }
 
 class SanitySource extends ContentSource {
-
   /**
    *
    * @param {*} config
@@ -120,7 +111,8 @@ class SanitySource extends ContentSource {
   constructor(config, logger) {
     super(SanitySource._assembleConfig(config), logger);
 
-    // Build and init the sanity Client to use here.
+    this._checkConfigDeprecations(this.config);
+
     this.client = sanityClient({
       projectId: this.config.projectId,
       dataset: this.config.dataset,
@@ -134,33 +126,39 @@ class SanitySource extends ContentSource {
    * @returns {Promise<ContentResult>}
    */
   async fetchContent() {
-    const result = new ContentResult();
-
     let queryPromises = [];
     let customQueryPromises = [];
 
-    for (const id of this.config.queries) {
-      let query = '*[_type == "' + id + '" ]';
+    for (const query of this.config.queries) {
+      if (typeof query === 'string' || query instanceof String) {
+        let queryFull = '*[_type == "' + query + '" ]';
+        const result = new ContentResult();
 
-      queryPromises.push(await this._fetchPages(id, query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
+        queryPromises.push(
+          await this._fetchPages(query, queryFull, result, {
+            start: 0,
+            limit: this.config.limit,
+          })
+        );
+      } else {
+        const result = new ContentResult();
+        customQueryPromises.push(
+          await this._fetchPages(query.id, query.query, result, {
+            start: 0,
+            limit: this.config.limit,
+          })
+        );
+      }
     }
 
-    for (const cqd of this.config.customQueries) {
-      customQueryPromises.push(await this._fetchPages(cqd.id, cqd.query, result, {
-        start: 0,
-        limit: this.config.limit
-      }));
-    }
-
-    return Promise.all([...queryPromises, ...customQueryPromises]).then((values) => {
-      return result;
-    }).catch((error) => {
-      this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
-      return error;
-    });
+    return Promise.all([...queryPromises, ...customQueryPromises])
+      .then((values) => {
+        return ContentResult.combine(values);
+      })
+      .catch((error) => {
+        this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
+        return error;
+      });
   }
 
   /**
@@ -173,116 +171,122 @@ class SanitySource extends ContentSource {
    * @param {Object} params
    * @returns {Promise<Object>} Object with an 'entries' and an 'assets' array.
    */
-  async _fetchPages(
-    id,
-    query,
-    result,
-    params = {start: 0, limit: 100},
-  ) {
-
-    const pageNum = params.start / params.limit;
-    const q = query + '[' + params.start + '..' + (params.start + params.limit) + ']';
+  async _fetchPages(id, query, result, params = { start: 0, limit: 100 }) {
+    const pageNum = params.start / params.limit || 0;
+    const q =
+      query +
+      '[' +
+      params.start +
+      '..' +
+      (params.start + params.limit - 1) +
+      ']';
     const p = {};
 
     this.logger.debug(`Fetching page ${pageNum} of ${id}`);
 
-    return this.client.fetch(q, p).then((content) => {
+    return this.client
+      .fetch(q, p)
+      .then((content) => {
+        if (!content || !content.length) {
+          // If we are combining files, we do that here.
+          if (this.config.mergePages) {
+            result.collate(id);
+          }
 
-      if (!content || !content.length) {
-        // Empty result or no more pages left
-        return Promise.resolve(result);
-      }
+          // Empty result or no more pages left
+          return Promise.resolve(result);
+        }
 
-      const fileName = `${id}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
+        const fileName = `${id}-${pageNum
+          .toString()
+          .padStart(this.config.pageNumZeroPad, '0')}.json`;
 
-      content = this._processText(content);
+        result.addDataFile(fileName, content);
+        result.addMediaDownloads(this._getMediaDownloads(content));
 
-      result.addDataFile(fileName, content);
-      result.addMediaUrls(this._getMediaUrls(content));
-
-      if (this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) {
-        // Fetch next page
-        params.start = params.start || 0;
-        params.start += params.limit;
-        return this._fetchPages(id, query, result, params);
-      } else {
-        // Return combined entries + assets
-        return Promise.resolve(result);
-      }
-    })
-    .catch((error) => {
-      this.logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
-      return Promise.reject(error);
-    });
-
+        if (
+          this.config.maxNumPages < 0 ||
+          pageNum < this.config.maxNumPages - 1
+        ) {
+          // Fetch next page
+          params.start = params.start || 0;
+          params.start += params.limit;
+          return this._fetchPages(id, query, result, params);
+        } else {
+          // Return combined entries + assets
+          return Promise.resolve(result);
+        }
+      })
+      .catch((error) => {
+        this.logger.error(
+          chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`)
+        );
+        return Promise.reject(error);
+      });
   }
 
   /**
    *
    * @param {Object} content
-   * @return @type {Array.<string>}
+   * @return @type {Array.<MediaDownload>}
    */
-  _getMediaUrls(content) {
-    const contentUrls = jsonpath.query(content, '$..url');
-    const mediaUrls = [];
-    for (let contentUrl of contentUrls) {
+  _getMediaDownloads(content) {
+    const downloads = [];
+
+    // Get all raw URLs
+    const rawAssetUrls = jsonpath.query(content, '$..url');
+    for (let contentUrl of rawAssetUrls) {
       if (contentUrl.startsWith('/')) {
         const url = new URL(contentUrl, this.config.baseUrl);
         contentUrl = url.toString();
       }
-      mediaUrls.push(contentUrl);
+      downloads.push(
+        new MediaDownload({
+          url: contentUrl,
+        })
+      );
     }
-    return mediaUrls;
-  }
 
-  _processText(content) {
-
-    // Check for processing text.
-    content.forEach((d, j) => {
-
-      Object.keys(d).forEach(key => {
-
-        if (Array.isArray(d[key]) && d[key][0]._type == 'block') {
-
-          this.config.textConverters.forEach((el, i) => {
-
-            switch (el) {
-              case 'toPlainText':
-                content[j][key + '_toPlainText'] = this._toPlainText(d[key]);
-                break;
-              case 'toHtml':
-                content[j][key + '_toHtml'] = toHTML(d[key]);
-                break;
-              case 'toMarkdown':
-                content[j][key + '_toMarkdown'] = toMarkdown(d[key]);
-                break;
-            }
-          });
-        }
+    // Get derivative image URLs for crops/hotspots/etc
+    const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
+    const builder = imageUrlBuilder(this.client);
+    for (let image of images) {
+      if (!image._key) {
+        // _key is only defined for derivative images. Skip if it doesn't exist
+        continue;
+      }
+      const urlBuilder = builder.image(image);
+      const task = new MediaDownload({
+        url: urlBuilder.url(),
       });
+      task.localPath = FileUtils.addFilenameSuffix(
+        task.localPath,
+        `_${image._key}`
+      );
+      downloads.push(task);
+    }
 
-    });
-
-    return content;
+    return downloads;
   }
-
-  _toPlainText(blocks = []) {
-    return blocks
-      // loop through each block
-      .map(block => {
-        // if it's not a text block with children,
-        // return nothing
-        if (block._type !== 'block' || !block.children) {
-          return ''
-        }
-        // loop through the children spans, and join the
-        // text strings
-        return block.children.map(child => child.text).join('')
-      })
-      // join the paragraphs leaving split by two linebreaks
-      .join('\n\n')
+  
+  /**
+   *
+   * @param {*} config
+   * @returns {SanityOptions}
+   */
+  _checkConfigDeprecations(config) {
+    if (config?.textConverters?.length > 0) {
+      const exampleQuery = `\t"contentTransforms": {\n\t  "$..*[?(@._type=='block')]": ["sanityToPlain", "sanityToHtml", "sanityToMarkdown"]\n\t}`;
+      this.logger.warn(
+        `The Sanity source "${chalk.yellow(
+          'textConverters'
+        )}" feature has been deprecated. Please use the following query instead (select only one transform):\n${chalk.green(
+          exampleQuery
+        )}`
+      );
+    }
   }
-
+  
   /**
    *
    * @param {*} config

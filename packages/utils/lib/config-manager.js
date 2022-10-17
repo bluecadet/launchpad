@@ -123,14 +123,14 @@ export class ConfigManager {
 	
 	/**
 	 * @param {string} key 
-	 * @returns @type {boolean} true if the key exists in the config
+	 * @returns {boolean} true if the key exists in the config
 	 */
 	has(key) {
 		return key in this._config;
 	}
 	
 	/**
-	 * @returns @type {boolean} true when loadConfig() has been called successfully.
+	 * @returns {boolean} true when loadConfig() has been called successfully.
 	 */
 	isLoaded() {
 		return this._isLoaded;

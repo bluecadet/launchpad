@@ -17,7 +17,3 @@ For reference, logging levels:
   silly: 6
 }
 ```
-
-
-## How to contribute to Launchpad Utils
-@TODO: Add documentation.

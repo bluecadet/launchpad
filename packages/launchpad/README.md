@@ -1,10 +1,11 @@
 # 🚀 Launchpad
 
-Launchpad is a suite of configuration-driven tools to manage media installations that can:
+Launchpad is a suite of tools to configure, monitor and manage content for media installations.
 
+It can:
 * Launch, control and monitor muiltiple processes (via PM2)
 * Download and locally cache content from various common web APIs
-* Bootstrap exhibition PCs running Windows 10 with common exhibit settings
+* Bootstrap PCs running Windows 8/10/11 with common exhibit settings
 * Consolidate and route application logs
 
 <details>
@@ -217,19 +218,19 @@ Each of these packages can be launched independently (except for utils), so if y
 
 ## Requirements
 
-Launchpad requires Node 16+, but Node 17.5.0+ is recommended for better Windows API integration and workspaces support.
+Launchpad requires Node 17.5.0+ for Windows API integration and workspaces support.
 
 We recommend installing Node via [nvm-windows](https://github.com/coreybutler/nvm-windows):
 
 ```
-nvm install 17.5.0
-nvm use 17.5.0
+nvm install latest
+nvm use latest
 ```
 
 If you run into issues installing subpackages, try upgrading `npm` to version `8.5.1` or above.
 
 ```
-npm i -g npm@8.5.1
+npm i -g npm@latest
 ```
 
 ## Roadmap

@@ -73,8 +73,3 @@ Below is an example for Airtable, Contentful, Sanity and Strapi sources:
   }
 }
 ```
-
-## How to contribute to Launchpad Core
-
-In order to add a new source you must
-@TODO: Add documentation.

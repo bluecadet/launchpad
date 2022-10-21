@@ -100,7 +100,6 @@ export class CommandCenter {
 	 * @param {string} commandName 
 	 * @param {function():Promise} before Called before the command is run
 	 * @param {function():Promise} after Called after the command was run
-	 * @returns 
 	 */
 	addHook(commandName, before = null, after = null) {
 		if (!this._commands.has(commandName)) {

@@ -1,8 +1,7 @@
 /**
- * @module content-options
+ * @module launchpad-content/content-options
  */
 
-import Constants from './utils/constants.js';
 import { SourceOptions } from './content-sources/content-source.js';
 
 /**
@@ -12,8 +11,8 @@ export class ContentOptions {
   constructor({
     credentialsPath = '.credentials.json',
     downloadPath = '.downloads/',
-    tempPath = `${Constants.DOWNLOAD_PATH_TOKEN}/.tmp/`,
-    backupPath = `${Constants.DOWNLOAD_PATH_TOKEN}/.backups/`,
+    tempPath = `%DOWNLOAD_PATH%/.tmp/`,
+    backupPath = `%DOWNLOAD_PATH%/.backups/`,
     backupAndRestore = true,
     maxConcurrent = 4,
     maxTimeout = 30000,

@@ -16,11 +16,13 @@ export class MonitorOptions {
 		 * @type {Array<AppOptions>}
 		 */
 		this.apps = apps;
+		
 		/**
 		 * Set this to true to delete existing PM2 processes before connecting.
 		 * @type {boolean}
 		 */
 		this.deleteExistingBeforeConnect = deleteExistingBeforeConnect;
+		
 		/**
 		 * Settings specific to using the Windows API for things like setting
 		 * foreground/minimized/hidden windows.

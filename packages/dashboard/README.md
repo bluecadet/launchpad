@@ -1,3 +1,3 @@
-@TODO: Add documentation.
+# Launchpad Dashboard
 
-[More Details](/docs/dashboard.md)
+This package is WIP. More to come.

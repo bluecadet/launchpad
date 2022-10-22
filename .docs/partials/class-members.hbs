@@ -1,6 +1,7 @@
 
-{{#class name=className}}
+{{#class name=name}}
 ## {{name}} Parameters
+{{#if description}}{{~description~}}{{/if}}
 | Property | Type | Description |
 | - | - | - |
 {{#children inherited=undefined ~}}| <a name="{{{anchorName}}}">{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}}
@@ -14,6 +15,6 @@
 {{#if @suffix}} {{@suffix}}{{/if~}}
 {{{@depClose}~}}
 {{~/sig}}{{/if~}}
-{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | {{#linebreaksToBr}}{{~description~}}{{/linebreaksToBr}} |
+{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | {{#linebreaks-to-br}}{{~description~}}{{/linebreaks-to-br}} |
 {{/children~}}
 {{/class}}

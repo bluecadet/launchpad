@@ -2,6 +2,7 @@
 
 
 ## SanityOptions Parameters
+Options for SanitySource
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_sanity-source.SanityOptions+apiVersion">`apiVersion`</a> |  <code>string</code>| API Version |

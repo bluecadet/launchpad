@@ -1,5 +1,5 @@
 {
-  "watch": [".docs", "**/.docs", "packages/**/*"],
+  "watch": ["packages/", ".docs"],
   "ext": "js,mjs,json,hbs",
 	"ignore": [
     ".git",

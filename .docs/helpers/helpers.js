@@ -11,4 +11,5 @@
  */
 exports.linebreaksToBr = function (options) {
   return options.fn(this).replace(/(?:\r\n|\r|\n)/g, '<br>');
-}
+};
+exports['linebreaks-to-br'] = exports.linebreaksToBr;

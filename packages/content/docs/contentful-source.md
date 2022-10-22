@@ -2,6 +2,9 @@
 
 
 ## ContentfulOptions Parameters
+Configuration options for the Contentful ContentSource.
+
+Also supports all fields of the Contentful SDK&#x27;s config.
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_contentful-source.ContentfulOptions+space">`space`</a> |  <code>string</code>| Your Contentful space ID. Note that credentials.json will require an accessToken in addition to this |

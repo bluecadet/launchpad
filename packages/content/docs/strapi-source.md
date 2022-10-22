@@ -2,6 +2,7 @@
 
 
 ## StrapiOptions Parameters
+Options for StrapiSource
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_strapi-source.StrapiOptions+version">`version`</a> |  <code>string</code>| Only version 3 is supported currently. Defaults to &#x27;3&#x27; |

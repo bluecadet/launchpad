@@ -29,6 +29,7 @@ All images contained in these json files will be downloaded while retaining the 
 
 
 ## JsonOptions Parameters
+
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_json-source.JsonOptions+mediaPattern">`mediaPattern`</a> |  <code>RegExp</code>| Regex for media files that should be downloaded from json sources |

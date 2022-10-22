@@ -2,6 +2,7 @@
 
 
 ## AirtableOptions Parameters
+Options for AirtableSource
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_airtable-source.AirtableOptions+baseId">`baseId`</a> |  <code>string</code>| Airtable base ID. @see https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text&#x3D;To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base. |

@@ -104,6 +104,7 @@ Once content is downloaded it can be processed to transform text and images. For
 
 
 ## ContentOptions Parameters
+Options for all content and media downloads.
 | Property | Type | Description |
 | - | - | - |
 | <a name="module_launchpad-content/content-options.ContentOptions+credentialsPath">`credentialsPath`</a> |  <code>string</code>| The path to the json containing credentials for all content sources.<br>Defaults to &#x27;.credentials.json&#x27; |

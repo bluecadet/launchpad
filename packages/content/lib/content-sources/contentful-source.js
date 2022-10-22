@@ -2,7 +2,6 @@
  * @module contentful-source
  */
 
-import chalk from 'chalk';
 import contentful from 'contentful';
 import ContentSource, { SourceOptions } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
@@ -19,7 +18,7 @@ import { Logger } from '@bluecadet/launchpad-utils';
 export class ContentfulOptions extends SourceOptions {
   constructor({
     space = '',
-    locale = `en-US`,
+    locale = 'en-US',
     filename = 'content.json',
     protocol = 'https',
     host = 'cdn.contentful.com',
@@ -40,18 +39,21 @@ export class ContentfulOptions extends SourceOptions {
     /**
      * Your Contentful space ID. Note that credentials.json will require an accessToken in addition to this
      * @type {string}
+     * @default ''
      */
     this.space = space;
     
     /**
-     * Optional. Used to pull localized images. Defaults to 'en-US'
+     * Optional. Used to pull localized images.
      * @type {string}
+     * @default 'en-US'
      */
     this.locale = locale;
     
     /**
-     * Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json'
+     * Optional. The filename you want to use for where all content (entries and assets metadata) will be stored.
      * @type {string}
+     * @default 'content.json'
      */
     this.filename = filename;
     
@@ -60,7 +62,7 @@ export class ContentfulOptions extends SourceOptions {
      * This will also apply to linked assets.
      * Types that link to other types will include up to 10 levels of child content.
      * E.g. filtering by Story, might also include Chapters and Images.
-     * Uses searchParams['sys.contentType.sys.id[in]'] under the hood.
+     * Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
      * @type {Array<string>}
      */
     this.contentTypes = contentTypes;
@@ -73,29 +75,30 @@ export class ContentfulOptions extends SourceOptions {
     
     /**
      * Optional. Applies to all images. Defaults to empty object.
-     * IMPORTANT: If you change the parameters, you will have to
-     * delete all cached images since the modified date of the
-     * original image will not have changed.
+     * **IMPORTANT:** If you change the parameters, you will have to delete all cached images since the modified date of the original image will not have changed.
      * @see https://www.contentful.com/developers/docs/references/images-api/#/reference/resizing-&-cropping/specify-focus-area
      * @type {Object}
      */
     this.imageParams = imageParams;
     
     /**
-     * Optional. Defaults to 'https'.
+     * Optional
      * @type {string}
+     * @default 'https'
      */
     this.protocol = protocol;
     
     /**
-     * Optional. Defaults to 'cdn.contentful.com'.
+     * Optional
      * @type {string}
+     * @default 'cdn.contentful.com'
      */
     this.host = host;
     
     /**
-     * Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false.
+     * Optional. Set to true if you want to use the preview API instead of the production version to view draft content.
      * @type {boolean}
+     * @default false
      */
     this.usePreviewApi = usePreviewApi;
     
@@ -112,7 +115,7 @@ export class ContentfulOptions extends SourceOptions {
     this.previewToken = previewToken;
     
     /**
-     * LEGACY: For backwards compatibility you can only set the "accessToken" using your delivery or preview token and a combination of the usePreviewApi flag.
+     * LEGACY: For backwards compatibility you can only set the `"accessToken"` using your delivery or preview token and a combination of the usePreviewApi flag.
      * @type {string}
      */
     this.accessToken = accessToken;

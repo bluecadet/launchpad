@@ -1,3 +1,7 @@
+/**
+ * @module launchpad-monitor/monitor-options
+ */
+
 import chalk from 'chalk';
 import autoBind from 'auto-bind';
 import pDebounce from 'p-debounce';

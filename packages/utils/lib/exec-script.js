@@ -5,7 +5,7 @@ import { exec } from 'child_process';
  * @param {string} script 
  * @param {string} cwd 
  * @param {*} logger 
- * @returns 
+ * @returns {Promise<float>} A promise with the exit code passed on close
  */
 export const execScript = async (script, cwd, logger = console) => {
 	logger.debug(`execScript: '${script}'`);

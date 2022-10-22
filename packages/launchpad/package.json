@@ -3,7 +3,8 @@
   "version": "1.2.6",
   "description": "Suite of tools to manage media installations",
   "engines": {
-    "npm": ">=7"
+    "npm": ">=8.5.1",
+    "node" : ">=17.5.0"
   },
   "type": "module",
   "main": "./index.js",

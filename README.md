@@ -1,1 +1,1 @@
-packages/launchpad/README.md
+./packages/launchpad/README.md

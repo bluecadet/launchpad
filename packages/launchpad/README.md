@@ -8,6 +8,8 @@ Launchpad is a suite of tools to manage media installations. In a typicla usecas
 - Consolidate and route application logs
 - [...and many more things](#more-features)
 
+![Screen Recording of Launchpad on Windows 11](https://user-images.githubusercontent.com/295789/197365153-d62d9218-2ffa-4611-ac61-fa5bf786766a.gif)
+
 ## Getting Started
 
 1. Install: `npm i @bluecadet/launchpad`

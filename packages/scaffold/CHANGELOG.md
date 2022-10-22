@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.3.0
+
+### Minor Changes
+
+- [`42eff47`](https://github.com/bluecadet/launchpad/commit/42eff47933462c808f931d9e6578b6d47015b410) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added Windows Update Orchestrator and Medic services to scaffold scrpits
+
 ## 1.2.1
 
 ### Patch Changes

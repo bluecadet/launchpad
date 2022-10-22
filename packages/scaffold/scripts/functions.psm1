@@ -85,9 +85,9 @@ function FileExists($path) {
 }
 
 function RunScript(
-    [String]$scriptToRun,
-    [String]$confirmationMessage = '',
-    [Boolean]$confirmationEnabled = $global:LaunchpadConfig.ConfirmAllScripts
+        [String]$scriptToRun,
+        [String]$confirmationMessage = '',
+        [Boolean]$confirmationEnabled = $global:LaunchpadConfig.ConfirmAllScripts
     ) {
     if ($confirmationMessage -ne '' -AND $confirmationEnabled -eq $true) {
         Confirm $confirmationMessage {
@@ -116,4 +116,43 @@ function Pause(
     Write-Host $Message -ForegroundColor $MessageColor;
     Write-Host $Continue -ForegroundColor $ContinueColor;
     [void][System.Console]::ReadKey($true);
+}
+
+function Disable-Service(
+        [String]$ServiceName,
+        [String]$ComputerName = "$(hostname)"
+    ) {
+    # See https://social.technet.microsoft.com/Forums/lync/en-US/abde2699-0d5a-49ad-bfda-e87d903dd865/disable-windows-update-via-powershell?forum=winserverpowershell
+    $service = Get-WmiObject Win32_Service -Filter "Name='$ServiceName'" -ComputerName $ComputerName -Ea 0;
+    if ($service) {
+        if ($service.StartMode -ne "Disabled") {
+            $result = $service.ChangeStartMode("Disabled").ReturnValue;
+            if ($result) {
+                Write-Host "Failed to disable the '$ServiceName' service on $ComputerName. The return value was $result." -ForegroundColor Red;
+            } else {
+                Write-Host "Successfully disabled the '$ServiceName' service on $ComputerName." -ForegroundColor Green;
+            }
+            if ($service.State -eq "Running") {
+                $result = $service.StopService().ReturnValue;
+                if ($result) {
+                    Write-Host "Failed to stop the '$ServiceName' service on $ComputerName. The return value was $result." -ForegroundColor Red;
+                } else {
+                    Write-Host "Successfully stopped the '$ServiceName' service on $ComputerName." -ForegroundColor Green;
+                }
+            }
+        } else {
+            Write-Host "The '$ServiceName' service on $ComputerName is already disabled." -ForegroundColor Green;
+        }
+    } else {
+        Write-Host "Failed to retrieve the service '$ServiceName' from $ComputerName." -ForegroundColor Red;
+    }
+}
+
+function Enable-Service(
+        [String]$ServiceName
+    ) {
+    # See https://4sysops.com/archives/turn-off-automatic-updates-in-windows-10-build-9926/
+    Set-Service $ServiceName -StartupType Automatic
+    Start-Service $ServiceName
+    Get-Wmiobject win32_service -Filter "name='$ServiceName'"
 }

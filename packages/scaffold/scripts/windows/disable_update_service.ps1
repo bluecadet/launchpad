@@ -1,49 +1,16 @@
-# See https://social.technet.microsoft.com/Forums/lync/en-US/abde2699-0d5a-49ad-bfda-e87d903dd865/disable-windows-update-via-powershell?forum=winserverpowershell
-
-# param (
-# [string]$computerName = ""
-# )
-
-# if($computerName -eq "") {
-# 	if (!$LaunchpadConfig) {
-# 		& $PSScriptRoot\..\load_config.ps1
-# 	}
-# 	$computerName = $global:LaunchpadConfig.Computer.ComputerName
-# }
-
-$computerName = hostname
-
-$service = Get-WmiObject Win32_Service -Filter 'Name="wuauserv"' -ComputerName $computerName -Ea 0;
-
-if ($service) {
-    if ($service.StartMode -ne "Disabled") {
-        $result = $service.ChangeStartMode("Disabled").ReturnValue;
-
-        if ($result) {
-            Write-Host "Failed to disable the 'wuauserv' service on $computerName. The return value was $result." -ForegroundColor Red;
-        } else {
-            Write-Host "Successfully disabled the 'wuauserv' service on $computerName." -ForegroundColor Green;
-        }
-        
-        if ($service.State -eq "Running") {
-            $result = $service.StopService().ReturnValue;
-            if ($result) {
-                Write-Host "Failed to stop the 'wuauserv' service on $computerName. The return value was $result." -ForegroundColor Red;
-            } else {
-                Write-Host "Successfully stopped the 'wuauserv' service on $computerName." -ForegroundColor Green;
-            }
-        }
-    } else {
-        Write-Host "The 'wuauserv' service on $computerName is already disabled." -ForegroundColor Green;
-    }
-} else {
-    Write-Host "Failed to retrieve the service 'wuauserv' from $computerName." -ForegroundColor Red;
+try {
+    Get-Variable $PSScriptRoot -Scope Global -ErrorAction 'Stop'
+    Import-Module -DisableNameChecking $PSScriptRoot/functions.psm1;
+} catch [System.Management.Automation.ItemNotFoundException] {
+    Import-Module -DisableNameChecking ../functions.psm1;
 }
 
-# See https://4sysops.com/archives/turn-off-automatic-updates-in-windows-10-build-9926/
+Write-Output "Disabling Windows Update Medic Service"
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name 'Start' -value 4
+Disable-Service("WaaSMedicSVC");
 
-# stop-service wuauserv
-# set-service wuauserv –startup disabled
+Write-Output "Disabling Update Orchestrator Service"
+Disable-Service("UsoSvc");
 
-# Print service status
-# get-wmiobject win32_service –filter "name='wuauserv'"
+Write-Output "Disabling Windows Update Service"
+Disable-Service("wuauserv");

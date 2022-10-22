@@ -1,5 +1,20 @@
 # @bluecadet/launchpad
 
+## 1.3.0
+
+### Minor Changes
+
+- [#68](https://github.com/bluecadet/launchpad/pull/68) [`a7172da`](https://github.com/bluecadet/launchpad/commit/a7172dad86b0f8ab479128b013593e13f36cb0e3) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Updated documentation
+
+### Patch Changes
+
+- Updated dependencies [[`a7172da`](https://github.com/bluecadet/launchpad/commit/a7172dad86b0f8ab479128b013593e13f36cb0e3)]:
+  - @bluecadet/launchpad-content@1.8.0
+  - @bluecadet/launchpad-dashboard@1.3.0
+  - @bluecadet/launchpad-monitor@1.3.0
+  - @bluecadet/launchpad-scaffold@1.4.0
+  - @bluecadet/launchpad-utils@1.3.0
+
 ## 1.2.6
 
 ### Patch Changes

@@ -82,12 +82,11 @@ This repo is a monorepo that includes the following packages:
 
 * [`@bluecadet/launchpad`](/packages/launchpad)
 * [`@bluecadet/launchpad-content`](/packages/content)
-* [`@bluecadet/launchpad-dashboard`](/packages/dashboard) (wip)
 * [`@bluecadet/launchpad-monitor`](/packages/monitor)
 * [`@bluecadet/launchpad-scaffold`](/packages/scaffold)
 * [`@bluecadet/launchpad-utils`](/packages/utils)
 
-Each of these packages can be launched independently (except for utils), so if you only need app-monitoring or content updates, you can install only `@bluecadet/launchpad-monitor` or `@bluecadet/launchpad-content`.
+Each of these packages can be launched and configured independently (except for utils), so if you only need app-monitoring or content updates, you can install only `@bluecadet/launchpad-monitor` or `@bluecadet/launchpad-content`.
 
 ## Requirements
 

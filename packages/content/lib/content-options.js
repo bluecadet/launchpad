@@ -8,14 +8,21 @@ import { SourceOptions } from './content-sources/content-source.js';
  * Options for all content and media downloads. Each of these settings can also be configured per `ContentSource`.
  */
 export class ContentOptions {
+  static get DOWNLOAD_PATH_TOKEN() {
+    return '%DOWNLOAD_PATH%';
+  }
+  static get TIMESTAMP_TOKEN() {
+    return '%TIMESTAMP%';
+  }
+  
   constructor({
     sources = [],
     imageTransforms = [],
     contentTransforms = {},
     downloadPath = '.downloads/',
     credentialsPath = '.credentials.json',
-    tempPath = `${Constants.DOWNLOAD_PATH_TOKEN}/.tmp/`,
-    backupPath = `${Constants.DOWNLOAD_PATH_TOKEN}/.tmp-backup/`,
+    tempPath = `${ContentOptions.DOWNLOAD_PATH_TOKEN}/.tmp/`,
+    backupPath = `${ContentOptions.DOWNLOAD_PATH_TOKEN}/.tmp-backup/`,
     keep = '',
     strip = '',
     backupAndRestore = true,

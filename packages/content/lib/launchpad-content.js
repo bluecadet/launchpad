@@ -15,7 +15,6 @@ import SanitySource from './content-sources/sanity-source.js';
 
 import MediaDownloader from './utils/media-downloader.js';
 import FileUtils from './utils/file-utils.js';
-import Constants from './utils/constants.js';
 import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
 import ContentTransform from './content-transforms/content-transform.js';
 
@@ -477,11 +476,11 @@ export class LaunchpadContent {
   }
 
   _getDetokenizedPath(tokenizedPath, downloadPath) {
-    if (tokenizedPath.includes(Constants.TIMESTAMP_TOKEN)) {
-      tokenizedPath = tokenizedPath.replace(Constants.TIMESTAMP_TOKEN, FileUtils.getDateString());
+    if (tokenizedPath.includes(ContentOptions.TIMESTAMP_TOKEN)) {
+      tokenizedPath = tokenizedPath.replace(ContentOptions.TIMESTAMP_TOKEN, FileUtils.getDateString());
     }
-    if (tokenizedPath.includes(Constants.DOWNLOAD_PATH_TOKEN)) {
-      tokenizedPath = tokenizedPath.replace(Constants.DOWNLOAD_PATH_TOKEN, downloadPath);
+    if (tokenizedPath.includes(ContentOptions.DOWNLOAD_PATH_TOKEN)) {
+      tokenizedPath = tokenizedPath.replace(ContentOptions.DOWNLOAD_PATH_TOKEN, downloadPath);
     }
     return path.resolve(tokenizedPath);
   }

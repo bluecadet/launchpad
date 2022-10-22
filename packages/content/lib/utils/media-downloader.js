@@ -10,7 +10,6 @@ import sharp from 'sharp'; // image manipulation
 import cliProgress from 'cli-progress';
 
 import FileUtils from './file-utils.js';
-import Constants from './constants.js';
 import { ContentOptions } from '../content-options.js';
 import { MediaDownload } from '../content-sources/content-result.js';
 
@@ -23,6 +22,7 @@ let PQueue = null; // Future import
  * If an error occurs, content is rolled back to its original state.
  */
 export class MediaDownloader {
+  
   constructor(logger) {
     this.logger = logger || console;
   }
@@ -95,7 +95,7 @@ export class MediaDownloader {
       let numCompleted = 0;
       
       // Initialize progress meter
-      const progressFormat = Constants.getProgressFormat('Downloading', 'files');
+      const progressFormat = MediaDownloader.getProgressFormat('Downloading', 'files');
       progress = new cliProgress.Bar(
         {
           format: progressFormat
@@ -273,6 +273,17 @@ export class MediaDownloader {
         new Error(`Download failed for ${task.url} due to error (${error.message || error})`)
       );
     }
+  }
+  
+  /**
+   * Progress format used for `cliProgress` bar
+   * @param {string} prefix Prepended to progress bar
+   * @param {string} tasksLabel Appended to the current/total count
+   * @returns {string}
+   */
+  static getProgressFormat(prefix = '', tasksLabel = 'files') {
+    prefix = prefix || 'Processing';
+    return `${prefix} ${chalk.cyan('{value}/{total}')} ${tasksLabel}: ${chalk.cyan('{bar}')}`;
   }
   
   /**

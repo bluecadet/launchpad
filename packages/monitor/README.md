@@ -4,7 +4,7 @@ The [`@bluecadet/launchpad-monitor`](https://www.npmjs.com/package/@bluecadet/la
 
 Under the hood, it uses PM2 for process management, and adds a few features like window foregrounding and minimizing.
 
-## Setup
+## Configuration
 
 1. Create a `monitor` section in your `launchpad.json` (see [`MonitorOptions`](#MonitorOptions)).
 2. Add a list of app option objects in `monitor.apps` (see [`AppOptions`](#AppOptions)).
@@ -27,6 +27,32 @@ Under the hood, it uses PM2 for process management, and adds a few features like
 ```
 
 Apps will be relaunched individually as soon as they exit.
+
+
+###  MonitorOptions
+Top-level options of Launchpad Monitor.
+| Property | Type | Default | Description |
+| - | - | - | - |
+| <a name="module_monitor-options.MonitorOptions+apps">`apps`</a> |  <code>Array.&lt;AppOptions&gt;</code>|  <code>[]</code>  | A list of `AppOptions` to configure which apps to launch and monitor. |
+| <a name="module_monitor-options.MonitorOptions+deleteExistingBeforeConnect">`deleteExistingBeforeConnect`</a> |  <code>boolean</code>|  <code>false</code>  | Set this to true to delete existing PM2 processes before connecting. If you're running volatile apps or your node process might be quit unexpectedly, this can be helpful to start with a clean slate on startup. |
+| <a name="module_monitor-options.MonitorOptions+windowsApi">`windowsApi`</a> |  <code>WindowsApiOptions</code>|  | Advanced configuration for the Windows API, e.g. for managing foreground/minimized/hidden windows. |
+
+###  AppOptions
+Options for an individual app to monitor.
+| Property | Type | Default | Description |
+| - | - | - | - |
+| <a name="module_monitor-options.AppOptions+pm2">`pm2`</a> |  <code>pm2.StartOptions</code>|  <code>null</code>  | Configure which app to launch and how to monitor it here.<br><br>See: https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available
+ |
+| <a name="module_monitor-options.AppOptions+windows">`windows`</a> |  <code>WindowOptions</code>|  <code>new WindowOptions()</code>  | Optional settings for moving this app's main windows to the foreground, minimize or hide them. |
+| <a name="module_monitor-options.AppOptions+logging">`logging`</a> |  <code>AppLogOptions</code>|  <code>new AppLogOptions()</code>  | Optional settings for how to log this app's output. |
+
+###  WindowOptions
+Options for how an app's windows should be managed.
+| Property | Type | Default | Description |
+| - | - | - | - |
+| <a name="module_monitor-options.WindowOptions+foreground">`foreground`</a> |  <code>boolean</code>|  <code>false</code>  | Move this app to the foreground once all apps have been launched. |
+| <a name="module_monitor-options.WindowOptions+minimize">`minimize`</a> |  <code>boolean</code>|  <code>false</code>  | Minimize this app's windows once all apps have been launched. |
+| <a name="module_monitor-options.WindowOptions+hide">`hide`</a> |  <code>boolean</code>|  <code>false</code>  | Completely hide this app's windows once all apps have been launched. Helpful for headless apps, but note that this might cause issues with GUI-based apps. |
 
 ## Example: Monitor Two Apps
 
@@ -64,30 +90,6 @@ The following `launchpad.json` will launch and monitor two apps. The first app w
 
 ## Adanced Configuration
 
-###  MonitorOptions
-Top-level options of Launchpad Monitor.
-| Property | Type | Default | Description |
-| - | - | - | - |
-| <a name="module_monitor-options.MonitorOptions+apps">`apps`</a> |  <code>Array.&lt;AppOptions&gt;</code>|  <code>[]</code>  | A list of `AppOptions` to configure which apps to launch and monitor. |
-| <a name="module_monitor-options.MonitorOptions+deleteExistingBeforeConnect">`deleteExistingBeforeConnect`</a> |  <code>boolean</code>|  <code>false</code>  | Set this to true to delete existing PM2 processes before connecting. If you're running volatile apps or your node process might be quit unexpectedly, this can be helpful to start with a clean slate on startup. |
-| <a name="module_monitor-options.MonitorOptions+windowsApi">`windowsApi`</a> |  <code>WindowsApiOptions</code>|  | Advanced configuration for the Windows API, e.g. for managing foreground/minimized/hidden windows. |
-
-###  AppOptions
-Options for an individual app to monitor.
-| Property | Type | Default | Description |
-| - | - | - | - |
-| <a name="module_monitor-options.AppOptions+pm2">`pm2`</a> |  <code>pm2.StartOptions</code>|  <code>null</code>  | Configure which app to launch and how to monitor it here.<br><br>See: https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available
- |
-| <a name="module_monitor-options.AppOptions+windows">`windows`</a> |  <code>WindowOptions</code>|  <code>new WindowOptions()</code>  | Optional settings for moving this app's main windows to the foreground, minimize or hide them. |
-| <a name="module_monitor-options.AppOptions+logging">`logging`</a> |  <code>AppLogOptions</code>|  <code>new AppLogOptions()</code>  | Optional settings for how to log this app's output. |
-
-###  WindowOptions
-Options for how an app's windows should be managed.
-| Property | Type | Default | Description |
-| - | - | - | - |
-| <a name="module_monitor-options.WindowOptions+foreground">`foreground`</a> |  <code>boolean</code>|  <code>false</code>  | Move this app to the foreground once all apps have been launched. |
-| <a name="module_monitor-options.WindowOptions+minimize">`minimize`</a> |  <code>boolean</code>|  <code>false</code>  | Minimize this app's windows once all apps have been launched. |
-| <a name="module_monitor-options.WindowOptions+hide">`hide`</a> |  <code>boolean</code>|  <code>false</code>  | Completely hide this app's windows once all apps have been launched. Helpful for headless apps, but note that this might cause issues with GUI-based apps. |
 
 ###  AppLogOptions
 Options for how an app's logs should be saved, routed and displayed.

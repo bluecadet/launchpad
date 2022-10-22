@@ -11,6 +11,17 @@ import ContentResult from './content-result.js';
  * Base class for all content sources. `id` is mandatory.
  */
 export class SourceOptions {
+  
+  static get IMAGE_REGEX() {
+    return /.+(\.jpg|\.jpeg|\.png)/gi;
+  }
+  static get VIDEO_REGEX() {
+    return /.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi;
+  }
+  static get MEDIA_REGEX() {
+    return new RegExp(`(${SourceOptions.IMAGE_REGEX.source})|(${SourceOptions.VIDEO_REGEX.source})`);
+  }
+  
   constructor({
     id = '',
     ...rest

@@ -5,7 +5,6 @@ import { launchFromCli } from '@bluecadet/launchpad-utils';
 
 export * from './lib/content-options.js';
 export * from './lib/launchpad-content.js';
-export * from './lib/utils/constants.js'
 export * from './lib/utils/file-utils.js'
 export default LaunchpadContent;
 

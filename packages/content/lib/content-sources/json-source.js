@@ -2,7 +2,6 @@
  * @module json-source
  */
 
-import Constants from '../utils/constants.js';
 import JsonUtils from '../utils/json-utils.js';
 import ContentSource, { SourceOptions } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
@@ -14,8 +13,9 @@ import chalk from 'chalk';
  * @class
  */
 export class JsonOptions extends SourceOptions {
+  
   constructor({
-    mediaPattern = Constants.MEDIA_REGEX,
+    mediaPattern = SourceOptions.MEDIA_REGEX,
     files = {},
     ...rest
   } = {}) {

@@ -62,7 +62,7 @@ export class ContentfulOptions extends SourceOptions {
      * This will also apply to linked assets.
      * Types that link to other types will include up to 10 levels of child content.
      * E.g. filtering by Story, might also include Chapters and Images.
-     * Uses searchParams['sys.contentType.sys.id[in]'] under the hood.
+     * Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
      * @type {Array<string>}
      */
     this.contentTypes = contentTypes;
@@ -75,9 +75,7 @@ export class ContentfulOptions extends SourceOptions {
     
     /**
      * Optional. Applies to all images. Defaults to empty object.
-     * IMPORTANT: If you change the parameters, you will have to
-     * delete all cached images since the modified date of the
-     * original image will not have changed.
+     * **IMPORTANT:** If you change the parameters, you will have to delete all cached images since the modified date of the original image will not have changed.
      * @see https://www.contentful.com/developers/docs/references/images-api/#/reference/resizing-&-cropping/specify-focus-area
      * @type {Object}
      */
@@ -117,7 +115,7 @@ export class ContentfulOptions extends SourceOptions {
     this.previewToken = previewToken;
     
     /**
-     * LEGACY: For backwards compatibility you can only set the "accessToken" using your delivery or preview token and a combination of the usePreviewApi flag.
+     * LEGACY: For backwards compatibility you can only set the `"accessToken"` using your delivery or preview token and a combination of the usePreviewApi flag.
      * @type {string}
      */
     this.accessToken = accessToken;

@@ -30,7 +30,7 @@ export class StrapiOptions extends SourceOptions {
     super(rest);
     
 		/**
-		 * Only version 3 is supported currently.
+		 * Only version `'3'` is supported currently.
 		 * @type {string}
 		 * @default '3'
 		 */
@@ -57,7 +57,7 @@ export class StrapiOptions extends SourceOptions {
 		this.limit = limit;
 		
 		/**
-		 * Max number of pages. Default is -1 for all pages
+		 * Max number of pages. Use the default of `-1` for all pages
 		 * @type {number}
 		 * @default -1
 		 */
@@ -71,13 +71,13 @@ export class StrapiOptions extends SourceOptions {
 		this.pageNumZeroPad = pageNumZeroPad;
 		
 		/**
-		 * Username or email. Should be configured via credentials.json
+		 * Username or email. Should be configured via `./credentials.json`
 		 * @type {string}
 		 */
 		this.identifier = identifier;
 		
 		/**
-		 * Should be configured via credentials.json
+		 * Should be configured via `./credentials.json`
 		 * @type {string}
 		 */
 		this.password = password;

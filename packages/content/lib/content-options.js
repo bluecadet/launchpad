@@ -5,7 +5,7 @@
 import { SourceOptions } from './content-sources/content-source.js';
 
 /**
- * Options for all content and media downloads.
+ * Options for all content and media downloads. Each of these settings can also be configured per `ContentSource`.
  */
 export class ContentOptions {
   constructor({
@@ -71,14 +71,14 @@ export class ContentOptions {
     /**
      * Temp file directory path.
      * @type {boolean}
-     * @default `%DOWNLOAD_PATH%/.tmp/`
+     * @default '%DOWNLOAD_PATH%/.tmp/'
      */
     this.tempPath = tempPath;
     
     /**
      * Temp directory path where all downloaded content will be backed up before removal.
      * @type {boolean}
-     * @default `%DOWNLOAD_PATH%/.backups/`
+     * @default '%DOWNLOAD_PATH%/.backups/'
      */
     this.backupPath = backupPath;
     

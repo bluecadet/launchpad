@@ -43,7 +43,7 @@ export class AirtableOptions extends SourceOptions {
     this.tables = tables;
     
     /**
-     * As a convenience feature, you can store tables listed here as key/value pairs. Field names should be "key" and "value".
+     * As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `"key"` and `"value"`.
      * @type {string}
      * @default []
      */

@@ -81,14 +81,14 @@ export class SanityOptions extends SourceOptions {
     this.limit = limit;
 
     /**
-     * Max number of pages. Use -1 for all pages
+     * Max number of pages. Use `-1` for all pages
      * @type {number}
      * @default -1
      */
     this.maxNumPages = maxNumPages;
 
     /**
-     * To combine paginated files into 1 file.
+     * To combine paginated files into a single file.
      * @type {boolean}
      */
     this.mergePages = mergePages;

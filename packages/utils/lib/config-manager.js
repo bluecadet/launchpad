@@ -90,8 +90,8 @@ export class ConfigManager {
 		
 		let argv = yargs(hideBin(process.argv))
 			.parserConfiguration({
-				"camel-case-expansion": false,
-				"unknown-options-as-args": true
+				// See https://github.com/yargs/yargs-parser#camel-case-expansion
+				"camel-case-expansion": false
 			})
 			.config('config', 'Path to your config file. Can contain comments.', this._loadConfigFromFile.bind(this));
 		
@@ -102,6 +102,8 @@ export class ConfigManager {
 		const parsedArgv = argv.help().parse();
 		
 		this._config = {...this._config, ...parsedArgv};
+		
+		// console.log(this._config);
 		
 		if (!parsedArgv.config) {
 			for (const configPath of this._config.configPaths) {

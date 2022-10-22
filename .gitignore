@@ -12,7 +12,6 @@ downloads
 .credentials.json
 credentials.json
 package-lock.json
-docs/
 
 # MacOS
 .DS_Store

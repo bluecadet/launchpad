@@ -43,7 +43,7 @@ export const launchFromCli = async (importMeta, {
  * 
  * @param {*} importMeta 
  * @param {Array<string>} relativePaths 
- * @returns 
+ * @returns {boolean}
  */
 const isMain = (importMeta, relativePaths) => {
 	/** @type {string} */

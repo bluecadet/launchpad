@@ -15,7 +15,6 @@ export class AirtableOptions extends SourceOptions {
   constructor({
     baseId = undefined,
     tables = [],
-    tables: [],
     keyValueTables = [],
     defaultView = 'Grid view',
     endpointUrl = 'https://api.airtable.com',
@@ -31,26 +30,29 @@ export class AirtableOptions extends SourceOptions {
     this.baseId = baseId;
     
     /**
-     * Optional. Defaults to 'Grid view'
      * @type {string}
+     * @default 'Grid view'
      */
     this.defaultView = defaultView;
     
     /**
      * The tables you want to fetch from
      * @type {string}
+     * @default []
      */
     this.tables = tables;
     
     /**
-     * As a convenience feature, you can store tables listed here as key/value pairs. Field names should be "key" and "value".
+     * As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `"key"` and `"value"`.
      * @type {string}
+     * @default []
      */
     this.keyValueTables = keyValueTables;
     
     /**
      * The API endpoint to use for Airtable
      * @type {string}
+     * @default 'https://api.airtable.com'
      */
     this.endpointUrl = endpointUrl;
     
@@ -63,6 +65,7 @@ export class AirtableOptions extends SourceOptions {
     /**
      * Appends the local path of attachments to the saved JSON
      * @type {boolean}
+     * @default true
      */
     this.appendLocalAttachmentPaths = appendLocalAttachmentPaths;
   }

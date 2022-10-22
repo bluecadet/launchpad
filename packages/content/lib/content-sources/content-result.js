@@ -21,8 +21,7 @@ export class DataFile {
 	}
 
 	/**
-	 * Returns the raw content if it's already a string,
-	 * otherwise returns the result of JSON.stringify(this.content).
+	 * Returns the raw content if it's already a string, otherwise returns the result of `JSON.stringify(this.content)`.
 	 * @returns {string}
 	 */
 	getContentStr() {

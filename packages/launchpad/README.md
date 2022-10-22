@@ -23,17 +23,7 @@ Type `npx launchpad --help` for all available commands.
 
 Each [launchpad package](#packages) needs its own config section in `launchpad.json`.
 
-See the following classes for a full list of all available config options:
-
-- `monitor`: ([`MonitorOptions`](/packages/monitor/lib/monitor-options.js)): Configures which apps to run
-- [`content`](/packages/content/README.md): ([`ContentOptions`](/packages/content/lib/content-options.js)): Configures which content to download
-  - `sources`: An array containing one or more of the following content source options:
-    - [`AirtableOptions`](/packages/content/lib/content-sources/airtable-source.js): Download content from Airtable
-    - [`ContentfulOptions`](/packages/content/lib/content-sources/contentful-source.js): Download content from Contentful
-    - [`JsonOptions`](/packages/content/lib/content-sources/json-source.js): Download content from JSON endpoints
-    - [`StrapiOptions`](/packages/content/lib/content-sources/strapi-source.js): Download content from Strapi
-    - [`SanityOptions`](/packages/content/lib/content-sources/sanity-source.js): Download content from Sanity
-- `logging`: ([`LogOptions`](/packages/utils/lib/log-manager.js)): Configures how logs are routed to the console and to files
+### Example
 
 A simple `launchpad.json` example to download content from Flickr and launch a single app:
 
@@ -64,6 +54,21 @@ A simple `launchpad.json` example to download content from Flickr and launch a s
 }
 ```
 
+### Documentation
+
+For a full list of configuration options, review the documentation below:
+
+- [`monitor`](/packages/monitor/README.md): Configures which apps to run
+- [`content`](/packages/content/README.md): Configures which content to download
+  - `sources`: An array containing one or more of the following content source options:
+    - [`airtable`](/packages/content/docs/airtable-source.md): Download content from Airtable
+    - [`contentful`](/packages/content/docs/contentful-source.md): Download content from Contentful
+    - [`json`](/packages/content/docs/json-source.md): Download content from JSON endpoints
+    - [`strapi`](/packages/content/docs/strapi-source.md): Download content from Strapi
+    - [`sanity`](/packages/content/docs/sanity-source.md): Download content from Sanity
+- [`logging`](/packages/launchpad/docs/logging.md): Configures how logs are routed to the console and to files
+- [`hooks`](/packages/launchpad/docs/hooks.md): Run a script before or after a launchpad event (e.g. after content has been updated)
+
 ## Packages
 
 This repo is a monorepo that includes the following packages:
@@ -76,42 +81,6 @@ This repo is a monorepo that includes the following packages:
 * [`@bluecadet/launchpad-utils`](/packages/utils)
 
 Each of these packages can be launched independently (except for utils), so if you only need app-monitoring or content updates, you can install only `@bluecadet/launchpad-monitor` or `@bluecadet/launchpad-content`.
-
-## More Features
-- Insert custom hooks to run any command before or after content updates, app launches and more
-
-### Monitoring
-- Start, monitor (relaunch on crash/quit), and stop any number of apps in parallel
-- Move specific apps to the foreground or minimize and hide them
-- Apps are launched in sequence (e.g. if one app requires data from another)
-- Log routing and filtering
-
-### Content
-- Supported sources:
-  - JSON with asset urls
-  - Airtable
-  - Contentful
-  - Sanity
-  - Strapi (3.x.x)
-- Caching using If-Modified-Since HTTP header and file-size checks
-- Full rollback to previous content on download errors
-- Text and image transforms (replace strings, scale images, ...)
-- Concurrent downloads
-- Multiple content sources for a single config
-- Configurable via json
-
-### Scaffolding
-- Install common apps
-- Configure Windows Explorer settings
-- Configure Windows power settings to never sleep
-- Create automatic daily launch tasks and reboots
-- Disable updates, prompts, notifications, UI elements
-- See [/packages/scaffold](./packages/scaffold) for more info
-
-## Roadmap
-- [ ] Web dashboard to manage apps and content
-- [ ] API to manage apps and content
-
 
 ## Requirements
 

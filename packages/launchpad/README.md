@@ -58,16 +58,23 @@ A simple `launchpad.json` example to download content from Flickr and launch a s
 
 For a full list of configuration options, review the documentation below:
 
-- [`monitor`](/packages/monitor/README.md): Configures which apps to run
-- [`content`](/packages/content/README.md): Configures which content to download
+- [`monitor`](/packages/monitor/README.md): Run and monitor apps
+- [`content`](/packages/content/README.md): Download and cache remote content
   - `sources`: An array containing one or more of the following content source options:
     - [`airtable`](/packages/content/docs/airtable-source.md): Download content from Airtable
     - [`contentful`](/packages/content/docs/contentful-source.md): Download content from Contentful
     - [`json`](/packages/content/docs/json-source.md): Download content from JSON endpoints
     - [`strapi`](/packages/content/docs/strapi-source.md): Download content from Strapi
     - [`sanity`](/packages/content/docs/sanity-source.md): Download content from Sanity
-- [`logging`](/packages/launchpad/docs/logging.md): Configures how logs are routed to the console and to files
-- [`hooks`](/packages/launchpad/docs/hooks.md): Run a script before or after a launchpad event (e.g. after content has been updated)
+- [`logging`](/packages/launchpad/docs/logging.md): Route logs to the console and to files
+- [`hooks`](/packages/launchpad/docs/hooks.md): Execute scripts before or after common events (e.g. after content has been updated)
+
+### Config Loading
+
+- By default, Launchpad looks for `launchpad.json` or `config.json` at the cwd (where you ran `npx launchpad`/`launchpad` from)
+- You can change the default path with `--config=<YOUR_FILE_PATH>` (e.g. `npx launchpad --config=../settings/my-config.json`)
+- If no config is found, Launchpad will traverse up directories (up to 64) to find one
+- All config values can be overridden via `--foo=bar` (e.g. `--logging.level=debug`)
 
 ## Packages
 

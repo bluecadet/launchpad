@@ -14,6 +14,6 @@
 {{#if @suffix}} {{@suffix}}{{/if~}}
 {{{@depClose}~}}
 {{~/sig}}{{/if~}}
-{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | <span>{{~description~}}</span> |
+{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | {{#linebreaksToBr}}{{~description~}}{{/linebreaksToBr}} |
 {{/children~}}
 {{/class}}

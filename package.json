@@ -12,7 +12,8 @@
     "content": "npm run start -w @bluecadet/launchpad-content --",
     "download": "npm run content --",
     "test": "npm run test -w @bluecadet/launchpad -- ",
-    "docs": "node .docs/generate.mjs"
+    "docs": "node .docs/generate.mjs",
+    "watch-docs": "nodemon"
   },
   "repository": {
     "type": "git",
@@ -30,6 +31,7 @@
   "dependencies": {
     "@changesets/changelog-github": "^0.4.6",
     "@changesets/cli": "^2.23.0",
-    "jsdoc-to-markdown": "^7.1.1"
+    "jsdoc-to-markdown": "^7.1.1",
+    "nodemon": "^2.0.20"
   }
 }

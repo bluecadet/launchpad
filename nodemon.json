@@ -1,0 +1,11 @@
+{
+  "watch": [".docs", "**/.docs", "packages/**/*"],
+  "ext": "js,mjs,json,hbs",
+	"ignore": [
+    ".git",
+    "node_modules",
+		"./docs/",
+		"./packages/**/docs/*"
+  ],
+	"exec": "npm run docs"
+}

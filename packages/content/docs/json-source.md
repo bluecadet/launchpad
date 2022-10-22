@@ -31,5 +31,5 @@ All images contained in these json files will be downloaded while retaining the 
 ## JsonOptions Parameters
 | Property | Type | Description |
 | - | - | - |
-| <a name="module_json-source.JsonOptions+mediaPattern">`mediaPattern`</a> |  <code>RegExp</code>| <span>Regex for media files that should be downloaded from json sources</span> |
-| <a name="module_json-source.JsonOptions+files">`files`</a> |  <code>Object.&lt;string, string&gt;</code>| <span>A mapping of json file-path -&gt; url</span> |
+| <a name="module_json-source.JsonOptions+mediaPattern">`mediaPattern`</a> |  <code>RegExp</code>| Regex for media files that should be downloaded from json sources |
+| <a name="module_json-source.JsonOptions+files">`files`</a> |  <code>Object.&lt;string, string&gt;</code>| A mapping of json file-path -&gt; url |

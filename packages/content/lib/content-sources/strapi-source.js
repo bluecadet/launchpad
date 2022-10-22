@@ -30,8 +30,9 @@ export class StrapiOptions extends SourceOptions {
     super(rest);
     
 		/**
-		 * Only version 3 is supported currently. Defaults to '3'
+		 * Only version 3 is supported currently.
 		 * @type {string}
+		 * @default '3'
 		 */
 		this.version = version;
 		
@@ -44,24 +45,28 @@ export class StrapiOptions extends SourceOptions {
 		/**
 		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs. You can include all query parameters supported by Strapi: https://docs-v3.strapi.io/developer-docs/latest/developer-resources/content-api/content-api.html#api-parameters
 		 * @type {Array.<string>}
+		 * @default []
 		 */
 		this.queries = queries;
 		
 		/**
-		 * Max number of entries per page. Default is 100.
+		 * Max number of entries per page.
 		 * @type {number}
+		 * @default 100
 		 */
 		this.limit = limit;
 		
 		/**
 		 * Max number of pages. Default is -1 for all pages
 		 * @type {number}
+		 * @default -1
 		 */
 		this.maxNumPages = maxNumPages;
 		
 		/**
-		 * How many zeros to pad each json filename index with. Default is 0
+		 * How many zeros to pad each json filename index with.
 		 * @type {number}
+		 * @default 0
 		 */
 		this.pageNumZeroPad = pageNumZeroPad;
 		

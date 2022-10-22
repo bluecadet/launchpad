@@ -24,12 +24,14 @@ export class JsonOptions extends SourceOptions {
     /**
      * Regex for media files that should be downloaded from json sources
      * @type {RegExp}
+     * @default (/.+(\.jpg|\.jpeg|\.png)/gi|/.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi)
      */
     this.mediaPattern = new RegExp(mediaPattern);
     
     /**
      * A mapping of json file-path -> url
      * @type {Object<string,string>}
+     * @default {}
      */ 
     this.files = files;
   }

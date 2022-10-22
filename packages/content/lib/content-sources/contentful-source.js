@@ -2,7 +2,6 @@
  * @module contentful-source
  */
 
-import chalk from 'chalk';
 import contentful from 'contentful';
 import ContentSource, { SourceOptions } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
@@ -19,7 +18,7 @@ import { Logger } from '@bluecadet/launchpad-utils';
 export class ContentfulOptions extends SourceOptions {
   constructor({
     space = '',
-    locale = `en-US`,
+    locale = 'en-US',
     filename = 'content.json',
     protocol = 'https',
     host = 'cdn.contentful.com',
@@ -40,18 +39,21 @@ export class ContentfulOptions extends SourceOptions {
     /**
      * Your Contentful space ID. Note that credentials.json will require an accessToken in addition to this
      * @type {string}
+     * @default ''
      */
     this.space = space;
     
     /**
-     * Optional. Used to pull localized images. Defaults to 'en-US'
+     * Optional. Used to pull localized images.
      * @type {string}
+     * @default 'en-US'
      */
     this.locale = locale;
     
     /**
-     * Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json'
+     * Optional. The filename you want to use for where all content (entries and assets metadata) will be stored.
      * @type {string}
+     * @default 'content.json'
      */
     this.filename = filename;
     
@@ -82,20 +84,23 @@ export class ContentfulOptions extends SourceOptions {
     this.imageParams = imageParams;
     
     /**
-     * Optional. Defaults to 'https'.
+     * Optional
      * @type {string}
+     * @default 'https'
      */
     this.protocol = protocol;
     
     /**
-     * Optional. Defaults to 'cdn.contentful.com'.
+     * Optional
      * @type {string}
+     * @default 'cdn.contentful.com'
      */
     this.host = host;
     
     /**
-     * Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false.
+     * Optional. Set to true if you want to use the preview API instead of the production version to view draft content.
      * @type {boolean}
+     * @default false
      */
     this.usePreviewApi = usePreviewApi;
     

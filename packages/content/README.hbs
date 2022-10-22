@@ -23,7 +23,7 @@ The following `launchpad.json` would download jsons and images from the Flickr A
 }
 ```
 
-See [Options API](#options-api) for a full list of content settings.
+See [ContentOptions Parameters](#contentoptions-parameters) for a full list of content settings.
 
 ## Source Settings
 
@@ -35,11 +35,11 @@ Every source needs:
 
 Currently supported sources are:
 
-- [`json`](docs/json.md) (via HTTP)
-- [`airtable`](docs/airtable.md)
-- [`contentful`](docs/contentful.md)
-- [`sanity`](docs/sanity.md)
-- [`strapi`](docs/strapi.md)
+- [`json`](docs/json-source.md) (via HTTP)
+- [`airtable`](docs/airtable-source.md)
+- [`contentful`](docs/contentful-source.md)
+- [`sanity`](docs/sanity-source.md)
+- [`strapi`](docs/strapi-source.md)
 
 ## Authentication
 
@@ -103,6 +103,6 @@ Once content is downloaded it can be processed to transform text and images. For
 - [Image Transforms Documetation](docs/image-transforms.md)
 
 {{#module name="launchpad-content/content-options"}}
-{{>class-members name="ContentOptions" description=""}}
+{{>class-members name="ContentOptions"}}
 {{/module}}
 

@@ -37,6 +37,7 @@ export class SanityOptions extends SourceOptions {
     /**
      * API Version
      * @type {string}
+     * @default 'v2021-10-21'
      */
     this.apiVersion = apiVersion;
 
@@ -49,12 +50,14 @@ export class SanityOptions extends SourceOptions {
     /**
      * API Version
      * @type {string}
+     * @default 'production'
      */
     this.dataset = dataset;
 
     /**
      * `false` if you want to ensure fresh data
      * @type {string}
+     * @default false
      */
     this.useCdn = useCdn;
 
@@ -71,14 +74,16 @@ export class SanityOptions extends SourceOptions {
     this.queries = queries;
 
     /**
-     * Max number of entries per page. Default is 100.
+     * Max number of entries per page.
      * @type {number}
+     * @default 100
      */
     this.limit = limit;
 
     /**
-     * Max number of pages. Default is -1 for all pages
+     * Max number of pages. Use -1 for all pages
      * @type {number}
+     * @default -1
      */
     this.maxNumPages = maxNumPages;
 
@@ -89,8 +94,9 @@ export class SanityOptions extends SourceOptions {
     this.mergePages = mergePages;
 
     /**
-     * How many zeros to pad each json filename index with. Default is 0
+     * How many zeros to pad each json filename index with.
      * @type {number}
+     * @default 0
      */
     this.pageNumZeroPad = pageNumZeroPad;
 

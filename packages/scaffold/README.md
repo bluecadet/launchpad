@@ -2,6 +2,8 @@
 
 The [`@bluecadet/launchpad-scaffold`](https://www.npmjs.com/package/@bluecadet/launchpad-scaffold) package is a collection of PS1 scripts to configure Windows PCs for exhibit environments.
 
+![Screen Recording of Launchpad Scaffold](https://user-images.githubusercontent.com/295789/197362787-8cd2d39e-ba36-4a05-9151-9a844f581c25.gif)
+
 ## Features
 
 - Fully configurable, with optional y/n prompts

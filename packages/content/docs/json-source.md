@@ -28,7 +28,7 @@ All images contained in these json files will be downloaded while retaining the 
 
 
 
-## JsonOptions Parameters
+##  JsonOptions
 
 | Property | Type | Default | Description |
 | - | - | - | - |

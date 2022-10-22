@@ -1,7 +1,7 @@
 # Airtable Source
 
 
-## AirtableOptions Parameters
+##  AirtableOptions
 Options for AirtableSource
 | Property | Type | Default | Description |
 | - | - | - | - |

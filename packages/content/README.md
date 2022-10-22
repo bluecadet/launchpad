@@ -103,7 +103,7 @@ Once content is downloaded it can be processed to transform text and images. For
 - [Image Transforms Documetation](docs/image-transforms.md)
 
 
-## ContentOptions Parameters
+##  ContentOptions
 Options for all content and media downloads. Each of these settings can also be configured per `ContentSource`.
 | Property | Type | Default | Description |
 | - | - | - | - |

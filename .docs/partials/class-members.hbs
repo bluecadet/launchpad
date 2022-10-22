@@ -1,6 +1,6 @@
 
 {{#class name=name}}
-## {{name}} Parameters
+{{>heading-indent}} {{name}}
 {{#if description}}{{~{escape description}~}}{{/if}}
 | Property | Type | Default | Description |
 | - | - | - | - |
@@ -15,6 +15,6 @@
 {{#if @suffix}} {{@suffix}}{{/if~}}
 {{{@depClose}~}}
 {{~/sig}}{{/if~}}
-{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | {{#unless (equal defaultvalue undefined)}} {{#linebreaks-to-br}}<code>{{~{escape defaultvalue}}}</code>{{/linebreaks-to-br}} {{/unless}} | {{#linebreaks-to-br}}{{~{escape description}~}}{{/linebreaks-to-br}} |
+{{#if virtual}}*{{/if}}{{#with (parentObject)}}{{#if virtual}}*{{/if~}}{{/with~}} | {{#unless (equal defaultvalue undefined)}} {{#linebreaks-to-br}}<code>{{~{escape defaultvalue}}}</code>{{/linebreaks-to-br}} {{/unless}} | {{#linebreaks-to-br}}{{~{escape description}~}}{{/linebreaks-to-br}}{{#if see~}}<br><br>{{>inline-see}}{{/if}} |
 {{/children~}}
 {{/class}}

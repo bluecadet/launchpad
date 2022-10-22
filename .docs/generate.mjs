@@ -40,7 +40,10 @@ const defaults = {
 	"heading-depth": 2,
 	"name-format": true,
 	"separators": true,
-	"partial": [".docs/partials/class-members.hbs"],
+	"partial": [
+		".docs/partials/class-members.hbs",
+		".docs/partials/inline-see.hbs"
+	],
 	"helper": [".docs/helpers/helpers.js"],
 	"module-index-format": "list",
 	"global-index-format": "list",
@@ -50,4 +53,5 @@ const defaults = {
 };
 
 await renderDocs({...defaults, templatePath: 'packages/content/README.hbs', outputPath: 'packages/content/README.md'});
+await renderDocs({...defaults, templatePath: 'packages/monitor/README.hbs', outputPath: 'packages/monitor/README.md', "heading-depth": 3});
 await renderSourceDocs(['airtable', 'contentful', 'json', 'sanity', 'strapi']);

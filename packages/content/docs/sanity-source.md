@@ -1,7 +1,7 @@
 # Sanity Source
 
 
-## SanityOptions Parameters
+##  SanityOptions
 Options for SanitySource
 | Property | Type | Default | Description |
 | - | - | - | - |

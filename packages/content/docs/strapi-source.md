@@ -1,7 +1,7 @@
 # Strapi Source
 
 
-## StrapiOptions Parameters
+##  StrapiOptions
 Options for StrapiSource
 | Property | Type | Default | Description |
 | - | - | - | - |

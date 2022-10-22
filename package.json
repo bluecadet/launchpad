@@ -12,7 +12,7 @@
     "content": "npm run start -w @bluecadet/launchpad-content --",
     "download": "npm run content --",
     "test": "npm run test -w @bluecadet/launchpad -- ",
-    "docs": "node .docs.mjs"
+    "docs": "node .docs/generate.mjs"
   },
   "repository": {
     "type": "git",

@@ -97,7 +97,8 @@ if ($LaunchpadConfig.Windows.DisableNewNetworkWindow) { RunScript ./scripts/wind
 if ($LaunchpadConfig.Windows.DisableNewsAndInterests) { RunScript ./scripts/windows/disable_news_and_interests.ps1 "Disable News and Interests toolbar?" }
 if ($LaunchpadConfig.Windows.DisableNotifications) { RunScript ./scripts/windows/disable_notifications.ps1 "Disable notifications?" }
 if ($LaunchpadConfig.Windows.DisableScreensaver) { RunScript ./scripts/windows/disable_screensaver.ps1 "Disable screensaver?" }
-if ($LaunchpadConfig.Windows.DisableTouchFeedback) { RunScript ./scripts/windows/disable_touch_feedback.ps1 "Disable touch feedback and gestures?" }
+if ($LaunchpadConfig.Windows.DisableTouchFeedback) { RunScript ./scripts/windows/disable_touch_feedback.ps1 "Disable touch feedback?" }
+if ($LaunchpadConfig.Windows.DisableTouchGestures) { RunScript ./scripts/windows/disable_touch_gestures.ps1 "Disable touch gestures?" }
 if ($LaunchpadConfig.Windows.DisableUpdateCheck) { RunScript ./scripts/windows/disable_update_check.ps1 "Disable update checks?" }
 if ($LaunchpadConfig.Windows.DisableUpdateService) { RunScript ./scripts/windows/disable_update_service.ps1 "Disable update service?" }
 if ($LaunchpadConfig.Windows.DisableAppInstalls) { RunScript ./scripts/windows/disable_app_installs.ps1 "Disable automatic Windows app installs?" }

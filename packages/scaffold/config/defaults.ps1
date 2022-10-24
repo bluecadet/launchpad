@@ -57,6 +57,7 @@ $global:LaunchpadConfig.Windows.DisableNewsAndInterests = $true
 $global:LaunchpadConfig.Windows.DisableNotifications = $true
 $global:LaunchpadConfig.Windows.DisableScreensaver = $true
 $global:LaunchpadConfig.Windows.DisableTouchFeedback = $true
+$global:LaunchpadConfig.Windows.DisableTouchGestures = $true
 $global:LaunchpadConfig.Windows.DisableUpdateCheck = $true
 $global:LaunchpadConfig.Windows.DisableUpdateService = $true
 $global:LaunchpadConfig.Windows.EnableScriptExecution = $true

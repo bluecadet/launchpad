@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.5.0
+
+### Minor Changes
+
+- [#71](https://github.com/bluecadet/launchpad/pull/71) [`acd0ef8`](https://github.com/bluecadet/launchpad/commit/acd0ef86ef3af15c04c769b02db2ff5cff00bcff) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added ability to disable 3 & 4 finger touch gestures
+
 ## 1.4.0
 
 ### Minor Changes

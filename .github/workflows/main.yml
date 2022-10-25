@@ -1,5 +1,5 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them and generate documentation.
-name: Docs
+# This workflow builds documentation and formats/checks code
+name: NPM CI
 
 on:
   push:
@@ -8,14 +8,17 @@ on:
     branches: [ "develop" ]
 
 jobs:
-  docs:
+  main:
+    name: Main
     runs-on: ubuntu-latest
+    
     strategy:
       matrix:
         node-version: [18.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    
     steps:
     - uses: actions/checkout@v3
+    
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
@@ -23,4 +26,6 @@ jobs:
         cache: 'npm'
         cache-dependency-path: '**/package-lock.json'
     - run: npm ci
+    
+    - name: Generate documentation    
     - run: npm run docs

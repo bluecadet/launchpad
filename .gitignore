@@ -11,7 +11,7 @@ user-config.js
 downloads
 .credentials.json
 credentials.json
-package-lock.json
+packages/**/package-lock.json
 
 # MacOS
 .DS_Store

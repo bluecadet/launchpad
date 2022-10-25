@@ -28,4 +28,4 @@ jobs:
     - run: npm ci
     
     - name: Generate documentation    
-    - run: npm run docs
+      run: npm run docs

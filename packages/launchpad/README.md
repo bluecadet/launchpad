@@ -1,21 +1,24 @@
 # 🚀 Launchpad
 
-Launchpad is a suite of tools to manage media installations. In a typicla usecase, it bootstraps up your Windows PC, downloads and caches CMS content and then launches and monitors your apps. It can:
+Launchpad is a highly configurable suite of tools to manage media installations. It can:
 
-- Launch, control and monitor muiltiple processes (via PM2)
+- Launch, control and monitor muiltiple processes (via [PM2](https://pm2.keymetrics.io/))
 - Download and locally cache content from various common web APIs
-- Bootstrap PCs running Windows 8/10/11 with common exhibit settings
+- Bootstrap Windows PCs with common exhibit settings
 - Consolidate and route application logs
-- [...and many more things](#more-features)
+
+[...and many more things](#documentation)
 
 ![Screen Recording of Launchpad on Windows 11](https://user-images.githubusercontent.com/295789/197365153-d62d9218-2ffa-4611-ac61-fa5bf786766a.gif)
 
 ## Getting Started
 
-1. Install: `npm i @bluecadet/launchpad`
-2. Create a `launchpad.json` config (see [#Configuration](#Configuration))
+A typical setup will use launchpad as a node dependency, configure it via a `launchpad.json` file and run `npx launchpad` via a startup task (e.g. Windows Task Scheduler):
+
+1. Install launchpad: **`npm i @bluecadet/launchpad`**
+2. Create a **`launchpad.json`** config (see [configuration](#configuration))
 3. *Optional: Bootstrap your PC with `npx launchpad scaffold`*
-4. Run `npx launchpad`
+4. Run **`npx launchpad`**
 
 Type `npx launchpad --help` for all available commands.
 
@@ -23,11 +26,7 @@ Type `npx launchpad --help` for all available commands.
 
 ## Configuration
 
-Each [launchpad package](#packages) needs its own config section in `launchpad.json`.
-
-### Example
-
-A simple `launchpad.json` example to download content from Flickr and launch a single app:
+Each [launchpad package](#packages) is configured via its own section in `launchpad.json`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and the [`monitor`](/packages/monitor) to launch a single app:
 
 ```json
 {
@@ -58,18 +57,18 @@ A simple `launchpad.json` example to download content from Flickr and launch a s
 
 ### Documentation
 
-For a full list of configuration options, review the documentation below:
+All available config settings across packages can be found in the links below:
 
-- [`monitor`](/packages/monitor/README.md): Run and monitor apps
-- [`content`](/packages/content/README.md): Download and cache remote content
+- [**`monitor`**](/packages/monitor/README.md): Run and monitor apps
+- [**`content`**](/packages/content/README.md): Download and cache remote content
   - `sources`: An array containing one or more of the following content source options:
     - [`airtable`](/packages/content/docs/airtable-source.md): Download content from Airtable
     - [`contentful`](/packages/content/docs/contentful-source.md): Download content from Contentful
     - [`json`](/packages/content/docs/json-source.md): Download content from JSON endpoints
     - [`strapi`](/packages/content/docs/strapi-source.md): Download content from Strapi
     - [`sanity`](/packages/content/docs/sanity-source.md): Download content from Sanity
-- [`logging`](/packages/launchpad/docs/logging.md): Route logs to the console and to files
-- [`hooks`](/packages/launchpad/docs/hooks.md): Execute scripts before or after common events (e.g. after content has been updated)
+- [**`logging`**](/packages/launchpad/docs/logging.md): Route logs to the console and to files
+- [**`hooks`**](/packages/launchpad/docs/hooks.md): Execute scripts before or after common events (e.g. after content has been updated)
 
 ### Config Loading
 

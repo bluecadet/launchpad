@@ -1,5 +1,11 @@
 # @bluecadet/launchpad
 
+## 1.3.2
+
+### Patch Changes
+
+- [#75](https://github.com/bluecadet/launchpad/pull/75) [`10047df`](https://github.com/bluecadet/launchpad/commit/10047df99cd96d736c7b55213535744e0dbe90bf) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added CI workflow
+
 ## 1.3.1
 
 ### Patch Changes

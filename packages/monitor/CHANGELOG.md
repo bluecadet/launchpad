@@ -1,5 +1,14 @@
 # @bluecadet/launchpad-monitor
 
+## 1.3.1
+
+### Patch Changes
+
+- [`b701b3d`](https://github.com/bluecadet/launchpad/commit/b701b3db5b7177393a5dd0b53c8dcac82f0994e3) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Updated documentation
+
+- Updated dependencies [[`b701b3d`](https://github.com/bluecadet/launchpad/commit/b701b3db5b7177393a5dd0b53c8dcac82f0994e3)]:
+  - @bluecadet/launchpad-utils@1.3.1
+
 ## 1.3.0
 
 ### Minor Changes

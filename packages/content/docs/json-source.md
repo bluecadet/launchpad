@@ -30,6 +30,8 @@ All images contained in these json files will be downloaded while retaining the 
 
 ##  JsonOptions
 
+
+
 | Property | Type | Default | Description |
 | - | - | - | - |
 | <a name="module_json-source.JsonOptions+mediaPattern">`mediaPattern`</a> |  <code>RegExp</code>|  <code>(/.+(\.jpg\|\.jpeg\|\.png)/gi\|/.+(\.avi\|\.mov\|\.mp4\|\.mpg\|\.mpeg)/gi)</code>  | Regex for media files that should be downloaded from json sources |

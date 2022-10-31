@@ -12,6 +12,11 @@ import chalk from 'chalk';
 
 export { Logger };
 
+/**
+ * Options object passed directly to Winston's constructor, with additional options for Launchpad logging.
+ * 
+ * @see https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
+ */
 export class LogOptions {
 	static DATE_KEY = '%DATE%';
 	static LOG_TYPE_KEY = '%LOG_TYPE%';
@@ -35,25 +40,32 @@ export class LogOptions {
 		format = LogOptions.DEFAULT_LOG_FORMAT,
 		...rest
 	} = {}) {
-		
-		// Launchpad-specific settings
-		
 		/**
+		 * Where to save logs to.
 		 * @type {string}
+		 * @default `%DATE%-%LOG_TYPE%`
 		 */
 		this.filename = `${LogOptions.DATE_KEY}-${LogOptions.LOG_TYPE_KEY}`;
 		
 		/**
+		 * Options for individual files and streams.
 		 * @type {LogFileOptions}
+		 * @default new LogFileOptions(fileOptions)
 		 */
 		this.fileOptions = new LogFileOptions(fileOptions);
 		
-		// Winston-inherited settings
-		
-		/** @type {string} */
+		/**
+		 * The maximum log level to display in all default logs.
+		 * @type {string}
+		 * @default 'info'
+		 */
 		this.level = level;
 		
-		/** @type {winston.Logform.Format} */
+		/**
+		 * The format for how each line is logged.
+		 * @type {winston.Logform.Format}
+		 * @default LogOptions.DEFAULT_LOG_FORMAT
+		 */
 		this.format = format;
 		
 		Object.assign(this, rest);
@@ -76,17 +88,52 @@ export class LogFileOptions {
 		datePattern = LogOptions.FILE_TIMESTAMP_FORMAT,
 		...rest
 	} = {}) {
-		/** @type {winston.Logform.Format} */
+		/**
+		 * The format used for individual file logs. Uses the default log format but without colorization out of the box.
+		 * 
+		 * @type {winston.Logform.Format}
+		 * @default Uncolorized variant of LogOptions.DEFAULT_LOG_FORMAT
+		 */
 		this.format = format;
-		/** @type {string} */
+		
+		/**
+		 * File extension.
+		 * 
+		 * @type {string}
+		 * @default '.log'
+		 */
 		this.extension = extension;
-		/** @type {string} */
+		
+		/**
+		 * The directory under which all logs are saved.
+		 * 
+		 * @type {string}
+		 * @default '.logs'
+		 */
 		this.dirname = dirname;
-		/** @type {string} */
+		
+		/**
+		 * The max size of each individual log file.
+		 * 
+		 * @type {string}
+		 * @default '20m'
+		 */
 		this.maxSize = maxSize;
-		/** @type {string} */
+		
+		/**
+		 * The maximum number of files to save per type.
+		 * 
+		 * @type {string}
+		 * @default '28d'
+		 */
 		this.maxFiles = maxFiles;
-		/** @type {string} */
+		
+		/**
+		 * The date pattern used in file names.
+		 * 
+		 * @type {string}
+		 * @default 'YYYY-MM-DD'
+		 */
 		this.datePattern = datePattern;
 		Object.assign(this, rest);
 	}

@@ -3,6 +3,8 @@
 
 ##  SanityOptions
 Options for SanitySource
+
+
 | Property | Type | Default | Description |
 | - | - | - | - |
 | <a name="module_sanity-source.SanityOptions+apiVersion">`apiVersion`</a> |  <code>string</code>|  <code>'v2021-10-21'</code>  | API Version |

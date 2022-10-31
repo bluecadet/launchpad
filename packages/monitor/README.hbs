@@ -66,8 +66,37 @@ The following `launchpad.json` will launch and monitor two apps. The first app w
 }
 ```
 
+## Logging App Output
+
+To capture your apps' logs in Launchpad Monitor you need to ensure that your apps are routing them to `stdout` and `stderr`.
+
+### Unity
+
+To redirect Unity's logs to stdout and stderr, launch your app using the `-logfile -` argument:
+
+```json
+{
+  "monitor": {
+    "apps": [
+      {
+        "name": "unity-app",
+        "script": "UnityPM2Test.exe",
+        "args": "-logfile -"
+      }
+    ]
+  }
+}
+```
+
+### Cinder
+
+- Cinder doesn't route logs directly to `std::cout` and `std::cerr` by default, so this has to be done manually. See [here](https://github.com/bluecadet/Cinder-BluecadetViews/blob/2333604abc44a719e18df67566135ea34d545085/src/bluecadet/core/BaseApp.cpp#L22-L39) for an example for how to create one, and [here](https://github.com/bluecadet/Cinder-BluecadetViews/blob/2333604abc44a719e18df67566135ea34d545085/src/bluecadet/core/BaseApp.cpp#L86) for how to add it.
+- If you use [Cinder-BluecadetViews](https://github.com/bluecadet/Cinder-BluecadetViews), all logs are routed to `stdout`/`stderr` via the `logToStdOut` setting. This is set to `true` by default and can otherwise be configured in `settings.json` or via cli flag: `my-app.exe console=false logToStdOut=true`
+
 ## Adanced Configuration
 
-{{>class-members name="AppLogOptions"}}
+See below for further settings that can be configured globally and on a per-app level.
 
 {{>class-members name="WindowsApiOptions"}}
+
+{{>class-members name="AppLogOptions"}}

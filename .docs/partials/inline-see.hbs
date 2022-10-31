@@ -1,12 +1,6 @@
 {{#if see~}}
 
-{{#if (equal see.length 1)~}}
-See: {{{inlineLinks see.[0]}}}
-{{else~}}
-See
+{{#if (equal see.length 1)~}}See: {{{inlineLinks see.[0]}}}{{else~}}
+See: {{#each see}} {{{inlineLinks this}}}{{#unless @last}},{{/unless}}{{/each~}}.{{/if~}}
 
-{{#each see}}- {{{inlineLinks this}}}
-{{/each}}
-
-{{/if~}}
 {{/if~}}

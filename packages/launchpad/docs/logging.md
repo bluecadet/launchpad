@@ -25,20 +25,38 @@ Available log levels are: error
 5. `debug`
 6. `silly`
 
-All of the below settings can be configured via `launchpad.json` or by passing in the appropriate CLI launch flag (e.g. `--logging.fileOptions.dirname=my-logs` to save logs to `my-logs/`) example with default settings:
+All settings can be configured via `launchpad.json` or by passing in the appropriate CLI launch flag (e.g. `--logging.fileOptions.dirname=my-logs` to save logs to `my-logs/`).
 
-```json
-{
-  "logging": {
-    "level": "info",
-    "filename": "%DATE%-%LOG_TYPE%",
-    "fileOptions": {
-      "extension": ".log",
-      "dirname": ".logs",
-      "maxSize": "20m",
-      "maxFiles": "28d",
-      "datePattern": "YYYY-MM-DD",
-    }
-  }
-}
-```
+## Capturing Application Logs
+
+Launchpad routes all the `stdout` and `stderr` logs of all apps to the console and file based the settings [LogManager](packages\utils\lib\log-manager.js). See [Launchpad Monitor](/packages/monitor/README.md#logging-app-output) for more info.
+
+## Advanced Configuration
+
+See below for all available options and settings for logging.
+
+
+###  LogOptions
+Options object passed directly to Winston's constructor, with additional options for Launchpad logging.
+
+See: https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
+| Property | Type | Default | Description |
+| - | - | - | - |
+| <a name="module_log-manager.LogOptions+filename">`filename`</a> |  <code>string</code>|  <code>`%DATE%-%LOG\_TYPE%`</code>  | Where to save logs to. |
+| <a name="module_log-manager.LogOptions+fileOptions">`fileOptions`</a> |  <code>LogFileOptions</code>|  <code>new LogFileOptions(fileOptions)</code>  | Options for individual files and streams. |
+| <a name="module_log-manager.LogOptions+level">`level`</a> |  <code>string</code>|  <code>'info'</code>  | The maximum log level to display in all default logs. |
+| <a name="module_log-manager.LogOptions+format">`format`</a> |  <code>winston.Logform.Format</code>|  <code>LogOptions.DEFAULT\_LOG\_FORMAT</code>  | The format for how each line is logged. |
+
+
+###  LogFileOptions
+
+
+See: https://github.com/winstonjs/winston-daily-rotate-file#options
+| Property | Type | Default | Description |
+| - | - | - | - |
+| <a name="module_log-manager.LogFileOptions+format">`format`</a> |  <code>winston.Logform.Format</code>|  <code>Uncolorized variant of LogOptions.DEFAULT\_LOG\_FORMAT</code>  | The format used for individual file logs. Uses the default log format but without colorization out of the box. |
+| <a name="module_log-manager.LogFileOptions+extension">`extension`</a> |  <code>string</code>|  <code>'.log'</code>  | File extension. |
+| <a name="module_log-manager.LogFileOptions+dirname">`dirname`</a> |  <code>string</code>|  <code>'.logs'</code>  | The directory under which all logs are saved. |
+| <a name="module_log-manager.LogFileOptions+maxSize">`maxSize`</a> |  <code>string</code>|  <code>'20m'</code>  | The max size of each individual log file. |
+| <a name="module_log-manager.LogFileOptions+maxFiles">`maxFiles`</a> |  <code>string</code>|  <code>'28d'</code>  | The maximum number of files to save per type. |
+| <a name="module_log-manager.LogFileOptions+datePattern">`datePattern`</a> |  <code>string</code>|  <code>'YYYY-MM-DD'</code>  | The date pattern used in file names. |

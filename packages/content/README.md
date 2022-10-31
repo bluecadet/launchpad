@@ -105,6 +105,8 @@ Once content is downloaded it can be processed to transform text and images. For
 
 ##  ContentOptions
 Options for all content and media downloads. Each of these settings can also be configured per `ContentSource`.
+
+
 | Property | Type | Default | Description |
 | - | - | - | - |
 | <a name="module_launchpad-content/content-options.ContentOptions+sources">`sources`</a> |  <code>Array.&lt;SourceOptions&gt;</code>|  <code>[]</code>  | A list of content source options. This defines which content is downloaded from where. |

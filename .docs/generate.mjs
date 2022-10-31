@@ -36,7 +36,7 @@ const renderSourceDocs = async (sources) => {
 }
 
 const defaults = {
-	"files": "packages/**/lib/*.js",
+	"files": "packages/**/*.js",
 	"heading-depth": 2,
 	"name-format": true,
 	"separators": true,
@@ -44,7 +44,9 @@ const defaults = {
 		".docs/partials/class-members.hbs",
 		".docs/partials/inline-see.hbs"
 	],
-	"helper": [".docs/helpers/helpers.js"],
+	"helper": [
+		".docs/helpers/helpers.js"
+	],
 	"module-index-format": "list",
 	"global-index-format": "list",
 	"param-index-format": "list",
@@ -52,6 +54,8 @@ const defaults = {
 	"member-index-format": "grouped"
 };
 
+await renderDocs({...defaults, templatePath: 'packages/launchpad/.docs/hooks.hbs', outputPath: 'packages/launchpad/docs/hooks.md', "heading-depth": 3});
+await renderDocs({...defaults, templatePath: 'packages/launchpad/.docs/logging.hbs', outputPath: 'packages/launchpad/docs/logging.md', "heading-depth": 3});
 await renderDocs({...defaults, templatePath: 'packages/content/README.hbs', outputPath: 'packages/content/README.md'});
 await renderDocs({...defaults, templatePath: 'packages/monitor/README.hbs', outputPath: 'packages/monitor/README.md', "heading-depth": 3});
 await renderSourceDocs(['airtable', 'contentful', 'json', 'sanity', 'strapi']);

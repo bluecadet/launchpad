@@ -158,7 +158,7 @@ export class AppLogOptions {
 }
 
 /**
- * General options for all Windows API logic.
+ * Global options for how window order should be managed.
  */
 export class WindowsApiOptions {
 	constructor({
@@ -178,17 +178,21 @@ export class WindowsApiOptions {
 		this.nodeVersion = nodeVersion;
 		/**
 		 * The delay until windows are ordered after launch of in ms.
-		 * Keeping this high reduces the CPU load if apps relaunch often.
+		 * 
+		 * If your app takes a long time to open all of its windows, set this number to a higher value to ensure it can be on top of the launchpad terminal window.
+		 * 
+		 * Keeping this high also reduces the CPU load if apps relaunch often.
 		 * @type {number}
 		 * @default 3000
 		 */
 		this.debounceDelay = debounceDelay;
 		/**
-		 * The key tap to emulate in order to gain control over
-		 * window foregrounding/backgrounding. This key gets
-		 * emulated after an app launches or re-launches.
+		 * Windows OS is very strict with when and how apps can move windows to the foreground or backgruond. As a workaround, Launchpad emulates a keypress to make the current process active.
 		 * 
-		 * @see https://robotjs.io/docs/syntax#keys 
+		 * This setting configures which key is used to emulate in order to gain control over window foregrounding/backgrounding. This key gets emulated after an app launches or re-launches.
+		 * 
+		 * @see https://robotjs.io/docs/syntax#keys for available options
+		 * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-allowsetforegroundwindow#remarks for window management requirements
 		 * @type {string}
 		 * @default 'control'
 		 */

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.9.0
+
+### Minor Changes
+
+- [#80](https://github.com/bluecadet/launchpad/pull/80) [`c911be2`](https://github.com/bluecadet/launchpad/commit/c911be2b406d8ff9d6fbc7d17d16af24af26f58a) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Fixed sanity image crop downloads. Added appendCroppedFilenames option
+
 ## 1.8.1
 
 ### Patch Changes

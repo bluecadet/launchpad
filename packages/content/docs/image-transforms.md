@@ -73,6 +73,7 @@ Applies a [blur](https://sharp.pixelplumbing.com/api-operation#blur) within the 
   "imageTransforms": [
     {
       "blur": 16
+    }
   ]
 }
 ```

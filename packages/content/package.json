@@ -39,6 +39,7 @@
     "markdown-it": "^12.2.0",
     "p-queue": "^7.1.0",
     "rimraf": "^3.0.2",
+    "sanitize-filename": "^1.6.3",
     "sanitize-html": "^2.5.1",
     "sharp": "^0.30.7",
     "strip-json-comments": "^4.0.0"

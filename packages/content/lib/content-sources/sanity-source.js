@@ -4,6 +4,8 @@
 
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
+import path from 'path';
+import { default as sanitizeFilename } from 'sanitize-filename';
 
 import sanityClient from '@sanity/client';
 import imageUrlBuilder from '@sanity/image-url';
@@ -13,6 +15,7 @@ import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 import FileUtils from '../utils/file-utils.js';
+import { pathExists } from 'fs-extra';
 
 /**
  * Options for SanitySource
@@ -30,6 +33,7 @@ export class SanityOptions extends SourceOptions {
     maxNumPages = -1,
     mergePages = false,
     pageNumZeroPad = 0,
+    appendCroppedFilenames = true,
     ...rest
   } = {}) {
     super(rest);
@@ -99,6 +103,13 @@ export class SanityOptions extends SourceOptions {
      * @default 0
      */
     this.pageNumZeroPad = pageNumZeroPad;
+    
+    /**
+     * If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior.
+     * @type {boolean}
+     * @default true
+     */
+    this.appendCroppedFilenames = appendCroppedFilenames;
 
     /**
      * API Token defined in your sanity project.
@@ -257,18 +268,27 @@ class SanitySource extends ContentSource {
     const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
     const builder = imageUrlBuilder(this.client);
     for (let image of images) {
-      if (!image._key) {
-        // _key is only defined for derivative images. Skip if it doesn't exist
+      if (!('crop' in image)) {
+        // Only process images with crop properties
         continue;
       }
       const urlBuilder = builder.image(image);
+      const urlStr = urlBuilder.url();
+      const url = new URL(urlStr);
       const task = new MediaDownload({
-        url: urlBuilder.url(),
+        url: urlStr,
       });
       task.localPath = FileUtils.addFilenameSuffix(
         task.localPath,
-        `_${image._key}`
+        `_${sanitizeFilename(url.search.replace('?', ''))}`
       );
+      
+      if (this.config.appendCroppedFilenames) {
+        image.launchpad = {
+          croppedFilename: path.basename(task.localPath)
+        };
+      }
+      
       downloads.push(task);
     }
 

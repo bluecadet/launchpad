@@ -17,4 +17,5 @@ Options for SanitySource
 | <a name="module_sanity-source.SanityOptions+maxNumPages">`maxNumPages`</a> |  <code>number</code>|  <code>-1</code>  | Max number of pages. Use `-1` for all pages |
 | <a name="module_sanity-source.SanityOptions+mergePages">`mergePages`</a> |  <code>boolean</code>|  | To combine paginated files into a single file. |
 | <a name="module_sanity-source.SanityOptions+pageNumZeroPad">`pageNumZeroPad`</a> |  <code>number</code>|  <code>0</code>  | How many zeros to pad each json filename index with. |
+| <a name="module_sanity-source.SanityOptions+appendCroppedFilenames">`appendCroppedFilenames`</a> |  <code>boolean</code>|  <code>true</code>  | If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior. |
 | <a name="module_sanity-source.SanityOptions+apiToken">`apiToken`</a> |  <code>string</code>|  | API Token defined in your sanity project. |

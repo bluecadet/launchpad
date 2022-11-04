@@ -436,15 +436,15 @@ export class LaunchpadMonitor {
 		}
 		
 		visibleWindows.filter(win => hidePids.has(win.processId)).forEach(win => {
-			this._logger.info(`Hiding ${win.getTitle()} (pid: ${win.processId})`);
+			this._logger.info(`Hiding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
 			win.hide();
 		});
 		visibleWindows.filter(win => minPids.has(win.processId)).forEach(win => {
-			this._logger.info(`Minimizing ${win.getTitle()} (pid: ${win.processId})`);
+			this._logger.info(`Minimizing ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
 			win.minimize();
 		});
 		visibleWindows.filter(win => fgPids.has(win.processId)).forEach(win => {
-			this._logger.info(`Foregrounding ${win.getTitle()} (pid: ${win.processId})`);
+			this._logger.info(`Foregrounding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
 			win.bringToTop();
 		});
 		

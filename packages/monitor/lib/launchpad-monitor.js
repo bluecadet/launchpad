@@ -9,6 +9,7 @@ import pm2 from 'pm2';
 import semver from 'semver';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
+import { windowManager } from 'node-window-manager';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
@@ -408,7 +409,7 @@ export class LaunchpadMonitor {
 		
 		appNames = this._validateAppNames(appNames);
 		
-		this._logger.info(`Applying window settings to ${appNames}...`);
+		this._logger.info(`Applying window settings to ${appNames.length} ${appNames.length === 1 ? 'app' : 'apps'}`);
 		
 		let windowsApi = null;
 		try {
@@ -417,9 +418,12 @@ export class LaunchpadMonitor {
 			this._logger.error(`Could not retrieve Windows API libraries. Make sure optional deps are installed: 'npm i robotjs ffi-napi ref-napi'`, err);
 		}
 		
-		const fgPids = [];
-		const minPids = [];
-		const hidePids = [];
+		const fgPids = new Set();
+		const minPids = new Set();
+		const hidePids = new Set();
+		
+		windowManager.requestAccessibility();
+		const visibleWindows = windowManager.getWindows().filter(win => win.isVisible());
 		
 		for (const appName of appNames) {
 			const appOptions = this.getAppOptions(appName);
@@ -431,25 +435,27 @@ export class LaunchpadMonitor {
 				return appProcess;
 			}
 			
-			const appLabel = `${appName} (pid: ${appProcess.pid})`;
+			const appLabel = `"${appName}" (pid: ${appProcess.pid})`;
 			
-			if (winOptions.foreground) {
-				this._logger.debug(`...foregrounding ${appLabel}`);
-				fgPids.push(appProcess.pid);
+			if (winOptions.hide) {
+				this._logger.debug(`Hiding ${appLabel}`);
+				hidePids.add(appProcess.pid);
 			}
 			if (winOptions.minimize) {
-				this._logger.debug(`...minimizing ${appLabel}`);
-				minPids.push(appProcess.pid);
+				this._logger.debug(`Minimizing ${appLabel}`);
+				minPids.add(appProcess.pid);
 			}
-			if (winOptions.hide) {
-				this._logger.debug(`...hiding ${appLabel}`);
-				hidePids.push(appProcess.pid);
+			if (winOptions.foreground) {
+				this._logger.debug(`Moving ${appLabel} to the foreground`);
+				fgPids.add(appProcess.pid);
 			}
 		}
 		
-		windowsApi.sortWindows(fgPids, minPids, hidePids);
+		visibleWindows.filter(win => hidePids.has(win.processId)).forEach(win => win.hide());
+		visibleWindows.filter(win => minPids.has(win.processId)).forEach(win => win.minimize());
+		visibleWindows.filter(win => fgPids.has(win.processId)).forEach(win => win.bringToTop());
 		
-		this._logger.debug(`...done applying window settings.`);
+		this._logger.debug(`✅ Done applying window settings.`);
 	}
 	
 	async _getWindowsApi() {

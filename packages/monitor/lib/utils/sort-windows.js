@@ -20,7 +20,7 @@ export class SortApp {
  * @param {Array.<SortApp>} apps 
  * @param {Logger} logger
  * @param {string} minNodeVersion
- * @returns 
+ * @returns {Promise}
  */
 const sortWindows = async (apps, logger = console, minNodeVersion = undefined) => {
 	const currNodeVersion = process.version;

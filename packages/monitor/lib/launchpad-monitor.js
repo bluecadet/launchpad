@@ -39,11 +39,6 @@ export class LaunchpadMonitor {
 	_pm2Bus = null;
 	
 	/**
-	 * @type {Object}
-	 */
-	_windowsApi = null;
-	
-	/**
 	 * Creates a new instance, starts it with the
 	 * config and resolves with the monitor instance.
 	 * @param {MonitorOptions} config 
@@ -393,12 +388,6 @@ export class LaunchpadMonitor {
 	 * @returns {Promise}
 	 */
 	async _applyWindowSettings(appNames = null) {
-		
-		if (!this._isWindowsOS()) {
-			this._logger.warn(`Not applying windows settings since this is only supported on Windows OS.`);
-			return;
-		}
-		
 		const currVersion = process.version;
 		const requVersion = this._config.windowsApi.nodeVersion;
 		
@@ -410,13 +399,7 @@ export class LaunchpadMonitor {
 		appNames = this._validateAppNames(appNames);
 		
 		this._logger.info(`Applying window settings to ${appNames.length} ${appNames.length === 1 ? 'app' : 'apps'}`);
-		
-		let windowsApi = null;
-		try {
-			windowsApi = await this._getWindowsApi();
-		} catch (err) {
-			this._logger.error(`Could not retrieve Windows API libraries. Make sure optional deps are installed: 'npm i robotjs ffi-napi ref-napi'`, err);
-		}
+
 		
 		const fgPids = new Set();
 		const minPids = new Set();
@@ -424,6 +407,7 @@ export class LaunchpadMonitor {
 		
 		windowManager.requestAccessibility();
 		const visibleWindows = windowManager.getWindows().filter(win => win.isVisible());
+		const visiblePids = new Set(visibleWindows.map(win => win.processId));
 		
 		for (const appName of appNames) {
 			const appOptions = this.getAppOptions(appName);
@@ -431,39 +415,40 @@ export class LaunchpadMonitor {
 			const appProcess = await this.getAppProcess(appName);
 			
 			if (!appProcess || appProcess.pm2_env.status !== 'online') {
-				this._logger.warn(`Not applying window settings to ${appName} because it's not online.`);
-				return appProcess;
+				this._logger.warn(`Not applying window settings to ${chalk.blue(appName)} because it's not online.`);
+				continue;
 			}
 			
-			const appLabel = `"${appName}" (pid: ${appProcess.pid})`;
+			if (!visiblePids.has(appProcess.pid)) {
+				this._logger.warn(`No window found for ${chalk.blue(appName)} with pid ${chalk.blue(appProcess.pid)}.`);
+				continue;
+			}
 			
 			if (winOptions.hide) {
-				this._logger.debug(`Hiding ${appLabel}`);
 				hidePids.add(appProcess.pid);
 			}
 			if (winOptions.minimize) {
-				this._logger.debug(`Minimizing ${appLabel}`);
 				minPids.add(appProcess.pid);
 			}
 			if (winOptions.foreground) {
-				this._logger.debug(`Moving ${appLabel} to the foreground`);
 				fgPids.add(appProcess.pid);
 			}
 		}
 		
-		visibleWindows.filter(win => hidePids.has(win.processId)).forEach(win => win.hide());
-		visibleWindows.filter(win => minPids.has(win.processId)).forEach(win => win.minimize());
-		visibleWindows.filter(win => fgPids.has(win.processId)).forEach(win => win.bringToTop());
+		visibleWindows.filter(win => hidePids.has(win.processId)).forEach(win => {
+			this._logger.info(`Hiding ${win.getTitle()} (pid: ${win.processId})`);
+			win.hide();
+		});
+		visibleWindows.filter(win => minPids.has(win.processId)).forEach(win => {
+			this._logger.info(`Minimizing ${win.getTitle()} (pid: ${win.processId})`);
+			win.minimize();
+		});
+		visibleWindows.filter(win => fgPids.has(win.processId)).forEach(win => {
+			this._logger.info(`Foregrounding ${win.getTitle()} (pid: ${win.processId})`);
+			win.bringToTop();
+		});
 		
 		this._logger.debug(`✅ Done applying window settings.`);
-	}
-	
-	async _getWindowsApi() {
-		if (!this._windowsApi) {
-			// Importing at runtime allows optional dependencies for non-Windows platforms
-			this._windowsApi = await import('./windows-api.js');
-		}
-		return this._windowsApi;
 	}
 	
 	_isWindowsOS() {

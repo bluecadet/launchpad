@@ -54,12 +54,14 @@ export class AppOptions {
 		 * @default null
 		 */
 		this.pm2 = pm2;
+		
 		/**
 		 * Optional settings for moving this app's main windows to the foreground, minimize or hide them.
 		 * @type {WindowOptions}
 		 * @default new WindowOptions()
 		 */
 		this.windows = windows;
+		
 		/**
 		 * Optional settings for how to log this app's output.
 		 * @type {AppLogOptions}
@@ -84,12 +86,14 @@ export class WindowOptions {
 		 * @default false
 		 */
 		this.foreground = foreground;
+		
 		/**
 		 * Minimize this app's windows once all apps have been launched.
 		 * @type {boolean}
 		 * @default false
 		 */
 		this.minimize = minimize;
+		
 		/**
 		 * Completely hide this app's windows once all apps have been launched. Helpful for headless apps, but note that this might cause issues with GUI-based apps.
 		 * 
@@ -111,6 +115,7 @@ export const LogModes = {
 	 * @type {string} 
 	 */
 	TailLogFile: 'file',
+	
 	/**
 	 * Logs directly from the app's stdout/stderr bus. Can result in interrupted logs if the buffer isn't consistently flushed by an app.
 	 * @type {string}
@@ -134,6 +139,7 @@ export class AppLogOptions {
 		 * @default true
 		 */
 		this.logToLaunchpadDir = logToLaunchpadDir;
+		
 		/**
 		 * How to grab the app's logs. Supported values:
 		 * - `'file'`: Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus.
@@ -142,12 +148,14 @@ export class AppLogOptions {
 		 * @default 'file'
 		 */
 		this.mode = mode;
+		
 		/**
 		 * Whether or not to include output from `stdout`
 		 * @type {boolean}
 		 * @default true
 		 */
 		this.showStdout = showStdout;
+		
 		/**
 		 * Whether or not to include output from `stderr`
 		 * @type {boolean}
@@ -162,9 +170,8 @@ export class AppLogOptions {
  */
 export class WindowsApiOptions {
 	constructor({
-		nodeVersion = '>=17.4.0',
 		debounceDelay = 3000,
-		fakeKey = 'control',
+		nodeVersion = '>=17.4.0',
 		...rest
 	} = {}) {
 		/**
@@ -176,6 +183,7 @@ export class WindowsApiOptions {
 		 * @default '>=17.4.0'
 		 */
 		this.nodeVersion = nodeVersion;
+		
 		/**
 		 * The delay until windows are ordered after launch of in ms.
 		 * 
@@ -186,17 +194,6 @@ export class WindowsApiOptions {
 		 * @default 3000
 		 */
 		this.debounceDelay = debounceDelay;
-		/**
-		 * Windows OS is very strict with when and how apps can move windows to the foreground or backgruond. As a workaround, Launchpad emulates a keypress to make the current process active.
-		 * 
-		 * This setting configures which key is used to emulate in order to gain control over window foregrounding/backgrounding. This key gets emulated after an app launches or re-launches.
-		 * 
-		 * @see https://robotjs.io/docs/syntax#keys for available options
-		 * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-allowsetforegroundwindow#remarks for window management requirements
-		 * @type {string}
-		 * @default 'control'
-		 */
-		this.fakeKey = fakeKey;
 		
 		Object.assign(this, rest);
 	}

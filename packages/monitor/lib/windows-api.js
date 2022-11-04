@@ -41,6 +41,8 @@ export const user32 = new ffi.Library('user32', {
 	AttachThreadInput: ['bool', ['int', 'long', 'bool']],
 	BringWindowToTop: ['bool', ['long']],
 	EnumWindows: ['bool', [voidPtr, 'int32']],
+	EnumChildWindows: ['bool', ['long', voidPtr, 'int32']],
+	EnumThreadWindows: ['bool', ['int', voidPtr, 'int32']],
 	FindWindowA: ['long', [lpctStr, lpctStr]],
 	GetForegroundWindow: ['long', []],
 	GetTopWindow: ['long', ['long']],
@@ -136,11 +138,37 @@ export class Rect {
 }
 
 export class WindowInfo {
-	/** @type {number} */
+	/**
+	 * @type {number}
+	 */
 	hwnd = 0;
-	/** @type {number} */
+	
+	/**
+	 * @type {number}
+	 */
 	pid = 0;
+	
+	// /**
+	//  * @type {string}
+	//  */
+	// name = '';
+	
+	/**
+	 * @param {number} hwnd 
+	 * @param {number?} pid 
+	 * @param {string?} name 
+	 */
+	constructor(hwnd, pid = null, name = null) {
+		this.hwnd = hwnd;
+		this.pid = pid || getWindowPid(hwnd);
+		// this.name = name || getWindowName(hwnd);
+	}
+	
+	/**
+	 * @returns {string}
+	 */
 	toString() {
+		// return `(pid: ${this.pid}, hwnd: ${this.hwnd}, name: ${this.name})`;
 		return `(pid: ${this.pid}, hwnd: ${this.hwnd})`;
 	}
 }
@@ -262,21 +290,28 @@ export const getWindowPlacement = function (hwnd) {
 export const getWindowPid = (hwnd) => {
 	const buffer = ref.alloc(lpdwordPtr);
 	user32.GetWindowThreadProcessId(hwnd, buffer);
-	// The process ID is returned as a LPDWORD, so 
-	// we have to read it in the correct format
-	// @see https://stackoverflow.com/questions/58477755/what-is-the-equivalent-of-dword-in-nodejs
+	/**
+	 * The process ID is returned as a LPDWORD, so we have to read it in the correct format
+	 * @see https://stackoverflow.com/questions/58477755/what-is-the-equivalent-of-dword-in-nodejs
+	 */
 	return buffer.readUInt32LE();
 }
 
 /**
- * @param @type {function(WindowInfo) : boolean} callback Return true to continue iterating, false to stop.
+ * @param {function(WindowInfo) : boolean} callback Return `true` to continue iterating, `false` to stop.
  */
  export const enumWindows = (callback) => {
 	user32.EnumWindows(ffi.Callback('bool', ['long', 'int32'], (hwnd, lParam) => {
-		const window = new WindowInfo();
-		window.hwnd = hwnd;
-		window.pid = getWindowPid(hwnd);
-		return callback(window);
+		const win = new WindowInfo(hwnd);
+				
+		if (!callback(win)) {
+			return false;
+		}
+		
+		user32.EnumChildWindows(win.hwnd, ffi.Callback('bool', ['long', 'int32'], (childHwnd, lParam) => {
+			const childWin = new WindowInfo(childHwnd);
+			return callback(childWin);
+		}), lParam);
 	}), 0);
 };
 
@@ -298,7 +333,7 @@ export const getAllWindows = () => {
  */
 export const getWindowsByName = (name) => {
 	name = name.toLowerCase();
-	return getAllWindows().filter(win => getWindowName(win).toLowerCase().includes(name));
+	return getAllWindows().filter(win => getWindowName(win.hwnd).toLowerCase().includes(name));
 }
 
 /**
@@ -321,22 +356,20 @@ export const getWindowsByPid = (pid) => {
  */
 export const sortWindows = (fgPids, minPids, hidePids, fakeKey = defaultFakeKey) => {
 	sendKeyTap(fakeKey);
-	const allWins = getAllWindows();
-	allWins.filter(win => hidePids.includes(win.pid)).forEach(win => {
-		if (isWindowVisible(win.hwnd)) {
-			user32.ShowWindow(win.hwnd, ShowWindowModes.SW_HIDE);
-		}
+	
+	const allVisibleWins = getAllWindows().filter(win => {
+		return isWindowVisible(win.hwnd);
 	});
-	allWins.filter(win => minPids.includes(win.pid)).forEach(win => {
-		if (isWindowVisible(win.hwnd)) {
-			user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWMINNOACTIVE);
-		}
+	
+	allVisibleWins.filter(win => hidePids.includes(win.pid)).forEach(win => {
+		user32.ShowWindow(win.hwnd, ShowWindowModes.SW_HIDE);
 	});
-	allWins.filter(win => fgPids.includes(win.pid)).forEach(win => {
-		if (isWindowVisible(win.hwnd)) {
-			user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOW);
-			user32.SetForegroundWindow(win.hwnd);
-		}
+	allVisibleWins.filter(win => minPids.includes(win.pid)).forEach(win => {
+		user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWMINNOACTIVE);
+	});
+	allVisibleWins.filter(win => fgPids.includes(win.pid)).forEach(win => {
+		user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOW);
+		user32.SetForegroundWindow(win.hwnd);
 	});
 }
 
@@ -376,7 +409,9 @@ export const foregroundWindowsByPid = (pid, fakeKey = defaultFakeKey) => {
 	getWindowsByPid(pid).forEach(win => {
 		// See: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
 		if (isWindowVisible(win.hwnd)) {
-			user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWMINNOACTIVE);
+			// user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWNA);
+			// user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWMINNOACTIVE);
+			user32.ShowWindow(win.hwnd, ShowWindowModes.SW_SHOWMINIMIZED);
 		}
 	});
 }

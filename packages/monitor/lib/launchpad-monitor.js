@@ -408,7 +408,7 @@ export class LaunchpadMonitor {
 		
 		appNames = this._validateAppNames(appNames);
 		
-		this._logger.info(`Applying window settings to apps: ${appNames}...`);
+		this._logger.info(`Applying window settings to ${appNames}...`);
 		
 		let windowsApi = null;
 		try {

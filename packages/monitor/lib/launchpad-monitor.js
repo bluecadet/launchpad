@@ -377,7 +377,9 @@ export class LaunchpadMonitor {
 		
 		// Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
 		options.pm2.windowsHide = options.windows.hide;
-		return this._appLogRouter.initAppOptions(options);
+		this._appLogRouter.initAppOptions(options);
+		
+		return options;
 	}
 	
 	/**

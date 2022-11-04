@@ -6,14 +6,13 @@ import chalk from 'chalk';
 import autoBind from 'auto-bind';
 import pDebounce from 'p-debounce';
 import pm2 from 'pm2';
-import semver from 'semver';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
-import { windowManager } from 'node-window-manager';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import { AppLogOptions, MonitorOptions, WindowOptions } from './monitor-options.js';
+import sortWindows, { SortApp } from './utils/sort-windows.js';
 
 export class LaunchpadMonitor {
 	/** @type {MonitorOptions} */
@@ -388,71 +387,25 @@ export class LaunchpadMonitor {
 	 * @returns {Promise}
 	 */
 	async _applyWindowSettings(appNames = null) {
-		const currVersion = process.version;
-		const requVersion = this._config.windowsApi.nodeVersion;
-		
-		if (!semver.satisfies(currVersion, requVersion)) {
-			this._logger.warn(`Not applying window settings since your node version '${currVersion}' doesn't satisfy the required version '${requVersion}'. Please upgrade node to apply window settings like foreground/minimize/hide.`);
-			return;
-		}
-		
 		appNames = this._validateAppNames(appNames);
-		
-		this._logger.info(`Applying window settings to ${appNames.length} ${appNames.length === 1 ? 'app' : 'apps'}`);
-
-		
-		const fgPids = new Set();
-		const minPids = new Set();
-		const hidePids = new Set();
-		
-		windowManager.requestAccessibility();
-		const visibleWindows = windowManager.getWindows().filter(win => win.isVisible());
-		const visiblePids = new Set(visibleWindows.map(win => win.processId));
+		const apps = [];
 		
 		for (const appName of appNames) {
-			const appOptions = this.getAppOptions(appName);
-			const winOptions = appOptions.windows;
-			const appProcess = await this.getAppProcess(appName);
+			const sortApp = new SortApp();
+			sortApp.options = this.getAppOptions(appName);
 			
-			if (!appProcess || appProcess.pm2_env.status !== 'online') {
-				this._logger.warn(`Not applying window settings to ${chalk.blue(appName)} because it's not online.`);
+			try {
+				const process = await this.getAppProcess(appName);
+				sortApp.pid = process.pid;
+			} catch (error) {
+				this._logger.error(`Could not get process for app ${appName}`);
 				continue;
 			}
 			
-			if (!visiblePids.has(appProcess.pid)) {
-				this._logger.warn(`No window found for ${chalk.blue(appName)} with pid ${chalk.blue(appProcess.pid)}.`);
-				continue;
-			}
-			
-			if (winOptions.hide) {
-				hidePids.add(appProcess.pid);
-			}
-			if (winOptions.minimize) {
-				minPids.add(appProcess.pid);
-			}
-			if (winOptions.foreground) {
-				fgPids.add(appProcess.pid);
-			}
+			apps.push(sortApp);
 		}
 		
-		visibleWindows.filter(win => hidePids.has(win.processId)).forEach(win => {
-			this._logger.info(`Hiding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
-			win.hide();
-		});
-		visibleWindows.filter(win => minPids.has(win.processId)).forEach(win => {
-			this._logger.info(`Minimizing ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
-			win.minimize();
-		});
-		visibleWindows.filter(win => fgPids.has(win.processId)).forEach(win => {
-			this._logger.info(`Foregrounding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
-			win.bringToTop();
-		});
-		
-		this._logger.debug(`✅ Done applying window settings.`);
-	}
-	
-	_isWindowsOS() {
-		return process.platform === 'win32';
+		return sortWindows(apps, this._logger, this._config.windowsApi.nodeVersion);
 	}
 	
 	async _connectPm2Bus() {

@@ -6,13 +6,13 @@ import chalk from 'chalk';
 import autoBind from 'auto-bind';
 import pDebounce from 'p-debounce';
 import pm2 from 'pm2';
-import semver from 'semver';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import { AppLogOptions, MonitorOptions, WindowOptions } from './monitor-options.js';
+import sortWindows, { SortApp } from './utils/sort-windows.js';
 
 export class LaunchpadMonitor {
 	/** @type {MonitorOptions} */
@@ -36,11 +36,6 @@ export class LaunchpadMonitor {
 	 * @type {SubEmitterSocket}
 	 */
 	_pm2Bus = null;
-	
-	/**
-	 * @type {Object}
-	 */
-	_windowsApi = null;
 	
 	/**
 	 * Creates a new instance, starts it with the
@@ -392,76 +387,25 @@ export class LaunchpadMonitor {
 	 * @returns {Promise}
 	 */
 	async _applyWindowSettings(appNames = null) {
-		
-		if (!this._isWindowsOS()) {
-			this._logger.warn(`Not applying windows settings since this is only supported on Windows OS.`);
-			return;
-		}
-		
-		const currVersion = process.version;
-		const requVersion = this._config.windowsApi.nodeVersion;
-		
-		if (!semver.satisfies(currVersion, requVersion)) {
-			this._logger.warn(`Not applying window settings since your node version '${currVersion}' doesn't satisfy the required version '${requVersion}'. Please upgrade node to apply window settings like foreground/minimize/hide.`);
-			return;
-		}
-		
 		appNames = this._validateAppNames(appNames);
-		
-		this._logger.info(`Applying window settings to apps: ${appNames}...`);
-		
-		let windowsApi = null;
-		try {
-			windowsApi = await this._getWindowsApi();
-		} catch (err) {
-			this._logger.error(`Could not retrieve Windows API libraries. Make sure optional deps are installed: 'npm i robotjs ffi-napi ref-napi'`, err);
-		}
-		
-		const fgPids = [];
-		const minPids = [];
-		const hidePids = [];
+		const apps = [];
 		
 		for (const appName of appNames) {
-			const appOptions = this.getAppOptions(appName);
-			const winOptions = appOptions.windows;
-			const appProcess = await this.getAppProcess(appName);
+			const sortApp = new SortApp();
+			sortApp.options = this.getAppOptions(appName);
 			
-			if (!appProcess || appProcess.pm2_env.status !== 'online') {
-				this._logger.warn(`Not applying window settings to ${appName} because it's not online.`);
-				return appProcess;
+			try {
+				const process = await this.getAppProcess(appName);
+				sortApp.pid = process.pid;
+			} catch (error) {
+				this._logger.error(`Could not get process for app ${appName}`);
+				continue;
 			}
 			
-			const appLabel = `${appName} (pid: ${appProcess.pid})`;
-			
-			if (winOptions.foreground) {
-				this._logger.debug(`...foregrounding ${appLabel}`);
-				fgPids.push(appProcess.pid);
-			}
-			if (winOptions.minimize) {
-				this._logger.debug(`...minimizing ${appLabel}`);
-				minPids.push(appProcess.pid);
-			}
-			if (winOptions.hide) {
-				this._logger.debug(`...hiding ${appLabel}`);
-				hidePids.push(appProcess.pid);
-			}
+			apps.push(sortApp);
 		}
 		
-		windowsApi.sortWindows(fgPids, minPids, hidePids);
-		
-		this._logger.debug(`...done applying window settings.`);
-	}
-	
-	async _getWindowsApi() {
-		if (!this._windowsApi) {
-			// Importing at runtime allows optional dependencies for non-Windows platforms
-			this._windowsApi = await import('./windows-api.js');
-		}
-		return this._windowsApi;
-	}
-	
-	_isWindowsOS() {
-		return process.platform === 'win32';
+		return sortWindows(apps, this._logger, this._config.windowsApi.nodeVersion);
 	}
 	
 	async _connectPm2Bus() {

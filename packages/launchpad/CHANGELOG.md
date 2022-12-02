@@ -1,5 +1,11 @@
 # @bluecadet/launchpad
 
+## 1.3.6
+
+### Patch Changes
+
+- [#86](https://github.com/bluecadet/launchpad/pull/86) [`8a23491`](https://github.com/bluecadet/launchpad/commit/8a23491c2ef31cca7c89f9820fac3ba849e5aeb2) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Fixed changeset release dependencies
+
 ## 1.3.5
 
 ### Patch Changes

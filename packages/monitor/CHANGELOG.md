@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 1.4.0
+
+### Minor Changes
+
+- [#82](https://github.com/bluecadet/launchpad/pull/82) [`f1ceb41`](https://github.com/bluecadet/launchpad/commit/f1ceb41c61d7eb8cce48d3ae2c81e39dd341e84c) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Swapped window management engine for fewer dependencies. Removed 'fake key' setting.
+
 ## 1.3.1
 
 ### Patch Changes

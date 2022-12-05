@@ -1,5 +1,25 @@
 # @bluecadet/launchpad
 
+## 1.3.6
+
+### Patch Changes
+
+- [#86](https://github.com/bluecadet/launchpad/pull/86) [`8a23491`](https://github.com/bluecadet/launchpad/commit/8a23491c2ef31cca7c89f9820fac3ba849e5aeb2) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Fixed changeset release dependencies
+
+## 1.3.5
+
+### Patch Changes
+
+- Updated dependencies [[`f1ceb41`](https://github.com/bluecadet/launchpad/commit/f1ceb41c61d7eb8cce48d3ae2c81e39dd341e84c)]:
+  - @bluecadet/launchpad-monitor@1.4.0
+
+## 1.3.4
+
+### Patch Changes
+
+- Updated dependencies [[`c911be2`](https://github.com/bluecadet/launchpad/commit/c911be2b406d8ff9d6fbc7d17d16af24af26f58a)]:
+  - @bluecadet/launchpad-content@1.9.0
+
 ## 1.3.3
 
 ### Patch Changes

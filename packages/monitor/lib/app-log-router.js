@@ -57,7 +57,7 @@ export class LogRelay {
 	 * @param {SubEmitterSocket} _pm2Bus
 	 */
 	connectToBus(_pm2Bus) {
-		// implement this fn in all child classes
+		// Implement this fn in all child classes
 		throw new Error("not implemented");
 	}
 
@@ -65,22 +65,21 @@ export class LogRelay {
 	 * @param {SubEmitterSocket} _pm2Bus
 	 */
 	disconnectFromBus(_pm2Bus) {
-		// implement this fn in all child classes
+		// Implement this fn in all child classes
 		throw new Error("not implemented");
 	}
 
 	/**
-	 * higher order function for filtering out events that are not related to this relay
+	 * Higher order function for filtering out events that are not related to this relay
 	 * @protected
-	 * @param {(eventData: *) => void} handler
-	 * @returns {(eventData: *) => void}
+	 * @param {function(*):void} handler
+	 * @returns {function(*):void}
 	 */
 	filterEvents = (handler) => {
 		const wrappedHandler = (eventData) => {
 			if (eventData?.process?.name !== this._appOptions.pm2.name) return;
 			handler.bind(this)(eventData);
 		};
-
 		return wrappedHandler;
 	};
 }
@@ -305,7 +304,7 @@ export default class AppLogRouter {
 
 		const appLogger = LogManager.getInstance().getLogger(appName, this._logger);
 
-		if (logOptions.mode == LogModes.TailLogFile) {
+		if (logOptions.mode === LogModes.TailLogFile) {
 			const fileRelay = new FileLogRelay(appOptions, appLogger);
 			this._logRelays.set(appName, fileRelay);
 		} else {

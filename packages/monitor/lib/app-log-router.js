@@ -1,6 +1,6 @@
 import pm2 from "pm2";
 import path from "path";
-import Tail from "tail";
+import { Tail } from "tail";
 import autoBind from "auto-bind";
 import { SubEmitterSocket } from "axon"; // used by PM2
 import { Logger, LogManager } from "@bluecadet/launchpad-utils";
@@ -54,34 +54,13 @@ export class LogRelay {
 	}
 
 	/**
-	 * @param {SubEmitterSocket} _pm2Bus
+	 * @param {string} _eventType
+	 * @param {*} _eventData
 	 */
-	connectToBus(_pm2Bus) {
-		// Implement this fn in all child classes
+	handleEvent(_eventType, _eventData) {
+		// implement this fn in all child classes
 		throw new Error("not implemented");
 	}
-
-	/**
-	 * @param {SubEmitterSocket} _pm2Bus
-	 */
-	disconnectFromBus(_pm2Bus) {
-		// Implement this fn in all child classes
-		throw new Error("not implemented");
-	}
-
-	/**
-	 * Higher order function for filtering out events that are not related to this relay
-	 * @protected
-	 * @param {function(*):void} handler
-	 * @returns {function(*):void}
-	 */
-	filterEvents = (handler) => {
-		const wrappedHandler = (eventData) => {
-			if (eventData?.process?.name !== this._appOptions.pm2.name) return;
-			handler.bind(this)(eventData);
-		};
-		return wrappedHandler;
-	};
 }
 
 export class FileLogRelay extends LogRelay {
@@ -119,19 +98,18 @@ export class FileLogRelay extends LogRelay {
 	}
 
 	/**
-	 * @param {SubEmitterSocket} pm2Bus
+	 * @param {string} eventType
+	 * @param {*} eventData
 	 */
-	connectToBus(pm2Bus) {
-		pm2Bus.on("online", this.filterEvents(this._handleOnline));
-		pm2Bus.on("exit", this.filterEvents(this._handleOffline));
-	}
-
-	/**
-	 * @param {SubEmitterSocket} pm2Bus
-	 */
-	disconnectFromBus(pm2Bus) {
-		pm2Bus.off("online");
-		pm2Bus.off("exit");
+	handleEvent(eventType, eventData) {
+		switch (eventType) {
+			case "process:event":
+				if (eventData.event === "online") this._handleOnline();
+				else if (eventData.event === "exit") this._handleOffline();
+				break;
+			default:
+				break;
+		}
 	}
 
 	/** @private */
@@ -141,7 +119,7 @@ export class FileLogRelay extends LogRelay {
 			fsWatchOptions: { interval: 100 },
 		};
 		const outFilepath = this._appOptions.pm2.output;
-		const errFilepath = this._appOptions.pm2.output;
+		const errFilepath = this._appOptions.pm2.error;
 
 		if (this._outTail) {
 			this._outTail.unwatch();
@@ -221,19 +199,20 @@ export class BusLogRelay extends LogRelay {
 	}
 
 	/**
-	 * @param {SubEmitterSocket} pm2Bus
+	 * @param {string} eventType
+	 * @param {*} eventData
 	 */
-	connectToBus(pm2Bus) {
-		pm2Bus.on("log:out", this.filterEvents(this._handleBusLogOut));
-		pm2Bus.on("log:err", this.filterEvents(this._handleBusLogErr));
-	}
-
-	/**
-	 * @param {SubEmitterSocket} pm2Bus
-	 */
-	disconnectFromBus(pm2Bus) {
-		pm2Bus.off("log:out");
-		pm2Bus.off("log:err");
+	handleEvent(eventType, eventData) {
+		switch (eventType) {
+			case "log:out":
+				this._handleBusLogOut(eventData);
+				break;
+			case "log:err":
+				this._handleBusLogErr(eventData);
+				break;
+			default:
+				break;
+		}
 	}
 
 	/**
@@ -317,17 +296,25 @@ export default class AppLogRouter {
 	 * @param {SubEmitterSocket} pm2Bus
 	 */
 	connectToBus(pm2Bus) {
-		this._logRelays.forEach((relay) => {
-			relay.connectToBus(pm2Bus);
-		});
+		pm2Bus.on("*", this._handleEvent);
 	}
 
 	/**
 	 * @param {SubEmitterSocket} pm2Bus
 	 */
 	disconnectFromBus(pm2Bus) {
-		this._logRelays.forEach((relay) => {
-			relay.disconnectFromBus(pm2Bus);
-		});
+		pm2Bus.off("*");
+	}
+
+	/**
+	 * @private
+	 * @param {string} eventType
+	 * @param {*} eventData
+	 */
+	_handleEvent(eventType, eventData) {
+		if (!eventData?.process?.name) return;
+		this._logRelays
+			.get(eventData.process.name)
+			?.handleEvent(eventType, eventData);
 	}
 }

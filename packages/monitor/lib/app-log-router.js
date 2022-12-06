@@ -6,7 +6,7 @@ import { SubEmitterSocket } from "axon"; // used by PM2
 import { Logger, LogManager } from "@bluecadet/launchpad-utils";
 import { AppOptions, AppLogOptions, LogModes } from "./monitor-options.js";
 
-export class LogRelay {
+class LogRelay {
 	/**
 	 * @protected
 	 * @type {AppOptions}
@@ -63,7 +63,7 @@ export class LogRelay {
 	}
 }
 
-export class FileLogRelay extends LogRelay {
+class FileLogRelay extends LogRelay {
 	/**
 	 * @private
 	 * @type {Tail}
@@ -185,7 +185,7 @@ export class FileLogRelay extends LogRelay {
 	}
 }
 
-export class BusLogRelay extends LogRelay {
+class BusLogRelay extends LogRelay {
 	/**
 	 * @param {AppOptions} appOptions
 	 * @param {Logger} logger

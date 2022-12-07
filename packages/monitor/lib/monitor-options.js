@@ -111,14 +111,12 @@ export class WindowOptions {
  */
 export const LogModes = {
 	/**
-	 * Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus.
-	 * @type {string} 
+	 * Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus. Not recommended, as logs cannot be rotated by launchpad.
 	 */
 	TailLogFile: 'file',
 	
 	/**
 	 * Logs directly from the app's stdout/stderr bus. Can result in interrupted logs if the buffer isn't consistently flushed by an app.
-	 * @type {string}
 	 */
 	LogBusEvents: 'bus',
 };
@@ -129,7 +127,7 @@ export const LogModes = {
 export class AppLogOptions {
 	constructor({
 		logToLaunchpadDir = true,
-		mode = LogModes.TailLogFile,
+		mode = LogModes.LogBusEvents,
 		showStdout = true,
 		showStderr = true,
 	} = {}) {
@@ -142,10 +140,10 @@ export class AppLogOptions {
 		
 		/**
 		 * How to grab the app's logs. Supported values:
-		 * - `'file'`: Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus.
 		 * - `'bus'`: Logs directly from the app's stdout/stderr bus. Can result in interrupted logs if the buffer isn't consistently flushed by an app.
-		 * @type {string}
-		 * @default 'file'
+		 * - `'file'`: Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus. Not recommended, as logs cannot be rotated by launchpad.
+		 * @type {'bus' | 'file'}
+		 * @default 'bus'
 		 */
 		this.mode = mode;
 		
@@ -162,6 +160,7 @@ export class AppLogOptions {
 		 * @default true
 		 */
 		this.showStderr = showStderr;
+
 	}
 }
 

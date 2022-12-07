@@ -377,7 +377,9 @@ export class LaunchpadMonitor {
 		
 		// Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
 		options.pm2.windowsHide = options.windows.hide;
-		return this._appLogRouter.initAppOptions(options);
+		this._appLogRouter.initAppOptions(options);
+		
+		return options;
 	}
 	
 	/**
@@ -427,14 +429,13 @@ export class LaunchpadMonitor {
 	/**
 	 * @param {*} eventData 
 	 */
-	 async _handleBusProcessEvent(eventData) {
+	async _handleBusProcessEvent(eventData) {
 		try {
 			if (!eventData || !eventData.process || !eventData.process.name) {
 				return;
 			}
 			// For all event types @see https://github.com/Unitech/pm2/blob/f6c70529bbc04c0e1340e519eddb1534b952c438/test/interface/bus.spec.mocha.js#L93
 			const appName = eventData.process.name;
-			const appProcess = await this.getAppProcess(appName);
 			const processEventType = eventData.event;
 			switch (processEventType) {
 				case 'start':
@@ -442,7 +443,6 @@ export class LaunchpadMonitor {
 					break;
 				case 'online':
 					this._logger.debug(`App is online: ${chalk.green(appName)}`);
-					this._appLogRouter.watchProcess(appProcess);
 					let numLaunches = this._numAppLaunches.has(appName) ?
 						(this._numAppLaunches.get(appName) + 1) : 1;
 					if (numLaunches > 1) {
@@ -452,7 +452,6 @@ export class LaunchpadMonitor {
 					break;
 				case 'exit':
 					this._logger.debug(`App has exited: ${chalk.red(appName)}`);
-					this._appLogRouter.unwatchProcess(appProcess);
 					break;
 				case 'stop':
 					this._logger.debug(`App is stopping: ${chalk.yellow(appName)}`);

@@ -12,6 +12,7 @@ downloads
 .credentials.json
 credentials.json
 packages/**/package-lock.json
+package-lock.json
 
 # MacOS
 .DS_Store

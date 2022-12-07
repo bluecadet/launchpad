@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 1.5.0
+
+### Minor Changes
+
+- [#88](https://github.com/bluecadet/launchpad/pull/88) [`31282d1`](https://github.com/bluecadet/launchpad/commit/31282d1bbf122e1eb989bdba3c2baa77053e7edc) Thanks [@claytercek](https://github.com/claytercek)! - better support for log rotation by updating default configs and making tail functionality opt-in
+
 ## 1.4.0
 
 ### Minor Changes

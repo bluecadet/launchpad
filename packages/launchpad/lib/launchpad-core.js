@@ -5,7 +5,7 @@
 import autoBind from 'auto-bind';
 
 import LaunchpadOptions from './launchpad-options.js';
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
 import CommandCenter, { Command } from './command-center.js';
@@ -55,6 +55,10 @@ export class LaunchpadCore {
 		this._commands.add(new Command({name: 'update-content', callback: this._runUpdateContent}));
 		
 		this._commands.addCommandHooks(this._config.hooks);
+		
+		if (this._config.shutdownOnExit) {
+			onExit(this.shutdown);
+		}
 	}
 	
 	/**

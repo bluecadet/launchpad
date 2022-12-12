@@ -18,8 +18,16 @@ export class LaunchpadOptions {
 		commands = new CommandOptions(),
 		hooks = new CommandHooks(),
 		logging = new LogOptions(),
+		shutdownOnExit = true,
 		...rest
 	} = {}) {
+		
+		/**
+		 * Will listen for exit events 
+		 * @type {boolean}
+		 * @default true
+		 */
+		this.shutdownOnExit = true;
 		
 		/**
 		 * @type {ContentOptions}

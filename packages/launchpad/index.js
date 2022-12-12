@@ -4,7 +4,7 @@ import { LaunchpadCore } from './lib/launchpad-core.js';
 import { launch as launchContent } from '@bluecadet/launchpad-content';
 import { launch as launchMonitor, LaunchpadMonitor } from '@bluecadet/launchpad-monitor';
 import { launch as launchScaffold } from '@bluecadet/launchpad-scaffold';
-import { launchFromCli, onExit } from '@bluecadet/launchpad-utils';
+import { launchFromCli } from '@bluecadet/launchpad-utils';
 
 export default LaunchpadCore;
 
@@ -44,10 +44,6 @@ launchFromCli(import.meta, {
 	}
 }).then(async config => {
 	const launchpad = new LaunchpadCore(config);
-	
-	onExit(async () => {
-		await launchpad.shutdown();
-	});
 	
 	switch (config.startupCommand) {
 		case StartupCommands.SCAFFOLD: {

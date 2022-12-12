@@ -1,5 +1,5 @@
 import LaunchpadCore from '@bluecadet/launchpad';
-import { ConfigManager, launchFromCli } from '@bluecadet/launchpad-utils';
+import { ConfigManager, launchFromCli, onExit } from '@bluecadet/launchpad-utils';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {
 	return ConfigManager.importJsConfig(paths, import.meta);
@@ -17,17 +17,21 @@ launchFromCli(import.meta, {
 	
 	await launchpad.startup();
 	
-	const appNames = launchpad._monitor.getAllAppNames();
-	await Promise.all([...appNames, 'fake-app'].map(async (appName) => {
-		const isRunning = await launchpad._monitor.isRunning(appName);
-		console.debug(`App '${appName}' is running: ${isRunning}`);
-	}));
+	// const appNames = launchpad._monitor.getAllAppNames();
+	// await Promise.all([...appNames, 'fake-app'].map(async (appName) => {
+	// 	const isRunning = await launchpad._monitor.isRunning(appName);
+	// 	console.debug(`App '${appName}' is running: ${isRunning}`);
+	// }));
 	
-	await wait(10);
-	await launchpad.updateContent();
+	// onExit(async () => {
+	// 	await launchpad.shutdown();
+  // });
 	
-	await wait(10);
-	await launchpad.shutdown();
+	// await wait(10);
+	// await launchpad.updateContent();
+	
+	// await wait(10);
+	// await launchpad.shutdown();
 	
 }).catch(err => {
 	if (err) {

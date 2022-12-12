@@ -121,8 +121,7 @@ export class LaunchpadMonitor {
 		}
 		
 		this._logger.info('Connecting to PM2');
-		await this._promisify(pm2.connect, pm2);
-		
+		await this._promisify(pm2.connect, pm2, true);
 		await this._connectPm2Bus();
 	}
 	

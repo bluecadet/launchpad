@@ -38,6 +38,7 @@ export class LogOptions {
 		fileOptions = new LogFileOptions(),
 		level = 'info',
 		format = LogOptions.DEFAULT_LOG_FORMAT,
+		overrideConsole = true,
 		...rest
 	} = {}) {
 		/**
@@ -67,6 +68,20 @@ export class LogOptions {
 		 * @default LogOptions.DEFAULT_LOG_FORMAT
 		 */
 		this.format = format;
+		
+		/**
+		 * Route all console logs to the log manager. This helps
+		 * ensure that logs are routed to files and rotated properly.
+		 * 
+		 * This will also freeze the console object, so it can't be
+		 * modified further during runtime.
+		 * 
+		 * All console logs will be prefixed with `(console)`.
+		 * 
+		 * @type {boolean}
+		 * @default true
+		 */
+		 this.overrideConsole = true;
 		
 		Object.assign(this, rest);
 	}
@@ -180,8 +195,10 @@ class LogManager {
 				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-error', false), level: 'error'}),
 			],
 		});
-
-		this.overrideConsoleMethods();
+		
+		if (this._config.overrideConsole) {
+			this.overrideConsoleMethods();
+		}
 	}
 	
 	/**
@@ -219,7 +236,7 @@ class LogManager {
 	 */
 	overrideConsoleMethods() {	
 		// Override console methods
-		const logger = this.getLogger();
+		const logger = this.getLogger('console');
 		console.log = logger.info.bind(logger);
 		console.info = logger.info.bind(logger);
 		console.warn = logger.warn.bind(logger);

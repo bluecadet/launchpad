@@ -46,6 +46,7 @@ See: https://github.com/winstonjs/winston#creating-your-own-logger for all avail
 | <a name="module_log-manager.LogOptions+fileOptions">`fileOptions`</a> |  <code>LogFileOptions</code>|  <code>new LogFileOptions(fileOptions)</code>  | Options for individual files and streams. |
 | <a name="module_log-manager.LogOptions+level">`level`</a> |  <code>string</code>|  <code>'info'</code>  | The maximum log level to display in all default logs. |
 | <a name="module_log-manager.LogOptions+format">`format`</a> |  <code>winston.Logform.Format</code>|  <code>LogOptions.DEFAULT\_LOG\_FORMAT</code>  | The format for how each line is logged. |
+| <a name="module_log-manager.LogOptions+overrideConsole">`overrideConsole`</a> |  <code>boolean</code>|  <code>true</code>  | Route all console logs to the log manager. This helps<br>ensure that logs are routed to files and rotated properly.<br><br>This will also freeze the console object, so it can't be<br>modified further during runtime.<br><br>All console logs will be prefixed with `(console)`. |
 
 
 ###  LogFileOptions

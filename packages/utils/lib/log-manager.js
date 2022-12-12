@@ -180,6 +180,8 @@ class LogManager {
 				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-error', false), level: 'error'}),
 			],
 		});
+
+		this.overrideConsoleMethods();
 	}
 	
 	/**
@@ -208,6 +210,25 @@ class LogManager {
 			output = path.join(this._config.fileOptions.dirname, output);
 		}
 		return output;
+	}
+
+
+	/**
+	 * Overrides console methods to use the parent logger instead
+	 * @private
+	 */
+	overrideConsoleMethods() {	
+		// Override console methods
+		const logger = this.getLogger();
+		console.log = logger.info.bind(logger);
+		console.info = logger.info.bind(logger);
+		console.warn = logger.warn.bind(logger);
+		console.error = logger.error.bind(logger);
+		console.debug = logger.debug.bind(logger);
+
+		// PM2 will try to override the console methods with it's own logger
+		// so we're freezing console here to prevent that from happening
+		Object.freeze(console);
 	}
 	
 }

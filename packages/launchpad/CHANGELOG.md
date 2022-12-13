@@ -1,5 +1,13 @@
 # @bluecadet/launchpad
 
+## 1.3.8
+
+### Patch Changes
+
+- Updated dependencies [[`56a0a60`](https://github.com/bluecadet/launchpad/commit/56a0a60d88671d788a90eb80c5d0b37187879158)]:
+  - @bluecadet/launchpad-monitor@1.6.0
+  - @bluecadet/launchpad-utils@1.3.2
+
 ## 1.3.7
 
 ### Patch Changes

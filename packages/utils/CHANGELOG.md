@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-utils
 
+## 1.3.2
+
+### Patch Changes
+
+- [#90](https://github.com/bluecadet/launchpad/pull/90) [`56a0a60`](https://github.com/bluecadet/launchpad/commit/56a0a60d88671d788a90eb80c5d0b37187879158) Thanks [@claytercek](https://github.com/claytercek)! - connect to pm2 using `no-daemon-mode`, and route console method calls to the parent logger
+
 ## 1.3.1
 
 ### Patch Changes

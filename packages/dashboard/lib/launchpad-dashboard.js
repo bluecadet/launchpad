@@ -1,7 +1,5 @@
-import DashboardOptions from './dashboard-options.js';
+// import DashboardOptions from './dashboard-options.js';
 
-export class LaunchpadDashboard {
-	
+export default class LaunchpadDashboard {
+
 }
-
-export default LaunchpadDashboard;

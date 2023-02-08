@@ -123,17 +123,17 @@ function Disable-Service(
         [String]$ComputerName = "$(hostname)"
     ) {
     # See https://social.technet.microsoft.com/Forums/lync/en-US/abde2699-0d5a-49ad-bfda-e87d903dd865/disable-windows-update-via-powershell?forum=winserverpowershell
-    $service = Get-WmiObject Win32_Service -Filter "Name='$ServiceName'" -ComputerName $ComputerName -Ea 0;
+    $service = Get-CimInstance win32_service -Filter "Name='$ServiceName'" -Ea 0;
     if ($service) {
         if ($service.StartMode -ne "Disabled") {
-            $result = $service.ChangeStartMode("Disabled").ReturnValue;
+            $result = (Invoke-CimMethod -InputObject $service -methodname ChangeStartmode -Arguments @{startmode='Disabled'}).ReturnValue;
             if ($result) {
                 Write-Host "Failed to disable the '$ServiceName' service on $ComputerName. The return value was $result." -ForegroundColor Red;
             } else {
                 Write-Host "Successfully disabled the '$ServiceName' service on $ComputerName." -ForegroundColor Green;
             }
             if ($service.State -eq "Running") {
-                $result = $service.StopService().ReturnValue;
+                $result = (Invoke-CimMethod -InputObject $service -methodname StopService).ReturnValue.ReturnValue;
                 if ($result) {
                     Write-Host "Failed to stop the '$ServiceName' service on $ComputerName. The return value was $result." -ForegroundColor Red;
                 } else {

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.6.0
+
+### Minor Changes
+
+- [#96](https://github.com/bluecadet/launchpad/pull/96) [`852ed2f`](https://github.com/bluecadet/launchpad/commit/852ed2f0e10f00210f91ec37e7d087f7cebe7911) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Fixes powerplan selection and powershell7 compatibility
+
 ## 1.5.0
 
 ### Minor Changes

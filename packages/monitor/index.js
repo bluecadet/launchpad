@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import { LaunchpadMonitor } from './lib/launchpad-monitor.js';
 import { launchFromCli, onExit } from '@bluecadet/launchpad-utils';
+import { LaunchpadMonitor } from './lib/launchpad-monitor';
 
 // export * from './lib/windows-api.js'; // Includes optional dependencies, so not exported here
-export * from './lib/launchpad-monitor.js';
-export * from './lib/monitor-options.js';
+export * from './lib/launchpad-monitor';
+export * from './lib/monitor-options';
 export default LaunchpadMonitor;
 
 export const launch = async (config) => {
@@ -17,10 +17,10 @@ export const launch = async (config) => {
     await monitor.stop();
     await monitor.disconnect();
   });
-}
+};
 
 launchFromCli(import.meta, {
-  relativePaths: ["launchpad-monitor/index.js", ".bin/launchpad-monitor"],
+  relativePaths: ['launchpad-monitor/index.js', '.bin/launchpad-monitor'],
 })
   .then(launch)
   .catch((err) => {

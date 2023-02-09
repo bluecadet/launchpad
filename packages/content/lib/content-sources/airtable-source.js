@@ -3,10 +3,11 @@
  */
 
 import Airtable from 'airtable';
-import ContentSource, { SourceOptions } from './content-source.js';
-import ContentResult, { MediaDownload } from './content-result.js';
-import Credentials from '../credentials.js';
+// eslint-disable-next-line no-unused-vars
 import { Logger } from '@bluecadet/launchpad-utils';
+import { ContentSource, SourceOptions } from './content-source';
+import { ContentResult, MediaDownload } from './content-result';
+import Credentials from '../credentials';
 
 /**
  * Options for AirtableSource
@@ -22,46 +23,47 @@ export class AirtableOptions extends SourceOptions {
     ...rest
   } = {}) {
     super(rest);
-    
+
     /**
-     * Airtable base ID. @see https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base. 
+     * Airtable base ID. @see https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.
      * @type {string}
      */
     this.baseId = baseId;
-    
+
     /**
      * @type {string}
      * @default 'Grid view'
      */
     this.defaultView = defaultView;
-    
+
     /**
      * The tables you want to fetch from
      * @type {string}
      * @default []
      */
     this.tables = tables;
-    
+
     /**
-     * As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `"key"` and `"value"`.
+     * As a convenience feature, you can store tables listed here as
+     * key/value pairs. Field names should be `"key"` and `"value"`.
      * @type {string}
      * @default []
      */
     this.keyValueTables = keyValueTables;
-    
+
     /**
      * The API endpoint to use for Airtable
      * @type {string}
      * @default 'https://api.airtable.com'
      */
     this.endpointUrl = endpointUrl;
-    
+
     /**
-     * The table view which to select for syncing by default 
+     * The table view which to select for syncing by default
      * @type {string}
-     */ 
+     */
     this.defaultView = defaultView;
-    
+
     /**
      * Appends the local path of attachments to the saved JSON
      * @type {boolean}
@@ -73,20 +75,22 @@ export class AirtableOptions extends SourceOptions {
 
 export class AirtableSource extends ContentSource {
   /** @type {Airtable.Base} */
-  _base;
+  _base = null;
+
   _rawAirtableData = {};
+
   _simplifiedData = {};
 
   /**
-   * 
-   * @param {*} config 
-   * @param {Logger} logger 
+   *
+   * @param {*} config
+   * @param {Logger} logger
    */
   constructor(config, logger) {
     super(new AirtableOptions(config), logger);
-    
+
     const credentials = Credentials.getCredentials(this.config.id);
-    
+
     if (!credentials.apiKey) {
       throw new Error(`No Airtable API Key for '${this.config.id}'`);
     }
@@ -97,12 +101,12 @@ export class AirtableSource extends ContentSource {
     });
 
     this._base = Airtable.base(this.config.baseId);
-    this._base.makeRequest
+    this._base.makeRequest();
   }
-  
+
   /**
-	 * @returns {Promise<ContentResult>} 
-	 */
+   * @returns {Promise<ContentResult>}
+   */
   async fetchContent() {
     const result = new ContentResult();
     const tablePromises = [];
@@ -127,19 +131,19 @@ export class AirtableSource extends ContentSource {
   }
 
   /**
-   * 
-   * @param {string} tableId 
-   * @param {boolean} isKeyValueTable 
-   * @param {ContentResult} result 
+   *
+   * @param {string} tableId
+   * @param {boolean} isKeyValueTable
+   * @param {ContentResult} result
    * @returns {ContentResult}
    */
-  async _processTable(tableId, isKeyValueTable = false, result = new ContentResult()) {    
+  async _processTable(tableId, isKeyValueTable = false, result = new ContentResult()) {
     // Write raw Data file.
-    
-    const rawDataPath = tableId + '.raw.json';
+
+    const rawDataPath = `${tableId}.raw.json`;
     result.addDataFile(rawDataPath, this._rawAirtableData[tableId]);
-    
-    let simpData = isKeyValueTable ? {} : [];
+
+    const simpData = isKeyValueTable ? {} : [];
     this._simplifiedData[tableId] = [];
 
     // Process simplified data
@@ -149,7 +153,7 @@ export class AirtableSource extends ContentSource {
       if (isKeyValueTable) {
         if (Object.keys(row).length < 2) {
           this.logger.error(
-            `Table ${tableId} requires at least 2 columns to map it to a key-value pair.`
+            `Table ${tableId} requires at least 2 columns to map it to a key-value pair.`,
           );
           return result;
         }
@@ -161,7 +165,7 @@ export class AirtableSource extends ContentSource {
         const key = fields[keyField];
         const value = fields[valueField];
 
-        let matches = key ? [...key.matchAll(regex)] : [];
+        const matches = key ? [...key.matchAll(regex)] : [];
         if (matches.length > 0) {
           if (!simpData[matches[0][1]]) {
             simpData[matches[0][1]] = [];
@@ -184,19 +188,20 @@ export class AirtableSource extends ContentSource {
     // Gather attachments
     if (!isKeyValueTable) {
       result.addMediaDownloads(
-        this._getMediaUrls(simpData).map(url => new MediaDownload({url}))
+        this._getMediaUrls(simpData).map((url) => new MediaDownload({ url })),
       );
     }
 
-    const simpDataPath = tableId + '.json';
+    const simpDataPath = `${tableId}.json`;
     result.addDataFile(simpDataPath, this._simplifiedData[tableId]);
-    
+
     return result;
   }
 
   _isBoolStr(str) {
     return str === 'true' || str === 'false';
   }
+
   _isNumericStr(str) {
     return !isNaN(str);
   }
@@ -211,28 +216,27 @@ export class AirtableSource extends ContentSource {
     if (this._rawAirtableData[table] && this._rawAirtableData[table].length > 0) {
       // Return cached data
       return Promise.resolve(this._rawAirtableData[table]);
-    } else {
-      // Fetch new data
-      return this._fetchData(table).then((tableData) => {
-        this._rawAirtableData[table] = tableData;
-        return this._rawAirtableData[table];
-      });
     }
+    // Fetch new data
+    return this._fetchData(table).then((tableData) => {
+      this._rawAirtableData[table] = tableData;
+      return this._rawAirtableData[table];
+    });
   }
 
   // Fetch from Airtable.
   async _fetchData(table) {
     return new Promise((resolve, reject) => {
-      let rows = [];
+      const rows = [];
 
       this._base(table)
         .select({
           view: this.config.defaultView,
         })
         .eachPage(
-          function page(records, fetchNextPage) {
+          (records, fetchNextPage) => {
             // This function (`page`) will get called for each page of records.
-            records.forEach(function (record) {
+            records.forEach((record) => {
               rows.push(record);
             });
 
@@ -241,29 +245,29 @@ export class AirtableSource extends ContentSource {
             // If there are no more records, `done` will get called.
             fetchNextPage();
           },
-          function done(err) {
+          (err) => {
             if (err) {
               reject(err);
             } else {
               resolve(rows);
             }
-          }
+          },
         );
     });
   }
-  
+
   /**
-   * 
-   * @param {*} tableData 
+   *
+   * @param {*} tableData
    * @returns {Array<string>} media urls
    */
-   _getMediaUrls(tableData) {
+  _getMediaUrls(tableData) {
     const urls = [];
     // Loop through all records, for filename fields.
     for (const row of tableData) {
       for (const colId of Object.keys(row)) {
         // We assume it is a file if value is an array and `filename` key exists.
-        if (Array.isArray(row[colId]) && row[colId][0]['filename']) {
+        if (Array.isArray(row[colId]) && row[colId][0].filename) {
           for (const attachment of row[colId]) {
             const url = new URL(attachment.url);
             if (this.config.appendLocalAttachmentPaths) {

@@ -11,11 +11,7 @@
         "sourceType": "module"
     },
     "rules": {
-        "no-underscore-dangle": [
-            "error",
-            {
-                "allow": true
-            }
-        ]
+        "max-classes-per-file": ["error", 2],
+        "no-underscore-dangle": ["off"]
     }
 }

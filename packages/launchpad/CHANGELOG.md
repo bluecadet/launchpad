@@ -1,5 +1,12 @@
 # @bluecadet/launchpad
 
+## 1.3.9
+
+### Patch Changes
+
+- Updated dependencies [[`852ed2f`](https://github.com/bluecadet/launchpad/commit/852ed2f0e10f00210f91ec37e7d087f7cebe7911)]:
+  - @bluecadet/launchpad-scaffold@1.6.0
+
 ## 1.3.8
 
 ### Patch Changes

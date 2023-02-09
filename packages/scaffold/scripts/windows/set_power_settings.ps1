@@ -1,16 +1,20 @@
 # Power Settings
 
 param (
-[string]$configPath = $null
+[string]$planPath = $null
 )
-if (($configPath -eq $null) -OR ($configPath -eq "") -OR !(Test-Path $configPath)) {
-    $configPath = $Global:LaunchpadConfig.Computer.PowerConfig
+if (($planPath -eq $null) -OR ($planPath -eq "") -OR !(Test-Path $planPath)) {
+    $planPath = $Global:LaunchpadConfig.Computer.PowerConfig
 }
 
-Write-Host "Importing power config from $configPath"
+Import-Module -DisableNameChecking $PSScriptRoot/../vendor/powerplan.psm1
 
-powercfg /IMPORT "$configPath"
+$planName = 'Exhibit'
 
-# See https://stackoverflow.com/a/62222256/782899
-$p = Get-CimInstance -Name root\cimv2\power -Class win32_PowerPlan -Filter "ElementName = 'Exhibit'"      
-powercfg /setactive ([string]$p.InstanceID).Replace("Microsoft:PowerPlan\{","").Replace("}","")
+Write-Host "Importing power plan '$planName' from $planPath"
+powercfg /IMPORT "$planPath"
+
+Write-Host "Selecting power plan '$planName'"
+
+# Using https://github.com/torgro/PowerPlan
+Set-Powerplan -Planname "$planName"

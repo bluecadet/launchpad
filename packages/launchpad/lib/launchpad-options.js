@@ -21,7 +21,6 @@ export class LaunchpadOptions {
 		shutdownOnExit = true,
 		...rest
 	} = {}) {
-		
 		/**
 		 * Will listen for exit events 
 		 * @type {boolean}
@@ -47,8 +46,8 @@ export class LaunchpadOptions {
 		/**
 		 * @type {CommandHooks}
 		 */
-		 this.hooks = new CommandHooks(hooks);
-		 
+		this.hooks = new CommandHooks(hooks);
+		
 		/**
 		 * @type {LogOptions}
 		 */

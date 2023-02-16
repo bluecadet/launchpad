@@ -48,6 +48,7 @@
     "@bluecadet/launchpad-monitor": "~1.6.0",
     "@bluecadet/launchpad-scaffold": "~1.6.0",
     "@bluecadet/launchpad-content": "~1.9.0",
+    "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "fs-extra": "^10.0.0"
   },

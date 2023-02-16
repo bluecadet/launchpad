@@ -1,17 +1,28 @@
 {
-    "env": {
-        "es2021": true,
-        "node": true
-    },
-    "extends": "airbnb-base",
-    "overrides": [
-    ],
-    "parserOptions": {
-        "ecmaVersion": "latest",
-        "sourceType": "module"
-    },
-    "rules": {
-        "max-classes-per-file": ["error", 2],
-        "no-underscore-dangle": ["off"]
-    }
+	"extends": [
+	  "standard"
+	],
+	"rules": {
+		"indent": [
+			"error",
+			"tab",
+			{ "SwitchCase": 1 }
+		],
+	  "no-unused-vars": "off",
+		"semi": ["error", "always"],
+		"no-tabs": ["error", { "allowIndentationTabs": true }],
+		"object-curly-spacing": ["error", "always"],
+		"space-before-function-paren": ["error", {
+			"anonymous": "never",
+			"named": "never",
+			"asyncArrow": "never"
+		}],
+		"no-trailing-spaces": [
+			"error",
+			{
+			"skipBlankLines": true,
+			"ignoreComments": true
+			}
+		]
+	}
 }

@@ -17,21 +17,21 @@ const config = {
 			"id": "dummyjson",
 			"type": "json",
 			"files": {
-				"photos.json": "https://dummyjson.com/products"
+				"photos.json": "https://dummyjson.com/products?limit=10"
 			}
 		}
 		// {
-		//   "id": "spaceships",
-		//   "type": "json",
-		//   "files": {
-		//       "spaceships.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
-		//       "rockets.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket"
-		//   },
-		//   "strip": "services/feeds/",
-		//   "imageTransforms": [
-		//     {"scale": 0.75}
-		//   ]
-		// },
+		// 	"id": "spaceships",
+		// 	"type": "json",
+		// 	"files": {
+		// 		"spaceships.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
+		// 		"rockets.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket"
+		// 	},
+		// 	"strip": "services/feeds/",
+		// 	"imageTransforms": [
+		// 		{ "scale": 0.75 }
+		// 	]
+		// }
 		// {
 		//   "id": "astronauts",
 		//   "files": {

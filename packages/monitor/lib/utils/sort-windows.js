@@ -25,7 +25,9 @@ export class SortApp {
 const sortWindows = async (apps, logger = console, minNodeVersion = undefined) => {
 	const currNodeVersion = process.version;
 	if (!semver.satisfies(currNodeVersion, minNodeVersion)) {
-		return Promise.reject(`Can't sort windows because the current node version '${currNodeVersion}' doesn't satisfy the required version '${minNodeVersion}'. Please upgrade node to apply window settings like foreground/minimize/hide.`);
+		return Promise.reject(
+			new Error(`Can't sort windows because the current node version '${currNodeVersion}' doesn't satisfy the required version '${minNodeVersion}'. Please upgrade node to apply window settings like foreground/minimize/hide.`)
+		);
 	}
 	
 	logger.debug(`Applying window settings to ${apps.length} ${apps.length === 1 ? 'app' : 'apps'}`);
@@ -68,7 +70,7 @@ const sortWindows = async (apps, logger = console, minNodeVersion = undefined) =
 		win.bringToTop();
 	});
 	
-	logger.debug(`Done applying window settings.`);
+	logger.debug('Done applying window settings.');
 };
 
 export default sortWindows;

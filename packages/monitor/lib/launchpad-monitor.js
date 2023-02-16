@@ -62,9 +62,9 @@ export class LaunchpadMonitor {
 			child.stderr.on('data', data => logger.error(data));
 			child.on('error', error => {
 				logger.error(`PM2 could not be killed: ${error}`);
-				reject();
+				reject(new Error(`PM2 could not be killed: ${error}`));
 			});
-			child.on("close", () => {
+			child.on('close', () => {
 				logger.info('PM2 has been killed');
 				resolve();
 			});
@@ -304,7 +304,7 @@ export class LaunchpadMonitor {
 		return this._promisify(pm2.stop, pm2, appName)
 			.then(async appProcess => {
 				this._logger.info(`...app '${appName}' was stopped.`);
-				return appProcess
+				return appProcess;
 			}).catch(err => {
 				this._logger.error(`Could not stop app '${appName}':`, err);
 				throw err;
@@ -340,7 +340,7 @@ export class LaunchpadMonitor {
 			this._logger.debug(`Daemon is running: ${isRunning}`);
 			return isRunning;
 		}).catch(err => {
-			this._logger.warn(`Could not ping daemon`, err);
+			this._logger.warn('Could not ping daemon', err);
 			return false;
 		});
 	}
@@ -359,7 +359,7 @@ export class LaunchpadMonitor {
 		if (Symbol.iterator in Object(appNames)) {
 			return [...appNames];
 		}
-		throw new Error(`appNames must be null, undefined, a string or an iterable array/set of strings`);
+		throw new Error('appNames must be null, undefined, a string or an iterable array/set of strings');
 	}
 	
 	/**
@@ -368,7 +368,7 @@ export class LaunchpadMonitor {
 	 */
 	_initAppOptions(options) {
 		if (!options.pm2 || !options.pm2.name) {
-			this._logger.error(`PM2 config is incomplete or missing:`, options);
+			this._logger.error('PM2 config is incomplete or missing:', options);
 			return options;
 		}
 		options.logging = new AppLogOptions(options.logging);
@@ -440,15 +440,18 @@ export class LaunchpadMonitor {
 				case 'start':
 					this._logger.debug(`App is starting: ${chalk.yellow(appName)}`);
 					break;
-				case 'online':
+				case 'online': {
 					this._logger.debug(`App is online: ${chalk.green(appName)}`);
-					let numLaunches = this._numAppLaunches.has(appName) ?
-						(this._numAppLaunches.get(appName) + 1) : 1;
+					let numLaunches = 1;
+					if (this._numAppLaunches.has(appName)) {
+						numLaunches = this._numAppLaunches.get(appName) + 1;
+					}
 					if (numLaunches > 1) {
 						await this._applyWindowSettings();
 					}
 					this._numAppLaunches.set(appName, numLaunches);
 					break;
+				}
 				case 'exit':
 					this._logger.debug(`App has exited: ${chalk.red(appName)}`);
 					break;
@@ -457,7 +460,7 @@ export class LaunchpadMonitor {
 					break;
 			}
 		} catch (err) {
-			this._logger.error(`Could not process bus event`);
+			this._logger.error('Could not process bus event');
 			this._logger.error(err);
 		}
 	}
@@ -474,9 +477,8 @@ export class LaunchpadMonitor {
 					resolve(...results);
 				}
 			});
-		})
+		});
 	}
 }
 
 export default LaunchpadMonitor;
-

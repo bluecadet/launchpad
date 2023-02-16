@@ -3,7 +3,7 @@
  */
 
 import path from 'path';
-import winston, { loggers } from 'winston';
+import winston from 'winston';
 import Logger from 'winston/lib/winston/logger.js';
 import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
@@ -81,7 +81,7 @@ export class LogOptions {
 		 * @type {boolean}
 		 * @default true
 		 */
-		 this.overrideConsole = true;
+		this.overrideConsole = true;
 		
 		Object.assign(this, rest);
 	}
@@ -154,7 +154,7 @@ export class LogFileOptions {
 	}
 }
 
-class LogManager {
+export class LogManager {
 	/**
 	 * @type {LogManager}
 	 */
@@ -190,10 +190,10 @@ class LogManager {
 			...this._config,
 			transports: [
 				new winston.transports.Console({ level: this._config.level }),
-				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-info', false), level: 'info'}),
-				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-debug', false), level: 'debug'}),
-				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-error', false), level: 'error'}),
-			],
+				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-info', false), level: 'info' }),
+				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-debug', false), level: 'debug' }),
+				new winston.transports.DailyRotateFile({ ...this._config.fileOptions, filename: this.getFilePath('launchpad-error', false), level: 'error' })
+			]
 		});
 		
 		if (this._config.overrideConsole) {
@@ -209,7 +209,7 @@ class LogManager {
 	getLogger(moduleName = null, parent = null) {
 		if (moduleName) {
 			parent = parent || this._logger;
-			const child = parent.child({module: moduleName});
+			const child = parent.child({ module: moduleName });
 			parent.once('close', () => child.close());
 			return child;
 		} else {
@@ -229,12 +229,11 @@ class LogManager {
 		return output;
 	}
 
-
 	/**
 	 * Overrides console methods to use the parent logger instead
 	 * @private
 	 */
-	overrideConsoleMethods() {	
+	overrideConsoleMethods() {
 		// Override console methods
 		const logger = this.getLogger('console');
 		console.log = logger.info.bind(logger);
@@ -247,7 +246,6 @@ class LogManager {
 		// so we're freezing console here to prevent that from happening
 		Object.freeze(console);
 	}
-	
 }
 
 export default LogManager;

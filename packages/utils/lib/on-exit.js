@@ -7,7 +7,7 @@
  */
 export const onExit = (callback = async () => {}, once = true, includeUncaught = false) => {
 	let triggered = false;
-	const events = ['beforeExit', 'SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT','SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'];
+	const events = ['beforeExit', 'SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'];
 	if (includeUncaught) {
 		events.push('uncaughtException', 'unhandledRejection');
 	}
@@ -17,6 +17,6 @@ export const onExit = (callback = async () => {}, once = true, includeUncaught =
 		}
 		triggered = true;
 	}));
-}
+};
 
 export default onExit;

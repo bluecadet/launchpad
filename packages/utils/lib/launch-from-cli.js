@@ -20,7 +20,6 @@ export const launchFromCli = async (importMeta, {
 	relativePaths = null,
 	yargsCallback = null
 } = {}) => {
-	
 	// Ensure relativePaths is an array
 	if (!relativePaths) {
 		relativePaths = [];
@@ -29,6 +28,7 @@ export const launchFromCli = async (importMeta, {
 	}
 	
 	if (!isMain(importMeta, relativePaths)) {
+		// eslint-disable-next-line prefer-promise-reject-errors
 		return Promise.reject();
 	}
 	
@@ -50,8 +50,7 @@ const isMain = (importMeta, relativePaths) => {
 	const metaUrl = importMeta.url;
 	/** @type {string} */
 	const processUrl = url.pathToFileURL(process.argv[1]).href;
-	return (metaUrl === processUrl)
-	  || relativePaths.some(p => processUrl.endsWith(p));
-}
+	return (metaUrl === processUrl) || relativePaths.some(p => processUrl.endsWith(p));
+};
 
 export default launchFromCli;

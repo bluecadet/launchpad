@@ -5,9 +5,9 @@
 import Airtable from 'airtable';
 // eslint-disable-next-line no-unused-vars
 import { Logger } from '@bluecadet/launchpad-utils';
-import { ContentSource, SourceOptions } from './content-source';
-import { ContentResult, MediaDownload } from './content-result';
-import Credentials from '../credentials';
+import { ContentSource, SourceOptions } from './content-source.js';
+import { ContentResult, MediaDownload } from './content-result.js';
+import Credentials from '../credentials.js';
 
 /**
  * Options for AirtableSource

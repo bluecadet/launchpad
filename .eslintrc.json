@@ -8,14 +8,14 @@
 			"tab",
 			{ "SwitchCase": 1 }
 		],
+		"no-tabs": ["error", { "allowIndentationTabs": true }],
 	  "no-unused-vars": "off",
 		"semi": ["error", "always"],
-		"no-tabs": ["error", { "allowIndentationTabs": true }],
 		"object-curly-spacing": ["error", "always"],
 		"space-before-function-paren": ["error", {
 			"anonymous": "never",
 			"named": "never",
-			"asyncArrow": "never"
+			"asyncArrow": "always"
 		}],
 		"no-trailing-spaces": [
 			"error",

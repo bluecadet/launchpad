@@ -32,7 +32,7 @@
     "@changesets/changelog-github": "^0.4.6",
     "@changesets/cli": "^2.23.0",
     "eslint": "^8.32.0",
-    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-standard": "^17.0.0",
     "jsdoc-to-markdown": "^7.1.1",
     "nodemon": "^2.0.20"
   }

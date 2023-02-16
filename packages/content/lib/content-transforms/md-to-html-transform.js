@@ -5,28 +5,28 @@ import markdownItItalicBold from '../utils/markdown-it-italic-bold.js';
 import ContentTransform from './content-transform.js';
 
 class MdToHtmlTransform extends ContentTransform {
-  simplified = false
-  
+	simplified = false;
+	
 	constructor(simplified = false) {
-    super();
+		super();
 		this.simplified = simplified;
-    this.transform = this.transform.bind(this);
+		this.transform = this.transform.bind(this);
 	}
 	
 	transform(content) {
 		if (typeof content !== 'string' && !(content instanceof String)) {
-      throw new Error(`Can't convert a non-string content to html.`);
-    }
+			throw new Error('Can\'t convert a non-string content to html.');
+		}
 
-    const sanitizedStr = sanitizeHtml(content);
-    const md = new MarkdownIt();
+		const sanitizedStr = sanitizeHtml(content);
+		const md = new MarkdownIt();
 
-    if (this.simplified) {
-      md.use(markdownItItalicBold);
-      return md.renderInline(sanitizedStr);
-    } else {
-      return md.render(sanitizedStr);
-    }
+		if (this.simplified) {
+			md.use(markdownItItalicBold);
+			return md.renderInline(sanitizedStr);
+		} else {
+			return md.render(sanitizedStr);
+		}
 	}
 }
 

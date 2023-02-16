@@ -5,7 +5,7 @@
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
 import path from 'path';
-import { default as sanitizeFilename } from 'sanitize-filename';
+import sanitize from 'sanitize-filename';
 
 import sanityClient from '@sanity/client';
 import imageUrlBuilder from '@sanity/image-url';
@@ -21,309 +21,309 @@ import { pathExists } from 'fs-extra';
  * Options for SanitySource
  */
 export class SanityOptions extends SourceOptions {
-  constructor({
-    apiVersion = 'v2021-10-21',
-    projectId = undefined,
-    dataset = 'production',
-    apiToken = undefined,
-    useCdn = false,
-    baseUrl = undefined,
-    queries = [],
-    limit = 100,
-    maxNumPages = -1,
-    mergePages = false,
-    pageNumZeroPad = 0,
-    appendCroppedFilenames = true,
-    ...rest
-  } = {}) {
-    super(rest);
+	constructor({
+		apiVersion = 'v2021-10-21',
+		projectId = undefined,
+		dataset = 'production',
+		apiToken = undefined,
+		useCdn = false,
+		baseUrl = undefined,
+		queries = [],
+		limit = 100,
+		maxNumPages = -1,
+		mergePages = false,
+		pageNumZeroPad = 0,
+		appendCroppedFilenames = true,
+		...rest
+	} = {}) {
+		super(rest);
 
-    /**
-     * API Version
-     * @type {string}
-     * @default 'v2021-10-21'
-     */
-    this.apiVersion = apiVersion;
+		/**
+		 * API Version
+		 * @type {string}
+		 * @default 'v2021-10-21'
+		 */
+		this.apiVersion = apiVersion;
 
-    /**
-     * Sanity Project ID
-     * @type {string}
-     */
-    this.projectId = projectId;
+		/**
+		 * Sanity Project ID
+		 * @type {string}
+		 */
+		this.projectId = projectId;
 
-    /**
-     * API Version
-     * @type {string}
-     * @default 'production'
-     */
-    this.dataset = dataset;
+		/**
+		 * API Version
+		 * @type {string}
+		 * @default 'production'
+		 */
+		this.dataset = dataset;
 
-    /**
-     * `false` if you want to ensure fresh data
-     * @type {string}
-     * @default false
-     */
-    this.useCdn = useCdn;
+		/**
+		 * `false` if you want to ensure fresh data
+		 * @type {string}
+		 * @default false
+		 */
+		this.useCdn = useCdn;
 
-    /**
-     * The base url of your Sanity CMS (with or without trailing slash).
-     * @type {string}
-     */
-    this.baseUrl = baseUrl;
+		/**
+		 * The base url of your Sanity CMS (with or without trailing slash).
+		 * @type {string}
+		 */
+		this.baseUrl = baseUrl;
 
-    /**
-     *
-     * @type {Array.<string>}
-     */
-    this.queries = queries;
+		/**
+		 *
+		 * @type {Array.<string>}
+		 */
+		this.queries = queries;
 
-    /**
-     * Max number of entries per page.
-     * @type {number}
-     * @default 100
-     */
-    this.limit = limit;
+		/**
+		 * Max number of entries per page.
+		 * @type {number}
+		 * @default 100
+		 */
+		this.limit = limit;
 
-    /**
-     * Max number of pages. Use `-1` for all pages
-     * @type {number}
-     * @default -1
-     */
-    this.maxNumPages = maxNumPages;
+		/**
+		 * Max number of pages. Use `-1` for all pages
+		 * @type {number}
+		 * @default -1
+		 */
+		this.maxNumPages = maxNumPages;
 
-    /**
-     * To combine paginated files into a single file.
-     * @type {boolean}
-     */
-    this.mergePages = mergePages;
+		/**
+		 * To combine paginated files into a single file.
+		 * @type {boolean}
+		 */
+		this.mergePages = mergePages;
 
-    /**
-     * How many zeros to pad each json filename index with.
-     * @type {number}
-     * @default 0
-     */
-    this.pageNumZeroPad = pageNumZeroPad;
-    
-    /**
-     * If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior.
-     * @type {boolean}
-     * @default true
-     */
-    this.appendCroppedFilenames = appendCroppedFilenames;
+		/**
+		 * How many zeros to pad each json filename index with.
+		 * @type {number}
+		 * @default 0
+		 */
+		this.pageNumZeroPad = pageNumZeroPad;
+		
+		/**
+		 * If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior.
+		 * @type {boolean}
+		 * @default true
+		 */
+		this.appendCroppedFilenames = appendCroppedFilenames;
 
-    /**
-     * API Token defined in your sanity project.
-     * @type {string}
-     */
-    this.apiToken = apiToken;
-  }
+		/**
+		 * API Token defined in your sanity project.
+		 * @type {string}
+		 */
+		this.apiToken = apiToken;
+	}
 }
 
 class SanitySource extends ContentSource {
-  /**
-   *
-   * @param {*} config
-   * @param {Logger} logger
-   */
-  constructor(config, logger) {
-    super(SanitySource._assembleConfig(config), logger);
+	/**
+	 *
+	 * @param {*} config
+	 * @param {Logger} logger
+	 */
+	constructor(config, logger) {
+		super(SanitySource._assembleConfig(config), logger);
 
-    this._checkConfigDeprecations(this.config);
+		this._checkConfigDeprecations(this.config);
 
-    this.client = sanityClient({
-      projectId: this.config.projectId,
-      dataset: this.config.dataset,
-      apiVersion: this.config.apiVersion, // use current UTC date - see "specifying API version"!
-      token: this.config.apiToken, // or leave blank for unauthenticated usage
-      useCdn: this.config.useCdn, // `false` if you want to ensure fresh data
-    });
-  }
+		this.client = sanityClient({
+			projectId: this.config.projectId,
+			dataset: this.config.dataset,
+			apiVersion: this.config.apiVersion, // use current UTC date - see "specifying API version"!
+			token: this.config.apiToken, // or leave blank for unauthenticated usage
+			useCdn: this.config.useCdn // `false` if you want to ensure fresh data
+		});
+	}
 
-  /**
-   * @returns {Promise<ContentResult>}
-   */
-  async fetchContent() {
-    let queryPromises = [];
-    let customQueryPromises = [];
+	/**
+	 * @returns {Promise<ContentResult>}
+	 */
+	async fetchContent() {
+		const queryPromises = [];
+		const customQueryPromises = [];
 
-    for (const query of this.config.queries) {
-      if (typeof query === 'string' || query instanceof String) {
-        let queryFull = '*[_type == "' + query + '" ]';
-        const result = new ContentResult();
+		for (const query of this.config.queries) {
+			if (typeof query === 'string' || query instanceof String) {
+				const queryFull = '*[_type == "' + query + '" ]';
+				const result = new ContentResult();
 
-        queryPromises.push(
-          await this._fetchPages(query, queryFull, result, {
-            start: 0,
-            limit: this.config.limit,
-          })
-        );
-      } else {
-        const result = new ContentResult();
-        customQueryPromises.push(
-          await this._fetchPages(query.id, query.query, result, {
-            start: 0,
-            limit: this.config.limit,
-          })
-        );
-      }
-    }
+				queryPromises.push(
+					await this._fetchPages(query, queryFull, result, {
+						start: 0,
+						limit: this.config.limit
+					})
+				);
+			} else {
+				const result = new ContentResult();
+				customQueryPromises.push(
+					await this._fetchPages(query.id, query.query, result, {
+						start: 0,
+						limit: this.config.limit
+					})
+				);
+			}
+		}
 
-    return Promise.all([...queryPromises, ...customQueryPromises])
-      .then((values) => {
-        return ContentResult.combine(values);
-      })
-      .catch((error) => {
-        this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
-        return error;
-      });
-  }
+		return Promise.all([...queryPromises, ...customQueryPromises])
+			.then((values) => {
+				return ContentResult.combine(values);
+			})
+			.catch((error) => {
+				this.logger.error(`Sync failed: ${error ? error.message || '' : ''}`);
+				return error;
+			});
+	}
 
-  /**
-   * Recursively fetches content using the Sanity client.
-   *
-   * @param {string} id
-   * @param {string} query
-   * @param {string} jwt The JSON web token generated by Sanity
-   * @param {ContentResult} result
-   * @param {Object} params
-   * @returns {Promise<Object>} Object with an 'entries' and an 'assets' array.
-   */
-  async _fetchPages(id, query, result, params = { start: 0, limit: 100 }) {
-    const pageNum = params.start / params.limit || 0;
-    const q =
-      query +
-      '[' +
-      params.start +
-      '..' +
-      (params.start + params.limit - 1) +
-      ']';
-    const p = {};
+	/**
+	 * Recursively fetches content using the Sanity client.
+	 *
+	 * @param {string} id
+	 * @param {string} query
+	 * @param {string} jwt The JSON web token generated by Sanity
+	 * @param {ContentResult} result
+	 * @param {Object} params
+	 * @returns {Promise<Object>} Object with an 'entries' and an 'assets' array.
+	 */
+	async _fetchPages(id, query, result, params = { start: 0, limit: 100 }) {
+		const pageNum = params.start / params.limit || 0;
+		const q =
+			query +
+			'[' +
+			params.start +
+			'..' +
+			(params.start + params.limit - 1) +
+			']';
+		const p = {};
 
-    this.logger.debug(`Fetching page ${pageNum} of ${id}`);
+		this.logger.debug(`Fetching page ${pageNum} of ${id}`);
 
-    return this.client
-      .fetch(q, p)
-      .then((content) => {
-        if (!content || !content.length) {
-          // If we are combining files, we do that here.
-          if (this.config.mergePages) {
-            result.collate(id);
-          }
+		return this.client
+			.fetch(q, p)
+			.then((content) => {
+				if (!content || !content.length) {
+					// If we are combining files, we do that here.
+					if (this.config.mergePages) {
+						result.collate(id);
+					}
 
-          // Empty result or no more pages left
-          return Promise.resolve(result);
-        }
+					// Empty result or no more pages left
+					return Promise.resolve(result);
+				}
 
-        const fileName = `${id}-${pageNum
-          .toString()
-          .padStart(this.config.pageNumZeroPad, '0')}.json`;
+				const fileName = `${id}-${pageNum
+					.toString()
+					.padStart(this.config.pageNumZeroPad, '0')}.json`;
 
-        result.addDataFile(fileName, content);
-        result.addMediaDownloads(this._getMediaDownloads(content));
+				result.addDataFile(fileName, content);
+				result.addMediaDownloads(this._getMediaDownloads(content));
 
-        if (
-          this.config.maxNumPages < 0 ||
-          pageNum < this.config.maxNumPages - 1
-        ) {
-          // Fetch next page
-          params.start = params.start || 0;
-          params.start += params.limit;
-          return this._fetchPages(id, query, result, params);
-        } else {
-          // Return combined entries + assets
-          return Promise.resolve(result);
-        }
-      })
-      .catch((error) => {
-        this.logger.error(
-          chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`)
-        );
-        return Promise.reject(error);
-      });
-  }
+				if (
+					this.config.maxNumPages < 0 ||
+					pageNum < this.config.maxNumPages - 1
+				) {
+					// Fetch next page
+					params.start = params.start || 0;
+					params.start += params.limit;
+					return this._fetchPages(id, query, result, params);
+				} else {
+					// Return combined entries + assets
+					return Promise.resolve(result);
+				}
+			})
+			.catch((error) => {
+				this.logger.error(
+					chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`)
+				);
+				return Promise.reject(error);
+			});
+	}
 
-  /**
-   *
-   * @param {Object} content
-   * @return @type {Array.<MediaDownload>}
-   */
-  _getMediaDownloads(content) {
-    const downloads = [];
+	/**
+	 *
+	 * @param {Object} content
+	 * @return @type {Array.<MediaDownload>}
+	 */
+	_getMediaDownloads(content) {
+		const downloads = [];
 
-    // Get all raw URLs
-    const rawAssetUrls = jsonpath.query(content, '$..url');
-    for (let contentUrl of rawAssetUrls) {
-      if (contentUrl.startsWith('/')) {
-        const url = new URL(contentUrl, this.config.baseUrl);
-        contentUrl = url.toString();
-      }
-      downloads.push(
-        new MediaDownload({
-          url: contentUrl,
-        })
-      );
-    }
+		// Get all raw URLs
+		const rawAssetUrls = jsonpath.query(content, '$..url');
+		for (let contentUrl of rawAssetUrls) {
+			if (contentUrl.startsWith('/')) {
+				const url = new URL(contentUrl, this.config.baseUrl);
+				contentUrl = url.toString();
+			}
+			downloads.push(
+				new MediaDownload({
+					url: contentUrl
+				})
+			);
+		}
 
-    // Get derivative image URLs for crops/hotspots/etc
-    const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
-    const builder = imageUrlBuilder(this.client);
-    for (let image of images) {
-      if (!('crop' in image)) {
-        // Only process images with crop properties
-        continue;
-      }
-      const urlBuilder = builder.image(image);
-      const urlStr = urlBuilder.url();
-      const url = new URL(urlStr);
-      const task = new MediaDownload({
-        url: urlStr,
-      });
-      task.localPath = FileUtils.addFilenameSuffix(
-        task.localPath,
-        `_${sanitizeFilename(url.search.replace('?', ''))}`
-      );
-      
-      if (this.config.appendCroppedFilenames) {
-        image.launchpad = {
-          croppedFilename: path.basename(task.localPath)
-        };
-      }
-      
-      downloads.push(task);
-    }
+		// Get derivative image URLs for crops/hotspots/etc
+		const images = jsonpath.query(content, '$..*[?(@._type=="image")]');
+		const builder = imageUrlBuilder(this.client);
+		for (const image of images) {
+			if (!('crop' in image)) {
+				// Only process images with crop properties
+				continue;
+			}
+			const urlBuilder = builder.image(image);
+			const urlStr = urlBuilder.url();
+			const url = new URL(urlStr);
+			const task = new MediaDownload({
+				url: urlStr
+			});
+			task.localPath = FileUtils.addFilenameSuffix(
+				task.localPath,
+				`_${sanitize(url.search.replace('?', ''))}`
+			);
+			
+			if (this.config.appendCroppedFilenames) {
+				image.launchpad = {
+					croppedFilename: path.basename(task.localPath)
+				};
+			}
+			
+			downloads.push(task);
+		}
 
-    return downloads;
-  }
-  
-  /**
-   *
-   * @param {*} config
-   * @returns {SanityOptions}
-   */
-  _checkConfigDeprecations(config) {
-    if (config?.textConverters?.length > 0) {
-      const exampleQuery = `\t"contentTransforms": {\n\t  "$..*[?(@._type=='block')]": ["sanityToPlain", "sanityToHtml", "sanityToMarkdown"]\n\t}`;
-      this.logger.warn(
-        `The Sanity source "${chalk.yellow(
-          'textConverters'
-        )}" feature has been deprecated. Please use the following query instead (select only one transform):\n${chalk.green(
-          exampleQuery
-        )}`
-      );
-    }
-  }
-  
-  /**
-   *
-   * @param {*} config
-   * @returns {SanityOptions}
-   */
-  static _assembleConfig(config) {
-    return new SanityOptions({
-      ...config,
-      ...Credentials.getCredentials(config.id),
-    });
-  }
+		return downloads;
+	}
+	
+	/**
+	 *
+	 * @param {*} config
+	 * @returns {SanityOptions}
+	 */
+	_checkConfigDeprecations(config) {
+		if (config?.textConverters?.length > 0) {
+			const exampleQuery = '\t"contentTransforms": {\n\t  "$..*[?(@._type==\'block\')]": ["sanityToPlain", "sanityToHtml", "sanityToMarkdown"]\n\t}';
+			this.logger.warn(
+				`The Sanity source "${chalk.yellow(
+					'textConverters'
+				)}" feature has been deprecated. Please use the following query instead (select only one transform):\n${chalk.green(
+					exampleQuery
+				)}`
+			);
+		}
+	}
+	
+	/**
+	 *
+	 * @param {*} config
+	 * @returns {SanityOptions}
+	 */
+	static _assembleConfig(config) {
+		return new SanityOptions({
+			...config,
+			...Credentials.getCredentials(config.id)
+		});
+	}
 }
 
 export default SanitySource;

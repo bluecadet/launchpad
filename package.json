@@ -13,7 +13,10 @@
     "download": "npm run content --",
     "test": "npm run test -w @bluecadet/launchpad -- ",
     "docs": "node .docs/generate.mjs",
-    "watch-docs": "nodemon"
+    "watch-docs": "nodemon",
+    "lint": "npx eslint ./packages/**/*.js",
+    "lint:fix": "npx eslint ./packages/**/*.js --fix",
+    "lint:fix-dry": "npx eslint ./packages/**/*.js --fix-dry-run"
   },
   "repository": {
     "type": "git",

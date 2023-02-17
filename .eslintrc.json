@@ -6,22 +6,34 @@
 		"indent": [
 			"error",
 			"tab",
-			{ "SwitchCase": 1 }
+			{
+				"SwitchCase": 1
+			}
 		],
 		"no-tabs": ["off"],
 	  "no-unused-vars": "off",
 		"semi": ["error", "always"],
+		"brace-style": [
+			"error",
+			"1tbs",
+			{
+				"allowSingleLine": true
+			}
+		],
 		"object-curly-spacing": ["error", "always"],
-		"space-before-function-paren": ["error", {
-			"anonymous": "never",
-			"named": "never",
-			"asyncArrow": "always"
-		}],
+		"space-before-function-paren": [
+			"error",
+			{
+				"anonymous": "never",
+				"named": "never",
+				"asyncArrow": "always"
+			}
+		],
 		"no-trailing-spaces": [
 			"error",
 			{
-			"skipBlankLines": true,
-			"ignoreComments": true
+				"skipBlankLines": true,
+				"ignoreComments": true
 			}
 		]
 	}

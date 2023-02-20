@@ -1,5 +1,16 @@
 # @bluecadet/launchpad-monitor
 
+## 1.7.0
+
+### Minor Changes
+
+- [#98](https://github.com/bluecadet/launchpad/pull/98) [`a56c4f4`](https://github.com/bluecadet/launchpad/commit/a56c4f42e1ade3513783b7ccab3d8ff979f5deee) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added eslint and reformated code
+
+### Patch Changes
+
+- Updated dependencies [[`a56c4f4`](https://github.com/bluecadet/launchpad/commit/a56c4f42e1ade3513783b7ccab3d8ff979f5deee)]:
+  - @bluecadet/launchpad-utils@1.4.0
+
 ## 1.6.0
 
 ### Minor Changes

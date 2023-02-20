@@ -53,9 +53,9 @@ export class CommandHooks {
 				}
 				
 				if (key.startsWith('pre-')) {
-					this.preHooks.push(new ExecHook({command, script}));
+					this.preHooks.push(new ExecHook({ command, script }));
 				} else {
-					this.postHooks.push(new ExecHook({command, script}));
+					this.postHooks.push(new ExecHook({ command, script }));
 				}
 			}
 		}

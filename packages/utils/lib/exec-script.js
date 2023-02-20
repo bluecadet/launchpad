@@ -11,7 +11,7 @@ export const execScript = async (script, cwd, logger = console) => {
 	logger.debug(`execScript: '${script}'`);
 	return new Promise((resolve, reject) => {
 		const child = exec(script, {
-			cwd: cwd
+			cwd
 		});
 		child.stdout.on('data', (data) => {
 			logger.info(data);
@@ -28,6 +28,6 @@ export const execScript = async (script, cwd, logger = console) => {
 			resolve(code);
 		});
 	});
-}
+};
 
 export default execScript;

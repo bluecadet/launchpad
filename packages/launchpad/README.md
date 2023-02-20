@@ -13,20 +13,18 @@ Launchpad is a highly configurable suite of tools to manage media installations.
 
 ## Getting Started
 
-A typical setup will use launchpad as a node dependency, configure it via a `launchpad.json` file and run `npx launchpad` via a startup task (e.g. Windows Task Scheduler):
+1. Install launchpad: `npm i @bluecadet/launchpad`
+2. Create a `launchpad.json` config (see [configuration](#configuration))
+3. *Optional: [Bootstrap](/packages/scaffold) your PC with `npx launchpad scaffold`*
+4. Run `npx launchpad`
 
-1. Install launchpad: **`npm i @bluecadet/launchpad`**
-2. Create a **`launchpad.json`** config (see [configuration](#configuration))
-3. *Optional: Bootstrap your PC with `npx launchpad scaffold`*
-4. Run **`npx launchpad`**
+Run `npx launchpad --help` to see all available commands.
 
-Type `npx launchpad --help` for all available commands.
-
-*Launchpad can also be installed globally via `npm i -g @bluecadet/launchpad` and called via `launchpad` instead of `npx launchpad`.*
+Note: Launchpad is typically installed as a local dependency, configured with a `launchpad.json` file and run by a startup task (e.g. Windows Task Scheduler) using `npx launchpad`. Launchpad can also be installed globally via `npm i -g @bluecadet/launchpad` and called via `launchpad` instead of `npx launchpad`.
 
 ## Configuration
 
-Each [launchpad package](#packages) is configured via its own section in `launchpad.json`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and the [`monitor`](/packages/monitor) to launch a single app:
+Each [launchpad package](#packages) is configured via its own section in `launchpad.json`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and [`monitor`](/packages/monitor) to launch a single app:
 
 ```json
 {

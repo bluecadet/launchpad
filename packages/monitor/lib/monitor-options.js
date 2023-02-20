@@ -45,7 +45,7 @@ export class AppOptions {
 	constructor({
 		pm2 = null,
 		windows = new WindowOptions(),
-		logging = new AppLogOptions(),
+		logging = new AppLogOptions()
 	} = {}) {
 		/**
 		 * Configure which app to launch and how to monitor it here.
@@ -118,7 +118,7 @@ export const LogModes = {
 	/**
 	 * Logs directly from the app's stdout/stderr bus. Can result in interrupted logs if the buffer isn't consistently flushed by an app.
 	 */
-	LogBusEvents: 'bus',
+	LogBusEvents: 'bus'
 };
 
 /**
@@ -129,7 +129,7 @@ export class AppLogOptions {
 		logToLaunchpadDir = true,
 		mode = LogModes.LogBusEvents,
 		showStdout = true,
-		showStderr = true,
+		showStderr = true
 	} = {}) {
 		/**
 		 * Route application logs to launchpad's log dir instead of pm2's log dir.
@@ -160,7 +160,6 @@ export class AppLogOptions {
 		 * @default true
 		 */
 		this.showStderr = showStderr;
-
 	}
 }
 

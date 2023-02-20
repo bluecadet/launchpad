@@ -48,11 +48,11 @@ export class LaunchpadCore {
 		this._content = new LaunchpadContent(this._config.content, this._logger);
 		this._monitor = new LaunchpadMonitor(this._config.monitor, this._logger);
 		
-		this._commands.add(new Command({name: 'startup', callback: this._runStartup}));
-		this._commands.add(new Command({name: 'shutdown', callback: this._runShutdown}));
-		this._commands.add(new Command({name: 'start-apps', callback: this._runStartApps}));
-		this._commands.add(new Command({name: 'stop-apps', callback: this._runStopApps}));
-		this._commands.add(new Command({name: 'update-content', callback: this._runUpdateContent}));
+		this._commands.add(new Command({ name: 'startup', callback: this._runStartup }));
+		this._commands.add(new Command({ name: 'shutdown', callback: this._runShutdown }));
+		this._commands.add(new Command({ name: 'start-apps', callback: this._runStartApps }));
+		this._commands.add(new Command({ name: 'stop-apps', callback: this._runStopApps }));
+		this._commands.add(new Command({ name: 'update-content', callback: this._runUpdateContent }));
 		
 		this._commands.addCommandHooks(this._config.hooks);
 		
@@ -133,7 +133,6 @@ export class LaunchpadCore {
 			this._logger.close();
 			
 			process.exit(isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode);
-			
 		} catch (err) {
 			this._logger.error('Unhandled exit exception:');
 			this._logger.error(err);
@@ -191,10 +190,6 @@ export class LaunchpadCore {
 			await this._runStartApps();
 		}
 	}
-	
-	_initHooks() {
-		// for (const hook)
-	}
 }
 
-export default LaunchpadCore; 
+export default LaunchpadCore;

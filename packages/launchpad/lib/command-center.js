@@ -136,12 +136,12 @@ export class Command {
 		 * @type {function():Promise}
 		 */
 		this.callback = callback;
-	  /**
+		/**
 		 * Optional help text to display when running this app with --help
 		 * @type {string}
 		 */
 		this.help = help;
-	  /**
+		/**
 		 * Execute this task on the central queue. Defaults to true.
 		 * @type {boolean}
 		 */
@@ -169,22 +169,22 @@ export class Command {
 	 */
 	async run(...args) {
 		const logger = this.logger || console;
-		for (const cb of this.preHooks) {
+		for (const fn of this.preHooks) {
 			try {
-				await cb(...args);
+				await fn(...args);
 			} catch (err) {
 				logger.error(`Could not run pre-hook for command ${chalk.blue(this.name)}:`, err);
 			}
 		}
-		let result = undefined;
+		let result = null;
 		try {
 			result = await this.callback(...args);
 		} catch (err) {
 			logger.error(`Could not run command ${chalk.blue(this.name)}:`, err);
 		}
-		for (const cb of this.postHooks) {
+		for (const fn of this.postHooks) {
 			try {
-				await cb(...args);
+				await fn(...args);
 			} catch (err) {
 				logger.error(`Could not run post-hook for command ${chalk.blue(this.name)}:`, err);
 			}

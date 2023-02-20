@@ -70,7 +70,6 @@ launchFromCli(import.meta, {
 			break;
 		}
 	}
-
 }).catch(err => {
 	if (err) {
 		console.error('Launch error', err);

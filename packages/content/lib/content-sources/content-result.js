@@ -1,14 +1,14 @@
 export class DataFile {
-  /**
+	/**
 	 * The relative local path where the file should be saved.
-   * @type {string}
-   */
-  localPath = '';
-  /**
+	 * @type {string}
+	 */
+	localPath = '';
+	/**
 	 * The file contents to be saved.
-   * @type {*}
-   */
-  content = '';
+	 * @type {*}
+	 */
+	content = '';
 
 	/**
 	 *
@@ -35,44 +35,43 @@ export class DataFile {
 	}
 }
 export class MediaDownload {
-  constructor({
-    url,
+	constructor({
+		url,
 		localPath = undefined,
-    ...rest
-  } = {}) {
-    /**
-     * The url to download
-     * @type {string}
-     */
-    this.url = url;
-    
-    /**
-     * The path of this asset relative to this source's root asset dir.
+		...rest
+	} = {}) {
+		/**
+		 * The url to download
+		 * @type {string}
+		 */
+		this.url = url;
+		
+		/**
+		 * The path of this asset relative to this source's root asset dir.
 		 * Can optionally be overriden to save this file at another location.
-     */
-    this.localPath = localPath || new URL(this.url).pathname;
-    
+		 */
+		this.localPath = localPath || new URL(this.url).pathname;
+		
 		Object.assign(this, rest);
-  }
+	}
 	
 	/**
 	 * Returns a string unique to this URL and relative path.
 	 * Helpful for checking against duplicate download tasks.
 	 * @returns {string}
 	 */
-	 getKey() {
+	getKey() {
 		return `${this.url}_${this.localPath}`;
 	}
 }
 
 export class ContentResult {
-
 	/**
-   * List of data files to save
-   * @type {Array<ContentResult>}
-   */
+	 * List of data files to save
+	 * @type {Array<ContentResult>}
+	 */
 	static combine(results) {
-		let finalResult = results.reduce((previousValue, currentValue) => {
+		const finalResult = results.reduce((previousValue, currentValue) => {
 			previousValue.addDataFiles(currentValue.dataFiles);
 			previousValue.addMediaDownloads(currentValue.mediaDownloads);
 			return previousValue;
@@ -81,17 +80,17 @@ export class ContentResult {
 		return finalResult;
 	}
 
-  /**
-   * List of data files to save
-   * @type {Array<DataFile>}
-   */
-  dataFiles = [];
+	/**
+	 * List of data files to save
+	 * @type {Array<DataFile>}
+	 */
+	dataFiles = [];
 
-  /**
-   * List of media to download
-   * @type {Array<MediaDownload>}
-   */
-  mediaDownloads = [];
+	/**
+	 * List of media to download
+	 * @type {Array<MediaDownload>}
+	 */
+	mediaDownloads = [];
 
 	/**
 	 * @param {Array<DataFile>} dataFiles All the data files and their contents that should be saved
@@ -124,10 +123,10 @@ export class ContentResult {
 	 * @param {MediaDownload} urlOrDownload
 	 */
 	addMediaDownload(urlOrDownload) {
-		if (typeof myVar === 'string' || myVar instanceof String) {
+		if (typeof urlOrDownload === 'string' || urlOrDownload instanceof String) {
 			urlOrDownload = new MediaDownload({
 				url: urlOrDownload
-			})
+			});
 		}
 		this.mediaDownloads.push(urlOrDownload);
 	}
@@ -145,9 +144,8 @@ export class ContentResult {
 	 * @param {string} id
 	 */
 	collate(id) {
-
 		// Collect all data into 1 object.
-		let collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
+		const collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
 			return [...previousValue, ...currentValue.content];
 		}, []);
 

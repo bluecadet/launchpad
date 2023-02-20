@@ -13,7 +13,6 @@ export class ConfigManagerOptions {
 		configPaths = ConfigManagerOptions.DEFAULT_CONFIG_PATHS,
 		...rest
 	} = {}) {
-		
 		/**
 		 * The path where to load the config from.
 		 * If an array of paths is passed, all found configs will be merged in that order.
@@ -21,7 +20,7 @@ export class ConfigManagerOptions {
 		 */
 		this.configPaths = configPaths;
 		
-    // Allows for additional properties to be inherited
+		// Allows for additional properties to be inherited
 		Object.assign(this, rest);
 	}
 }
@@ -71,9 +70,6 @@ export class ConfigManager {
 		return null;
 	}
 	
-	constructor() {
-	}
-	
 	/**
 	 * Loads the config in the following order of overrides:
 	 *   defaults < json < user < argv 
@@ -85,13 +81,13 @@ export class ConfigManager {
 	 */
 	loadConfig(userConfig = null, yargsCallback = null) {
 		if (userConfig) {
-			this._config = {...this._config, ...userConfig};
+			this._config = { ...this._config, ...userConfig };
 		}
 		
 		let argv = yargs(hideBin(process.argv))
 			.parserConfiguration({
 				// See https://github.com/yargs/yargs-parser#camel-case-expansion
-				"camel-case-expansion": false
+				'camel-case-expansion': false
 			})
 			.config('config', 'Path to your config file. Can contain comments.', this._loadConfigFromFile.bind(this));
 		
@@ -101,13 +97,13 @@ export class ConfigManager {
 		
 		const parsedArgv = argv.help().parse();
 		
-		this._config = {...this._config, ...parsedArgv};
+		this._config = { ...this._config, ...parsedArgv };
 		
 		// console.log(this._config);
 		
 		if (!parsedArgv.config) {
 			for (const configPath of this._config.configPaths) {
-				this._config = {...this._config, ...this._loadConfigFromFile(configPath)};
+				this._config = { ...this._config, ...this._loadConfigFromFile(configPath) };
 			}
 		}
 		
@@ -160,14 +156,12 @@ export class ConfigManager {
 					absPath = resolvedPath;
 					console.info(chalk.gray(`Loading config from ${chalk.white(absPath)}`));
 					break;
-					
 				} else if (i >= maxLevels) {
 					throw new Error(`No config found at '${chalk.white(configPath)}'.`);
-					
 				} else {
 					const dirPath = path.dirname(absPath);
 					const filePath = path.basename(absPath);
-					const parentPath = path.resolve(dirPath, `..`, filePath);
+					const parentPath = path.resolve(dirPath, '..', filePath);
 					
 					if (absPath === parentPath) {
 						// Can't navigate any more levels up
@@ -186,12 +180,11 @@ export class ConfigManager {
 			}
 			
 			return config;
-			
 		} catch (err) {
 			console.warn(`${err.message}`);
 		}
 
-    return {};
+		return {};
 	}
 }
 

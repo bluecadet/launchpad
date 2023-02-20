@@ -13,7 +13,10 @@
     "download": "npm run content --",
     "test": "npm run test -w @bluecadet/launchpad -- ",
     "docs": "node .docs/generate.mjs",
-    "watch-docs": "nodemon"
+    "watch-docs": "nodemon",
+    "lint": "npx eslint ./packages/**/*.js",
+    "lint:fix": "npx eslint ./packages/**/*.js --fix",
+    "lint:fix-dry": "npx eslint ./packages/**/*.js --fix-dry-run"
   },
   "repository": {
     "type": "git",
@@ -28,9 +31,11 @@
   "workspaces": [
     "./packages/*"
   ],
-  "dependencies": {
+  "devDependencies": {
     "@changesets/changelog-github": "^0.4.6",
     "@changesets/cli": "^2.23.0",
+    "eslint": "^8.32.0",
+    "eslint-config-standard": "^17.0.0",
     "jsdoc-to-markdown": "^7.1.1",
     "nodemon": "^2.0.20"
   }

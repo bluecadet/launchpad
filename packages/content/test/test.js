@@ -3,7 +3,7 @@ import LaunchpadContent from '../lib/launchpad-content.js';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {
 	return ConfigManager.importJsConfig(paths, import.meta);
-}
+};
 
 launchFromCli(import.meta, {
 	userConfig: await getConfig()
@@ -12,7 +12,6 @@ launchFromCli(import.meta, {
 	await content.start();
 	// await content.clear();
 	process.exit(0);
-	
 }).catch(err => {
 	if (err) {
 		console.error('Launch error', err);

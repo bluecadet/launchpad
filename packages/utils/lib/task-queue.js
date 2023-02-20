@@ -1,7 +1,7 @@
 import * as async from 'async';
 import autoBind from 'auto-bind';
 import chalk from 'chalk';
-import { default as LogManager, Logger } from './log-manager.js';
+import { LogManager, Logger } from './log-manager.js';
 
 export class TaskQueueOptions {
 	constructor({
@@ -102,6 +102,7 @@ class Task {
 		this.name = name;
 		this.args = args;
 	}
+	
 	/**
 	 * @returns {Promise}
 	 */
@@ -112,12 +113,13 @@ class Task {
 			return this.taskFn(...this.args);
 		}
 	}
+	
 	/**
 	 * @returns {string}
 	 */
 	toString() {
 		const idStr = `#${this.id}`;
-		return !!this.name ? `${idStr} (${this.name})` : idStr;
+		return this.name ? `${idStr} (${this.name})` : idStr;
 	}
 }
 

@@ -6,10 +6,27 @@ Launchpad is a highly configurable suite of tools to manage media installations.
 - Download and locally cache content from various common web APIs
 - Bootstrap Windows PCs with common exhibit settings
 - Consolidate and route application logs
+- [...and much more](#documentation)
 
-[...and many more things](#documentation)
+```mermaid
+%%{ init: { 'flowchart': { 'curve': 'bumpX' } } }%%
+graph LR
+    Launchpad:::package
+    
+    Launchpad --> Scaffold:::package -.-> PCs([PCs])
+    Launchpad --> Content:::package -.-> APIs([APIs])
+    Launchpad --> Monitor:::package -.-> Apps([Apps])
+    
+    APIs -.-> Cache[(Cache)]
+    Apps -.-> Cache
 
-![Screen Recording of Launchpad on Windows 11](https://user-images.githubusercontent.com/295789/197365153-d62d9218-2ffa-4611-ac61-fa5bf786766a.gif)
+    click Launchpad "/packages/launchpad" "Core package for logging, events, hooks"
+    click Scaffold "/packages/scaffold" "Windows config, automation, app installs"
+    click Content "/packages/content" "Download, cache and process content"
+    click Monitor "/packages/monitor" "Launch and monitor apps via PM2"
+
+    classDef package fill:#69f,stroke:#000,color:#fff
+```
 
 ## Getting Started
 

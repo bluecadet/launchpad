@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.10.1
+
+### Patch Changes
+
+- [`0a62a90`](https://github.com/bluecadet/launchpad/commit/0a62a9083b80eec5587c3ea5c465672c2e041282) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Updated documentation
+
 ## 1.10.0
 
 ### Minor Changes

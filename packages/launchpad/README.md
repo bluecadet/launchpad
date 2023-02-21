@@ -35,9 +35,11 @@ graph LR
 3. *Optional: [Bootstrap](/packages/scaffold) your PC with `npx launchpad scaffold`*
 4. Run `npx launchpad`
 
+![Screen Recording of Launchpad on Windows 11](https://user-images.githubusercontent.com/295789/197365153-d62d9218-2ffa-4611-ac61-fa5bf786766a.gif)
+
 Run `npx launchpad --help` to see all available commands.
 
-Note: Launchpad is typically installed as a local dependency, configured with a `launchpad.json` file and run by a startup task (e.g. Windows Task Scheduler) using `npx launchpad`. Launchpad can also be installed globally via `npm i -g @bluecadet/launchpad` and called via `launchpad` instead of `npx launchpad`.
+*Note: Launchpad is typically triggered run by a startup task (e.g. Windows Task Scheduler) using `npx launchpad`. When installed globally (`npm i -g @bluecadet/launchpad`), you can use the `launchpad` command instead. See [config loading](#config-loading) for more info.*
 
 ## Configuration
 
@@ -69,6 +71,8 @@ Each [launchpad package](#packages) is configured via its own section in `launch
   }
 }
 ```
+
+*Note: [Scaffold](/packages/scaffold) is configured separately in a PowerShell file. This is a guided process when you run `npx launchpad scaffold`.*
 
 ### Documentation
 

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.7.1
+
+### Patch Changes
+
+- [#102](https://github.com/bluecadet/launchpad/pull/102) [`9efdf12`](https://github.com/bluecadet/launchpad/commit/9efdf12230d31fef8fe9c5708dbe7eb145c398e2) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Added win 11 unpin start menu warning (not supported)
+
 ## 1.7.0
 
 ### Minor Changes

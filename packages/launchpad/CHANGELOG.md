@@ -1,5 +1,15 @@
 # @bluecadet/launchpad
 
+## 1.4.1
+
+### Patch Changes
+
+- [`0a62a90`](https://github.com/bluecadet/launchpad/commit/0a62a9083b80eec5587c3ea5c465672c2e041282) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Updated documentation
+
+- Updated dependencies [[`0a62a90`](https://github.com/bluecadet/launchpad/commit/0a62a9083b80eec5587c3ea5c465672c2e041282), [`9efdf12`](https://github.com/bluecadet/launchpad/commit/9efdf12230d31fef8fe9c5708dbe7eb145c398e2)]:
+  - @bluecadet/launchpad-content@1.10.1
+  - @bluecadet/launchpad-scaffold@1.7.1
+
 ## 1.4.0
 
 ### Minor Changes

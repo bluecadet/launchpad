@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.7.2
+
+### Patch Changes
+
+- [`5a98dbb`](https://github.com/bluecadet/launchpad/commit/5a98dbbd8eb839cc266f43ddc9aefa6af8e38fac) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Fixes scaffold issue when running on portable drives
+
 ## 1.7.1
 
 ### Patch Changes

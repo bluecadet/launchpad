@@ -1,5 +1,17 @@
 # @bluecadet/launchpad
 
+## 1.4.3
+
+### Patch Changes
+
+- [`851111b`](https://github.com/bluecadet/launchpad/commit/851111b5901fe146f78a9136034753d0d2641d62) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Minor readme update
+
+## 1.4.2
+
+### Patch Changes
+
+- [`740b19b`](https://github.com/bluecadet/launchpad/commit/740b19bca04986ce2a5ab00e834c4a252da9d912) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Minor readme update
+
 ## 1.4.1
 
 ### Patch Changes

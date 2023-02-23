@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad",
-  "version": "1.4.1",
+  "version": "1.4.3",
   "description": "Suite of tools to manage media installations",
   "engines": {
     "npm": ">=8.5.1",

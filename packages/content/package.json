@@ -23,7 +23,7 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~1.4.0",
-    "@portabletext/to-html": "^1.0.4",
+    "@portabletext/to-html": "^2.0.0",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.3.2",
     "@sanity/image-url": "^1.0.1",

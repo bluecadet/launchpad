@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.10.2
+
+### Patch Changes
+
+- [#109](https://github.com/bluecadet/launchpad/pull/109) [`33e6488`](https://github.com/bluecadet/launchpad/commit/33e648884e44ed42be5d600e1a2a9f8c183d1a3c) Thanks [@claytercek](https://github.com/claytercek)! - update `@portabletext/to-html` dependency to fix launchpad content syntax error
+
 ## 1.10.1
 
 ### Patch Changes

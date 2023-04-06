@@ -5,11 +5,18 @@
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
 import got from 'got';
+import qs from 'qs';
 
 import ContentSource, { SourceOptions } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
+
+/**
+ * @typedef {Object} StrapiObjectQuery
+ * @property {string} contentType The content type to query
+ * @property {Object} params Query parameters. Uses `qs` library to stringify.
+ */
 
 /**
  * Options for StrapiSource
@@ -30,8 +37,8 @@ export class StrapiOptions extends SourceOptions {
 		super(rest);
 		
 		/**
-		 * Only version `'3'` is supported currently.
-		 * @type {string}
+		 * Versions `3` and `4` are supported.
+		 * @type {'3'|'4'}
 		 * @default '3'
 		 */
 		this.version = version;
@@ -43,8 +50,10 @@ export class StrapiOptions extends SourceOptions {
 		this.baseUrl = baseUrl;
 		
 		/**
-		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs. You can include all query parameters supported by Strapi: https://docs-v3.strapi.io/developer-docs/latest/developer-resources/content-api/content-api.html#api-parameters
-		 * @type {Array.<string>}
+		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs.
+		 * You can include all query parameters supported by Strapi.
+		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
+		 * @type {Array.<string | StrapiObjectQuery>}
 		 * @default []
 		 */
 		this.queries = queries;
@@ -90,7 +99,197 @@ export class StrapiOptions extends SourceOptions {
 	}
 }
 
+/**
+ * @typedef {Object} StrapiPagination
+ * @property {number} start The index of the first item to fetch
+ * @property {number} limit The number of items to fetch
+ */
+
+class StrapiVersionUtils {
+	/**
+	 * @type {StrapiOptions}
+	 * @private
+	 */
+	config;
+
+	/**
+	 * @type {Logger}
+	 * @private
+	 */
+	logger;
+
+	/**
+	 * @param {StrapiOptions}
+	 * @param {Logger}
+	 */
+	constructor(config, logger) {
+		this.config = config;
+		this.logger = logger;
+	}
+	
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @returns {string}
+	 */
+	buildUrl(query) {
+		throw new Error('Not implemented');
+	}
+
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
+	hasPaginationParams(query) {
+		throw new Error('Not implemented');
+	}
+
+	/**
+	 * @param {object} result
+	 * @returns {object}
+	 */
+	transformResult(result) {
+		return result;
+	}
+
+	/**
+	 * @param {object} result
+	 * @returns {boolean}
+	 */
+	canFetchMore(result) {
+		throw new Error('Not implemented');
+	}
+
+	/**
+	 * @param {string} string
+	 * @returns {StrapiObjectQuery}
+	 */
+	parseQuery(string) {
+		const url = new URL(string, this.config.baseUrl);
+		const params = qs.parse(url.search.slice(1));
+		const contentType = url.pathname.split('/').pop();
+		return { contentType, params };
+	}
+}
+
+class StrapiV4 extends StrapiVersionUtils {
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
+	 * @returns {string}
+	 */
+	buildUrl(query, pagination) {
+		const url = new URL(query.contentType, this.config.baseUrl);
+
+		let params = query.params;
+
+		// only add pagination params if they arent't specified in the query object
+		if (!this.hasPaginationParams(query)) {
+			params = {
+				...params,
+				pagination: {
+					page: (pagination.start / pagination.limit) + 1,
+					pageSize: pagination.limit,
+					...params?.pagination
+				}
+			};
+		}
+
+		const search = qs.stringify(params, {
+			encodeValuesOnly: true, // prettify url
+			addQueryPrefix: true // add ? to beginning
+		});
+		
+		url.search = search;
+
+		return url.toString();
+	}
+
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
+	hasPaginationParams(query) {
+		return query?.params?.pagination?.page !== undefined || query?.params?.pagination?.pageSize !== undefined;
+	}
+
+	/**
+	 * @param {object} result
+	 * @returns {object}
+	 */
+	transformResult(result) {
+		return result.data;
+	}
+
+	/**
+	 * @param {object} result
+	 * @returns {boolean}
+	 */
+	canFetchMore(result) {
+		if (result?.meta?.pagination) {
+			const { page, pageCount } = result.meta.pagination;
+			return page < pageCount;
+		}
+
+		return false;
+	}
+}
+
+class StrapiV3 extends StrapiVersionUtils {
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
+	 * @returns {string}
+	 */
+	buildUrl(query, pagination) {
+		const url = new URL(query.contentType, this.config.baseUrl);
+
+		let params = query.params;
+
+		// only add pagination params if they arent't specified in the query object
+		if (!this.hasPaginationParams(query)) {
+			params = {
+				_start: pagination.start,
+				_limit: pagination.limit,
+				...params
+			};
+		}
+
+		const search = qs.stringify(params, {
+			encodeValuesOnly: true, // prettify url
+			addQueryPrefix: true // add ? to beginning
+		});
+		
+		url.search = search;
+
+		return url.toString();
+	}
+
+	/**
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
+	hasPaginationParams(query) {
+		return query?.params?._start !== undefined || query?.params?._limit !== undefined;
+	}
+
+	/**
+	 * @param {object} result
+	 * @returns {boolean}
+	 */
+	canFetchMore(result) {
+		// strapi v3 doesn't have any pagination info in the response,
+		// so we can't know if there are more results
+		return true;
+	}
+}
+
 class StrapiSource extends ContentSource {
+	/**
+	 * @type {StrapiVersionUtils}
+	 * @private
+	 */
+	_versionUtils;
+
 	/**
 	 * 
 	 * @param {*} config 
@@ -98,10 +297,17 @@ class StrapiSource extends ContentSource {
 	 */
 	constructor(config, logger) {
 		super(StrapiSource._assembleConfig(config), logger);
-		
-		if (!this.config.version || parseInt(this.config.version) !== 3) {
-			throw new Error(`Strapi content source only supports Strapi v3 (requested version '${this.config.version}')`);
+
+		if (!this.config.version) {
+			throw new Error('Strapi version not specified');
+		} else if (parseInt(this.config.version) === 3) {
+			this._versionUtils = new StrapiV3(this.config, this.logger);
+		} else if (parseInt(this.config.version) === 4) {
+			this._versionUtils = new StrapiV4(this.config, this.logger);
+		} else {
+			throw new Error(`Unsupported strapi version '${this.config.version}'`);
 		}
+		
 		if (!this.config.queries || !this.config.queries.length) {
 			throw new Error('No content queries defined');
 		}
@@ -130,55 +336,56 @@ class StrapiSource extends ContentSource {
 	/**
 	 * Recursively fetches content using the Strapi client.
 	 *
-	 * @param {string} query
+	 * @param {string | StrapiObjectQuery} query
 	 * @param {string} jwt The JSON web token generated by Strapi
 	 * @param {ContentResult} result
-	 * @param {Object} params
+	 * @param {StrapiPagination} pagination
 	 * @returns {Promise<Object>} Object with an 'entries' and an 'assets' array.
 	 */
 	async _fetchPages(
 		query,
 		jwt,
 		result,
-		params = { start: 0, limit: 100 }
+		pagination = { start: 0, limit: 100 }
 	) {
-		const pageNum = params.start / params.limit;
-		const url = new URL(query, this.config.baseUrl);
-		
-		if (!url.searchParams.has('_start')) {
-			url.searchParams.append('_start', params.start);
+		if (typeof query === 'string') {
+			query = this._versionUtils.parseQuery(query);
 		}
-		if (!url.searchParams.has('_limit')) {
-			url.searchParams.append('_limit', params.limit);
-		}
+
+		const pageNum = pagination.start / pagination.limit;
 		
-		const contentType = url.pathname;
-		const fileName = `${contentType}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
+		const fileName = `${query.contentType}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
 		
-		this.logger.debug(`Fetching page ${pageNum} of ${contentType}`);
-		
-		return got(url.toString(), {
+		this.logger.debug(`Fetching page ${pageNum} of ${query.contentType}`);
+
+		return got(this._versionUtils.buildUrl(query, pagination), {
 			headers: {
 				Authorization: `Bearer ${jwt}`
 			}
 		})
 			.json()
 			.then((content) => {
-				if (!content || !content.length) {
+				const transformedContent = this._versionUtils.transformResult(content);
+				if (!transformedContent || !transformedContent.length) {
 					// Empty result or no more pages left
 					return Promise.resolve(result);
 				}
 				
-				result.addDataFile(fileName, content);
+				result.addDataFile(fileName, transformedContent);
+
 				result.addMediaDownloads(
-					this._getMediaUrls(content).map(url => new MediaDownload({ url }))
+					this._getMediaUrls(transformedContent).map(url => new MediaDownload({ url }))
 				);
 				
-				if (this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) {
+				if (
+					!this._versionUtils.hasPaginationParams(query) &&
+					(this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) &&
+					this._versionUtils.canFetchMore(content)
+				) {
 					// Fetch next page
-					params.start = params.start || 0;
-					params.start += params.limit;
-					return this._fetchPages(query, jwt, result, params);
+					pagination.start = pagination.start || 0;
+					pagination.start += pagination.limit;
+					return this._fetchPages(query, jwt, result, pagination);
 				} else {
 					// Return combined entries + assets
 					return Promise.resolve(result);

@@ -50,8 +50,9 @@ export class StrapiOptions extends SourceOptions {
 		this.baseUrl = baseUrl;
 		
 		/**
-		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs. You can include all query parameters supported by Strapi: https://docs-v3.strapi.io/developer-docs/latest/developer-resources/content-api/content-api.html#api-parameters
-		 * You can also pass an object with a `contentType` and `params` property.
+		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs.
+		 * You can include all query parameters supported by Strapi.
+		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
 		 * @type {Array.<string | StrapiObjectQuery>}
 		 * @default []
 		 */

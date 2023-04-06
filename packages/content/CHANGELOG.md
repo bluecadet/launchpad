@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.11.0
+
+### Minor Changes
+
+- [#111](https://github.com/bluecadet/launchpad/pull/111) [`6502ded`](https://github.com/bluecadet/launchpad/commit/6502ded3105bd803d38978758d4c3794fc54cd8c) Thanks [@claytercek](https://github.com/claytercek)! - add support for strapi v4
+
 ## 1.10.2
 
 ### Patch Changes

@@ -9,16 +9,17 @@ import LogManager from './log-manager.js';
  * script was called directly. If it was included in another script, this
  * function will return a rejected promise with no error.
  * 
- * @param {*} importMeta Pass the import.meta property from your script here
- * @param {Object} userConfig Optional user config to be merged with the loaded config
- * @param {string|Array<string>} relativePaths Optional paths to detect if this script was loaded as a dependency or directly. This can help with detecting if linked packages were run directly.
- * @param {function(yargs.Argv) : yargs.Argv} yargsCallback Optional function to further configure yargs startup options.
- * @returns {Promise<*, *>} A promise with the current config.
+ * @param {ImportMeta} importMeta Pass the import.meta property from your script here
+ * @param {object} [options]
+ * @param {object} [options.userConfig] Optional user config to be merged with the loaded config
+ * @param {string|Array<string>} [options.relativePaths] Optional paths to detect if this script was loaded as a dependency or directly. This can help with detecting if linked packages were run directly.
+ * @param {(function(yargs.Argv) : yargs.Argv)} [options.yargsCallback] Optional function to further configure yargs startup options.
+ * @returns {Promise<object>} A promise with the current config.
  */
 export const launchFromCli = async (importMeta, {
-	userConfig = null,
-	relativePaths = null,
-	yargsCallback = null
+	userConfig,
+	relativePaths,
+	yargsCallback
 } = {}) => {
 	// Ensure relativePaths is an array
 	if (!relativePaths) {
@@ -33,6 +34,7 @@ export const launchFromCli = async (importMeta, {
 	}
 	
 	ConfigManager.getInstance().loadConfig(userConfig, yargsCallback);
+	/** @type {any} TODO: figure out where to add this 'logging' property */
 	const config = ConfigManager.getInstance().getConfig();
 	LogManager.getInstance(config.logging || config);
 	
@@ -41,7 +43,7 @@ export const launchFromCli = async (importMeta, {
 
 /**
  * 
- * @param {*} importMeta 
+ * @param {ImportMeta} importMeta 
  * @param {Array<string>} relativePaths 
  * @returns {boolean}
  */

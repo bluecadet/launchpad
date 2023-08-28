@@ -5,7 +5,7 @@ import { exec } from 'child_process';
  * @param {string} script 
  * @param {string} cwd 
  * @param {*} logger 
- * @returns {Promise<float>} A promise with the exit code passed on close
+ * @returns {Promise<number | null>} A promise with the exit code passed on close
  */
 export const execScript = async (script, cwd, logger = console) => {
 	logger.debug(`execScript: '${script}'`);
@@ -13,12 +13,16 @@ export const execScript = async (script, cwd, logger = console) => {
 		const child = exec(script, {
 			cwd
 		});
-		child.stdout.on('data', (data) => {
-			logger.info(data);
-		});
-		child.stderr.on('data', (data) => {
-			logger.error(data);
-		});
+		if (child && child.stdout) {
+			child.stdout.on('data', (data) => {
+				logger.info(data);
+			});
+		}
+		if (child && child.stderr) {
+			child.stderr.on('data', (data) => {
+				logger.error(data);
+			});
+		}
 		child.on('error', (err) => {
 			logger.error(`Couldn't run script ${script}: ${err}`);
 			reject(err);

@@ -3,8 +3,7 @@
  */
 
 import path from 'path';
-import winston from 'winston';
-import Logger from 'winston/lib/winston/logger.js';
+import winston, { Logger } from 'winston';
 import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
 import moment from 'moment';
@@ -156,12 +155,12 @@ export class LogFileOptions {
 
 export class LogManager {
 	/**
-	 * @type {LogManager}
+	 * @type {LogManager | null}
 	 */
 	static _instance = null;
 	
 	/**
-	 * @param {LogOptions|Object} config 
+	 * @param {LogOptions|object} [config] 
 	 * @returns {LogManager}
 	 */
 	static getInstance(config) {
@@ -174,15 +173,15 @@ export class LogManager {
 	/**
 	 * @type {LogOptions}
 	 */
-	_config = null;
+	_config;
 	
 	/**
 	 * @type {Logger}
 	 */
-	_logger = null;
+	_logger;
 	
 	/**
-	 * @param {LogOptions|Object} config 
+	 * @param {LogOptions|object} [config] 
 	 */
 	constructor(config) {
 		this._config = new LogOptions(config);
@@ -202,11 +201,11 @@ export class LogManager {
 	}
 	
 	/**
-	 * @param {string} moduleName If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
-	 * @param {Logger} parent The parent logger to create this logger from (if a moduleName is specified). Will default to the main logger instance if left empty.
+	 * @param {string} [moduleName] If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
+	 * @param {Logger} [parent] The parent logger to create this logger from (if a moduleName is specified). Will default to the main logger instance if left empty.
 	 * @returns {Logger}
 	 */
-	getLogger(moduleName = null, parent = null) {
+	getLogger(moduleName, parent) {
 		if (moduleName) {
 			parent = parent || this._logger;
 			const child = parent.child({ module: moduleName });
@@ -217,6 +216,10 @@ export class LogManager {
 		}
 	}
 	
+	/**
+	 * @param {string} logType
+	 * @param {boolean} templated
+	 */
 	getFilePath(logType, templated = true) {
 		let output = this._config.filename.replace(LogOptions.LOG_TYPE_KEY, logType);
 		if (templated) {

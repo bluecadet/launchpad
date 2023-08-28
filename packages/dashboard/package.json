@@ -2,9 +2,11 @@
   "name": "@bluecadet/launchpad-dashboard",
   "version": "1.4.0",
   "description": "",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
+  "types": "types/index.d.ts",
   "bin": "index.js",
+
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

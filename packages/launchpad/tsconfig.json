@@ -1,0 +1,25 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "dist"
+	},
+	"include": ["**/*.js"],
+	"exclude": ["test"],
+	"references": [
+		{
+			"path": "../utils"
+		},
+		{
+			"path": "../dashboard"
+		},
+		{
+			"path": "../monitor"
+		},
+		{
+			"path": "../scaffold"
+		},
+		{
+			"path": "../content"
+		}
+	]
+}

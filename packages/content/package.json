@@ -2,9 +2,10 @@
   "name": "@bluecadet/launchpad-content",
   "version": "1.11.0",
   "description": "Content syncing pipeline for various sources",
-  "main": "index.js",
-  "bin": "index.js",
   "type": "module",
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "bin": "index.js",
   "scripts": {
     "start": "node index.js",
     "download": "node index.js",

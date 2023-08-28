@@ -8,6 +8,7 @@
   },
   "type": "module",
   "main": "./index.js",
+  "types": "types/index.d.ts",
   "bin": {
     "launchpad": "./index.js"
   },

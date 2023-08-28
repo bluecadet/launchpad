@@ -2,8 +2,9 @@
   "name": "@bluecadet/launchpad-monitor",
   "version": "1.7.0",
   "description": "",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
+  "types": "types/index.d.ts",
   "bin": "index.js",
   "scripts": {
     "start": "node index.js",

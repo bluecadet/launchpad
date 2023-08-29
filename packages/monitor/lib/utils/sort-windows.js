@@ -8,23 +8,30 @@ export class SortApp {
 	/**
 	 * @type {AppOptions}
 	 */
-	options = null;
+	options;
 	/**
-	 * @type {number}
+	 * @type {number?}
 	 */
 	pid = null;
+
+	/**
+	 * @param {AppOptions} options
+	 */
+	constructor(options) {
+		this.options = options;
+	}
 }
 
 /**
  * 
- * @param {Array.<SortApp>} apps 
- * @param {Logger} logger
- * @param {string} minNodeVersion
- * @returns {Promise}
+ * @param {Array<SortApp>} apps 
+ * @param {Logger | Console} [logger]
+ * @param {string} [minNodeVersion]
+ * @returns {Promise<void>}
  */
-const sortWindows = async (apps, logger = console, minNodeVersion = undefined) => {
+const sortWindows = async (apps, logger = console, minNodeVersion) => {
 	const currNodeVersion = process.version;
-	if (!semver.satisfies(currNodeVersion, minNodeVersion)) {
+	if (minNodeVersion && !semver.satisfies(currNodeVersion, minNodeVersion)) {
 		return Promise.reject(
 			new Error(`Can't sort windows because the current node version '${currNodeVersion}' doesn't satisfy the required version '${minNodeVersion}'. Please upgrade node to apply window settings like foreground/minimize/hide.`)
 		);
@@ -41,6 +48,11 @@ const sortWindows = async (apps, logger = console, minNodeVersion = undefined) =
 	const visiblePids = new Set(visibleWindows.map(win => win.processId));
 	
 	for (const app of apps) {
+		if (!app.pid) {
+			logger.warn(`Can't sort windows for ${chalk.blue(app.options.pm2.name)} because it has no pid.`);
+			continue;
+		}
+
 		if (!visiblePids.has(app.pid)) {
 			logger.warn(`No window found for ${chalk.blue(app.options.pm2.name)} with pid ${chalk.blue(app.pid)}.`);
 			continue;

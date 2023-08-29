@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "main": "index.js",
-  "types": "types/index.d.ts",
+  "types": "dist/index.d.ts",
   "bin": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -34,5 +34,10 @@
     "pm2": "^5.1.2",
     "semver": "^7.3.5",
     "tail": "^2.2.4"
+  },
+  "devDependencies": {
+    "@types/axon": "2.0",
+    "@types/cross-spawn": "^6.0.2",
+    "@types/tail": "2.2"
   }
 }

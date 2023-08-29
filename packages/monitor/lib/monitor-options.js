@@ -8,6 +8,9 @@ import * as pm2 from 'pm2';
  * Top-level options of Launchpad Monitor.
  */
 export class MonitorOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		apps = [],
 		deleteExistingBeforeConnect = false,
@@ -42,16 +45,22 @@ export class MonitorOptions {
  * Options for an individual app to monitor.
  */
 export class AppOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
-		pm2 = null,
+		pm2,
 		windows = new WindowOptions(),
 		logging = new AppLogOptions()
 	} = {}) {
+		if (!pm2) {
+			throw new Error('AppOptions.pm2 is required');
+		}
+
 		/**
 		 * Configure which app to launch and how to monitor it here.
 		 * @see https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available
-		 * @type {pm2.StartOptions}
-		 * @default null
+		 * @type {(pm2.StartOptions & {out_file?: string, error_file?: string})}
 		 */
 		this.pm2 = pm2;
 		
@@ -112,11 +121,13 @@ export class WindowOptions {
 export const LogModes = {
 	/**
 	 * Logs by tailing the app's log files. Slight lag, but can result in better formatting than bus. Not recommended, as logs cannot be rotated by launchpad.
+	 * @type {'file'}
 	 */
 	TailLogFile: 'file',
 	
 	/**
 	 * Logs directly from the app's stdout/stderr bus. Can result in interrupted logs if the buffer isn't consistently flushed by an app.
+	 * @type {'bus'}
 	 */
 	LogBusEvents: 'bus'
 };
@@ -125,6 +136,9 @@ export const LogModes = {
  * Options for how an app's logs should be saved, routed and displayed.
  */
 export class AppLogOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		logToLaunchpadDir = true,
 		mode = LogModes.LogBusEvents,

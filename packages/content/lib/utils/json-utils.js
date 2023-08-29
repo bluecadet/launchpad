@@ -4,9 +4,9 @@ class JsonUtils {
 	/**
      * Parses URLs from json object using include/exclude regexps
      * @param {JSON} json 
-     * @param {Object} options 
-     * @param {RegExp|string} include 
-     * @param {RegExp|string} exclude 
+     * @param {any} [options] 
+     * @param {RegExp|string} [include] 
+     * @param {RegExp|string} [exclude] 
      * @returns {Set<string>}
      */
 	static getUrls(json, options, include, exclude) {
@@ -34,6 +34,9 @@ class JsonUtils {
 		return urls;
 	}
 
+	/**
+	 * @param {any} [userSettings]
+	 */
 	static getUrlOptions(userSettings) {
 		return {
 			...{
@@ -46,6 +49,10 @@ class JsonUtils {
 		};
 	}
 
+	/**
+	 * @param {any} node
+	 * @param {(node:any) => void} fn
+	 */
 	static forEachLeaf(node, fn) {
 		if (node === null || node === undefined || this.isFunction(node)) {
 			return;
@@ -59,10 +66,18 @@ class JsonUtils {
 		}
 	}
 
+	/**
+	 * @param {any} arg
+	 * @returns {arg is function}
+	 */
 	static isFunction(arg) {
 		return arg !== null && arg !== undefined && typeof arg === 'function';
 	}
 
+	/**
+	 * @param {any} arg
+	 * @returns {arg is string | number | boolean}
+	 */
 	static isPrimitive(arg) {
 		if (arg === null || arg === undefined) {
 			return false;
@@ -71,14 +86,25 @@ class JsonUtils {
 		return t === 'string' || t === 'number' || t === 'boolean';
 	}
 
+	/**
+	 * @param {any} arg
+	 */
 	static isLeaf(arg) {
 		return !this.isObject(arg) && !Array.isArray(arg);
 	}
 
+	/**
+	 * @param {any} arg
+	 * @returns {arg is string}
+	 */
 	static isString(arg) {
 		return arg !== null && arg !== undefined && typeof arg === 'string';
 	}
 
+	/**
+	 * @param {any} arg
+	 * @returns {arg is object}
+	 */
 	static isObject(arg) {
 		return arg !== null && arg !== undefined && typeof arg === 'object';
 	}

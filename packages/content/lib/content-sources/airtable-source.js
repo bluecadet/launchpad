@@ -13,6 +13,9 @@ import Credentials from '../credentials.js';
  * Options for AirtableSource
  */
 export class AirtableOptions extends SourceOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		baseId = undefined,
 		tables = [],
@@ -31,6 +34,7 @@ export class AirtableOptions extends SourceOptions {
 		this.baseId = baseId;
 
 		/**
+		 * The table view which to select for syncing by default
 		 * @type {string}
 		 * @default 'Grid view'
 		 */
@@ -59,12 +63,6 @@ export class AirtableOptions extends SourceOptions {
 		this.endpointUrl = endpointUrl;
 
 		/**
-		 * The table view which to select for syncing by default
-		 * @type {string}
-		 */
-		this.defaultView = defaultView;
-
-		/**
 		 * Appends the local path of attachments to the saved JSON
 		 * @type {boolean}
 		 * @default true
@@ -73,12 +71,23 @@ export class AirtableOptions extends SourceOptions {
 	}
 }
 
+/**
+ * @extends {ContentSource<AirtableOptions>}
+ */
 export class AirtableSource extends ContentSource {
-	/** @type {Airtable.Base} */
-	_base = null;
+	/** 
+	 * @type {Airtable.Base}
+	 */
+	_base;
 
+	/**
+	 * @type {Record<string, Airtable.Record<Airtable.FieldSet>[]>}
+	 */
 	_rawAirtableData = {};
 
+	/**
+	 * @type {Record<string, unknown[]>}
+	 */
 	_simplifiedData = {};
 
 	/**
@@ -135,7 +144,7 @@ export class AirtableSource extends ContentSource {
 	 * @param {string} tableId
 	 * @param {boolean} isKeyValueTable
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _processTable(tableId, isKeyValueTable = false, result = new ContentResult()) {
 		// Write raw Data file.
@@ -143,6 +152,9 @@ export class AirtableSource extends ContentSource {
 		const rawDataPath = `${tableId}.raw.json`;
 		result.addDataFile(rawDataPath, this._rawAirtableData[tableId]);
 
+		/**
+		 * @type {any}
+		 */
 		const simpData = isKeyValueTable ? {} : [];
 		this._simplifiedData[tableId] = [];
 
@@ -198,15 +210,27 @@ export class AirtableSource extends ContentSource {
 		return result;
 	}
 
+	/**
+	 * @param {string} str 
+	 * @returns {boolean}
+	 */
 	_isBoolStr(str) {
 		return str === 'true' || str === 'false';
 	}
 
+	/**
+	 * @param {string} str 
+	 * @returns {boolean}
+	 */
 	_isNumericStr(str) {
-		return !isNaN(str);
+		return !isNaN(Number(str));
 	}
 
 	// Get Data.
+	/**
+	 * @param {string} table
+	 * @param {boolean} force
+	 */
 	async _getData(table, force = false) {
 		// If force, clear the data.
 		if (force) {
@@ -224,9 +248,16 @@ export class AirtableSource extends ContentSource {
 		});
 	}
 
-	// Fetch from Airtable.
+	/**
+	 * Fetch from Airtable.
+	 * @param {string} table table name
+	 * @returns {Promise<Airtable.Record<Airtable.FieldSet>[]>}
+	 */
 	async _fetchData(table) {
 		return new Promise((resolve, reject) => {
+			/**
+			 * @type {Airtable.Record<Airtable.FieldSet>[]}
+			 */
 			const rows = [];
 
 			this._base(table)

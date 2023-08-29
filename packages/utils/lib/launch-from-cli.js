@@ -1,5 +1,4 @@
 import url from 'url';
-import yargs from 'yargs';
 
 import ConfigManager from './config-manager.js';
 import LogManager from './log-manager.js';
@@ -13,8 +12,8 @@ import LogManager from './log-manager.js';
  * @param {object} [options]
  * @param {object} [options.userConfig] Optional user config to be merged with the loaded config
  * @param {string|Array<string>} [options.relativePaths] Optional paths to detect if this script was loaded as a dependency or directly. This can help with detecting if linked packages were run directly.
- * @param {(function(yargs.Argv) : yargs.Argv)} [options.yargsCallback] Optional function to further configure yargs startup options.
- * @returns {Promise<object>} A promise with the current config.
+ * @param {(function(import('yargs').Argv) : import('yargs').Argv)} [options.yargsCallback] Optional function to further configure yargs startup options.
+ * @returns {Promise<any>} A promise with the current config.
  */
 export const launchFromCli = async (importMeta, {
 	userConfig,

@@ -4,7 +4,7 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "main": "index.js",
-  "types": "types/index.d.ts",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

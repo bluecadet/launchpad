@@ -13,6 +13,9 @@ import chalk from 'chalk';
  * @class
  */
 export class JsonOptions extends SourceOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		mediaPattern = SourceOptions.MEDIA_REGEX,
 		files = {},
@@ -37,7 +40,7 @@ export class JsonOptions extends SourceOptions {
 }
 
 /**
- * @package
+ * @extends {ContentSource<JsonOptions>}
  */
 class JsonSource extends ContentSource {
 	/**
@@ -59,7 +62,7 @@ class JsonSource extends ContentSource {
 	}
 
 	/**
-	 * @return {ContentResult}
+	 * @return {Promise<ContentResult>}
 	 */
 	async _downloadJsons() {
 		const result = new ContentResult();
@@ -77,12 +80,12 @@ class JsonSource extends ContentSource {
 	/**
 	 * 
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _scrapeMediaUrls(result) {
 		for (const dataFile of result.dataFiles) {
 			this.logger.debug(`Scraping for media files in ${chalk.blue(dataFile.localPath)}...`);
-			const mediaUrls = JsonUtils.getUrls(dataFile.content, null, this.config.mediaPattern);
+			const mediaUrls = JsonUtils.getUrls(dataFile.content, undefined, this.config.mediaPattern);
 			this.logger.debug(`Found ${chalk.blue(mediaUrls.size)} media files in ${chalk.blue(dataFile.localPath)}`);
 			result.addMediaDownloads([...mediaUrls].map(url => new MediaDownload({ url })));
 		}

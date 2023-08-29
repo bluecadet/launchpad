@@ -80,7 +80,7 @@ export class ConfigManager {
 	 *   defaults < json < user < argv 
 	 * 
 	 * @param {ConfigManagerOptions|object?} userConfig Optional config overrides
-	 * @param {((conf: yargs.Argv) => yargs.Argv)?} yargsCallback Optional function to further configure yargs startup options.
+	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
  	 * @returns {object} A promise with the current config.
 	 */
 	loadConfig(userConfig = null, yargsCallback = null) {

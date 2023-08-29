@@ -13,9 +13,12 @@ import { Logger } from '@bluecadet/launchpad-utils';
  * 
  * Also supports all fields of the Contentful SDK's config.
  * 
- * @see 'Configuration' under https://contentful.github.io/contentful.js/contentful/9.1.7/
+ * @see Configuration under https://contentful.github.io/contentful.js/contentful/9.1.7/
  */
 export class ContentfulOptions extends SourceOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		space = '',
 		locale = 'en-US',
@@ -23,7 +26,7 @@ export class ContentfulOptions extends SourceOptions {
 		protocol = 'https',
 		host = 'cdn.contentful.com',
 		usePreviewApi = false,
-		contentTypes = null,
+		contentTypes = [],
 		searchParams = {
 			limit: 1000, // This is the max that Contentful supports,
 			include: 10 // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
@@ -122,9 +125,12 @@ export class ContentfulOptions extends SourceOptions {
 	}
 }
 
+/**
+ * @extends {ContentSource<ContentfulOptions>}
+ */
 class ContentfulSource extends ContentSource {
 	/** @type {contentful.ContentfulClientApi} */
-	client = null;
+	client;
 
 	/**
 	 * @param {*} config 
@@ -159,9 +165,9 @@ class ContentfulSource extends ContentSource {
 	/**
 	 * Recursively fetches content using the Contentful client.
 	 *
-	 * @param {*} searchParams
-	 * @param {*} result
-	 * @returns {*} Object with an 'entries' and an 'assets' array.
+	 * @param {any} searchParams
+	 * @param {any} result
+	 * @returns {Promise<{entries: unknown[], assets: unknown[]}>} Object with an 'entries' and an 'assets' array.
 	 */
 	async _fetchPage(searchParams = {}, result = {}) {
 		result.entries = result.entries || [];
@@ -177,10 +183,10 @@ class ContentfulSource extends ContentSource {
 					result.entries.push(...this._parseEntries(page));
 					result.assets.push(...this._parseAssets(page));
 					
-					if (page.limit + page.skip < page.total) {
+					if (rawPage.limit + rawPage.skip < rawPage.total) {
 						// Fetch next page
 						searchParams.skip = searchParams.skip || 0;
-						searchParams.skip += page.limit;
+						searchParams.skip += rawPage.limit;
 						return this._fetchPage(searchParams, result);
 					} else {
 						// Return combined entries + assets
@@ -196,7 +202,7 @@ class ContentfulSource extends ContentSource {
 	/**
 	 * Returns all entries from a sync() or getEntries() response object.
 	 * @param {*} responseObj 
-	 * @returns {Array<contentful.Entry>} Array of entry objects.
+	 * @returns {Array<contentful.Entry<unknown>>} Array of entry objects.
 	 */
 	_parseEntries(responseObj) {
 		const entries = responseObj.entries || [];
@@ -271,6 +277,9 @@ class ContentfulSource extends ContentSource {
 		return urls;
 	}
 
+	/**
+	 * @param {any} config
+	 */
 	static _assembleConfig(config) {
 		config = new ContentfulOptions({
 			...config,

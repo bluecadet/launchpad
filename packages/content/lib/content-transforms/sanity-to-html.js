@@ -8,10 +8,14 @@ class SanityToHtmlTransform extends ContentTransform {
 		this.transform = this.transform.bind(this);
 	}
 	
+	/**
+	 * @param {unknown} content
+	 */
 	transform(content) {
-		if (content._type !== 'block' || !content.children) {
+		if (!ContentTransform.isBlockContent(content)) {
 			throw new Error(`Content is not a valid Sanity text block: ${content}`);
 		}
+		
 		return toHTML(content);
 	}
 }

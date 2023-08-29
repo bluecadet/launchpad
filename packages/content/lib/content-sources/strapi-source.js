@@ -15,13 +15,16 @@ import { Logger } from '@bluecadet/launchpad-utils';
 /**
  * @typedef {Object} StrapiObjectQuery
  * @property {string} contentType The content type to query
- * @property {Object} params Query parameters. Uses `qs` library to stringify.
+ * @property {{pagination?: {page: number, pageSize: number}, [key: string]: unknown}} params Query parameters. Uses `qs` library to stringify.
  */
 
 /**
  * Options for StrapiSource
  */
 export class StrapiOptions extends SourceOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		version = '3',
 		baseUrl = undefined,
@@ -108,19 +111,19 @@ export class StrapiOptions extends SourceOptions {
 class StrapiVersionUtils {
 	/**
 	 * @type {StrapiOptions}
-	 * @private
+	 * @protected
 	 */
 	config;
 
 	/**
-	 * @type {Logger}
-	 * @private
+	 * @type {Logger | Console}
+	 * @protected
 	 */
 	logger;
 
 	/**
-	 * @param {StrapiOptions}
-	 * @param {Logger}
+	 * @param {StrapiOptions} config
+	 * @param {Logger | Console} logger
 	 */
 	constructor(config, logger) {
 		this.config = config;
@@ -129,9 +132,10 @@ class StrapiVersionUtils {
 	
 	/**
 	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
 	 * @returns {string}
 	 */
-	buildUrl(query) {
+	buildUrl(query, pagination) {
 		throw new Error('Not implemented');
 	}
 
@@ -144,10 +148,14 @@ class StrapiVersionUtils {
 	}
 
 	/**
-	 * @param {object} result
-	 * @returns {object}
+	 * @param {unknown} result
+	 * @returns {unknown[]}
 	 */
 	transformResult(result) {
+		if (!Array.isArray(result)) {
+			throw new Error('Expected result to be an array');
+		}
+
 		return result;
 	}
 
@@ -167,6 +175,11 @@ class StrapiVersionUtils {
 		const url = new URL(string, this.config.baseUrl);
 		const params = qs.parse(url.search.slice(1));
 		const contentType = url.pathname.split('/').pop();
+
+		if (contentType === undefined) {
+			throw new Error(`Could not parse content type from query '${string}'`);
+		}
+
 		return { contentType, params };
 	}
 }
@@ -183,7 +196,7 @@ class StrapiV4 extends StrapiVersionUtils {
 		let params = query.params;
 
 		// only add pagination params if they arent't specified in the query object
-		if (!this.hasPaginationParams(query)) {
+		if (!this.hasPaginationParams(query) && pagination) {
 			params = {
 				...params,
 				pagination: {
@@ -213,15 +226,15 @@ class StrapiV4 extends StrapiVersionUtils {
 	}
 
 	/**
-	 * @param {object} result
-	 * @returns {object}
+	 * @param {{data: unknown[]}} result
+	 * @returns {unknown[]}
 	 */
 	transformResult(result) {
 		return result.data;
 	}
 
 	/**
-	 * @param {object} result
+	 * @param {{meta?: {pagination?: {page: number, pageCount: number}}}} result
 	 * @returns {boolean}
 	 */
 	canFetchMore(result) {
@@ -246,7 +259,7 @@ class StrapiV3 extends StrapiVersionUtils {
 		let params = query.params;
 
 		// only add pagination params if they arent't specified in the query object
-		if (!this.hasPaginationParams(query)) {
+		if (!this.hasPaginationParams(query) && pagination) {
 			params = {
 				_start: pagination.start,
 				_limit: pagination.limit,
@@ -283,6 +296,9 @@ class StrapiV3 extends StrapiVersionUtils {
 	}
 }
 
+/**
+ * @extends {ContentSource<StrapiOptions>}
+ */
 class StrapiSource extends ContentSource {
 	/**
 	 * @type {StrapiVersionUtils}
@@ -348,17 +364,24 @@ class StrapiSource extends ContentSource {
 		result,
 		pagination = { start: 0, limit: 100 }
 	) {
+		/**
+		 * @type {StrapiObjectQuery}
+		 */
+		let parsedQuery;
+
 		if (typeof query === 'string') {
-			query = this._versionUtils.parseQuery(query);
+			parsedQuery = this._versionUtils.parseQuery(query);
+		} else {
+			parsedQuery = query;
 		}
 
 		const pageNum = pagination.start / pagination.limit;
 		
-		const fileName = `${query.contentType}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
+		const fileName = `${parsedQuery.contentType}-${pageNum.toString().padStart(this.config.pageNumZeroPad, '0')}.json`;
 		
-		this.logger.debug(`Fetching page ${pageNum} of ${query.contentType}`);
+		this.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
-		return got(this._versionUtils.buildUrl(query, pagination), {
+		return got(this._versionUtils.buildUrl(parsedQuery, pagination), {
 			headers: {
 				Authorization: `Bearer ${jwt}`
 			}
@@ -378,14 +401,14 @@ class StrapiSource extends ContentSource {
 				);
 				
 				if (
-					!this._versionUtils.hasPaginationParams(query) &&
+					!this._versionUtils.hasPaginationParams(parsedQuery) &&
 					(this.config.maxNumPages < 0 || pageNum < this.config.maxNumPages - 1) &&
 					this._versionUtils.canFetchMore(content)
 				) {
 					// Fetch next page
 					pagination.start = pagination.start || 0;
 					pagination.start += pagination.limit;
-					return this._fetchPages(query, jwt, result, pagination);
+					return this._fetchPages(parsedQuery, jwt, result, pagination);
 				} else {
 					// Return combined entries + assets
 					return Promise.resolve(result);
@@ -393,13 +416,14 @@ class StrapiSource extends ContentSource {
 			})
 			.catch((error) => {
 				this.logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
+				return Promise.reject(result);
 			});
 	}
 	
 	/**
 	 * 
 	 * @param {Object} content 
-	 * @return @type {Array.<string>}
+	 * @return {Array<string>}
 	 */
 	_getMediaUrls(content) {
 		const contentUrls = jsonpath.query(content, '$..url');
@@ -414,6 +438,10 @@ class StrapiSource extends ContentSource {
 		return mediaUrls;
 	}
 	
+	/**
+	 * @param {string} identifier
+	 * @param {string} password
+	 */
 	async _getJwt(identifier, password) {
 		this.logger.info(chalk.gray(`Retrieving JWT for ${identifier}...`));
 		

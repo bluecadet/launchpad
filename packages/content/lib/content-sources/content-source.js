@@ -38,19 +38,22 @@ export class SourceOptions {
 	}
 }
 
+/**
+ * @template {SourceOptions} [C=SourceOptions]
+ */
 export class ContentSource {
-	/** @type {SourceOptions} */
-	config = null;
-	/** @type {Logger} */
-	logger = null;
+	/** @type {C} */
+	config;
+	/** @type {Logger | Console} */
+	logger;
 	
 	/**
-	 * @param {SourceOptions} config Content source options. `id` is a required field.
-	 * @param {Logger} logger The logger to use for all output. Defaults to console.
+	 * @param {C} config Content source options. `id` is a required field.
+	 * @param {Logger} [logger] The logger to use for all output. Defaults to console.
 	 * @throws {Error} Throws an error if no `config` or `config.id` is defined.
 	 */
-	constructor(config, logger = console) {
-		this.logger = logger;
+	constructor(config, logger) {
+		this.logger = logger ?? console;
 		this.config = config;
 		
 		if (!this.config || !this.config.id) {
@@ -64,17 +67,16 @@ export class ContentSource {
 	 * @returns {Promise<ContentResult>} that resolves only when all content has been downloaded successfully
 	 */
 	async fetchContent() {
-		this.logger.info(chalk.green(`Downloading functionality not implemented for '${chalk.yellow(this.config.id)}'`));
-		return Promise.resolve();
+		throw new Error(`Downloading functionality not implemented for '${chalk.yellow(this.config.id)}'`);
 	}
 	
 	/**
 	 * Removes all content and media files in the temp and dest directories (temp first, then dest).
 	 * 
-	 * @returns {Promise}
+	 * @returns {Promise<void>}
 	 */
 	async clearContent() {
-		await fs.remove(this.config);
+		throw new Error('clearContent not implemented');
 	}
 	
 	toString() {

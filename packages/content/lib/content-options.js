@@ -16,6 +16,9 @@ export class ContentOptions {
 		return '%TIMESTAMP%';
 	}
 	
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		sources = [],
 		imageTransforms = [],
@@ -77,21 +80,21 @@ export class ContentOptions {
 		
 		/**
 		 * Temp file directory path.
-		 * @type {boolean}
+		 * @type {string}
 		 * @default '%DOWNLOAD_PATH%/.tmp/'
 		 */
 		this.tempPath = tempPath;
 		
 		/**
 		 * Temp directory path where all downloaded content will be backed up before removal.
-		 * @type {boolean}
+		 * @type {string}
 		 * @default '%DOWNLOAD_PATH%/.backups/'
 		 */
 		this.backupPath = backupPath;
 		
 		/**
 		 * Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `'*.json|*.csv|*.xml|*.git*'`
-		 * @type {boolean}
+		 * @type {string}
 		 * @default ''
 		 */
 		this.keep = keep;

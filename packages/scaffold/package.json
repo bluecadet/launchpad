@@ -4,7 +4,7 @@
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
   "main": "index.js",
-  "types": "types/index.d.ts",
+  "types": "dist/index.d.ts",
   "bin": "index.js",
   "scripts": {
     "start": "node index.js --",

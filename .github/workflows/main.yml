@@ -24,17 +24,6 @@ jobs:
         
       - name: Run eslint
         run: npm run lint
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18.x
-          
-      - name: Install Dependencies
-        run: npm install
-        
-      - name: Build type declaration files
+
+      - name: Validate types
         run: npm run build

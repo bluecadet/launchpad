@@ -6,6 +6,11 @@
   "main": "index.js",
   "types": "dist/index.d.ts",
   "bin": "index.js",
+  "files": [
+    "dist",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "start": "node index.js",
     "link": "npm link launchpad-utils && npm link",

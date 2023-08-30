@@ -12,6 +12,11 @@
   "bin": {
     "launchpad": "./index.js"
   },
+  "files": [
+    "dist",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "start": "node index.js",
     "test": "cd test && node test.js",

@@ -17,7 +17,8 @@
     "lint": "npx eslint ./packages/**/*.js",
     "lint:fix": "npx eslint ./packages/**/*.js --fix",
     "lint:fix-dry": "npx eslint ./packages/**/*.js --fix-dry-run",
-    "release": "npm run build -w @bluecadet/launchpad && changeset publish"
+    "build": "npm run build -w @bluecadet/launchpad",
+    "release": "npm run build && changeset publish"
   },
   "repository": {
     "type": "git",

@@ -4,7 +4,11 @@
   "description": "Content syncing pipeline for various sources",
   "type": "module",
   "main": "index.js",
-  "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": ["dist/*"]
+    }
+  },
   "bin": "index.js",
   "files": [
     "dist",

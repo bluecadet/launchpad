@@ -4,14 +4,17 @@
   "description": "",
   "type": "module",
   "main": "index.js",
-  "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": ["dist/*"]
+    }
+  },
   "bin": "index.js",
   "files": [
     "dist",
     "index.js",
     "lib"
   ],
-
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -4,7 +4,11 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "main": "index.js",
-  "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": ["dist/*"]
+    }
+  },
   "files": [
     "dist",
     "index.js",

@@ -21,6 +21,11 @@ export class StartupCommands {
 	static SCAFFOLD = 'scaffold';
 }
 
+/**
+ * @param {import('yargs').Argv} argv
+ * @param {string|string[]} commands
+ * @param {string} description
+ */
 const addCommand = (argv, commands, description) => {
 	if (!Array.isArray(commands)) {
 		commands = [commands];

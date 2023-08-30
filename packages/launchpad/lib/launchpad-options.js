@@ -12,6 +12,9 @@ import { CommandHooks } from './command-hooks.js';
  * Combined options to initialize Launchpad.
  */
 export class LaunchpadOptions {
+	/**
+	 * @param {any} options
+	 */
 	constructor({
 		content = new ContentOptions(),
 		monitor = new MonitorOptions(),

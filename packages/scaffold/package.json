@@ -6,12 +6,12 @@
   "main": "index.js",
   "typesVersions": {
     "*": {
-      "*": ["dist/*"]
+      "*": ["types/*"]
     }
   },
   "bin": "index.js",
   "files": [
-    "dist",
+    "types",
     "index.js",
     "lib"
   ],

@@ -6,11 +6,11 @@
   "main": "index.js",
   "typesVersions": {
     "*": {
-      "*": ["dist/*"]
+      "*": ["types/*"]
     }
   },
   "files": [
-    "dist",
+    "types",
     "index.js",
     "lib"
   ],

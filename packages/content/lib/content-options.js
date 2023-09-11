@@ -59,7 +59,7 @@ export class ContentOptions {
 		
 		/**
 		 * A list of content transforms to apply to all donwloaded content.
-		 * @type {Object<string, string>}
+		 * @type {Object<string, string | string[]>}
 		 * @default {}
 		 */
 		this.contentTransforms = contentTransforms;

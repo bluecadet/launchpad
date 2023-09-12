@@ -6,24 +6,7 @@ import url from 'url';
 import stripJsonComments from 'strip-json-comments';
 import chalk from 'chalk';
 
-export class ConfigManagerOptions {
-	static DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
-	
-	constructor({
-		configPaths = ConfigManagerOptions.DEFAULT_CONFIG_PATHS,
-		...rest
-	} = {}) {
-		/**
-		 * The path where to load the config from.
-		 * If an array of paths is passed, all found configs will be merged in that order.
-		 * @type {string|Array<string>} 
-		 */
-		this.configPaths = configPaths;
-		
-		// Allows for additional properties to be inherited
-		Object.assign(this, rest);
-	}
-}
+const DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
 
 export class ConfigManager {
 	/** @type {ConfigManager | null} */
@@ -37,8 +20,8 @@ export class ConfigManager {
 		return this._instance;
 	}
 	
-	/** @type {ConfigManagerOptions} */
-	_config = new ConfigManagerOptions();
+	/** @type {object} */
+	_config = {};
 	
 	/** @type {boolean} */
 	_isLoaded = false;
@@ -77,17 +60,13 @@ export class ConfigManager {
 	
 	/**
 	 * Loads the config in the following order of overrides:
-	 *   defaults < json < user < argv 
+	 *   defaults < js/json < user 
 	 * 
-	 * @param {ConfigManagerOptions|object?} userConfig Optional config overrides
+	 * @param {object?} userConfig Optional config overrides
 	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
  	 * @returns {Promise<object>} A promise with the current config.
 	 */
 	async loadConfig(userConfig = null, yargsCallback = null) {
-		if (userConfig) {
-			this._config = { ...this._config, ...userConfig };
-		}
-		
 		let argv = yargs(hideBin(process.argv))
 			.parserConfiguration({
 				// See https://github.com/yargs/yargs-parser#camel-case-expansion
@@ -113,7 +92,7 @@ export class ConfigManager {
 		} else {
 			// if no config is specified, search current and parent directories for default config files.
 			// Only the first found config will be loaded.
-			for (const configPath of this._config.configPaths) {
+			for (const configPath of DEFAULT_CONFIG_PATHS) {
 				const resolved = ConfigManager._fileExistsRecursive(configPath);
 				
 				if (resolved) {
@@ -125,6 +104,11 @@ export class ConfigManager {
 				console.warn(`Could not find config with name '${chalk.white(configPath)}'`);
 			}
 		}
+
+		// user config overrides js/json config
+		if (userConfig) {
+			this._config = { ...this._config, ...userConfig };
+		}
 		
 		this._isLoaded = true;
 		return this._config;
@@ -132,7 +116,7 @@ export class ConfigManager {
 	
 	/**
 	 * Retrieves the current config object.
-	 * @returns {ConfigManagerOptions}
+	 * @returns {object}
 	 */
 	getConfig() {
 		return this._config;

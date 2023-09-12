@@ -6,19 +6,11 @@ import chalk from 'chalk';
 
 const DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
 
+/**
+ * @template T config type
+ */
 export class ConfigManager {
-	/** @type {ConfigManager | null} */
-	static _instance = null;
-	
-	/** @returns {ConfigManager} */
-	static getInstance() {
-		if (this._instance === null) {
-			this._instance = new ConfigManager();
-		}
-		return this._instance;
-	}
-	
-	/** @type {object} */
+	/** @type {Partial<T>} */
 	_config = {};
 	
 	/** @type {boolean} */
@@ -36,9 +28,10 @@ export class ConfigManager {
 	/**
 	 * Imports a JS config from a set of paths. The JS files have to export
 	 * its config as the default export. Will return the first config found.
+	 * @template T
 	 * @param {Array<string>} paths 
 	 * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
-	 * @returns {Promise<object | null>} The parsed config object or null if none can be found
+	 * @returns {Promise<T | null>} The parsed config object or null if none can be found
 	 */
 	static async importJsConfig(paths, importMeta = null) {
 		const __dirname = ConfigManager.getProcessDirname(importMeta);
@@ -60,9 +53,9 @@ export class ConfigManager {
 	 * Loads the config in the following order of overrides:
 	 *   defaults < js/json < user 
 	 * 
-	 * @param {object?} userConfig Optional config overrides
+	 * @param {Partial<T>?} userConfig Optional config overrides
 	 * @param {string} [configPath] Optional path to a config file, relative to the current working directory.
- 	 * @returns {Promise<object>} A promise with the current config.
+ 	 * @returns {Promise<Partial<T>>} A promise with the current config.
 	 */
 	async loadConfig(userConfig = null, configPath) {
 		if (configPath) {
@@ -101,7 +94,7 @@ export class ConfigManager {
 	
 	/**
 	 * Retrieves the current config object.
-	 * @returns {object}
+	 * @returns {Partial<T>}
 	 */
 	getConfig() {
 		return this._config;
@@ -159,7 +152,9 @@ export class ConfigManager {
 	}
 	
 	/**
+	 * @template T
 	 * @param {string} configPath 
+	 * @returns {Promise<Partial<T>>}
 	 * @private
 	 */
 	static async _loadConfigFromFile(configPath) {

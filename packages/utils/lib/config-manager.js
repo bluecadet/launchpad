@@ -1,5 +1,3 @@
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import fs from 'fs-extra';
 import path from 'path';
 import url from 'url';
@@ -63,27 +61,14 @@ export class ConfigManager {
 	 *   defaults < js/json < user 
 	 * 
 	 * @param {object?} userConfig Optional config overrides
-	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
+	 * @param {string} [configPath] Optional path to a config file, relative to the current working directory.
  	 * @returns {Promise<object>} A promise with the current config.
 	 */
-	async loadConfig(userConfig = null, yargsCallback = null) {
-		let argv = yargs(hideBin(process.argv))
-			.parserConfiguration({
-				// See https://github.com/yargs/yargs-parser#camel-case-expansion
-				'camel-case-expansion': false
-			})
-			.option('config', { alias: 'c', describe: 'Path to your JS or JSON config file.', type: 'string' }).help();
-		
-		if (yargsCallback) {
-			argv = yargsCallback(argv);
-		}
-
-		const parsedArgv = argv.parse();
-		
-		if ('config' in parsedArgv && parsedArgv.config !== undefined) {
+	async loadConfig(userConfig = null, configPath) {
+		if (configPath) {
 			// if config is manually specified, load it without searching parent directories,
 			// and fail if it doesn't exist
-			const resolved = path.resolve(parsedArgv.config);
+			const resolved = path.resolve(configPath);
 			if (!fs.existsSync(resolved)) {
 				throw new Error(`Could not find config at '${resolved}'`);
 			}
@@ -92,8 +77,8 @@ export class ConfigManager {
 		} else {
 			// if no config is specified, search current and parent directories for default config files.
 			// Only the first found config will be loaded.
-			for (const configPath of DEFAULT_CONFIG_PATHS) {
-				const resolved = ConfigManager._fileExistsRecursive(configPath);
+			for (const defaultPath of DEFAULT_CONFIG_PATHS) {
+				const resolved = ConfigManager._fileExistsRecursive(defaultPath);
 				
 				if (resolved) {
 					console.warn(`Found config at '${chalk.white(resolved)}'`);
@@ -101,7 +86,7 @@ export class ConfigManager {
 					break;
 				}
 				
-				console.warn(`Could not find config with name '${chalk.white(configPath)}'`);
+				console.warn(`Could not find config with name '${chalk.white(defaultPath)}'`);
 			}
 		}
 

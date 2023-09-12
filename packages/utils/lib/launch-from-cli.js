@@ -32,7 +32,7 @@ export const launchFromCli = async (importMeta, {
 		return Promise.reject();
 	}
 	
-	ConfigManager.getInstance().loadConfig(userConfig, yargsCallback);
+	await ConfigManager.getInstance().loadConfig(userConfig, yargsCallback);
 	/** @type {any} TODO: figure out where to add this 'logging' property */
 	const config = ConfigManager.getInstance().getConfig();
 	LogManager.getInstance(config.logging || config);

@@ -7,7 +7,7 @@ import stripJsonComments from 'strip-json-comments';
 import chalk from 'chalk';
 
 export class ConfigManagerOptions {
-	static DEFAULT_CONFIG_PATHS = ['launchpad.json', 'config.json'];
+	static DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
 	
 	constructor({
 		configPaths = ConfigManagerOptions.DEFAULT_CONFIG_PATHS,
@@ -55,7 +55,7 @@ export class ConfigManager {
 	/**
 	 * Imports a JS config from a set of paths. The JS files have to export
 	 * its config as the default export. Will return the first config found.
-	 * @param {Array.<string>} paths 
+	 * @param {Array<string>} paths 
 	 * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
 	 * @returns {Promise<object | null>} The parsed config object or null if none can be found
 	 */
@@ -81,9 +81,9 @@ export class ConfigManager {
 	 * 
 	 * @param {ConfigManagerOptions|object?} userConfig Optional config overrides
 	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
- 	 * @returns {object} A promise with the current config.
+ 	 * @returns {Promise<object>} A promise with the current config.
 	 */
-	loadConfig(userConfig = null, yargsCallback = null) {
+	async loadConfig(userConfig = null, yargsCallback = null) {
 		if (userConfig) {
 			this._config = { ...this._config, ...userConfig };
 		}
@@ -93,21 +93,36 @@ export class ConfigManager {
 				// See https://github.com/yargs/yargs-parser#camel-case-expansion
 				'camel-case-expansion': false
 			})
-			.config('config', 'Path to your config file. Can contain comments.', this._loadConfigFromFile.bind(this));
+			.option('config', { alias: 'c', describe: 'Path to your JS or JSON config file.', type: 'string' }).help();
 		
 		if (yargsCallback) {
 			argv = yargsCallback(argv);
 		}
+
+		const parsedArgv = argv.parse();
 		
-		const parsedArgv = argv.help().parse();
-		
-		this._config = { ...this._config, ...parsedArgv };
-		
-		// console.log(this._config);
-		
-		if (!('config' in parsedArgv)) {
+		if ('config' in parsedArgv && parsedArgv.config !== undefined) {
+			// if config is manually specified, load it without searching parent directories,
+			// and fail if it doesn't exist
+			const resolved = path.resolve(parsedArgv.config);
+			if (!fs.existsSync(resolved)) {
+				throw new Error(`Could not find config at '${resolved}'`);
+			}
+
+			this._config = { ...this._config, ...ConfigManager._loadConfigFromFile(resolved) };
+		} else {
+			// if no config is specified, search current and parent directories for default config files.
+			// Only the first found config will be loaded.
 			for (const configPath of this._config.configPaths) {
-				this._config = { ...this._config, ...this._loadConfigFromFile(configPath) };
+				const resolved = ConfigManager._fileExistsRecursive(configPath);
+				
+				if (resolved) {
+					console.warn(`Found config at '${chalk.white(resolved)}'`);
+					this._config = { ...this._config, ...(await ConfigManager._loadConfigFromFile(resolved)) };
+					break;
+				}
+				
+				console.warn(`Could not find config with name '${chalk.white(configPath)}'`);
 			}
 		}
 		
@@ -137,63 +152,72 @@ export class ConfigManager {
 	isLoaded() {
 		return this._isLoaded;
 	}
+
+	/**
+	 * @param {string} filePath
+	 * @returns {string | null} The absolute path to the file or null if it doesn't exist.
+	 * @private
+	 */
+	static _fileExistsRecursive(filePath) {
+		const maxDepth = 64;
+
+		let absPath = filePath;
+
+		if (process.env.INIT_CWD) {
+			absPath = path.resolve(process.env.INIT_CWD, filePath);
+		} else {
+			absPath = path.resolve(filePath);
+		}
+
+		for (let i = 0; i < maxDepth; i++) {
+			if (fs.existsSync(absPath)) {
+				return absPath;
+			}
+			
+			const dirPath = path.dirname(absPath);
+			const filePath = path.basename(absPath);
+			const parentPath = path.resolve(dirPath, '..', filePath);
+
+			if (absPath === parentPath) {
+				// Can't navigate any more levels up
+				break;
+			}
+
+			absPath = parentPath;
+		}
+
+		return null;
+	}
 	
 	/**
 	 * @param {string} configPath 
+	 * @private
 	 */
-	_loadConfigFromFile(configPath) {
+	static async _loadConfigFromFile(configPath) {
 		if (!configPath) {
 			return {};
 		}
 		
-		let absPath = configPath;
-		
-		if (process.env.INIT_CWD && !fs.existsSync(configPath)) {
-			absPath = path.resolve(process.env.INIT_CWD, configPath);
-		}
-		
 		try {
-			const maxLevels = 64;
-			for (let i = 0; i < maxLevels; i++) {
-				const resolvedPath = path.resolve(absPath);
-				
-				// console.debug(chalk.gray(`Trying to load config from ${chalk.white(resolvedPath)}`));
-				
-				if (fs.existsSync(resolvedPath)) {
-					absPath = resolvedPath;
-					console.info(chalk.gray(`Loading config from ${chalk.white(absPath)}`));
-					break;
-				} else if (i >= maxLevels) {
-					throw new Error(`No config found at '${chalk.white(configPath)}'.`);
-				} else {
-					const dirPath = path.dirname(absPath);
-					const filePath = path.basename(absPath);
-					const parentPath = path.resolve(dirPath, '..', filePath);
-					
-					if (absPath === parentPath) {
-						// Can't navigate any more levels up
-						throw new Error(`No config found at '${chalk.white(configPath)}'.`);
-					}
-					
-					absPath = parentPath;
-				}
-			}
-			
-			const configStr = fs.readFileSync(absPath, 'utf8');
-			const config = JSON.parse(stripJsonComments(configStr));
-			
-			if (!config) {
-				throw new Error(`Could not parse config from '${chalk.white(configPath)}'`);
-			}
-			
-			return config;
-		} catch (err) {
-			if (err instanceof Error) {
-				console.warn(`${err.message}`);
-			}
-		}
+			// if suffix is json, parse as json
+			if (configPath.endsWith('.json')) {
+				console.warn(chalk.yellow('JSON config files are deprecated. Please use JS config files instead.'));
 
-		return {};
+				const configStr = fs.readFileSync(configPath, 'utf8');
+				const config = JSON.parse(stripJsonComments(configStr));
+		
+				if (!config) {
+					throw new Error(`Could not parse config from '${chalk.white(configPath)}'`);
+				}
+
+				return config;
+			} else {
+				// otherwise, parse as js
+				return (await import(configPath)).default;
+			}
+		} catch (err) {
+			throw new Error(`Unable to load config file '${chalk.white(configPath)}'`, { cause: err });
+		}
 	}
 }
 

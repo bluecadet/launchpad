@@ -7,126 +7,61 @@ import jsonpath from 'jsonpath';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 
-import {createClient} from '@sanity/client'
+import { createClient } from '@sanity/client';
 import imageUrlBuilder from '@sanity/image-url';
 
-import ContentSource, { SourceOptions } from './content-source.js';
+import ContentSource from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 import FileUtils from '../utils/file-utils.js';
 
 /**
- * Options for SanitySource
+ * @typedef SanityCredentials
+ * @property {string} apiToken API Token defined in your sanity project.
  */
-export class SanityOptions extends SourceOptions {
-	/**
-	 * @param {any} options
-	 */
-	constructor({
-		apiVersion = 'v2021-10-21',
-		projectId = undefined,
-		dataset = 'production',
-		apiToken = undefined,
-		useCdn = false,
-		baseUrl = undefined,
-		queries = [],
-		limit = 100,
-		maxNumPages = -1,
-		mergePages = false,
-		pageNumZeroPad = 0,
-		appendCroppedFilenames = true,
-		...rest
-	} = {}) {
-		super(rest);
-
-		/**
-		 * API Version
-		 * @type {string}
-		 * @default 'v2021-10-21'
-		 */
-		this.apiVersion = apiVersion;
-
-		/**
-		 * Sanity Project ID
-		 * @type {string}
-		 */
-		this.projectId = projectId;
-
-		/**
-		 * API Version
-		 * @type {string}
-		 * @default 'production'
-		 */
-		this.dataset = dataset;
-
-		/**
-		 * `false` if you want to ensure fresh data
-		 * @type {boolean}
-		 * @default false
-		 */
-		this.useCdn = useCdn;
-
-		/**
-		 * The base url of your Sanity CMS (with or without trailing slash).
-		 * @type {string}
-		 */
-		this.baseUrl = baseUrl;
-
-		/**
-		 * @type {Array.<string | {query: string, id: string}>}
-		 */
-		this.queries = queries;
-
-		/**
-		 * Max number of entries per page.
-		 * @type {number}
-		 * @default 100
-		 */
-		this.limit = limit;
-
-		/**
-		 * Max number of pages. Use `-1` for all pages
-		 * @type {number}
-		 * @default -1
-		 */
-		this.maxNumPages = maxNumPages;
-
-		/**
-		 * To combine paginated files into a single file.
-		 * @type {boolean}
-		 */
-		this.mergePages = mergePages;
-
-		/**
-		 * How many zeros to pad each json filename index with.
-		 * @type {number}
-		 * @default 0
-		 */
-		this.pageNumZeroPad = pageNumZeroPad;
-		
-		/**
-		 * If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior.
-		 * @type {boolean}
-		 * @default true
-		 */
-		this.appendCroppedFilenames = appendCroppedFilenames;
-
-		/**
-		 * API Token defined in your sanity project.
-		 * @type {string}
-		 */
-		this.apiToken = apiToken;
-	}
-}
 
 /**
- * @extends ContentSource<SanityOptions>
+ * @typedef BaseSanityOptions
+ * @property {string} [apiVersion] API Version. Defailts to 'v2021-10-21'
+ * @property {string} projectId Sanity Project ID
+ * @property {string} [dataset] Dataset. Defaults to 'production'
+ * @property {boolean} [useCdn] `false` if you want to ensure fresh data
+ * @property {string} baseUrl The base url of your Sanity CMS (with or without trailing slash).
+ * @property {Array<string | {query: string, id: string}>} queries An array of queries to fetch. Each query can be a string or an object with a query and an id.
+ * @property {number} [limit] Max number of entries per page. Defaults to 100.
+ * @property {number} [maxNumPages] Max number of pages. Use `-1` for all pages. Defaults to -1.
+ * @property {boolean} [mergePages] To combine paginated files into a single file. Defaults to false.
+ * @property {number} [pageNumZeroPad] How many zeros to pad each json filename index with. Defaults to 0.
+ * @property {boolean} [appendCroppedFilenames] If an image has a crop set within Sanity, this setting will append the cropped filename to each image object as `launchpad.croppedFilename`. Set this to `false` to disable this behavior. Defaults to true.
+ */
+
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'sanity'> & BaseSanityOptions & (SanityCredentials | {})} SanityOptions
+ */
+
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'sanity'> & Required<BaseSanityOptions> & SanityCredentials} SanityOptionsAssembled
+ */
+
+const SANITY_OPTION_DEFAULTS = {
+	apiVersion: 'v2021-10-21',
+	dataset: 'production',
+	useCdn: false,
+	limit: 100,
+	maxNumPages: -1,
+	mergePages: false,
+	pageNumZeroPad: 0,
+	appendCroppedFilenames: true
+};
+
+/**
+ * @extends ContentSource<SanityOptionsAssembled>
  */
 class SanitySource extends ContentSource {
 	/**
 	 *
-	 * @param {*} config
+	 * @param {SanityOptions} config
 	 * @param {Logger} logger
 	 */
 	constructor(config, logger) {
@@ -254,7 +189,7 @@ class SanitySource extends ContentSource {
 
 	/**
 	 *
-	 * @param {Object} content
+	 * @param {unknown} content
 	 * @return {Array<MediaDownload>}
 	 */
 	_getMediaDownloads(content) {
@@ -307,10 +242,10 @@ class SanitySource extends ContentSource {
 	
 	/**
 	 *
-	 * @param {*} config
+	 * @param {SanityOptions} config
 	 */
 	_checkConfigDeprecations(config) {
-		if (config?.textConverters?.length > 0) {
+		if ('textConverters' in config) {
 			const exampleQuery = '\t"contentTransforms": {\n\t  "$..*[?(@._type==\'block\')]": ["sanityToPlain", "sanityToHtml", "sanityToMarkdown"]\n\t}';
 			this.logger.warn(
 				`The Sanity source "${chalk.yellow(
@@ -323,15 +258,46 @@ class SanitySource extends ContentSource {
 	}
 	
 	/**
-	 *
-	 * @param {any} config
-	 * @returns {SanityOptions}
+	 * @private
+	 * @param {SanityOptions} config
+	 * @returns {SanityOptionsAssembled}
 	 */
 	static _assembleConfig(config) {
-		return new SanityOptions({
-			...config,
-			...Credentials.getCredentials(config.id)
-		});
+		const creds = Credentials.getCredentials(config.id);
+
+		if (creds) {
+			if (!SanitySource._validateCrendentials(creds)) {
+				throw new Error(
+					`Sanity credentials for source '${config.id}' are invalid.`
+				);
+			}
+			
+			return {
+				...SANITY_OPTION_DEFAULTS,
+				...config,
+				...creds
+			};
+		}
+
+		if (!SanitySource._validateCrendentials(config)) {
+			throw new Error(
+				`No Sanity credentials found for source '${config.id}' in credentials file or launchpad config.`
+			);
+		}
+
+		return {
+			...SANITY_OPTION_DEFAULTS,
+			...config
+		};
+	}
+
+	/**
+	 * @private
+	 * @param {unknown} creds 
+	 * @returns {creds is SanityCredentials}
+	 */
+	static _validateCrendentials(creds) {
+		return typeof creds === 'object' && creds !== null && 'apiToken' in creds;
 	}
 }
 

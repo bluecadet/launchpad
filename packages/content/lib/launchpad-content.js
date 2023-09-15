@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 
 import Credentials from './credentials.js';
-import ContentOptions from './content-options.js';
+import { CONTENT_OPTION_DEFAULTS, DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN } from './content-options.js';
 
 import ContentSource from './content-sources/content-source.js';
 import AirtableSource from './content-sources/airtable-source.js';
@@ -24,18 +24,26 @@ import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
 import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
 import SanityToMarkdownTransform from './content-transforms/sanity-to-markdown.js';
 
-export class ContentSourceTypes {
-	static json = 'json';
-	static airtable = 'airtable';
-	static contentful = 'contentful';
-	static sanity = 'sanity';
-	static strapi = 'strapi';
-}
+/**
+ * @enum {import('./content-options.js').AllSourceOptions['type']}
+ */
+export const ContentSourceTypes = {
+	/** @type {'json'} */
+	json: 'json',
+	/** @type {'airtable'} */
+	airtable: 'airtable',
+	/** @type {'contentful'} */
+	contentful: 'contentful',
+	/** @type {'sanity'} */
+	sanity: 'sanity',
+	/** @type {'strapi'} */
+	strapi: 'strapi'
+};
 
 export class LaunchpadContent {
 	/**
 	 * Creates a new LaunchpadContent and downloads content using an optional user config object.
-	 * @param {ContentOptions} [config]
+	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @returns {Promise.<LaunchpadContent>} Promise that resolves with the new LaunchpadContent instance.
 	 */
 	static async createAndDownload(config) {
@@ -52,7 +60,7 @@ export class LaunchpadContent {
 		}
 	}
 	
-	/** @type {ContentOptions} */
+	/** @type {Required<import('./content-options.js').ContentOptions>} */
 	_config;
 	
 	/** @type {Logger} */
@@ -68,11 +76,11 @@ export class LaunchpadContent {
 	_contentTransforms = new Map();
 
 	/**
-	 * @param {ContentOptions|Object} [config]
+	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @param {Logger} [parentLogger]
 	 */
 	constructor(config, parentLogger) {
-		this._config = new ContentOptions(config);
+		this._config = { ...CONTENT_OPTION_DEFAULTS, ...config };
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
 		this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
@@ -301,7 +309,7 @@ export class LaunchpadContent {
 	}
 	
 	/**
-	 * @param {Array<any>|Object} sourceConfigs 
+	 * @param {import('./content-options.js').ContentOptions['sources']} sourceConfigs 
 	 * @returns {Array<ContentSource>}
 	 */
 	_createSources(sourceConfigs) {
@@ -313,7 +321,7 @@ export class LaunchpadContent {
 		const sources = [];
 
 		/**
-		 * @type {Array<any>}
+		 * @type {(import('./content-options.js').AllSourceOptions)[]}
 		 */
 		let sourceConfigArray = [];
 		
@@ -323,48 +331,47 @@ export class LaunchpadContent {
 			const entries = Object.entries(sourceConfigs);
 			for (const [id, config] of entries) {
 				sourceConfigArray.push({
-					id,
-					...config
+					...config,
+					id
 				});
 			}
 		} else {
 			sourceConfigArray = sourceConfigs;
 		}
-		
+
 		for (const sourceConfig of sourceConfigArray) {
 			try {
 				/**
 				 * @type {ContentSource}
 				 */
 				let source;
-				const config = {
-					...this._config,
-					...sourceConfig
-				};
 
 				switch (sourceConfig.type) {
 					case ContentSourceTypes.airtable:
-						source = new AirtableSource(config, this._logger);
+						source = new AirtableSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.contentful:
-						source = new ContentfulSource(config, this._logger);
+						source = new ContentfulSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.strapi:
-						source = new StrapiSource(config, this._logger);
+						source = new StrapiSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.sanity:
-						source = new SanitySource(config, this._logger);
+						source = new SanitySource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.json:
 					default:
 						if (sourceConfig.type !== ContentSourceTypes.json) {
-							if (config && sourceConfig.type) {
-								this._logger.warn(`Unknown source type '${sourceConfig.type}'. Defaulting ${config.id} to '${ContentSourceTypes.json}'.`);
+							// @ts-expect-error - user may have passed in a custom type that we don't know about
+							if ((sourceConfig).type) {
+								// @ts-expect-error
+								this._logger.warn(`Unknown source type '${sourceConfig.type}'. Defaulting ${sourceConfig.id} to '${ContentSourceTypes.json}'.`);
 							} else {
-								this._logger.info(`Defaulting source '${config.id}' to 'json'.`);
+								// @ts-expect-error
+								this._logger.info(`Defaulting source '${sourceConfig.id}' to 'json'.`);
 							}
 						}
-						source = new JsonSource(config, this._logger);
+						source = new JsonSource(sourceConfig, this._logger);
 						break;
 				}
 
@@ -385,14 +392,13 @@ export class LaunchpadContent {
 	 * @returns {Promise<ContentResult>}
 	 */
 	async _downloadMedia(source, result) {
-		await this._mediaDownloader.sync(result.mediaDownloads, new ContentOptions({
-			...this._config,
+		await this._mediaDownloader.sync(result.mediaDownloads, {
 			...source.config,
 			...{
 				downloadPath: this.getDownloadPath(source),
 				tempPath: this.getTempPath(source)
 			}
-		}));
+		});
 
 		return result;
 	}
@@ -495,11 +501,11 @@ export class LaunchpadContent {
 	 * @param {string} downloadPath
 	 */
 	_getDetokenizedPath(tokenizedPath, downloadPath) {
-		if (tokenizedPath.includes(ContentOptions.TIMESTAMP_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(ContentOptions.TIMESTAMP_TOKEN, FileUtils.getDateString());
+		if (tokenizedPath.includes(TIMESTAMP_TOKEN)) {
+			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString());
 		}
-		if (tokenizedPath.includes(ContentOptions.DOWNLOAD_PATH_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(ContentOptions.DOWNLOAD_PATH_TOKEN, downloadPath);
+		if (tokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
+			tokenizedPath = tokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);
 		}
 		return path.resolve(tokenizedPath);
 	}

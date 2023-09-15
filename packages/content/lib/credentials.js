@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { Logger } from '@bluecadet/launchpad-utils';
 
 /**
- * @type {any}
+ * @type {Record<string, unknown>}
  */
 let creds = {};
 
@@ -42,7 +42,7 @@ class Credentials {
 			return creds[id];
 		} else {
 			this.logger.error(`Can't find credentials for '${id}'`);
-			return {};
+			return null;
 		}
 	}
 }

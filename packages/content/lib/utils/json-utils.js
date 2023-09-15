@@ -3,7 +3,7 @@ import getUrls from 'get-urls';
 class JsonUtils {
 	/**
      * Parses URLs from json object using include/exclude regexps
-     * @param {JSON} json 
+     * @param {unknown} json 
      * @param {any} [options] 
      * @param {RegExp|string} [include] 
      * @param {RegExp|string} [exclude] 

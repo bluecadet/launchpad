@@ -48,33 +48,33 @@ launchFromCli(import.meta, {
 		return argv;
 	}
 }).then(async config => {
-	const launchpad = new LaunchpadCore(config);
+	// const launchpad = new LaunchpadCore(config);
 	
-	switch (config.startupCommand) {
-		case StartupCommands.SCAFFOLD: {
-			await launchScaffold(config);
-			break;
-		}
-		case StartupCommands.CONTENT: {
-			await launchpad.updateContent();
-			await launchpad.shutdown();
-			break;
-		}
-		case StartupCommands.MONITOR: {
-			await launchpad.startApps();
-			break;
-		}
-		case StartupCommands.STOP: {
-			await launchpad.stopApps();
-			await LaunchpadMonitor.kill();
-			break;
-		}
-		case StartupCommands.START:
-		default: {
-			await launchpad.startup();
-			break;
-		}
-	}
+	// switch (config.startupCommand) {
+	// 	case StartupCommands.SCAFFOLD: {
+	// 		await launchScaffold(config);
+	// 		break;
+	// 	}
+	// 	case StartupCommands.CONTENT: {
+	// 		await launchpad.updateContent();
+	// 		await launchpad.shutdown();
+	// 		break;
+	// 	}
+	// 	case StartupCommands.MONITOR: {
+	// 		await launchpad.startApps();
+	// 		break;
+	// 	}
+	// 	case StartupCommands.STOP: {
+	// 		await launchpad.stopApps();
+	// 		await LaunchpadMonitor.kill();
+	// 		break;
+	// 	}
+	// 	case StartupCommands.START:
+	// 	default: {
+	// 		await launchpad.startup();
+	// 		break;
+	// 	}
+	// }
 }).catch(err => {
 	if (err) {
 		console.error('Launch error', err);

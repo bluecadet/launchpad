@@ -31,7 +31,7 @@ export class ConfigManager {
 	 * @template T
 	 * @param {Array<string>} paths 
 	 * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
-	 * @returns {Promise<T | null>} The parsed config object or null if none can be found
+	 * @returns {Promise<Partial<T> | null>} The parsed config object or null if none can be found
 	 */
 	static async importJsConfig(paths, importMeta = null) {
 		const __dirname = ConfigManager.getProcessDirname(importMeta);

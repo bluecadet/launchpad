@@ -1,4 +1,3 @@
-
 /**
  * @type {import('markdown-it/lib/renderer.js').RenderRule}
  */

@@ -49,7 +49,7 @@ export const launchFromCli = async (importMeta, {
 
 	const configManager = new ConfigManager();
 	
-	await configManager.loadConfig(userConfig, parsedArgv.config);
+	await configManager.loadConfig({ ...userConfig, ...parsedArgv }, parsedArgv.config);
 	/** @type {any} TODO: figure out where to add this 'logging' property */
 	const config = configManager.getConfig();
 	LogManager.getInstance(config.logging || config);

@@ -31,7 +31,7 @@ graph LR
 ## Getting Started
 
 1. Install launchpad: `npm i @bluecadet/launchpad`
-2. Create a `launchpad.json` config (see [configuration](#configuration))
+2. Create a `launchpad.config.js` config (see [configuration](#configuration))
 3. *Optional: [Bootstrap](/packages/scaffold) your PC with `npx launchpad scaffold`*
 4. Run `npx launchpad`
 
@@ -43,10 +43,10 @@ Run `npx launchpad --help` to see all available commands.
 
 ## Configuration
 
-Each [launchpad package](#packages) is configured via its own section in `launchpad.json`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and [`monitor`](/packages/monitor) to launch a single app:
+Each [launchpad package](#packages) is configured via its own section in `launchpad.config.js`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and [`monitor`](/packages/monitor) to launch a single app:
 
-```json
-{
+```js
+export default {
   "content": {
     "sources": [
       {
@@ -91,7 +91,7 @@ All available config settings across packages can be found in the links below:
 
 ### Config Loading
 
-- By default, Launchpad looks for `launchpad.json` or `config.json` at the cwd (where you ran `npx launchpad`/`launchpad` from)
+- By default, Launchpad looks for `launchpad.config.js`, `launchpad.config.mjs`, `launchpad.json` or `config.json` at the cwd (where you ran `npx launchpad`/`launchpad` from)
 - You can change the default path with `--config=<YOUR_FILE_PATH>` (e.g. `npx launchpad --config=../settings/my-config.json`)
 - If no config is found, Launchpad will traverse up directories (up to 64) to find one
 - All config values can be overridden via `--foo=bar` (e.g. `--logging.level=debug`)

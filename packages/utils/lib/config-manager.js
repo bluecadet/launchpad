@@ -71,7 +71,7 @@ export class ConfigManager {
 			// if no config is specified, search current and parent directories for default config files.
 			// Only the first found config will be loaded.
 			for (const defaultPath of DEFAULT_CONFIG_PATHS) {
-				const resolved = ConfigManager._fileExistsRecursive(defaultPath);
+				const resolved = ConfigManager._findFirstFileRecursive(defaultPath);
 				
 				if (resolved) {
 					console.warn(`Found config at '${chalk.white(resolved)}'`);
@@ -120,7 +120,7 @@ export class ConfigManager {
 	 * @returns {string | null} The absolute path to the file or null if it doesn't exist.
 	 * @private
 	 */
-	static _fileExistsRecursive(filePath) {
+	static _findFirstFileRecursive(filePath) {
 		const maxDepth = 64;
 
 		let absPath = filePath;

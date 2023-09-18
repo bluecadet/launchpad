@@ -53,6 +53,7 @@ export const launchFromCli = async (importMeta, {
 	 */
 	const configManager = new ConfigManager();
 	
+	// @ts-expect-error - pretty much impossible to type parsedArgv so that it can be merged with userConfig, so we'll just ignore the error
 	await configManager.loadConfig({ ...userConfig, ...parsedArgv }, parsedArgv.config);
 	/** @type {any} TODO: figure out where to add this 'logging' property */
 	const config = configManager.getConfig();

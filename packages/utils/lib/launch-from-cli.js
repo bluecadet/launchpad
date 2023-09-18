@@ -2,6 +2,8 @@ import url from 'url';
 
 import ConfigManager from './config-manager.js';
 import LogManager from './log-manager.js';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 /**
  * Resolves with a promise including the current config if your
@@ -31,10 +33,25 @@ export const launchFromCli = async (importMeta, {
 		// eslint-disable-next-line prefer-promise-reject-errors
 		return Promise.reject();
 	}
+
+	let argv = yargs(hideBin(process.argv))
+		.parserConfiguration({
+		// See https://github.com/yargs/yargs-parser#camel-case-expansion
+			'camel-case-expansion': false
+		})
+		.option('config', { alias: 'c', describe: 'Path to your JS or JSON config file.', type: 'string' }).help();
+
+	if (yargsCallback) {
+		argv = yargsCallback(argv);
+	}
+
+	const parsedArgv = await argv.parse();
+
+	const configManager = new ConfigManager();
 	
-	ConfigManager.getInstance().loadConfig(userConfig, yargsCallback);
+	await configManager.loadConfig({ ...userConfig, ...parsedArgv }, parsedArgv.config);
 	/** @type {any} TODO: figure out where to add this 'logging' property */
-	const config = ConfigManager.getInstance().getConfig();
+	const config = configManager.getConfig();
 	LogManager.getInstance(config.logging || config);
 	
 	return Promise.resolve(config);

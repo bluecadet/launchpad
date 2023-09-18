@@ -1,6 +1,6 @@
 /**
  * 
- * @param {function(Event):Promise} callback A callback that receives an event.
+ * @param {() => Promise<void>} callback A callback that receives an event.
  * @param {boolean} once Only trigger callback once . Defaults to true.
  * @param {boolean} includeUncaught Also trigger on uncaught exceptions and rejections. Defaults to false. @see https://nodejs.org/api/process.html#warning-using-uncaughtexception-correctly.
  * 

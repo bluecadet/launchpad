@@ -13,7 +13,7 @@
 
 export class CommandHooks {
 	/**
-	 * @param {Array<HookMapping>} hooks 
+	 * @param {Record<string, HookMapping>} hooks 
 	 */
 	constructor(hooks = {}) {
 		/**
@@ -33,7 +33,7 @@ export class CommandHooks {
 	}
 	
 	/**
-	 * @param {Object<string, HookMapping>} hooks 
+	 * @param {Record<string, HookMapping>} hooks 
 	 */
 	parse(hooks = {}) {
 		if (!hooks) {
@@ -43,11 +43,9 @@ export class CommandHooks {
 			key = (key + '').toLowerCase();
 			const command = key.replace('pre-', '').replace('post-', '');
 			
-			if (!Array.isArray(scripts)) {
-				scripts = [scripts];
-			}
+			const scriptArray = Array.isArray(scripts) ? scripts : [scripts];
 			
-			for (const script of scripts) {
+			for (const script of scriptArray) {
 				if ((typeof script) !== 'string') {
 					continue;
 				}
@@ -63,10 +61,15 @@ export class CommandHooks {
 }
 
 export class ExecHook {
+	/**
+	 * @param {object} options
+	 * @param {string} options.command
+	 * @param {string} options.script
+	 */
 	constructor({
 		command,
 		script
-	} = {}) {
+	}) {
 		/**
 		 * @type {string}
 		 */

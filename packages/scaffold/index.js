@@ -13,6 +13,9 @@ export class LaunchpadScaffold {
 		this._logger = LogManager.getInstance().getLogger('scaffold');
 	}
 
+	/**
+	 * @returns {Promise<void>}
+	 */
 	async start() {
 		return new Promise((resolve, reject) => {
 			// @see https://stackoverflow.com/a/50052194/782899
@@ -32,8 +35,11 @@ export class LaunchpadScaffold {
 	}
 }
 
+/**
+ * @param {{filepath?:string} | {scaffold: {filepath?:string}}} config 
+ */
 export const launch = async (config) => {
-	const scaffold = new LaunchpadScaffold(config.scaffold || config);
+	const scaffold = new LaunchpadScaffold('scaffold' in config ? config.scaffold : config);
 	await scaffold.start();
 };
 

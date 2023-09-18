@@ -8,8 +8,11 @@ export * from './lib/launchpad-content.js';
 export * from './lib/utils/file-utils.js';
 export default LaunchpadContent;
 
+/**
+ * @param {import('./lib/content-options.js').ContentOptions | {content: import('./lib/content-options.js').ContentOptions}} config
+ */
 export const launch = async (config) => {
-	const content = new LaunchpadContent(config.content || config);
+	const content = new LaunchpadContent('content' in config ? config.content : config);
 	await content.start();
 };
 

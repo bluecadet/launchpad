@@ -4,7 +4,17 @@
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
   "main": "index.js",
+  "typesVersions": {
+    "*": {
+      "*": ["types/*"]
+    }
+  },
   "bin": "index.js",
+  "files": [
+    "types",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "start": "node index.js --",
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -3,6 +3,9 @@ import fs from 'fs-extra';
 import rimraf from 'rimraf';
 
 export class FileUtils {
+	/**
+	 * @param {string} filePath
+	 */
 	static getStats(filePath) {
 		try {
 			filePath = path.resolve(filePath);
@@ -17,15 +20,24 @@ export class FileUtils {
 		return null;
 	}
     
+	/**
+	 * @param {string} dirPath
+	 */
 	static isDir(dirPath) {
 		return fs.existsSync(dirPath) && fs.lstatSync(dirPath).isDirectory();
 	}
 
+	/**
+	 * @param {string} filePath
+	 */
 	static getModifiedDate(filePath) {
 		const stats = this.getStats(filePath);
 		return stats ? stats.mtime : new Date(0);
 	}
 
+	/**
+	 * @param {string} filePath
+	 */
 	static getSize(filePath) {
 		const stats = this.getStats(filePath);
 		return stats ? stats.size : 0;
@@ -36,6 +48,7 @@ export class FileUtils {
      * Throws an error if the dir doesn't exist.
      * Returns null if the dir doesn't contain any files.
      * 
+     * @param {string} dirPath
      * @returns {string?}
      */
 	static getNewestFilePath(dirPath) {
@@ -70,7 +83,7 @@ export class FileUtils {
 	/**
      * 
      * @param {JSON|string} json 
-     * @param {path.ParsedPath} filePath 
+     * @param {string} filePath 
      * @param {boolean} appendJsonExtension
      */
 	static async saveJson(json, filePath, appendJsonExtension = true) {
@@ -103,12 +116,19 @@ export class FileUtils {
 		return `${dateStr}_${timeStr}`;
 	}
 
+	/**
+	 * @param {number} num
+	 * @param {number} size
+	 */
 	static pad(num, size) {
 		let s = num + '';
 		while (s.length < size) s = '0' + s;
 		return s;
 	}
     
+	/**
+	 * @param {string} dirPath
+	 */
 	static async removeDirIfEmpty(dirPath) {
 		if (!this.isDir(dirPath)) {
 			return;
@@ -118,7 +138,10 @@ export class FileUtils {
 			return fs.remove(dirPath);
 		}
 	}
-    
+	
+	/**
+	 * @param {string} dirPath
+	 */
 	static async isDirEmpty(dirPath) {
 		// @see https://stackoverflow.com/a/39218759/782899
 		try {

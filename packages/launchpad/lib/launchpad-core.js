@@ -15,19 +15,19 @@ import CommandCenter, { Command } from './command-center.js';
  */
 export class LaunchpadCore {
 	/** @type {LaunchpadOptions} */
-	_config = null;
+	_config;
 	
 	/** @type {Logger} */
-	_logger = null;
+	_logger;
 	
 	/** @type {LaunchpadContent} */
-	_content = null;
+	_content;
 	
 	/** @type {LaunchpadMonitor} */
-	_monitor = null;
+	_monitor;
 	
 	/** @type {CommandCenter} */
-	_commands = null;
+	_commands;
 	
 	/** @type {boolean} */
 	_isShuttingDown = false;
@@ -73,10 +73,10 @@ export class LaunchpadCore {
 	 * Stops launchpad and exits this process.
 	 * This function is queued and waits until the queue is empty before it executes.
 	 * 
-	 * @param @type {number|string|Error} eventOrExitCode 
+	 * @param {number|string|Error} [eventOrExitCode] 
 	 */
 	async shutdown(eventOrExitCode = undefined) {
-		return this._commands.run('shutdown', eventOrExitCode);
+		await this._commands.run('shutdown', eventOrExitCode);
 	}
 	
 	/**
@@ -116,7 +116,7 @@ export class LaunchpadCore {
 	/**
 	 * @private
 	 */
-	async _runShutdown(eventOrExitCode = 0, ...args) {
+	async _runShutdown(eventOrExitCode = 0) {
 		try {
 			this._logger.info('Launchpad exiting... 👋');
 			

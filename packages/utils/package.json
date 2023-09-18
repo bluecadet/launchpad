@@ -4,6 +4,16 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "main": "index.js",
+  "typesVersions": {
+    "*": {
+      "*": ["types/*"]
+    }
+  },
+  "files": [
+    "types",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -29,5 +39,10 @@
     "winston-daily-rotate-file": "^4.5.5",
     "yargs": "^17.3.1"
   },
-  "homepage": "https://github.com/bluecadet/launchpad/packages/utils"
+  "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
+  "devDependencies": {
+    "@types/async": "^3.2.20",
+    "@types/fs-extra": "^11.0.1",
+    "@types/yargs": "^17.0.24"
+  }
 }

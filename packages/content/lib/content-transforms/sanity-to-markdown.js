@@ -1,3 +1,4 @@
+// @ts-ignore
 import toMarkdown from '@sanity/block-content-to-markdown';
 
 import ContentTransform from './content-transform.js';
@@ -8,10 +9,14 @@ class SanityToMarkdownTransform extends ContentTransform {
 		this.transform = this.transform.bind(this);
 	}
 	
+	/**
+	 * @param {unknown} content
+	 */
 	transform(content) {
-		if (content._type !== 'block' || !content.children) {
+		if (!ContentTransform.isBlockContent(content)) {
 			throw new Error(`Content is not a valid Sanity text block (must contain a "_type": "block" property): ${content}`);
 		}
+
 		return toMarkdown(content);
 	}
 }

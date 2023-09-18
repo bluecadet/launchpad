@@ -2,9 +2,21 @@
   "name": "@bluecadet/launchpad-content",
   "version": "1.11.0",
   "description": "Content syncing pipeline for various sources",
-  "main": "index.js",
-  "bin": "index.js",
   "type": "module",
+  "main": "index.js",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "types/*"
+      ]
+    }
+  },
+  "bin": "index.js",
+  "files": [
+    "types",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "start": "node index.js",
     "download": "node index.js",
@@ -23,9 +35,9 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~1.4.0",
-    "@portabletext/to-html": "^2.0.0",
+    "@portabletext/to-html": "2.0.0",
     "@sanity/block-content-to-markdown": "^0.0.5",
-    "@sanity/client": "^3.3.2",
+    "@sanity/client": "^6.4.9",
     "@sanity/image-url": "^1.0.1",
     "airtable": "^0.11.1",
     "chalk": "^5.0.0",
@@ -39,10 +51,19 @@
     "markdown-it": "^12.2.0",
     "p-queue": "^7.1.0",
     "qs": "^6.11.1",
-    "rimraf": "^3.0.2",
+    "rimraf": "^4.0.5",
     "sanitize-filename": "^1.6.3",
     "sanitize-html": "^2.5.1",
     "sharp": "^0.30.7",
     "strip-json-comments": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.0",
+    "@types/jsonpath": "^0.2.0",
+    "@types/progress-stream": "^2.0.2",
+    "@types/qs": "^6.9.7",
+    "@types/rimraf": "^4.0.5",
+    "@types/sanitize-html": "^2.9.0",
+    "@types/sharp": "^0.30.5"
   }
 }

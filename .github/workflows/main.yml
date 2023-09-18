@@ -24,3 +24,6 @@ jobs:
         
       - name: Run eslint
         run: npm run lint
+
+      - name: Validate types
+        run: npm run build

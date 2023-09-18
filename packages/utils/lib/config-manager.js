@@ -26,7 +26,7 @@ export class ConfigManagerOptions {
 }
 
 export class ConfigManager {
-	/** @type {ConfigManager} */
+	/** @type {ConfigManager | null} */
 	static _instance = null;
 	
 	/** @returns {ConfigManager} */
@@ -43,6 +43,11 @@ export class ConfigManager {
 	/** @type {boolean} */
 	_isLoaded = false;
 	
+	/**
+	 * 
+	 * @param {ImportMeta?} importMeta 
+	 * @returns 
+	 */
 	static getProcessDirname(importMeta) {
 		return importMeta ? path.dirname(url.fileURLToPath(importMeta.url)) : '';
 	}
@@ -51,8 +56,8 @@ export class ConfigManager {
 	 * Imports a JS config from a set of paths. The JS files have to export
 	 * its config as the default export. Will return the first config found.
 	 * @param {Array.<string>} paths 
-	 * @param {*} importMeta The import.meta property of the file at your base directory.
-	 * @returns {*} The parsed config object or null if none can be found
+	 * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
+	 * @returns {Promise<object | null>} The parsed config object or null if none can be found
 	 */
 	static async importJsConfig(paths, importMeta = null) {
 		const __dirname = ConfigManager.getProcessDirname(importMeta);
@@ -61,7 +66,7 @@ export class ConfigManager {
 			try {
 				if (fs.existsSync(fileUrl)) {
 					console.log(`Importing JS config from ${fileUrl}`);
-					return (await import(fileUrl)).default;
+					return (await import(fileUrl.toString())).default;
 				}
 			} catch (err) {
 				console.warn(`Could not import JS config from ${fileUrl}`, err);
@@ -74,10 +79,9 @@ export class ConfigManager {
 	 * Loads the config in the following order of overrides:
 	 *   defaults < json < user < argv 
 	 * 
-	 * @param {ConfigManagerOptions|Object} userConfig Optional config overrides
-	 * @param {function(yargs.Argv) : yargsObj.Argv} yargsCallback Optional function to further configure yargs startup options.
- 	 * @returns {Promise<*, *>} A promise with the current config.
-	 * @returns {Object}
+	 * @param {ConfigManagerOptions|object?} userConfig Optional config overrides
+	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
+ 	 * @returns {object} A promise with the current config.
 	 */
 	loadConfig(userConfig = null, yargsCallback = null) {
 		if (userConfig) {
@@ -101,7 +105,7 @@ export class ConfigManager {
 		
 		// console.log(this._config);
 		
-		if (!parsedArgv.config) {
+		if (!('config' in parsedArgv)) {
 			for (const configPath of this._config.configPaths) {
 				this._config = { ...this._config, ...this._loadConfigFromFile(configPath) };
 			}
@@ -134,6 +138,9 @@ export class ConfigManager {
 		return this._isLoaded;
 	}
 	
+	/**
+	 * @param {string} configPath 
+	 */
 	_loadConfigFromFile(configPath) {
 		if (!configPath) {
 			return {};
@@ -181,7 +188,9 @@ export class ConfigManager {
 			
 			return config;
 		} catch (err) {
-			console.warn(`${err.message}`);
+			if (err instanceof Error) {
+				console.warn(`${err.message}`);
+			}
 		}
 
 		return {};

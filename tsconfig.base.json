@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"lib": ["es2022"],
+		"module": "es2022",
+		"target": "es2022",
+		"moduleResolution": "node",
+		"types": ["node"],
+		"allowJs": true,
+		"checkJs": true,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"declarationMap": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"composite": true,
+    "skipLibCheck": true,
+	}
+}

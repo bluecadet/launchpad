@@ -66,13 +66,13 @@ class LogRelay {
 class FileLogRelay extends LogRelay {
 	/**
 	 * @private
-	 * @type {Tail}
+	 * @type {Tail | null}
 	 */
 	_outTail = null;
 
 	/**
 	 * @private
-	 * @type {Tail}
+	 * @type {Tail | null}
 	 */
 	_errTail = null;
 
@@ -90,8 +90,8 @@ class FileLogRelay extends LogRelay {
 			appOptions.pm2.output ??= path.resolve(outPath);
 			appOptions.pm2.error ??= path.resolve(errPath);
 		} else {
-			appOptions.pm2.output = null;
-			appOptions.pm2.error = null;
+			appOptions.pm2.output = undefined;
+			appOptions.pm2.error = undefined;
 		}
 
 		super(appOptions, logger);
@@ -141,7 +141,7 @@ class FileLogRelay extends LogRelay {
 			);
 		}
 
-		if (this._logOptions.showStdout) {
+		if (outFilepath && this._logOptions.showStdout) {
 			this._logger.debug(`Tailing stdout from ${outFilepath}`);
 			this._outTail = new Tail(outFilepath, tailOptions);
 			this._outTail.on('line', (data) => this._handleTailOutput(data));
@@ -149,7 +149,7 @@ class FileLogRelay extends LogRelay {
 			this._outTail.watch();
 		}
 
-		if (this._logOptions.showStderr) {
+		if (errFilepath && this._logOptions.showStderr) {
 			this._logger.debug(`Tailing stderr from ${errFilepath}`);
 			this._errTail = new Tail(errFilepath, tailOptions);
 			this._errTail.on('line', (data) => this._handleTailError(data));
@@ -170,14 +170,20 @@ class FileLogRelay extends LogRelay {
 		}
 	}
 
-	/** @private */
+	/** 
+	 * @param {string} data
+	 * @private 
+	 */
 	_handleTailOutput(data) {
 		if (this._logOptions.showStdout) {
 			this._logger.info(data);
 		}
 	}
 
-	/** @private */
+	/**
+	 * @param {string} data
+	 * @private
+	 */
 	_handleTailError(data, isTailError = false) {
 		if (isTailError || this._logOptions.showStderr) {
 			this._logger.error(data);
@@ -256,7 +262,7 @@ export default class AppLogRouter {
 	 * @private
 	 * @type {Logger}
 	 */
-	_logger = null;
+	_logger;
 
 	/**
 	 * @private
@@ -274,12 +280,12 @@ export default class AppLogRouter {
 
 	/**
 	 * @param {AppOptions} appOptions
-	 * @return {AppOptions}
+	 * @return {void}
 	 */
 	initAppOptions(appOptions) {
 		const pm2Options = appOptions.pm2;
 		const logOptions = appOptions.logging;
-		const appName = pm2Options.name;
+		const appName = pm2Options.name ?? pm2Options.script ?? '[unnamed app]';
 
 		const appLogger = LogManager.getInstance().getLogger(appName, this._logger);
 

@@ -8,12 +8,23 @@
   },
   "type": "module",
   "main": "./index.js",
+  "typesVersions": {
+    "*": {
+      "*": ["types/*"]
+    }
+  },
   "bin": {
     "launchpad": "./index.js"
   },
+  "files": [
+    "types",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "start": "node index.js",
-    "test": "cd test && node test.js"
+    "test": "cd test && node test.js",
+    "build": "tsc --build"
   },
   "repository": {
     "type": "git",

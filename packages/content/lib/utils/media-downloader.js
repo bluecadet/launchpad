@@ -43,7 +43,7 @@ export class MediaDownloader {
 	 * the downloads, `options.dest` will remain untouched.
 	 *
 	 * @param {Array<MediaDownload>} downloads
-	 * @param {import('../content-options.js').ContentOptionsResolved} options
+	 * @param {import('../content-options.js').ResolvedContentOptions} options
 	 */
 	async sync(downloads, options) {
 		this.logger.info(`Syncing ${chalk.cyan(downloads.length)} files`);
@@ -207,7 +207,7 @@ export class MediaDownloader {
 	 * @param {MediaDownload} task
 	 * @param {string} tempDir Directory path for temporary files
 	 * @param {string} destDir Directory path for final downloaded files
-	 * @param {import('../content-options.js').ContentOptionsResolved} options Content and source options
+	 * @param {import('../content-options.js').ResolvedContentOptions} options Content and source options
 	 * @returns {Promise<string|undefined>} Resolves with the downloaded file path
 	 */
 	async download(task, tempDir, destDir, options) {

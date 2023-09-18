@@ -122,3 +122,11 @@ export function resolveMonitorConfig(config) {
 /**
  * @typedef {ResolvedMonitorOptions['apps'][number]} ResolvedAppOptions
  */
+
+/**
+ * @param {MonitorOptions} config 
+ * @returns {MonitorOptions}
+ */
+export function defineMonitorConfig(config) {
+	return config;
+}

@@ -28,5 +28,13 @@ export function resolveLaunchpadOptions(config) {
 }
 
 /**
- * @typedef {ReturnType<typeof resolveLaunchpadOptions>} LaunchpadOptionsResolved
+ * @typedef {ReturnType<typeof resolveLaunchpadOptions>} ResolvedLaunchpadOptions
  */
+
+/**
+ * @param {LaunchpadOptions} config 
+ * @returns {LaunchpadOptions}
+ */
+export function defineConfig(config) {
+	return config;
+}

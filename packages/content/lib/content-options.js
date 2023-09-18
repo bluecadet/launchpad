@@ -17,7 +17,7 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 
 /**
  * @typedef ContentOptions
- * @property {AllSourceOptions[] | Record<string, AllSourceOptions>} [sources] A list of content source options. This defines which content is downloaded from where.
+ * @property {AllSourceOptions[]} [sources] A list of content source options. This defines which content is downloaded from where.
  * @property {Array<Object<string, number>>} [imageTransforms] A list of image transforms to apply to a copy of each downloaded image.
  * @property {Object<string, string>} [contentTransforms] A list of content transforms to apply to all donwloaded content.
  * @property {string} [downloadPath] The path at which to store all downloaded files. Defaults to '.downloads/'.
@@ -79,5 +79,13 @@ export function resolveContentOptions(config) {
 }
 
 /**
- * @typedef {ReturnType<typeof resolveContentOptions>} ContentOptionsResolved
+ * @typedef {ReturnType<typeof resolveContentOptions>} ResolvedContentOptions
  */
+
+/**
+ * @param {ContentOptions} config 
+ * @returns {ContentOptions}
+ */
+export function defineContentConfig(config) {
+	return config;
+}

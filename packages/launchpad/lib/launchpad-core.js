@@ -15,7 +15,7 @@ import CommandHooks from './command-hooks.js';
  * Core Launchpad class to configure, monitor apps, download content and manage logs.
  */
 export class LaunchpadCore {
-	/** @type {import('./launchpad-options.js').LaunchpadOptionsResolved} */
+	/** @type {import('./launchpad-options.js').ResolvedLaunchpadOptions} */
 	_config;
 	
 	/** @type {Logger} */

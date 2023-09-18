@@ -89,7 +89,7 @@ export const MONITOR_OPTIONS_DEFAULTS = {
 
 /**
  * 
- * @param {MonitorOptions} config 
+ * @param {MonitorOptions} [config] 
  * @returns 
  */
 export function resolveMonitorConfig(config) {
@@ -98,7 +98,7 @@ export function resolveMonitorConfig(config) {
 		...config,
 		windowsApi: {
 			...WINDOWS_API_DEFAULTS,
-			...config.windowsApi ?? {}
+			...config?.windowsApi ?? {}
 		},
 		apps: config?.apps?.map(app => ({
 			...APP_OPTIONS_DEFAULTS,

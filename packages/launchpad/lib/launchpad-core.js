@@ -4,17 +4,18 @@
 
 import autoBind from 'auto-bind';
 
-import LaunchpadOptions from './launchpad-options.js';
 import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
 import CommandCenter, { Command } from './command-center.js';
+import { resolveLaunchpadOptions } from './launchpad-options.js';
+import CommandHooks from './command-hooks.js';
 
 /**
  * Core Launchpad class to configure, monitor apps, download content and manage logs.
  */
 export class LaunchpadCore {
-	/** @type {LaunchpadOptions} */
+	/** @type {import('./launchpad-options.js').LaunchpadOptionsResolved} */
 	_config;
 	
 	/** @type {Logger} */
@@ -37,12 +38,12 @@ export class LaunchpadCore {
 	
 	/**
 	 * 
-	 * @param {LaunchpadOptions|Object} config 
+	 * @param {import('./launchpad-options.js').LaunchpadOptions} config 
 	 */
 	constructor(config) {
 		autoBind(this);
 		
-		this._config = new LaunchpadOptions(config);
+		this._config = resolveLaunchpadOptions(config);
 		this._logger = LogManager.getInstance(this._config.logging).getLogger();
 		this._commands = new CommandCenter(this._config.commands, this._logger);
 		this._content = new LaunchpadContent(this._config.content, this._logger);
@@ -54,7 +55,7 @@ export class LaunchpadCore {
 		this._commands.add(new Command({ name: 'stop-apps', callback: this._runStopApps }));
 		this._commands.add(new Command({ name: 'update-content', callback: this._runUpdateContent }));
 		
-		this._commands.addCommandHooks(this._config.hooks);
+		this._commands.addCommandHooks(new CommandHooks(this._config.hooks));
 		
 		if (this._config.shutdownOnExit) {
 			onExit(this.shutdown);

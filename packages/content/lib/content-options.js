@@ -66,3 +66,18 @@ export const CONTENT_OPTION_DEFAULTS = {
 	ignoreImageTransformErrors: true,
 	forceClearTempFiles: true
 };
+
+/**
+ * Apply defaults to passed content config
+ * @param {ContentOptions} [config]
+ */
+export function resolveContentOptions(config) {
+	return {
+		...CONTENT_OPTION_DEFAULTS,
+		...config
+	};
+}
+
+/**
+ * @typedef {ReturnType<typeof resolveContentOptions>} ContentOptionsResolved
+ */

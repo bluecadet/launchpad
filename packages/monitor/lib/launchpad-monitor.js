@@ -77,7 +77,7 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {import('./monitor-options.js').MonitorOptions} config 
+	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
    * @param {Logger} [parentLogger]
 	 */
 	constructor(config, parentLogger) {

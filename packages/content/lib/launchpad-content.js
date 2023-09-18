@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 
 import Credentials from './credentials.js';
-import { CONTENT_OPTION_DEFAULTS, DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN } from './content-options.js';
+import { CONTENT_OPTION_DEFAULTS, DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
 
 import ContentSource from './content-sources/content-source.js';
 import AirtableSource from './content-sources/airtable-source.js';
@@ -60,7 +60,7 @@ export class LaunchpadContent {
 		}
 	}
 	
-	/** @type {Required<import('./content-options.js').ContentOptions>} */
+	/** @type {Required<import('./content-options.js').ContentOptionsResolved>} */
 	_config;
 	
 	/** @type {Logger} */
@@ -80,7 +80,7 @@ export class LaunchpadContent {
 	 * @param {Logger} [parentLogger]
 	 */
 	constructor(config, parentLogger) {
-		this._config = { ...CONTENT_OPTION_DEFAULTS, ...config };
+		this._config = resolveContentOptions(config);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
 		this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
@@ -393,11 +393,9 @@ export class LaunchpadContent {
 	 */
 	async _downloadMedia(source, result) {
 		await this._mediaDownloader.sync(result.mediaDownloads, {
-			...source.config,
-			...{
-				downloadPath: this.getDownloadPath(source),
-				tempPath: this.getTempPath(source)
-			}
+			...this._config,
+			downloadPath: this.getDownloadPath(source),
+			tempPath: this.getTempPath(source)
 		});
 
 		return result;

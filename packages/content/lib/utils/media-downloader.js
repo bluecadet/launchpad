@@ -9,7 +9,6 @@ import sharp from 'sharp'; // image manipulation
 import cliProgress from 'cli-progress';
 
 import FileUtils from './file-utils.js';
-import { ContentOptions } from '../content-options.js';
 import { MediaDownload } from '../content-sources/content-result.js';
 
 const pipeline = promisify(stream.pipeline);
@@ -44,7 +43,7 @@ export class MediaDownloader {
 	 * the downloads, `options.dest` will remain untouched.
 	 *
 	 * @param {Array<MediaDownload>} downloads
-	 * @param {ContentOptions} options
+	 * @param {import('../content-options.js').ContentOptionsResolved} options
 	 */
 	async sync(downloads, options) {
 		this.logger.info(`Syncing ${chalk.cyan(downloads.length)} files`);
@@ -208,7 +207,7 @@ export class MediaDownloader {
 	 * @param {MediaDownload} task
 	 * @param {string} tempDir Directory path for temporary files
 	 * @param {string} destDir Directory path for final downloaded files
-	 * @param {ContentOptions} options Content and source options
+	 * @param {import('../content-options.js').ContentOptionsResolved} options Content and source options
 	 * @returns {Promise<string|undefined>} Resolves with the downloaded file path
 	 */
 	async download(task, tempDir, destDir, options) {

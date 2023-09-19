@@ -6,14 +6,14 @@ export class DataFile {
 	localPath = '';
 	/**
 	 * The file contents to be saved.
-	 * @type {*}
+	 * @type {unknown}
 	 */
 	content = '';
 
 	/**
 	 *
 	 * @param {string} localPath
-	 * @param {string|JSON|object|Array<any>} content
+	 * @param {unknown} content
 	 */
 	constructor(localPath, content) {
 		this.localPath = localPath;
@@ -25,7 +25,7 @@ export class DataFile {
 	 * @returns {string}
 	 */
 	getContentStr() {
-		if ((typeof this.content) === 'string') {
+		if (typeof this.content === 'string') {
 			return this.content;
 		} else if (this.content) {
 			return JSON.stringify(this.content);
@@ -109,7 +109,7 @@ export class ContentResult {
 	/**
 	 *
 	 * @param {string} localPath
-	 * @param {*} content
+	 * @param {unknown} content
 	 */
 	addDataFile(localPath, content) {
 		this.dataFiles.push(new DataFile(localPath, content));
@@ -156,6 +156,11 @@ export class ContentResult {
 
 		// Collect all data into 1 object.
 		const collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
+			// error if the content isn't iterable
+			if (!Array.isArray(currentValue.content)) {
+				throw new Error(`Content for ${currentValue.localPath} is not iterable`);
+			}
+
 			return [...previousValue, ...currentValue.content];
 		}, initial);
 

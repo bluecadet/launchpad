@@ -3,12 +3,18 @@ import autoBind from 'auto-bind';
 import chalk from 'chalk';
 import { LogManager, Logger } from './log-manager.js';
 
-export class TaskQueueOptions {
-	constructor({
-		concurrency = 1
-	} = {}) {
-		/** @type {number} */
-		this.concurrency = concurrency;
+/**
+ * @typedef TaskQueueOptions
+ * @property {number} [concurrency] defaults to 1
+ */
+
+/**
+ * @param {TaskQueueOptions} [options] 
+ */
+function resolveTaskQueueOptions(options) {
+	return {
+		concurrency: 1,
+		...options
 	};
 }
 
@@ -24,12 +30,12 @@ class TaskQueue {
 	
 	/**
 	 * 
-	 * @param {TaskQueueOptions} config 
+	 * @param {TaskQueueOptions | undefined} config 
 	 * @param {Logger} logger 
 	 */
 	constructor(config, logger) {
 		autoBind(this);
-		this._config = new TaskQueueOptions(config);
+		this._config = resolveTaskQueueOptions(config);
 		this._logger = logger || LogManager.getInstance().getLogger();
 		this._queue = async.queue(this._processTask, this._config.concurrency || 1);
 		this._queue.drain();

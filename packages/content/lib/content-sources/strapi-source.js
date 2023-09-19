@@ -7,106 +7,63 @@ import jsonpath from 'jsonpath';
 import got from 'got';
 import qs from 'qs';
 
-import ContentSource, { SourceOptions } from './content-source.js';
+import ContentSource from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 
 /**
- * @typedef {Object} StrapiObjectQuery
+ * @typedef StrapiObjectQuery
  * @property {string} contentType The content type to query
  * @property {{pagination?: {page: number, pageSize: number}, [key: string]: unknown}} params Query parameters. Uses `qs` library to stringify.
  */
 
 /**
- * Options for StrapiSource
- */
-export class StrapiOptions extends SourceOptions {
-	/**
-	 * @param {any} options
-	 */
-	constructor({
-		version = '3',
-		baseUrl = undefined,
-		queries = [],
-		limit = 100,
-		maxNumPages = -1,
-		pageNumZeroPad = 0,
-		identifier = undefined,
-		password = undefined,
-		token = undefined,
-		...rest
-	} = {}) {
-		super(rest);
-		
-		/**
-		 * Versions `3` and `4` are supported.
-		 * @type {'3'|'4'}
-		 * @default '3'
-		 */
-		this.version = version;
-		
-		/**
-		 * The base url of your Strapi CMS (with or without trailing slash).
-		 * @type {string}
-		 */
-		this.baseUrl = baseUrl;
-		
-		/**
-		 * Queries for each type of content you want to save. One per content type. Content will be stored  as numbered, paginated JSONs.
-		 * You can include all query parameters supported by Strapi.
-		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
-		 * @type {Array.<string | StrapiObjectQuery>}
-		 * @default []
-		 */
-		this.queries = queries;
-		
-		/**
-		 * Max number of entries per page.
-		 * @type {number}
-		 * @default 100
-		 */
-		this.limit = limit;
-		
-		/**
-		 * Max number of pages. Use the default of `-1` for all pages
-		 * @type {number}
-		 * @default -1
-		 */
-		this.maxNumPages = maxNumPages;
-		
-		/**
-		 * How many zeros to pad each json filename index with.
-		 * @type {number}
-		 * @default 0
-		 */
-		this.pageNumZeroPad = pageNumZeroPad;
-		
-		/**
-		 * Username or email. Should be configured via `./credentials.json`
-		 * @type {string}
-		 */
-		this.identifier = identifier;
-		
-		/**
-		 * Should be configured via `./credentials.json`
-		 * @type {string}
-		 */
-		this.password = password;
-		
-		/**
-		 * Can be used instead of identifer/password if you previously generated one. Otherwise this will be automatically generated using the identifier or password.
-		 * @type {string}
-		 */
-		this.token = token;
-	}
-}
-
-/**
- * @typedef {Object} StrapiPagination
+ * @typedef StrapiPagination
  * @property {number} start The index of the first item to fetch
  * @property {number} limit The number of items to fetch
  */
+
+/** 
+ * @typedef StrapiLoginCredentials
+ * @property {string} identifier Username or email. Should be configured via `./credentials.json`
+ * @property {string} password Should be configured via `./credentials.json`
+ *
+ * @typedef StrapiTokenCredentials
+ * @property {string} token Can be used instead of identifer/password if you previously generated one. Otherwise this will be automatically generated using the identifier or password.
+ *
+ * @typedef {StrapiLoginCredentials | StrapiTokenCredentials} StrapiCredentials
+ */
+
+/**
+ * @typedef BaseStrapiOptions
+ * @property {'4' | '3'} [version] Versions `3` and `4` are supported. Defaults to `3`.
+ * @property {string} baseUrl The base url of your Strapi CMS (with or without trailing slash).
+ * @property {Array<string | StrapiObjectQuery>} queries Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
+ * You can include all query parameters supported by Strapi.
+ * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
+ * @property {number} [limit] Max number of entries per page. Defaults to `100`.
+ * @property {number} [maxNumPages] Max number of pages. Use the default of `-1` for all pages. Defaults to `-1`.
+ * @property {number} [pageNumZeroPad] How many zeros to pad each json filename index with. Defaults to `0`.
+ */
+
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'strapi'> & BaseStrapiOptions & (StrapiCredentials | {})} StrapiOptions
+ */
+
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'strapi'> & Required<BaseStrapiOptions> & StrapiCredentials } StrapiOptionsAssembled
+ */
+
+/**
+ * @satisfies {Partial<StrapiOptions>}
+ */
+const STRAPI_OPTION_DEFAULTS = {
+	version: '3',
+	limit: 100,
+	maxNumPages: -1,
+	pageNumZeroPad: 0
+};
 
 class StrapiVersionUtils {
 	/**
@@ -160,7 +117,7 @@ class StrapiVersionUtils {
 	}
 
 	/**
-	 * @param {object} result
+	 * @param {unknown} result
 	 * @returns {boolean}
 	 */
 	canFetchMore(result) {
@@ -286,7 +243,7 @@ class StrapiV3 extends StrapiVersionUtils {
 	}
 
 	/**
-	 * @param {object} result
+	 * @param {unknown} result
 	 * @returns {boolean}
 	 */
 	canFetchMore(result) {
@@ -297,7 +254,7 @@ class StrapiV3 extends StrapiVersionUtils {
 }
 
 /**
- * @extends {ContentSource<StrapiOptions>}
+ * @extends {ContentSource<StrapiOptionsAssembled>}
  */
 class StrapiSource extends ContentSource {
 	/**
@@ -308,7 +265,7 @@ class StrapiSource extends ContentSource {
 
 	/**
 	 * 
-	 * @param {*} config 
+	 * @param {StrapiOptions} config 
 	 * @param {Logger} logger
 	 */
 	constructor(config, logger) {
@@ -334,13 +291,23 @@ class StrapiSource extends ContentSource {
 	 */
 	async fetchContent() {
 		const result = new ContentResult();
+
+		/**
+		 * @type {string | undefined}
+		 */
+		let token;
 		
-		if (!this.config.token) {
-			this.config.token = await this._getJwt(this.config.identifier, this.config.password);
+		if ('token' in this.config) {
+			token = this.config.token;
+		} else {
+			if (!this.config.identifier || !this.config.password) {
+				throw new Error('Either a token or an identifier and password must be provided for a Strapi source');
+			}
+			token = await this._getJwt(this.config.identifier, this.config.password);
 		}
 		
 		for (const query of this.config.queries) {
-			await this._fetchPages(query, this.config.token, result, {
+			await this._fetchPages(query, token, result, {
 				start: 0,
 				limit: this.config.limit
 			});
@@ -421,7 +388,7 @@ class StrapiSource extends ContentSource {
 	}
 	
 	/**
-	 * 
+	 * @private
 	 * @param {Object} content 
 	 * @return {Array<string>}
 	 */
@@ -439,8 +406,10 @@ class StrapiSource extends ContentSource {
 	}
 	
 	/**
+	 * @private
 	 * @param {string} identifier
 	 * @param {string} password
+	 * @returns {Promise<string>} The JSON web token generated by Strapi
 	 */
 	async _getJwt(identifier, password) {
 		this.logger.info(chalk.gray(`Retrieving JWT for ${identifier}...`));
@@ -467,15 +436,48 @@ class StrapiSource extends ContentSource {
 	}
 	
 	/**
-	 * 
-	 * @param {*} config 
-	 * @returns {StrapiOptions}
+	 * @private
+	 * @param {StrapiOptions} config 
+	 * @returns {StrapiOptionsAssembled}
 	 */
 	static _assembleConfig(config) {
-		return new StrapiOptions({
-			...config,
-			...Credentials.getCredentials(config.id)
-		});
+		const creds = Credentials.getCredentials(config.id);
+
+		if (creds) {
+			if (!StrapiSource._validateCrendentials(creds)) {
+				throw new Error(
+					`Strapi credentials for source '${config.id}' are invalid.`
+				);
+			}
+			
+			return {
+				...STRAPI_OPTION_DEFAULTS,
+				...config,
+				...creds
+			};
+		}
+
+		if (!StrapiSource._validateCrendentials(config)) {
+			throw new Error(
+				`No Strapi credentials found for source '${config.id}' in credentials file or launchpad config.`
+			);
+		}
+
+		return {
+			...STRAPI_OPTION_DEFAULTS,
+			...config
+		};
+	}
+
+	/**
+	 * @private
+	 * @param {unknown} creds 
+	 * @returns {creds is StrapiCredentials}
+	 */
+	static _validateCrendentials(creds) {
+		if (typeof creds !== 'object' || creds === null) { return false; };
+
+		return ('identifier' in creds && 'password' in creds) || 'token' in creds;
 	}
 }
 

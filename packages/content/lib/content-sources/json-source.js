@@ -3,53 +3,41 @@
  */
 
 import JsonUtils from '../utils/json-utils.js';
-import ContentSource, { SourceOptions } from './content-source.js';
+import ContentSource, { MEDIA_REGEX } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
 import got from 'got';
 import { Logger } from '@bluecadet/launchpad-utils';
 import chalk from 'chalk';
 
 /**
- * @class
+ * @typedef BaseJsonOptions
+ * @property {RegExp} [mediaPattern] Regex for media files that should be downloaded from json sources. Defaults to `/.+(\.jpg|\.jpeg|\.png)/gi|/.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi`
+ * @property {Record<string, string>} files A mapping of json file-path -> url
  */
-export class JsonOptions extends SourceOptions {
-	/**
-	 * @param {any} options
-	 */
-	constructor({
-		mediaPattern = SourceOptions.MEDIA_REGEX,
-		files = {},
-		...rest
-	} = {}) {
-		super(rest);
-		
-		/**
-		 * Regex for media files that should be downloaded from json sources
-		 * @type {RegExp}
-		 * @default (/.+(\.jpg|\.jpeg|\.png)/gi|/.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi)
-		 */
-		this.mediaPattern = new RegExp(mediaPattern);
-		
-		/**
-		 * A mapping of json file-path -> url
-		 * @type {Object<string,string>}
-		 * @default {}
-		 */
-		this.files = files;
-	}
-}
 
 /**
- * @extends {ContentSource<JsonOptions>}
+ * @typedef {import('./content-source.js').SourceOptions<'json'> & BaseJsonOptions} JsonOptions
+ */
+
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'json'> & Required<BaseJsonOptions>} JsonOptionsAssembled
+ */
+
+const JSON_OPTIONS_DEFAULTS = {
+	mediaPattern: MEDIA_REGEX
+};
+
+/**
+ * @extends {ContentSource<JsonOptionsAssembled>}
  */
 class JsonSource extends ContentSource {
 	/**
 	 * 
-	 * @param {*} config 
+	 * @param {JsonOptions} config 
 	 * @param {Logger} logger 
 	 */
 	constructor(config, logger) {
-		super(new JsonOptions(config), logger);
+		super({ ...JSON_OPTIONS_DEFAULTS, ...config }, logger);
 	}
 	
 	/**

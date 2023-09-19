@@ -46,7 +46,9 @@ Run `npx launchpad --help` to see all available commands.
 Each [launchpad package](#packages) is configured via its own section in `launchpad.config.js`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and [`monitor`](/packages/monitor) to launch a single app:
 
 ```js
-export default {
+import { defineConfig } from "@bluecadet/launchpad";
+
+export default defineConfig({
   "content": {
     "sources": [
       {
@@ -69,7 +71,7 @@ export default {
       }
     ]
   }
-}
+});
 ```
 
 *Note: [Scaffold](/packages/scaffold) is configured separately in a PowerShell file. This is a guided process when you run `npx launchpad scaffold`.*

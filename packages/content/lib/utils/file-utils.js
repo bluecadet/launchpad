@@ -82,7 +82,7 @@ export class FileUtils {
     
 	/**
      * 
-     * @param {JSON|string} json 
+     * @param {unknown} json 
      * @param {string} filePath 
      * @param {boolean} appendJsonExtension
      */
@@ -97,8 +97,8 @@ export class FileUtils {
     
 	/**
      * Removes all files and subdirectories of `dirPath`, except for `exclude`.
-     * @param {*} dirPath Any absolute directory path
-     * @param {*} exclude Any glob patterns (e.g. `*.json|*.csv|my-important-folder`)
+     * @param {string} dirPath Any absolute directory path
+     * @param {string} exclude Any glob patterns (e.g. `*.json|*.csv|my-important-folder`)
      */
 	static removeFilesFromDir(dirPath, exclude = '') {
 		let glob = dirPath;

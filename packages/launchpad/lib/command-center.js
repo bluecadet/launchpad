@@ -1,18 +1,12 @@
 import chalk from 'chalk';
 import autoBind from 'auto-bind';
-import { LogManager, Logger, TaskQueue, TaskQueueOptions, execScript } from '@bluecadet/launchpad-utils';
-import CommandHooks, { ExecHook } from './command-hooks.js';
+import { LogManager, Logger, TaskQueue, execScript } from '@bluecadet/launchpad-utils';
+import CommandHooks from './command-hooks.js';
 
-export class CommandOptions {
-	constructor({
-		tasks = new TaskQueueOptions()
-	} = {}) {
-		/**
-		 * @type {TaskQueueOptions}
-		 */
-		this.tasks = new TaskQueueOptions(tasks);
-	}
-}
+/**
+ * @typedef CommandOptions
+ * @property {import('@bluecadet/launchpad-utils/lib/task-queue.js').TaskQueueOptions} [tasks]
+ */
 
 export class CommandCenter {
 	/** @type {CommandOptions} */
@@ -29,12 +23,12 @@ export class CommandCenter {
 	
 	/**
 	 * 
-	 * @param {CommandOptions|Object} [config] 
+	 * @param {CommandOptions} [config] 
 	 * @param {Logger} [logger]
 	 */
 	constructor(config, logger) {
 		autoBind(this);
-		this._config = new CommandOptions(config);
+		this._config = config || {};
 		this._logger = logger || LogManager.getInstance().getLogger();
 		this._tasks = new TaskQueue(this._config.tasks, this._logger);
 	}
@@ -79,7 +73,7 @@ export class CommandCenter {
 	addCommandHooks(commandHooks) {
 		/**
 		 * 
-		 * @param {ExecHook[]} hooks 
+		 * @param {import('./command-hooks.js').ExecHook[]} hooks 
 		 * @param {boolean} isPre 
 		 */
 		const add = (hooks, isPre) => {

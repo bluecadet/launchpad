@@ -2,25 +2,12 @@ import semver from 'semver';
 import chalk from 'chalk';
 import { windowManager } from 'node-window-manager';
 import { Logger } from '@bluecadet/launchpad-utils';
-import { AppOptions } from '../monitor-options.js';
 
-export class SortApp {
-	/**
-	 * @type {AppOptions}
-	 */
-	options;
-	/**
-	 * @type {number?}
-	 */
-	pid = null;
-
-	/**
-	 * @param {AppOptions} options
-	 */
-	constructor(options) {
-		this.options = options;
-	}
-}
+/**
+ * @typedef SortApp
+ * @property {import('../monitor-options.js').ResolvedAppOptions} options
+ * @property {number?} pid
+ */
 
 /**
  * 

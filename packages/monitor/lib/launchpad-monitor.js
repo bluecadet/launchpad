@@ -8,15 +8,14 @@ import pDebounce from 'p-debounce';
 import pm2 from 'pm2';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
-import util from 'util';
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
-import { AppLogOptions, AppOptions, MonitorOptions, WindowOptions } from './monitor-options.js';
-import sortWindows, { SortApp } from './utils/sort-windows.js';
+import sortWindows from './utils/sort-windows.js';
+import { resolveMonitorConfig } from './monitor-options.js';
 
 export class LaunchpadMonitor {
-	/** @type {MonitorOptions} */
+	/** @type {import('./monitor-options.js').ResolvedMonitorOptions} */
 	_config;
 	
 	/**
@@ -41,7 +40,7 @@ export class LaunchpadMonitor {
 	/**
 	 * Creates a new instance, starts it with the
 	 * config and resolves with the monitor instance.
-	 * @param {MonitorOptions} config 
+	 * @param {import('./monitor-options.js').MonitorOptions} config 
 	 * @returns {Promise<LaunchpadMonitor>} Promise that resolves with the new LaunchpadMonitor instance.
 	 */
 	static async createAndStart(config) {
@@ -78,13 +77,13 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {MonitorOptions|Object} config 
+	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
    * @param {Logger} [parentLogger]
 	 */
 	constructor(config, parentLogger) {
 		autoBind(this);
 		this._logger = LogManager.getInstance().getLogger('monitor', parentLogger);
-		this._config = new MonitorOptions(config);
+		this._config = resolveMonitorConfig(config);
 		this._appLogRouter = new AppLogRouter(this._logger);
 		this._applyWindowSettings = pDebounce(
 			this._applyWindowSettings,
@@ -255,7 +254,7 @@ export class LaunchpadMonitor {
 	/**
 	 * Get the startup options for appName
 	 * @param {string} appName 
-	 * @returns {AppOptions}
+	 * @returns {import('./monitor-options.js').ResolvedAppOptions}
 	 */
 	getAppOptions(appName) {
 		const options = this._config.apps.find(app => app.pm2.name === appName);
@@ -378,16 +377,14 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @param {AppOptions} options 
-	 * @returns {AppOptions} 
+	 * @param {import('./monitor-options.js').ResolvedAppOptions} options 
+	 * @returns {import('./monitor-options.js').ResolvedAppOptions} 
 	 */
 	_initAppOptions(options) {
 		if (!options.pm2 || !options.pm2.name) {
 			this._logger.error('PM2 config is incomplete or missing:', options);
 			return options;
 		}
-		options.logging = new AppLogOptions(options.logging);
-		options.windows = new WindowOptions(options.windows);
 		
 		// @ts-expect-error - Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
 		options.pm2.windowsHide = options.windows.hide;
@@ -404,10 +401,12 @@ export class LaunchpadMonitor {
 	 */
 	async _applyWindowSettings(appNames = []) {
 		appNames = this._validateAppNames(appNames);
+		/** @type {import('./utils/sort-windows.js').SortApp[]} */
 		const apps = [];
 		
 		for (const appName of appNames) {
-			const sortApp = new SortApp(this.getAppOptions(appName));
+			/** @type {import('./utils/sort-windows.js').SortApp} */
+			const sortApp = { options: this.getAppOptions(appName), pid: null };
 
 			try {
 				const process = await this.getAppProcess(appName);

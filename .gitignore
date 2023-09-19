@@ -149,3 +149,7 @@ dist
 
 # generated .d.ts files
 types
+
+# docs
+docs/.vitepress/dist
+docs/.vitepress/cache

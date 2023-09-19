@@ -12,8 +12,9 @@
     "content": "npm run start -w @bluecadet/launchpad-content --",
     "download": "npm run content --",
     "test": "npm run test -w @bluecadet/launchpad -- ",
-    "docs": "node .docs/generate.mjs",
-    "watch-docs": "nodemon",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "lint": "npx eslint ./packages/**/*.js",
     "lint:fix": "npx eslint ./packages/**/*.js --fix",
     "lint:fix-dry": "npx eslint ./packages/**/*.js --fix-dry-run",
@@ -39,8 +40,8 @@
     "@types/node": "^20.3.1",
     "eslint": "^8.32.0",
     "eslint-config-standard": "^17.0.0",
-    "jsdoc-to-markdown": "^7.1.1",
-    "nodemon": "^2.0.20",
-    "typescript": "^5.1.3"
+    "typescript": "^5.1.3",
+    "vitepress": "^1.0.0-rc.14",
+    "vue": "^3.3.4"
   }
 }

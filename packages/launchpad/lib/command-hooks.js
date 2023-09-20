@@ -3,7 +3,15 @@
  */
 
 /**
- * @typedef {Object<string, Array<string>>} HookMapping
+ * @typedef {'startup' | 'update-content' | 'start-apps' | 'shutdown' | 'stop-apps'} LaunchpadCommand
+ */
+
+/**
+ * @typedef {`pre-${LaunchpadCommand}` | `post-${LaunchpadCommand}`} LaunchpadHook
+ */
+
+/**
+ * @typedef {{[K in LaunchpadHook]?: string[]}} HookMapping
  * @example
  * {
  * 	"pre-startup": ["taskkill /im explorer.exe"],
@@ -17,7 +25,7 @@ export class CommandHooks {
 	 */
 	constructor(hooks = {}) {
 		/**
-		 * Formant: pre-<command>
+		 * Format: pre-<command>
 		 * @type {Array<ExecHook>}
 		 */
 		this.preHooks = [];

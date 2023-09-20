@@ -1,6 +1,6 @@
 import url from 'url';
 
-import ConfigManager from './config-manager.js';
+import { loadConfig } from './config-manager.js';
 import LogManager from './log-manager.js';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -10,7 +10,7 @@ import { hideBin } from 'yargs/helpers';
  * script was called directly. If it was included in another script, this
  * function will return a rejected promise with no error.
  * 
- * @template T config type
+ * @template {{logging?: import('./log-manager.js').LogOptions}} T config type
  * @param {ImportMeta} importMeta Pass the import.meta property from your script here
  * @param {object} [options]
  * @param {object} [options.userConfig] Optional user config to be merged with the loaded config
@@ -47,17 +47,14 @@ export const launchFromCli = async (importMeta, {
 	}
 
 	const parsedArgv = await argv.parse();
-
-	/**
-	 * @type {ConfigManager<T>}
-	 */
-	const configManager = new ConfigManager();
 	
+	/**
+	 * @type {Partial<T>}
+	*/
 	// @ts-expect-error - pretty much impossible to type parsedArgv so that it can be merged with userConfig, so we'll just ignore the error
-	await configManager.loadConfig({ ...userConfig, ...parsedArgv }, parsedArgv.config);
-	/** @type {any} TODO: figure out where to add this 'logging' property */
-	const config = configManager.getConfig();
-	LogManager.getInstance(config.logging || config);
+	const config = await loadConfig({ ...userConfig, ...parsedArgv }, parsedArgv.config);
+
+	LogManager.getInstance(config.logging);
 	
 	return Promise.resolve(config);
 };

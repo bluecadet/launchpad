@@ -2,9 +2,9 @@ import jsdoc2md from 'jsdoc-to-markdown';
 import fs from 'fs-extra';
 import path from 'path';
 import chalk from 'chalk';
-import { ConfigManager, LogManager } from '@bluecadet/launchpad-utils';
+import { loadConfig, LogManager } from '@bluecadet/launchpad-utils';
 
-const config = ConfigManager.getInstance().getConfig();
+const config = loadConfig();
 const logger = LogManager.getInstance(config).getLogger('docs');
 
 /**

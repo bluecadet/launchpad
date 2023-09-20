@@ -1,6 +1,6 @@
 import url from 'url';
 
-import { loadConfig } from './config-manager.js';
+import { loadConfig } from './config.js';
 import LogManager from './log-manager.js';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';

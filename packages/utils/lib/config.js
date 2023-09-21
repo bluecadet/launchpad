@@ -38,53 +38,24 @@ export async function importJsConfig(paths, importMeta = null) {
 	}
 	return null;
 }
-	
+
 /**
- * Loads the config in the following order of overrides:
- *   defaults < js/json < user 
- * 
- * @template T config type
- * @param {Partial<T>?} userConfig Optional config overrides
- * @param {string} [configPath] Optional path to a config file, relative to the current working directory.
- * @returns {Promise<Partial<T>>} A promise with the current config.
+ * Searches for a config file in the current and parent directories, up to a max depth of 64.
+ * @returns {string | null} Absolute path to the config file or null if none can be found.
  */
-export async function loadConfig(userConfig = null, configPath) {
-	/**
-	 * @type {Partial<T>}
-	 */
-	let config = {};
-	if (configPath) {
-		// if config is manually specified, load it without searching parent directories,
-		// and fail if it doesn't exist
-		const resolved = path.resolve(configPath);
-		if (!fs.existsSync(resolved)) {
-			throw new Error(`Could not find config at '${resolved}'`);
+export function findConfig() {
+	for (const defaultPath of DEFAULT_CONFIG_PATHS) {
+		const resolved = findFirstFileRecursive(defaultPath);
+		
+		if (resolved) {
+			console.log(`Found config '${chalk.white(resolved)}'`);
+			return resolved;
 		}
-
-		config = { ...config, ...loadConfigFromFile(resolved) };
-	} else {
-		// if no config is specified, search current and parent directories for default config files.
-		// Only the first found config will be loaded.
-		for (const defaultPath of DEFAULT_CONFIG_PATHS) {
-			const resolved = findFirstFileRecursive(defaultPath);
-			
-			if (resolved) {
-				console.warn(`Found config at '${chalk.white(resolved)}'`);
-				config = { ...config, ...(await loadConfigFromFile(resolved)) };
-				break;
-			}
-			
-			console.warn(`Could not find config with name '${chalk.white(defaultPath)}'`);
-		}
+		
+		console.warn(`Could not find config with name '${chalk.white(defaultPath)}'`);
 	}
 
-	// user config overrides js/json config
-	if (userConfig) {
-		config = { ...config, ...userConfig };
-	}
-	
-	this._isLoaded = true;
-	return config;
+	return null;
 }
 
 /**
@@ -128,7 +99,7 @@ function findFirstFileRecursive(filePath) {
  * @param {string} configPath 
  * @returns {Promise<Partial<T>>}
  */
-async function loadConfigFromFile(configPath) {
+export async function loadConfigFromFile(configPath) {
 	if (!configPath) {
 		return {};
 	}

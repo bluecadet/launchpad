@@ -2,62 +2,39 @@
  * @module launchpad-options
  */
 
-import { LogOptions } from '@bluecadet/launchpad-utils';
-import { ContentOptions } from '@bluecadet/launchpad-content';
-import { MonitorOptions } from '@bluecadet/launchpad-monitor';
-import { CommandOptions } from './command-center.js';
-import { CommandHooks } from './command-hooks.js';
+/**
+ * @typedef LaunchpadOptions Combined options to initialize Launchpad.
+ * @property {import("@bluecadet/launchpad-content").ContentOptions} [content]
+ * @property {import("@bluecadet/launchpad-monitor").MonitorOptions} [monitor]
+ * @property {import("./command-center").CommandOptions} [commands]
+ * @property {import("./command-hooks").HookMapping} [hooks]
+ * @property {import("@bluecadet/launchpad-utils/lib/log-manager").LogOptions} [logging]
+ * @property {boolean} [shutdownOnExit] Will listen for exit events. Defaults to 'true'
+ */
+
+const LAUNCHPAD_OPTIONS_DEFAULTS = {
+	shutdownOnExit: true
+};
 
 /**
- * Combined options to initialize Launchpad.
+ * Applies defaults to the provided launchpad config.
+ * @param {LaunchpadOptions} config
  */
-export class LaunchpadOptions {
-	/**
-	 * @param {any} options
-	 */
-	constructor({
-		content = new ContentOptions(),
-		monitor = new MonitorOptions(),
-		commands = new CommandOptions(),
-		hooks = new CommandHooks(),
-		logging = new LogOptions(),
-		shutdownOnExit = true,
-		...rest
-	} = {}) {
-		/**
-		 * Will listen for exit events 
-		 * @type {boolean}
-		 * @default true
-		 */
-		this.shutdownOnExit = true;
-		
-		/**
-		 * @type {ContentOptions}
-		 */
-		this.content = new ContentOptions(content);
-		
-		/**
-		 * @type {MonitorOptions}
-		 */
-		this.monitor = new MonitorOptions(monitor);
-		
-		/**
-		 * @type {CommandOptions}
-		 */
-		this.commands = new CommandOptions(commands);
-		
-		/**
-		 * @type {CommandHooks}
-		 */
-		this.hooks = new CommandHooks(hooks);
-		
-		/**
-		 * @type {LogOptions}
-		 */
-		this.logging = new LogOptions(logging);
-		
-		Object.assign(this, rest);
-	}
+export function resolveLaunchpadOptions(config) {
+	return {
+		...LAUNCHPAD_OPTIONS_DEFAULTS,
+		...config
+	};
 }
 
-export default LaunchpadOptions;
+/**
+ * @typedef {ReturnType<typeof resolveLaunchpadOptions>} ResolvedLaunchpadOptions
+ */
+
+/**
+ * @param {LaunchpadOptions} config 
+ * @returns {LaunchpadOptions}
+ */
+export function defineConfig(config) {
+	return config;
+}

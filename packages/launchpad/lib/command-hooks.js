@@ -13,7 +13,7 @@
 
 export class CommandHooks {
 	/**
-	 * @param {Record<string, HookMapping>} hooks 
+	 * @param {HookMapping} hooks 
 	 */
 	constructor(hooks = {}) {
 		/**
@@ -33,7 +33,7 @@ export class CommandHooks {
 	}
 	
 	/**
-	 * @param {Record<string, HookMapping>} hooks 
+	 * @param {HookMapping} hooks 
 	 */
 	parse(hooks = {}) {
 		if (!hooks) {
@@ -51,34 +51,19 @@ export class CommandHooks {
 				}
 				
 				if (key.startsWith('pre-')) {
-					this.preHooks.push(new ExecHook({ command, script }));
+					this.preHooks.push({ command, script });
 				} else {
-					this.postHooks.push(new ExecHook({ command, script }));
+					this.postHooks.push({ command, script });
 				}
 			}
 		}
 	}
 }
 
-export class ExecHook {
-	/**
-	 * @param {object} options
-	 * @param {string} options.command
-	 * @param {string} options.script
-	 */
-	constructor({
-		command,
-		script
-	}) {
-		/**
-		 * @type {string}
-		 */
-		this.command = command;
-		/**
-		 * @type {string}
-		 */
-		this.script = script;
-	}
-}
+/**
+ * @typedef ExecHook
+ * @property {string} command
+ * @property {string} script
+ */
 
 export default CommandHooks;

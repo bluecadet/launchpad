@@ -1,4 +1,3 @@
-import ContentOptions from './content-options.js';
 import { DataFile } from './content-sources/content-result.js';
 import mdToHtml from './plugins/md-to-html.js';
 import sanityToHtml from './plugins/sanity-to-html.js';
@@ -20,7 +19,7 @@ import sanityToPlain from './plugins/sanity-to-plain.js';
 export {};
 
 /**
- * @param {ContentOptions} options
+ * @param {import('./content-options.js').ResolvedContentOptions} options
  * @returns {ContentPlugin[]}
  * @deprecated this is a temporary solution to add compatibility with the old config style. Once JS configs are supported, this will be removed.
  */

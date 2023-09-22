@@ -3,43 +3,30 @@
  */
 
 import chalk from 'chalk';
-import fs from 'fs-extra';
 import { Logger } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-result.js';
 
-/**
- * Base class for all content sources. `id` is mandatory.
- */
-export class SourceOptions {
-	static get IMAGE_REGEX() {
-		return /.+(\.jpg|\.jpeg|\.png)/gi;
-	}
-	
-	static get VIDEO_REGEX() {
-		return /.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi;
-	}
-	
-	static get MEDIA_REGEX() {
-		return new RegExp(`(${SourceOptions.IMAGE_REGEX.source})|(${SourceOptions.VIDEO_REGEX.source})`);
-	}
-	
-	constructor({
-		id = '',
-		...rest
-	} = {}) {
-		/**
-		 * Required field to identify this source. Will be used as download path.
-		 * @type {string}
-		 */
-		this.id = id;
-		
-		// Allows for additional properties to be inherited
-		Object.assign(this, rest);
-	}
-}
+export const IMAGE_REGEX = /.+(\.jpg|\.jpeg|\.png)/gi;
+export const VIDEO_REGEX = /.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi;
+export const MEDIA_REGEX = new RegExp(`(${IMAGE_REGEX.source})|(${VIDEO_REGEX.source})`);
 
 /**
- * @template {SourceOptions} [C=SourceOptions]
+ * @template T
+ * @typedef {Required<{[K in keyof T as  T extends Record<K, T[K]> ? never : K]: T[K]}>} SelectOptional Select only the optional properties of a type.
+ * @example
+ * type Foo = { a: string, b?: number };
+ * type OptionalFoo = SelectOptional<Foo>; // { b: number }
+ */
+
+/**
+ * @template {string} T
+ * @typedef SourceOptions
+ * @property {string} id Required field to identify this source. Will be used as download path.
+ * @property {T} type The type of content source. Used internally to determine which source class to use.
+ */
+
+/**
+ * @template {SourceOptions<string>} [C=SourceOptions<string>]
  */
 export class ContentSource {
 	/** @type {C} */

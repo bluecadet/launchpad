@@ -1,44 +1,17 @@
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import fs from 'fs-extra';
 import path from 'path';
 import url from 'url';
 import stripJsonComments from 'strip-json-comments';
 import chalk from 'chalk';
 
-export class ConfigManagerOptions {
-	static DEFAULT_CONFIG_PATHS = ['launchpad.json', 'config.json'];
-	
-	constructor({
-		configPaths = ConfigManagerOptions.DEFAULT_CONFIG_PATHS,
-		...rest
-	} = {}) {
-		/**
-		 * The path where to load the config from.
-		 * If an array of paths is passed, all found configs will be merged in that order.
-		 * @type {string|Array<string>} 
-		 */
-		this.configPaths = configPaths;
-		
-		// Allows for additional properties to be inherited
-		Object.assign(this, rest);
-	}
-}
+const DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
 
+/**
+ * @template T config type
+ */
 export class ConfigManager {
-	/** @type {ConfigManager | null} */
-	static _instance = null;
-	
-	/** @returns {ConfigManager} */
-	static getInstance() {
-		if (this._instance === null) {
-			this._instance = new ConfigManager();
-		}
-		return this._instance;
-	}
-	
-	/** @type {ConfigManagerOptions} */
-	_config = new ConfigManagerOptions();
+	/** @type {Partial<T>} */
+	_config = {};
 	
 	/** @type {boolean} */
 	_isLoaded = false;
@@ -55,9 +28,10 @@ export class ConfigManager {
 	/**
 	 * Imports a JS config from a set of paths. The JS files have to export
 	 * its config as the default export. Will return the first config found.
-	 * @param {Array.<string>} paths 
+	 * @template T
+	 * @param {Array<string>} paths 
 	 * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
-	 * @returns {Promise<object | null>} The parsed config object or null if none can be found
+	 * @returns {Promise<Partial<T> | null>} The parsed config object or null if none can be found
 	 */
 	static async importJsConfig(paths, importMeta = null) {
 		const __dirname = ConfigManager.getProcessDirname(importMeta);
@@ -77,38 +51,41 @@ export class ConfigManager {
 	
 	/**
 	 * Loads the config in the following order of overrides:
-	 *   defaults < json < user < argv 
+	 *   defaults < js/json < user 
 	 * 
-	 * @param {ConfigManagerOptions|object?} userConfig Optional config overrides
-	 * @param {((conf: import("yargs").Argv) => import("yargs").Argv)?} yargsCallback Optional function to further configure yargs startup options.
- 	 * @returns {object} A promise with the current config.
+	 * @param {Partial<T>?} userConfig Optional config overrides
+	 * @param {string} [configPath] Optional path to a config file, relative to the current working directory.
+ 	 * @returns {Promise<Partial<T>>} A promise with the current config.
 	 */
-	loadConfig(userConfig = null, yargsCallback = null) {
+	async loadConfig(userConfig = null, configPath) {
+		if (configPath) {
+			// if config is manually specified, load it without searching parent directories,
+			// and fail if it doesn't exist
+			const resolved = path.resolve(configPath);
+			if (!fs.existsSync(resolved)) {
+				throw new Error(`Could not find config at '${resolved}'`);
+			}
+
+			this._config = { ...this._config, ...ConfigManager._loadConfigFromFile(resolved) };
+		} else {
+			// if no config is specified, search current and parent directories for default config files.
+			// Only the first found config will be loaded.
+			for (const defaultPath of DEFAULT_CONFIG_PATHS) {
+				const resolved = ConfigManager._findFirstFileRecursive(defaultPath);
+				
+				if (resolved) {
+					console.warn(`Found config at '${chalk.white(resolved)}'`);
+					this._config = { ...this._config, ...(await ConfigManager._loadConfigFromFile(resolved)) };
+					break;
+				}
+				
+				console.warn(`Could not find config with name '${chalk.white(defaultPath)}'`);
+			}
+		}
+
+		// user config overrides js/json config
 		if (userConfig) {
 			this._config = { ...this._config, ...userConfig };
-		}
-		
-		let argv = yargs(hideBin(process.argv))
-			.parserConfiguration({
-				// See https://github.com/yargs/yargs-parser#camel-case-expansion
-				'camel-case-expansion': false
-			})
-			.config('config', 'Path to your config file. Can contain comments.', this._loadConfigFromFile.bind(this));
-		
-		if (yargsCallback) {
-			argv = yargsCallback(argv);
-		}
-		
-		const parsedArgv = argv.help().parse();
-		
-		this._config = { ...this._config, ...parsedArgv };
-		
-		// console.log(this._config);
-		
-		if (!('config' in parsedArgv)) {
-			for (const configPath of this._config.configPaths) {
-				this._config = { ...this._config, ...this._loadConfigFromFile(configPath) };
-			}
 		}
 		
 		this._isLoaded = true;
@@ -117,7 +94,7 @@ export class ConfigManager {
 	
 	/**
 	 * Retrieves the current config object.
-	 * @returns {ConfigManagerOptions}
+	 * @returns {Partial<T>}
 	 */
 	getConfig() {
 		return this._config;
@@ -137,63 +114,74 @@ export class ConfigManager {
 	isLoaded() {
 		return this._isLoaded;
 	}
+
+	/**
+	 * @param {string} filePath
+	 * @returns {string | null} The absolute path to the file or null if it doesn't exist.
+	 * @private
+	 */
+	static _findFirstFileRecursive(filePath) {
+		const maxDepth = 64;
+
+		let absPath = filePath;
+
+		if (process.env.INIT_CWD) {
+			absPath = path.resolve(process.env.INIT_CWD, filePath);
+		} else {
+			absPath = path.resolve(filePath);
+		}
+
+		for (let i = 0; i < maxDepth; i++) {
+			if (fs.existsSync(absPath)) {
+				return absPath;
+			}
+			
+			const dirPath = path.dirname(absPath);
+			const filePath = path.basename(absPath);
+			const parentPath = path.resolve(dirPath, '..', filePath);
+
+			if (absPath === parentPath) {
+				// Can't navigate any more levels up
+				break;
+			}
+
+			absPath = parentPath;
+		}
+
+		return null;
+	}
 	
 	/**
+	 * @template T
 	 * @param {string} configPath 
+	 * @returns {Promise<Partial<T>>}
+	 * @private
 	 */
-	_loadConfigFromFile(configPath) {
+	static async _loadConfigFromFile(configPath) {
 		if (!configPath) {
 			return {};
 		}
 		
-		let absPath = configPath;
-		
-		if (process.env.INIT_CWD && !fs.existsSync(configPath)) {
-			absPath = path.resolve(process.env.INIT_CWD, configPath);
-		}
-		
 		try {
-			const maxLevels = 64;
-			for (let i = 0; i < maxLevels; i++) {
-				const resolvedPath = path.resolve(absPath);
-				
-				// console.debug(chalk.gray(`Trying to load config from ${chalk.white(resolvedPath)}`));
-				
-				if (fs.existsSync(resolvedPath)) {
-					absPath = resolvedPath;
-					console.info(chalk.gray(`Loading config from ${chalk.white(absPath)}`));
-					break;
-				} else if (i >= maxLevels) {
-					throw new Error(`No config found at '${chalk.white(configPath)}'.`);
-				} else {
-					const dirPath = path.dirname(absPath);
-					const filePath = path.basename(absPath);
-					const parentPath = path.resolve(dirPath, '..', filePath);
-					
-					if (absPath === parentPath) {
-						// Can't navigate any more levels up
-						throw new Error(`No config found at '${chalk.white(configPath)}'.`);
-					}
-					
-					absPath = parentPath;
-				}
-			}
-			
-			const configStr = fs.readFileSync(absPath, 'utf8');
-			const config = JSON.parse(stripJsonComments(configStr));
-			
-			if (!config) {
-				throw new Error(`Could not parse config from '${chalk.white(configPath)}'`);
-			}
-			
-			return config;
-		} catch (err) {
-			if (err instanceof Error) {
-				console.warn(`${err.message}`);
-			}
-		}
+			// if suffix is json, parse as json
+			if (configPath.endsWith('.json')) {
+				console.warn(chalk.yellow('JSON config files are deprecated. Please use JS config files instead.'));
 
-		return {};
+				const configStr = fs.readFileSync(configPath, 'utf8');
+				const config = JSON.parse(stripJsonComments(configStr));
+		
+				if (!config) {
+					throw new Error(`Could not parse config from '${chalk.white(configPath)}'`);
+				}
+
+				return config;
+			} else {
+				// otherwise, parse as js
+				return (await import(configPath)).default;
+			}
+		} catch (err) {
+			throw new Error(`Unable to load config file '${chalk.white(configPath)}'`, { cause: err });
+		}
 	}
 }
 

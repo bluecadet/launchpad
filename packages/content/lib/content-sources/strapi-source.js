@@ -26,8 +26,8 @@ import { Logger } from '@bluecadet/launchpad-utils';
 
 /** 
  * @typedef StrapiLoginCredentials
- * @property {string} identifier Username or email. Should be configured via `./credentials.json`
- * @property {string} password Should be configured via `./credentials.json`
+ * @property {string} identifier Username or email. Should be configured via `./.env.local`
+ * @property {string} password Should be configured via `./.env.local`
  *
  * @typedef StrapiTokenCredentials
  * @property {string} token Can be used instead of identifer/password if you previously generated one. Otherwise this will be automatically generated using the identifier or password.

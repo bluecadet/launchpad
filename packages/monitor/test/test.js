@@ -1,9 +1,9 @@
-import { launchFromCli, ConfigManager } from '@bluecadet/launchpad-utils';
+import { launchFromCli, importJsConfig } from '@bluecadet/launchpad-utils';
 import LaunchpadMonitor from '../lib/launchpad-monitor.js';
 import chalk from 'chalk';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {
-	return ConfigManager.importJsConfig(paths, import.meta);
+	return importJsConfig(paths, import.meta);
 };
 
 // @see https://stackoverflow.com/questions/19687407/press-any-key-to-continue-in-nodejs

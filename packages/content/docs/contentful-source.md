@@ -9,7 +9,7 @@ Also supports all fields of the Contentful SDK's config.
 See: 'Configuration' under https://contentful.github.io/contentful.js/contentful/9.1.7/
 | Property | Type | Default | Description |
 | - | - | - | - |
-| <a name="module_contentful-source.ContentfulOptions+space">`space`</a> |  <code>string</code>|  <code>''</code>  | Your Contentful space ID. Note that credentials.json will require an accessToken in addition to this |
+| <a name="module_contentful-source.ContentfulOptions+space">`space`</a> |  <code>string</code>|  <code>''</code>  | Your Contentful space ID. Note that an accessToken will be required in addition to this |
 | <a name="module_contentful-source.ContentfulOptions+locale">`locale`</a> |  <code>string</code>|  <code>'en-US'</code>  | Optional. Used to pull localized images. |
 | <a name="module_contentful-source.ContentfulOptions+filename">`filename`</a> |  <code>string</code>|  <code>'content.json'</code>  | Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. |
 | <a name="module_contentful-source.ContentfulOptions+contentTypes">`contentTypes`</a> |  <code>Array.&lt;string&gt;</code>|  | Optionally limit queries to these content types.<br>This will also apply to linked assets.<br>Types that link to other types will include up to 10 levels of child content.<br>E.g. filtering by Story, might also include Chapters and Images.<br>Uses `searchParams['sys.contentType.sys.id[in]']` under the hood. |

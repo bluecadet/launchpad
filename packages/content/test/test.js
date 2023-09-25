@@ -1,8 +1,8 @@
-import { launchFromCli, ConfigManager } from '@bluecadet/launchpad-utils';
+import { launchFromCli, importJsConfig } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '../lib/launchpad-content.js';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {
-	return ConfigManager.importJsConfig(paths, import.meta);
+	return importJsConfig(paths, import.meta);
 };
 
 launchFromCli(import.meta, {

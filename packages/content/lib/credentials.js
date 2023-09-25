@@ -7,25 +7,34 @@ import { Logger } from '@bluecadet/launchpad-utils';
  */
 let creds = {};
 
+/**
+ * @deprecated Use .env for managing sensitive data instead
+ */
 class Credentials {
 	/** @type {Logger | Console} */
 	static logger = console;
   
 	/**
-	 * @param {string} credentialsPath 
+	 * @param {string} [credentialsPath] 
 	 * @param {Logger | Console} logger 
+ 	 * @deprecated Use .env for managing sensitive data instead
 	 */
 	static init(credentialsPath, logger = console) {
 		this.logger = logger;
+
+		if (!credentialsPath) {
+			return;
+		}
+
+		this.logger.warn(`${chalk.white('credentialsPath')} option is deprecated. Please use ${chalk.white('.env')}/${chalk.white('.env.local')} instead.`);
+
 		try {
-			if (credentialsPath && fsx.existsSync(credentialsPath)) {
+			if (fsx.existsSync(credentialsPath)) {
 				this.logger.info(chalk.gray(`Loading credentials from '${chalk.white(credentialsPath)}'`));
 				const rawdata = fsx.readFileSync(credentialsPath);
 				creds = JSON.parse(rawdata.toString());
-			} else if (credentialsPath) {
-				this.logger.warn(`No credentials file found at '${credentialsPath}'`);
 			} else {
-				this.logger.warn(chalk.yellow('No credentials path specified'));
+				this.logger.warn(`No credentials file found at '${credentialsPath}'`);
 			}
 		} catch (err) {
 			if (err instanceof Error) {
@@ -36,6 +45,7 @@ class Credentials {
   
 	/**
 	 * @param {string} id
+	 * @deprecated Use .env for managing sensitive data instead
 	 */
 	static getCredentials(id) {
 		if (id in creds) {

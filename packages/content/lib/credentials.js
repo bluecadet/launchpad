@@ -7,6 +7,9 @@ import { Logger } from '@bluecadet/launchpad-utils';
  */
 let creds = {};
 
+/**
+ * @deprecated Use .env for managing sensitive data instead
+ */
 class Credentials {
 	/** @type {Logger | Console} */
 	static logger = console;
@@ -14,6 +17,7 @@ class Credentials {
 	/**
 	 * @param {string} [credentialsPath] 
 	 * @param {Logger | Console} logger 
+ 	 * @deprecated Use .env for managing sensitive data instead
 	 */
 	static init(credentialsPath, logger = console) {
 		this.logger = logger;
@@ -41,6 +45,7 @@ class Credentials {
   
 	/**
 	 * @param {string} id
+	 * @deprecated Use .env for managing sensitive data instead
 	 */
 	static getCredentials(id) {
 		if (id in creds) {

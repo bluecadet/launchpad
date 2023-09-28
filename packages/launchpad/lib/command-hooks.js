@@ -3,7 +3,15 @@
  */
 
 /**
- * @typedef {Object<string, Array<string>>} HookMapping
+ * @typedef {'startup' | 'update-content' | 'start-apps' | 'shutdown' | 'stop-apps'} LaunchpadCommand
+ */
+
+/**
+ * @typedef {`pre-${LaunchpadCommand}` | `post-${LaunchpadCommand}`} LaunchpadHook
+ */
+
+/**
+ * @typedef {{[K in LaunchpadHook]?: string[]}} HookMapping
  * @example
  * {
  * 	"pre-startup": ["taskkill /im explorer.exe"],
@@ -13,11 +21,11 @@
 
 export class CommandHooks {
 	/**
-	 * @param {Array<HookMapping>} hooks 
+	 * @param {HookMapping} hooks 
 	 */
 	constructor(hooks = {}) {
 		/**
-		 * Formant: pre-<command>
+		 * Format: pre-<command>
 		 * @type {Array<ExecHook>}
 		 */
 		this.preHooks = [];
@@ -33,7 +41,7 @@ export class CommandHooks {
 	}
 	
 	/**
-	 * @param {Object<string, HookMapping>} hooks 
+	 * @param {HookMapping} hooks 
 	 */
 	parse(hooks = {}) {
 		if (!hooks) {
@@ -43,39 +51,27 @@ export class CommandHooks {
 			key = (key + '').toLowerCase();
 			const command = key.replace('pre-', '').replace('post-', '');
 			
-			if (!Array.isArray(scripts)) {
-				scripts = [scripts];
-			}
+			const scriptArray = Array.isArray(scripts) ? scripts : [scripts];
 			
-			for (const script of scripts) {
+			for (const script of scriptArray) {
 				if ((typeof script) !== 'string') {
 					continue;
 				}
 				
 				if (key.startsWith('pre-')) {
-					this.preHooks.push(new ExecHook({ command, script }));
+					this.preHooks.push({ command, script });
 				} else {
-					this.postHooks.push(new ExecHook({ command, script }));
+					this.postHooks.push({ command, script });
 				}
 			}
 		}
 	}
 }
 
-export class ExecHook {
-	constructor({
-		command,
-		script
-	} = {}) {
-		/**
-		 * @type {string}
-		 */
-		this.command = command;
-		/**
-		 * @type {string}
-		 */
-		this.script = script;
-	}
-}
+/**
+ * @typedef ExecHook
+ * @property {string} command
+ * @property {string} script
+ */
 
 export default CommandHooks;

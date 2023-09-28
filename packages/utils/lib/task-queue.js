@@ -3,33 +3,39 @@ import autoBind from 'auto-bind';
 import chalk from 'chalk';
 import { LogManager, Logger } from './log-manager.js';
 
-export class TaskQueueOptions {
-	constructor({
-		concurrency = 1
-	} = {}) {
-		/** @type {number} */
-		this.concurrency = concurrency;
+/**
+ * @typedef TaskQueueOptions
+ * @property {number} [concurrency] defaults to 1
+ */
+
+/**
+ * @param {TaskQueueOptions} [options] 
+ */
+function resolveTaskQueueOptions(options) {
+	return {
+		concurrency: 1,
+		...options
 	};
 }
 
 class TaskQueue {
 	/** @type {TaskQueueOptions} */
-	_config = null;
+	_config;
 	
-	/** @type {async.QueueObject} */
-	_queue = null;
+	/** @type {async.QueueObject<Task>} */
+	_queue;
 	
 	/** @type {Logger} */
-	_logger = null;
+	_logger;
 	
 	/**
 	 * 
-	 * @param {TaskQueueOptions} config 
+	 * @param {TaskQueueOptions | undefined} config 
 	 * @param {Logger} logger 
 	 */
 	constructor(config, logger) {
 		autoBind(this);
-		this._config = new TaskQueueOptions(config);
+		this._config = resolveTaskQueueOptions(config);
 		this._logger = logger || LogManager.getInstance().getLogger();
 		this._queue = async.queue(this._processTask, this._config.concurrency || 1);
 		this._queue.drain();
@@ -37,10 +43,10 @@ class TaskQueue {
 	
 	/**
 	 * Adds a task to the queue and returns a promise that resolves once the task is complete or rejects if the task experienced an error.
-	 * 
-	 * @param {function():Promise | Array<function():Promise>} taskFn A single task function or an array of task functions. If multiple tasks are passed, the promise will resolve after all tasks are processed.
+	 * @template {(...args: unknown[]) => void} T
+	 * @param {T | T[]} taskFns A single task function or an array of task functions. If multiple tasks are passed, the promise will resolve after all tasks are processed.
 	 * @param {string} taskName 
-	 * @param {...*} args
+	 * @param {Parameters<T>} args
 	 */
 	async add(taskFns, taskName = '', ...args) {
 		if (!Array.isArray(taskFns)) {
@@ -55,7 +61,7 @@ class TaskQueue {
 	}
 	
 	/**
-	 * @param {function(Task) : boolean} filterFn 
+	 * @param {(node: async.DataContainer<Task>) => boolean} filterFn 
 	 */
 	clear(filterFn = () => true) {
 		return this._queue.remove(filterFn);
@@ -79,11 +85,18 @@ class TaskQueue {
 		return result;
 	}
 	
+	/**
+	 * @param {Error} err
+	 * @param {Task} task
+	 */
 	async _handleTaskError(err, task) {
 		this._logger.error(`Could not run task ${chalk.blue(task)}`, err);
 	}
 }
 
+/**
+ * @template {(...args: unknown[]) => void} [T = (...args: unknown[]) => void]
+ */
 class Task {
 	static __numTasks = 0;
 	
@@ -91,11 +104,16 @@ class Task {
 	id = -1;
 	/** @type {string} */
 	name = '';
-	/** @type {function() : Promise} */
-	taskFn = null;
-	/** @type {Array} */
-	args = null;
+	/** @type {T} */
+	taskFn;
+	/** @type {Parameters<T> | []} */
+	args = [];
 	
+	/**
+	 * @param {T} fn
+	 * @param {string} [name]
+	 * @param {Parameters<T> | []} [args]
+	 */
 	constructor(fn, name = '', args = []) {
 		this.id = (Task.__numTasks++);
 		this.taskFn = fn;
@@ -104,7 +122,7 @@ class Task {
 	}
 	
 	/**
-	 * @returns {Promise}
+	 * @returns {Promise<void>}
 	 */
 	async run() {
 		if (!this.taskFn) {

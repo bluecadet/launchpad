@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { LaunchpadCore } from './lib/launchpad-core.js';
-import { launch as launchContent } from '@bluecadet/launchpad-content';
-import { launch as launchMonitor, LaunchpadMonitor } from '@bluecadet/launchpad-monitor';
-import { launch as launchScaffold } from '@bluecadet/launchpad-scaffold';
 import { launchFromCli } from '@bluecadet/launchpad-utils';
+import { launch as launchScaffold } from '@bluecadet/launchpad-scaffold';
+import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
+export { defineConfig } from './lib/launchpad-options.js';
 
 export default LaunchpadCore;
 
@@ -21,6 +21,11 @@ export class StartupCommands {
 	static SCAFFOLD = 'scaffold';
 }
 
+/**
+ * @param {import('yargs').Argv} argv
+ * @param {string|string[]} commands
+ * @param {string} description
+ */
 const addCommand = (argv, commands, description) => {
 	if (!Array.isArray(commands)) {
 		commands = [commands];

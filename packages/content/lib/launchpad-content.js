@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 
 import Credentials from './credentials.js';
-import ContentOptions from './content-options.js';
+import { CONTENT_OPTION_DEFAULTS, DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
 
 import ContentSource from './content-sources/content-source.js';
 import AirtableSource from './content-sources/airtable-source.js';
@@ -24,21 +24,29 @@ import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
 import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
 import SanityToMarkdownTransform from './content-transforms/sanity-to-markdown.js';
 
-export class ContentSourceTypes {
-	static json = 'json';
-	static airtable = 'airtable';
-	static contentful = 'contentful';
-	static sanity = 'sanity';
-	static strapi = 'strapi';
-}
+/**
+ * @enum {import('./content-options.js').AllSourceOptions['type']}
+ */
+export const ContentSourceTypes = {
+	/** @type {'json'} */
+	json: 'json',
+	/** @type {'airtable'} */
+	airtable: 'airtable',
+	/** @type {'contentful'} */
+	contentful: 'contentful',
+	/** @type {'sanity'} */
+	sanity: 'sanity',
+	/** @type {'strapi'} */
+	strapi: 'strapi'
+};
 
 export class LaunchpadContent {
 	/**
 	 * Creates a new LaunchpadContent and downloads content using an optional user config object.
-	 * @param {ContentOptions} config
+	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @returns {Promise.<LaunchpadContent>} Promise that resolves with the new LaunchpadContent instance.
 	 */
-	static async createAndDownload(config = null) {
+	static async createAndDownload(config) {
 		try {
 			const content = new LaunchpadContent(config);
 			await content.download();
@@ -52,27 +60,27 @@ export class LaunchpadContent {
 		}
 	}
 	
-	/** @type {ContentOptions} */
-	_config = null;
+	/** @type {import('./content-options.js').ResolvedContentOptions} */
+	_config;
 	
 	/** @type {Logger} */
-	_logger = null;
+	_logger;
 	
-	/** @type {Array.<ContentSource>} */
+	/** @type {Array<ContentSource>} */
 	_sources = [];
 	
 	/** @type {MediaDownloader} */
-	_mediaDownloader = null;
+	_mediaDownloader;
 	
 	/** @type {Map<string, ContentTransform>} */
 	_contentTransforms = new Map();
 
 	/**
-	 * @param {ContentOptions|Object} config
-	 * @param {Logger} parentLogger
+	 * @param {import('./content-options.js').ContentOptions} [config]
+	 * @param {Logger} [parentLogger]
 	 */
-	constructor(config, parentLogger = null) {
-		this._config = new ContentOptions(config);
+	constructor(config, parentLogger) {
+		this._config = resolveContentOptions(config);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
 		this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
@@ -88,7 +96,9 @@ export class LaunchpadContent {
 			try {
 				Credentials.init(this._config.credentialsPath, this._logger);
 			} catch (err) {
-				this._logger.warn('Could not load credentials:', err.message);
+				if (err instanceof Error) {
+					this._logger.warn('Could not load credentials:', err.message);
+				}
 			}
 		}
 		
@@ -99,8 +109,8 @@ export class LaunchpadContent {
 	}
 
 	/**
-	 * @param {Array<ContentSource>} sources
-	 * @returns {Promise}
+	 * @param {Array<ContentSource>?} sources
+	 * @returns {Promise<void>}
 	 */
 	async start(sources = null) {
 		sources = sources || this.sources;
@@ -159,9 +169,9 @@ export class LaunchpadContent {
 	/**
 	 * Alias for start(source)
 	 * @param {Array<ContentSource>} sources
-	 * @returns {Promise}
+	 * @returns {Promise<void>}
 	 */
-	async download(sources = null) {
+	async download(sources = []) {
 		return this.start(sources);
 	}
 	
@@ -169,12 +179,13 @@ export class LaunchpadContent {
 	 * Clears all cached content except for files that match config.keep.
 	 * @param {Array<ContentSource>} sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
 	 * 
-	 * @param {boolean} temp Clear the temp dir
-	 * @param {boolean} backups Clear the backup dir
-	 * @param {boolean} downloads Clear the download dir
-	 * @param {boolean} removeIfEmpty Remove each dir if it's empty after clearing
+	 * @param {object} options
+	 * @param {boolean} [options.temp] Clear the temp dir
+	 * @param {boolean} [options.backups] Clear the backup dir
+	 * @param {boolean} [options.downloads] Clear the download dir
+	 * @param {boolean} [options.removeIfEmpty] Remove each dir if it's empty after clearing
 	 */
-	async clear(sources = null, {
+	async clear(sources = [], {
 		temp = true,
 		backups = true,
 		downloads = true,
@@ -212,9 +223,9 @@ export class LaunchpadContent {
 	
 	/**
 	 * Backs up all downloads of source to a separate backup dir.
-	 * @param {Array<ContentSource>} source 
+	 * @param {Array<ContentSource>} sources
 	 */
-	async backup(sources = null) {
+	async backup(sources = []) {
 		for (const source of sources) {
 			try {
 				const downloadPath = this.getDownloadPath(source);
@@ -232,10 +243,10 @@ export class LaunchpadContent {
 	
 	/**
 	 * Restores all downloads of source from its backup dir if it exists.
-	 * @param {Array<ContentSource>} source 
+	 * @param {Array<ContentSource>} sources 
 	 * @param {boolean} removeBackups
 	 */
-	async restore(sources = null, removeBackups = true) {
+	async restore(sources = [], removeBackups = true) {
 		for (const source of sources) {
 			try {
 				const downloadPath = this.getDownloadPath(source);
@@ -256,10 +267,10 @@ export class LaunchpadContent {
 	}
 	
 	/**
-	 * @param {ContentSource} source 
+	 * @param {ContentSource} [source] 
 	 * @returns {string}
 	 */
-	getDownloadPath(source = null) {
+	getDownloadPath(source) {
 		if (source) {
 			return path.resolve(path.join(this._config.downloadPath, source.config.id));
 		} else {
@@ -268,10 +279,10 @@ export class LaunchpadContent {
 	}
 	
 	/**
-	 * @param {ContentSource} source 
+	 * @param {ContentSource} [source] 
 	 * @returns {string}
 	 */
-	getTempPath(source = null) {
+	getTempPath(source) {
 		const downloadPath = this._config.downloadPath;
 		const tokenizedPath = this._config.tempPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
@@ -283,10 +294,10 @@ export class LaunchpadContent {
 	}
 	
 	/**
-	 * @param {ContentSource} source 
+	 * @param {ContentSource} [source] 
 	 * @returns {string}
 	 */
-	getBackupPath(source = null) {
+	getBackupPath(source) {
 		const downloadPath = this._config.downloadPath;
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
@@ -298,66 +309,69 @@ export class LaunchpadContent {
 	}
 	
 	/**
-	 * 
-	 * @param {Array<*>|Object} sourceConfigs 
+	 * @param {import('./content-options.js').ContentOptions['sources']} sourceConfigs 
 	 * @returns {Array<ContentSource>}
 	 */
 	_createSources(sourceConfigs) {
-		if (!sourceConfigs || sourceConfigs.length === 0) {
+		if (!sourceConfigs || (Array.isArray(sourceConfigs) && sourceConfigs.length === 0)) {
 			this._logger.warn('No content sources found in config.');
-			return;
+			return [];
 		}
 		
 		const sources = [];
+
+		/**
+		 * @type {(import('./content-options.js').AllSourceOptions)[]}
+		 */
+		let sourceConfigArray = [];
 		
 		if (!Array.isArray(sourceConfigs)) {
 			// Backwards compatibility for key/value-based
 			// configs where the key is the source ID
 			const entries = Object.entries(sourceConfigs);
-			const configs = [];
 			for (const [id, config] of entries) {
-				configs.push({
-					id,
-					...config
+				sourceConfigArray.push({
+					...config,
+					id
 				});
 			}
-			sourceConfigs = configs;
+		} else {
+			sourceConfigArray = sourceConfigs;
 		}
-		
-		for (const sourceConfig of sourceConfigs) {
+
+		for (const sourceConfig of sourceConfigArray) {
 			try {
 				/**
 				 * @type {ContentSource}
 				 */
 				let source;
-				const config = {
-					...this._config,
-					...sourceConfig
-				};
 
 				switch (sourceConfig.type) {
 					case ContentSourceTypes.airtable:
-						source = new AirtableSource(config, this._logger);
+						source = new AirtableSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.contentful:
-						source = new ContentfulSource(config, this._logger);
+						source = new ContentfulSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.strapi:
-						source = new StrapiSource(config, this._logger);
+						source = new StrapiSource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.sanity:
-						source = new SanitySource(config, this._logger);
+						source = new SanitySource(sourceConfig, this._logger);
 						break;
 					case ContentSourceTypes.json:
 					default:
 						if (sourceConfig.type !== ContentSourceTypes.json) {
-							if (config && sourceConfig.type) {
-								this._logger.warn(`Unknown source type '${sourceConfig.type}'. Defaulting ${config.id} to '${ContentSourceTypes.json}'.`);
+							// @ts-expect-error - user may have passed in a custom type that we don't know about
+							if ((sourceConfig).type) {
+								// @ts-expect-error
+								this._logger.warn(`Unknown source type '${sourceConfig.type}'. Defaulting ${sourceConfig.id} to '${ContentSourceTypes.json}'.`);
 							} else {
-								this._logger.info(`Defaulting source '${config.id}' to 'json'.`);
+								// @ts-expect-error
+								this._logger.info(`Defaulting source '${sourceConfig.id}' to 'json'.`);
 							}
 						}
-						source = new JsonSource(config, this._logger);
+						source = new JsonSource(sourceConfig, this._logger);
 						break;
 				}
 
@@ -375,17 +389,14 @@ export class LaunchpadContent {
 	 *
 	 * @param {ContentSource} source
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _downloadMedia(source, result) {
-		await this._mediaDownloader.sync(result.mediaDownloads, new ContentOptions({
+		await this._mediaDownloader.sync(result.mediaDownloads, {
 			...this._config,
-			...source.config,
-			...{
-				downloadPath: this.getDownloadPath(source),
-				tempPath: this.getTempPath(source)
-			}
-		}));
+			downloadPath: this.getDownloadPath(source),
+			tempPath: this.getTempPath(source)
+		});
 
 		return result;
 	}
@@ -394,7 +405,7 @@ export class LaunchpadContent {
 	 * Saves a result's data file to a local path
 	 * @param {ContentSource} source
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _saveDataFiles(source, result) {
 		for (const resultData of result.dataFiles) {
@@ -417,10 +428,13 @@ export class LaunchpadContent {
 	 * Saves a result's data file to a local path
 	 * @param {ContentSource} source
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _applyContentTransforms(source, result) {
-		const transforms = source.config.contentTransforms || this.config.contentTransforms;
+		/**
+		 * @type {any}
+		 */
+		const transforms = 'contentTransforms' in source.config ? source.config.contentTransforms : this._config.contentTransforms;
 
 		for (const resultData of result.dataFiles) {
 			if (!resultData.content) {
@@ -440,6 +454,10 @@ export class LaunchpadContent {
 					const transformer = this._contentTransforms.get(transformId);
 					
 					try {
+						if (!transformer) {
+							throw new Error(`Could not find content transform '${transformId}'`);
+						}
+
 						this._logger.debug(
 							chalk.gray(`Applying content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`));
 						jsonpath.apply(resultData.content, path, transformer.transform);
@@ -456,6 +474,9 @@ export class LaunchpadContent {
 		return Promise.resolve(result);
 	}
 	
+	/**
+	 * @param {string} dirPath
+	 */
 	async _clearDir(dirPath, {
 		removeIfEmpty = true,
 		ignoreKeep = false
@@ -473,12 +494,16 @@ export class LaunchpadContent {
 		}
 	}
 
+	/**
+	 * @param {string} tokenizedPath
+	 * @param {string} downloadPath
+	 */
 	_getDetokenizedPath(tokenizedPath, downloadPath) {
-		if (tokenizedPath.includes(ContentOptions.TIMESTAMP_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(ContentOptions.TIMESTAMP_TOKEN, FileUtils.getDateString());
+		if (tokenizedPath.includes(TIMESTAMP_TOKEN)) {
+			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString());
 		}
-		if (tokenizedPath.includes(ContentOptions.DOWNLOAD_PATH_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(ContentOptions.DOWNLOAD_PATH_TOKEN, downloadPath);
+		if (tokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
+			tokenizedPath = tokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);
 		}
 		return path.resolve(tokenizedPath);
 	}

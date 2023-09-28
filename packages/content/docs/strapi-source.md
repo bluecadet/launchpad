@@ -13,6 +13,6 @@ Options for StrapiSource
 | <a name="module_strapi-source.StrapiOptions+limit">`limit`</a> |  <code>number</code>|  <code>100</code>  | Max number of entries per page. |
 | <a name="module_strapi-source.StrapiOptions+maxNumPages">`maxNumPages`</a> |  <code>number</code>|  <code>-1</code>  | Max number of pages. Use the default of `-1` for all pages |
 | <a name="module_strapi-source.StrapiOptions+pageNumZeroPad">`pageNumZeroPad`</a> |  <code>number</code>|  <code>0</code>  | How many zeros to pad each json filename index with. |
-| <a name="module_strapi-source.StrapiOptions+identifier">`identifier`</a> |  <code>string</code>|  | Username or email. Should be configured via `./credentials.json` |
-| <a name="module_strapi-source.StrapiOptions+password">`password`</a> |  <code>string</code>|  | Should be configured via `./credentials.json` |
+| <a name="module_strapi-source.StrapiOptions+identifier">`identifier`</a> |  <code>string</code>|  | Username or email. Should be configured via `./.env.local` |
+| <a name="module_strapi-source.StrapiOptions+password">`password`</a> |  <code>string</code>|  | Should be configured via `./.env.local` |
 | <a name="module_strapi-source.StrapiOptions+token">`token`</a> |  <code>string</code>|  | Can be used instead of identifer/password if you previously generated one. Otherwise this will be automatically generated using the identifier or password. |

@@ -1,40 +1,34 @@
 import chalk from 'chalk';
 import autoBind from 'auto-bind';
-import { LogManager, Logger, TaskQueue, TaskQueueOptions, execScript } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger, TaskQueue, execScript } from '@bluecadet/launchpad-utils';
 import CommandHooks from './command-hooks.js';
 
-export class CommandOptions {
-	constructor({
-		tasks = new TaskQueueOptions()
-	} = {}) {
-		/**
-		 * @type {TaskQueueOptions}
-		 */
-		this.tasks = new TaskQueueOptions(tasks);
-	}
-}
+/**
+ * @typedef CommandOptions
+ * @property {import('@bluecadet/launchpad-utils/lib/task-queue.js').TaskQueueOptions} [tasks]
+ */
 
 export class CommandCenter {
 	/** @type {CommandOptions} */
-	_config = {};
+	_config;
 	
 	/** @type {Logger} */
-	_logger = null;
+	_logger;
 	
 	/** @type {Map<string, Command>} */
 	_commands = new Map();
 	
 	/** @type {TaskQueue} */
-	_tasks = null;
+	_tasks;
 	
 	/**
 	 * 
-	 * @param {CommandOptions|Object} config 
-	 * @param {*} logger 
+	 * @param {CommandOptions} [config] 
+	 * @param {Logger} [logger]
 	 */
-	constructor(config = null, logger = null) {
+	constructor(config, logger) {
 		autoBind(this);
-		this._config = new CommandOptions(config);
+		this._config = config || {};
 		this._logger = logger || LogManager.getInstance().getLogger();
 		this._tasks = new TaskQueue(this._config.tasks, this._logger);
 	}
@@ -54,15 +48,17 @@ export class CommandCenter {
 	/**
 	 * 
 	 * @param {string} commandName The name of the command to run
-	 * @returns {Promise} The promise returned by the command function
+	 * @param {unknown[]} args
+	 * @returns {Promise<void | null>} The promise returned by the command function
 	 */
 	async run(commandName, ...args) {
-		if (!this._commands.has(commandName)) {
+		const command = this._commands.get(commandName);
+
+		if (!command) {
 			return Promise.reject(new Error(`Command not found: '${commandName}'`));
 		}
 		
 		this._logger.info(`Running command: ${chalk.blue(commandName)}`);
-		const command = this._commands.get(commandName);
 		
 		if (command.queued) {
 			return this._tasks.add(command.run, command.name, ...args);
@@ -72,9 +68,14 @@ export class CommandCenter {
 	}
 	
 	/**
-	 * @param {CommandHooks} hooks 
+	 * @param {CommandHooks} commandHooks 
 	 */
 	addCommandHooks(commandHooks) {
+		/**
+		 * 
+		 * @param {import('./command-hooks.js').ExecHook[]} hooks 
+		 * @param {boolean} isPre 
+		 */
 		const add = (hooks, isPre) => {
 			const label = isPre ? 'pre' : 'post';
 			for (const hook of hooks) {
@@ -82,12 +83,12 @@ export class CommandCenter {
 					this._logger.info(`Adding ${label}-hook for ${chalk.blue(hook.command)}: '${hook.script}'`);
 					const fn = async () => {
 						this._logger.info(`Running ${chalk.magenta(`${label}-hook`)} for ${chalk.blue(hook.command)}: '${hook.script}'`);
-						return execScript(hook.script, null, this._logger);
+						await execScript(hook.script, undefined, this._logger);
 					};
 					this.addHook(hook.command, isPre ? fn : null, isPre ? null : fn);
 				} catch (err) {
 					this._logger.error(`Can't add ${label}-hook '${hook.script}' for '${chalk.blue(hook.command)}':`, err);
-					execScript(hook.command, null, this._logger);
+					execScript(hook.command, undefined, this._logger);
 				}
 			}
 		};
@@ -98,14 +99,16 @@ export class CommandCenter {
 	/**
 	 * 
 	 * @param {string} commandName 
-	 * @param {function():Promise} before Called before the command is run
-	 * @param {function():Promise} after Called after the command was run
+	 * @param {(() => Promise<void>)?} before Called before the command is run
+	 * @param {(() => Promise<void>)?} after Called after the command was run
 	 */
 	addHook(commandName, before = null, after = null) {
-		if (!this._commands.has(commandName)) {
+		const command = this._commands.get(commandName);
+
+		if (!command) {
 			throw new Error(`Command not found: '${commandName}'`);
 		}
-		const command = this._commands.get(commandName);
+
 		if (before) {
 			command.preHooks.push(before);
 			this._logger.debug(`Added pre-hook for: ${chalk.blue(commandName)}`);
@@ -117,14 +120,25 @@ export class CommandCenter {
 	}
 }
 
+/**
+ * @template {(...args: any[]) => Promise<unknown>} [F=(...args: any[]) => Promise<void>]
+ */
 export class Command {
+	/**
+	 * @param {object} options
+	 * @param {string} options.name
+	 * @param {F} options.callback
+	 * @param {string} [options.help]
+	 * @param {boolean} [options.queued]
+	 * @param {Logger | null} [options.logger]
+	 */
 	constructor({
 		name,
 		callback,
 		help = '',
 		queued = true,
 		logger = null
-	} = {}) {
+	}) {
 		autoBind(this);
 		/**
 		 * The name of the command used for running.
@@ -133,7 +147,7 @@ export class Command {
 		this.name = name;
 		/**
 		 * The callback to trigger. Will receives args passed via run().
-		 * @type {function():Promise}
+		 * @type {F}
 		 */
 		this.callback = callback;
 		/**
@@ -148,24 +162,24 @@ export class Command {
 		this.queued = queued;
 		/**
 		 * Callbacks that will be triggered before the command is executed.
-		 * @type {Array<function():Promise>}
+		 * @type {Array<(...args: Parameters<F>)=>Promise<void>>}
 		 */
 		this.preHooks = [];
 		/**
 		* Callbacks that will be triggered after the command was executed.
-		* @type {Array<function():Promise>}
+		* @type {Array<(...args: Parameters<F>)=>Promise<void>>}
 		*/
 		this.postHooks = [];
 		/**
-		 * @type {Logger}
+		 * @type {Logger | null}
 		 */
 		this.logger = logger;
 	}
 	
 	/**
 	 * Runs a command with optional pre- and post-command hooks.
-	 * @param  {...any} args 
-	 * @returns {*} Results of this command's callback function, if any
+	 * @param  {Parameters<F>} args 
+	 * @returns {Promise<ReturnType<F> | null>} Results of this command's callback function, if any
 	 */
 	async run(...args) {
 		const logger = this.logger || console;
@@ -176,8 +190,12 @@ export class Command {
 				logger.error(`Could not run pre-hook for command ${chalk.blue(this.name)}:`, err);
 			}
 		}
+		/**
+		 * @type {ReturnType<F> | null}
+		 */
 		let result = null;
 		try {
+			// @ts-expect-error - no clue why TS is complaining here... 
 			result = await this.callback(...args);
 		} catch (err) {
 			logger.error(`Could not run command ${chalk.blue(this.name)}:`, err);

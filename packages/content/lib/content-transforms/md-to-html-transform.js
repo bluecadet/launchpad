@@ -13,8 +13,11 @@ class MdToHtmlTransform extends ContentTransform {
 		this.transform = this.transform.bind(this);
 	}
 	
+	/**
+	 * @param {unknown} content
+	 */
 	transform(content) {
-		if (typeof content !== 'string' && !(content instanceof String)) {
+		if (typeof content !== 'string') {
 			throw new Error('Can\'t convert a non-string content to html.');
 		}
 

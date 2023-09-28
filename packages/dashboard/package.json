@@ -1,10 +1,22 @@
 {
   "name": "@bluecadet/launchpad-dashboard",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "types/*"
+      ]
+    }
+  },
   "bin": "index.js",
+  "files": [
+    "types",
+    "index.js",
+    "lib"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -18,7 +30,7 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.4.0"
+    "@bluecadet/launchpad-utils": "~1.5.0"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/dashboard"
 }

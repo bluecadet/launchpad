@@ -45,54 +45,55 @@ Currently supported sources are:
 
 Some content sources require credentials to access their APIs.
 
-These can all be stored in a local `.credentials.json` file which maps content-source IDs to their credentials. For example:
+These can all be stored in a `.env` or `.env.local` file which will be automatically loaded by launchpad.
 
-### `.credentials.json`
+### `.env.local`
 
-```json
-{
-  "airtable-cms": {
-    "apiKey": "<YOUR_AIRTABLE_API_KEY>"
-  },
-  "contentful-cms": {
-    "previewToken": "<YOUR_CONTENTFUL_PREVIEW_TOKEN>",
-    "deliveryToken": "<YOUR_CONTENTFUL_DELIVERY_TOKEN>",
-    "usePreviewApi": false
-  },
-  "sanity-cms": {
-    "apiToken": "<YOUR_API_TOKEN>"
-  },
-  "strapi-cms": {
-    "identifier": "<YOUR_API_USER>",
-    "password": "<YOUR_API_PASS>"
-  }
-}
+```sh
+AIRTABLE_API_KEY=<YOUR_AIRTABLE_API_KEY>
+
+CONTENTFUL_PREVIEW_TOKEN=<YOUR_CONTENTFUL_PREVIEW_TOKEN>
+CONTENTFUL_DELIVERY_TOKEN=<YOUR_CONTENTFUL_DELIVERY_TOKEN>
+CONTENTFUL_USE_PREVIEW_API=false
+
+SANITY_API_TOKEN=<YOUR_API_TOKEN>
+
+STRAPI_IDENTIFIER=<YOUR_API_USER>
+STRAPI_PASSWORD=<YOUR_API_PASS>
 ```
 
-### `launchpad.json`
+### `launchpad.config.js`
 
 ```js
-{
-  "content": {
-    "sources": [{
-      "id": "airtable-cms",
-      "type": "airtable",
-      //...
-    }, {
-      "id": "contentful-cms",
-      "type": "contentful",
-      //...
-    }, {
-      "id": "sanity-cms",
-      "type": "sanity",
-      //...
-    }, {
-      "id": "strapi-cms",
-      "type": "strapi",
-      //...
-    }]
-  }
-}
+export default defineConfig({
+	content: {
+		sources: [
+			{
+				id: "airtable-cms",
+				type: "airtable",
+				apiKey: process.env.AIRTABLE_API_KEY,
+			},
+			{
+				id: "contentful-cms",
+				type: "contentful",
+				previewToken: process.env.CONTENTFUL_PREVIEW_TOKEN,
+				deliveryToken: process.env.CONTENTFUL_DELIVERY_TOKEN,
+				usePreviewApi: false,
+			},
+			{
+				id: "sanity-cms",
+				type: "sanity",
+				apiToken: process.env.SANITY_API_TOKEN,
+			},
+			{
+				id: "strapi-cms",
+				type: "strapi",
+				identifier: process.env.STRAPI_IDENTIFIER,
+			},
+		],
+	},
+});
+
 ```
 
 ## Post Processing

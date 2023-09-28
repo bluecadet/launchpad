@@ -4,30 +4,31 @@
 
 import autoBind from 'auto-bind';
 
-import LaunchpadOptions from './launchpad-options.js';
 import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
 import CommandCenter, { Command } from './command-center.js';
+import { resolveLaunchpadOptions } from './launchpad-options.js';
+import CommandHooks from './command-hooks.js';
 
 /**
  * Core Launchpad class to configure, monitor apps, download content and manage logs.
  */
 export class LaunchpadCore {
-	/** @type {LaunchpadOptions} */
-	_config = null;
+	/** @type {import('./launchpad-options.js').ResolvedLaunchpadOptions} */
+	_config;
 	
 	/** @type {Logger} */
-	_logger = null;
+	_logger;
 	
 	/** @type {LaunchpadContent} */
-	_content = null;
+	_content;
 	
 	/** @type {LaunchpadMonitor} */
-	_monitor = null;
+	_monitor;
 	
 	/** @type {CommandCenter} */
-	_commands = null;
+	_commands;
 	
 	/** @type {boolean} */
 	_isShuttingDown = false;
@@ -37,12 +38,12 @@ export class LaunchpadCore {
 	
 	/**
 	 * 
-	 * @param {LaunchpadOptions|Object} config 
+	 * @param {import('./launchpad-options.js').LaunchpadOptions} config 
 	 */
 	constructor(config) {
 		autoBind(this);
 		
-		this._config = new LaunchpadOptions(config);
+		this._config = resolveLaunchpadOptions(config);
 		this._logger = LogManager.getInstance(this._config.logging).getLogger();
 		this._commands = new CommandCenter(this._config.commands, this._logger);
 		this._content = new LaunchpadContent(this._config.content, this._logger);
@@ -54,7 +55,7 @@ export class LaunchpadCore {
 		this._commands.add(new Command({ name: 'stop-apps', callback: this._runStopApps }));
 		this._commands.add(new Command({ name: 'update-content', callback: this._runUpdateContent }));
 		
-		this._commands.addCommandHooks(this._config.hooks);
+		this._commands.addCommandHooks(new CommandHooks(this._config.hooks));
 		
 		if (this._config.shutdownOnExit) {
 			onExit(this.shutdown);
@@ -73,10 +74,10 @@ export class LaunchpadCore {
 	 * Stops launchpad and exits this process.
 	 * This function is queued and waits until the queue is empty before it executes.
 	 * 
-	 * @param @type {number|string|Error} eventOrExitCode 
+	 * @param {number|string|Error} [eventOrExitCode] 
 	 */
 	async shutdown(eventOrExitCode = undefined) {
-		return this._commands.run('shutdown', eventOrExitCode);
+		await this._commands.run('shutdown', eventOrExitCode);
 	}
 	
 	/**
@@ -116,7 +117,7 @@ export class LaunchpadCore {
 	/**
 	 * @private
 	 */
-	async _runShutdown(eventOrExitCode = 0, ...args) {
+	async _runShutdown(eventOrExitCode = 0) {
 		try {
 			this._logger.info('Launchpad exiting... 👋');
 			

@@ -6,14 +6,14 @@ export class DataFile {
 	localPath = '';
 	/**
 	 * The file contents to be saved.
-	 * @type {*}
+	 * @type {unknown}
 	 */
 	content = '';
 
 	/**
 	 *
 	 * @param {string} localPath
-	 * @param {string|JSON|Object|Array} content
+	 * @param {unknown} content
 	 */
 	constructor(localPath, content) {
 		this.localPath = localPath;
@@ -25,7 +25,7 @@ export class DataFile {
 	 * @returns {string}
 	 */
 	getContentStr() {
-		if ((typeof this.content) === 'string') {
+		if (typeof this.content === 'string') {
 			return this.content;
 		} else if (this.content) {
 			return JSON.stringify(this.content);
@@ -35,11 +35,16 @@ export class DataFile {
 	}
 }
 export class MediaDownload {
+	/**
+	 * @param {object} options
+	 * @param {string} options.url
+	 * @param {string} [options.localPath]
+	 */
 	constructor({
 		url,
 		localPath = undefined,
 		...rest
-	} = {}) {
+	}) {
 		/**
 		 * The url to download
 		 * @type {string}
@@ -68,7 +73,7 @@ export class MediaDownload {
 export class ContentResult {
 	/**
 	 * List of data files to save
-	 * @type {Array<ContentResult>}
+	 * @param {Array<ContentResult>} results
 	 */
 	static combine(results) {
 		const finalResult = results.reduce((previousValue, currentValue) => {
@@ -104,7 +109,7 @@ export class ContentResult {
 	/**
 	 *
 	 * @param {string} localPath
-	 * @param {*} content
+	 * @param {unknown} content
 	 */
 	addDataFile(localPath, content) {
 		this.dataFiles.push(new DataFile(localPath, content));
@@ -120,10 +125,10 @@ export class ContentResult {
 
 	/**
 	 *
-	 * @param {MediaDownload} urlOrDownload
+	 * @param {MediaDownload | string} urlOrDownload
 	 */
 	addMediaDownload(urlOrDownload) {
-		if (typeof urlOrDownload === 'string' || urlOrDownload instanceof String) {
+		if (typeof urlOrDownload === 'string') {
 			urlOrDownload = new MediaDownload({
 				url: urlOrDownload
 			});
@@ -133,7 +138,7 @@ export class ContentResult {
 
 	/**
 	 *
-	 * @param {Iterable} files
+	 * @param {Iterable<MediaDownload>} files
 	 */
 	addMediaDownloads(files) {
 		this.mediaDownloads.push(...files);
@@ -144,10 +149,20 @@ export class ContentResult {
 	 * @param {string} id
 	 */
 	collate(id) {
+		/**
+		 * @type {Array<DataFile>}
+		 */
+		const initial = [];
+
 		// Collect all data into 1 object.
 		const collatedData = this.dataFiles.reduce((previousValue, currentValue) => {
+			// error if the content isn't iterable
+			if (!Array.isArray(currentValue.content)) {
+				throw new Error(`Content for ${currentValue.localPath} is not iterable`);
+			}
+
 			return [...previousValue, ...currentValue.content];
-		}, []);
+		}, initial);
 
 		// Remove old datafiles.
 		this.dataFiles = [];

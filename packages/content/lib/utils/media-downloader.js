@@ -9,10 +9,13 @@ import sharp from 'sharp'; // image manipulation
 import cliProgress from 'cli-progress';
 
 import FileUtils from './file-utils.js';
-import { ContentOptions } from '../content-options.js';
 import { MediaDownload } from '../content-sources/content-result.js';
 
 const pipeline = promisify(stream.pipeline);
+
+/**
+ * @type {typeof import('p-queue').default?}
+ */
 let PQueue = null; // Future import
 
 /**
@@ -21,6 +24,7 @@ let PQueue = null; // Future import
  * If an error occurs, content is rolled back to its original state.
  */
 export class MediaDownloader {
+	/** @param {import('@bluecadet/launchpad-utils').Logger | Console} logger */
 	constructor(logger) {
 		this.logger = logger || console;
 	}
@@ -39,11 +43,11 @@ export class MediaDownloader {
 	 * the downloads, `options.dest` will remain untouched.
 	 *
 	 * @param {Array<MediaDownload>} downloads
-	 * @param {ContentOptions} options
+	 * @param {import('../content-options.js').ResolvedContentOptions} options
 	 */
 	async sync(downloads, options) {
 		this.logger.info(`Syncing ${chalk.cyan(downloads.length)} files`);
-		
+
 		if (!PQueue) {
 			// @see https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c#pure-esm-package
 			PQueue = (await import('p-queue')).default;
@@ -51,8 +55,11 @@ export class MediaDownloader {
 		const queue = new PQueue({
 			concurrency: options.maxConcurrent || 4
 		});
-		
+
 		let tempDir = '';
+		/**
+		 * @type {cliProgress.Bar | null}
+		 */
 		let progress = null;
 
 		try {
@@ -66,7 +73,7 @@ export class MediaDownloader {
 			//   keepFilter += '|' + options.keep;
 			// }
 			const keepFilter = options.keep;
-			
+
 			if (options.clearOldFilesOnStart) {
 				this.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(destDir)}`));
 				await FileUtils.removeFilesFromDir(destDir, keepFilter);
@@ -76,10 +83,10 @@ export class MediaDownloader {
 				this.logger.debug(chalk.gray(`Clearing temp dir: ${chalk.yellow(tempDir)}`));
 				await fs.remove(tempDir);
 			}
-			
+
 			this.logger.debug(chalk.gray(`Creating temp dir: ${chalk.yellow(tempDir)}`));
 			await fs.ensureDir(tempDir);
-			
+
 			// Remove duplicate download tasks
 			const uniqueKeys = new Set();
 			const uniqueDownloads = downloads.filter(download => {
@@ -91,7 +98,7 @@ export class MediaDownloader {
 				return true;
 			});
 			let numCompleted = 0;
-			
+
 			// Initialize progress meter
 			const progressFormat = MediaDownloader.getProgressFormat('Downloading', 'files');
 			progress = new cliProgress.Bar(
@@ -101,13 +108,16 @@ export class MediaDownloader {
 				cliProgress.Presets.shades_classic
 			);
 			progress.start(uniqueDownloads.length, 0);
-			
+
 			// Make functions which return async functions
 			// that will download a url when executed
 			const taskFns = uniqueDownloads.map((download) => async () => {
 				return this.download(download, tempDir, destDir, options)
 					.then(async (tempFilePath) => {
-						progress.update(++numCompleted);
+						if (progress) {
+							progress.update(++numCompleted);
+						}
+
 						return {
 							url: download.url,
 							tempFilePath,
@@ -119,7 +129,11 @@ export class MediaDownloader {
 						if (options.abortOnError) {
 							throw error;
 						}
-						progress.update(++numCompleted);
+
+						if (progress) {
+							progress.update(++numCompleted);
+						}
+
 						return {
 							url: download.url,
 							tempFilePath: null,
@@ -127,13 +141,15 @@ export class MediaDownloader {
 						};
 					});
 			});
-			
+
 			// Run download queue
 			await queue
 				.addAll(taskFns)
 				.then(async (results) => {
 					// Finish progress animation before printing anything to console
-					progress.stop();
+					if (progress) {
+						progress.stop();
+					}
 					// Return only errors
 					return results.filter(r => !!r.error).map(r => r.error);
 				})
@@ -155,10 +171,10 @@ export class MediaDownloader {
 						this.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(destDir)}`));
 						FileUtils.removeFilesFromDir(destDir, keepFilter);
 					}
-					
+
 					this.logger.debug(chalk.gray(`Copying new files to: ${chalk.green(destDir)}`));
 					fs.copySync(tempDir, destDir);
-					
+
 					this.logger.debug(chalk.gray(`Removing temp dir: ${chalk.yellow(tempDir)}`));
 					fs.removeSync(tempDir);
 				})
@@ -186,13 +202,13 @@ export class MediaDownloader {
 			return Promise.reject(error);
 		}
 	}
-	
+
 	/**
 	 * @param {MediaDownload} task
 	 * @param {string} tempDir Directory path for temporary files
 	 * @param {string} destDir Directory path for final downloaded files
-	 * @param {ContentOptions} options Content and source options
-	 * @returns {Promise<string>} Resolves with the downloaded file path
+	 * @param {import('../content-options.js').ResolvedContentOptions} options Content and source options
+	 * @returns {Promise<string|undefined>} Resolves with the downloaded file path
 	 */
 	async download(task, tempDir, destDir, options) {
 		try {
@@ -201,44 +217,42 @@ export class MediaDownloader {
 			const tempFilePath = path.join(tempDir, localPath);
 			const tempFilePathDir = path.dirname(tempFilePath);
 			let isCached = false;
-			
+
 			fs.ensureDirSync(tempFilePathDir);
-			
+
 			const exists = fs.existsSync(destPath);
 			const stats = exists ? fs.lstatSync(destPath) : null;
-			
+
 			// check for cached image first
-			if (!options.ignoreCache && exists && stats.isFile()) {
-				let response = null;
-				
+			if (!options.ignoreCache && exists && stats && stats.isFile()) {
 				if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
 					// Get just the file header to check for modified date and file size
-					response = await got.head(task.url, {
+					const response = await got.head(task.url, {
 						headers: this._getRequestHeaders(destPath),
 						timeout: {
 							response: options.maxTimeout
 						}
 					});
-				}
-				
-				let isRemoteNew = false;
-				
-				if (options.enableIfModifiedSinceCheck) {
-					// Remote file has been modified since the local file changed
-					isRemoteNew = isRemoteNew || (response.statusCode !== 304);
-				}
-				
-				if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
-					// Remote file has a different size than the local file
-					const remoteSize = parseInt(response.headers['content-length']);
-					const localSize = stats.size;
-					isRemoteNew = isRemoteNew || (remoteSize !== localSize);
-				}
-				
-				if (!isRemoteNew) {
-					// copy existing, cached file from dest dir
-					fs.copyFileSync(destPath, tempFilePath);
-					isCached = true;
+
+					let isRemoteNew = false;
+
+					if (options.enableIfModifiedSinceCheck) {
+						// Remote file has been modified since the local file changed
+						isRemoteNew = isRemoteNew || (response.statusCode !== 304);
+					}
+
+					if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
+						// Remote file has a different size than the local file
+						const remoteSize = parseInt(response.headers['content-length']);
+						const localSize = stats.size;
+						isRemoteNew = isRemoteNew || (remoteSize !== localSize);
+					}
+
+					if (!isRemoteNew) {
+						// copy existing, cached file from dest dir
+						fs.copyFileSync(destPath, tempFilePath);
+						isCached = true;
+					}
 				}
 			}
 
@@ -253,7 +267,7 @@ export class MediaDownloader {
 					fs.createWriteStream(tempFilePath)
 				);
 			}
-			
+
 			// apply optional transforms
 			const ignoreTransformCache = options.ignoreImageTransformCache || !isCached;
 			await this._transformImage(
@@ -263,15 +277,17 @@ export class MediaDownloader {
 				options.ignoreImageTransformErrors,
 				ignoreTransformCache
 			);
-			
+
 			return Promise.resolve(tempFilePath);
 		} catch (error) {
-			return Promise.reject(
-				new Error(`Download failed for ${task.url} due to error (${error.message || error})`)
-			);
+			if (error instanceof Error) {
+				return Promise.reject(
+					new Error(`Download failed for ${task.url} due to error (${error.message || error})`)
+				);
+			}
 		}
 	}
-	
+
 	/**
 	 * Progress format used for `cliProgress` bar
 	 * @param {string} prefix Prepended to progress bar
@@ -282,12 +298,19 @@ export class MediaDownloader {
 		prefix = prefix || 'Processing';
 		return `${prefix} ${chalk.cyan('{value}/{total}')} ${tasksLabel}: ${chalk.cyan('{bar}')}`;
 	}
-	
+
+	/**
+	 * @typedef ImageTransform
+	 * @property {number} [scale]
+	 * @property {sharp.ResizeOptions} [resize]
+	 * @property {number} [blur]
+	 */
+
 	/**
 	 * 
 	 * @param {string} tempFilePath The file path of the image to transform
 	 * @param {string} cachedFilePath The path where the previous image would be cached
-	 * @param {Array<Object>} transforms Array of image transform objects
+	 * @param {Array<ImageTransform>} transforms Array of image transform objects
 	 * @param {boolean} ignoreErrors Silently fails if set to true (helpful if your media folder contains non-image files like 3D models)
 	 * @param {boolean} ignoreCache Set to true to force creating a new image for each transform, even if it already exists under that name.
 	 */
@@ -298,28 +321,31 @@ export class MediaDownloader {
 				const metadata = await image.metadata();
 				const operations = [];
 				let suffix = '';
-				
+
 				if (transform.scale) {
-					suffix += `@${transform.scale}x`;
-					operations.push(async () => this._scaleImage(image, metadata, transform.scale));
+					const scale = transform.scale;
+					suffix += `@${scale}x`;
+					operations.push(async () => this._scaleImage(image, metadata, scale));
 				}
-				
+
 				if (transform.resize) {
-					suffix += `@${transform.resize.width}x${transform.resize.height}`;
-					if (transform.resize.fit) {
-						suffix += `-${transform.resize.fit}`;
+					const resize = transform.resize;
+					suffix += `@${resize.width}x${resize.height}`;
+					if (resize.fit) {
+						suffix += `-${resize.fit}`;
 					}
-					operations.push(async () => this._resizeImage(image, metadata, transform.resize));
+					operations.push(async () => this._resizeImage(image, metadata, resize));
 				}
-				
+
 				if (transform.blur) {
-					suffix += `@blur_${transform.blur}`;
-					operations.push(async () => this._blurImage(image, metadata, transform.blur));
+					const blur = transform.blur;
+					suffix += `@blur_${blur}`;
+					operations.push(async () => this._blurImage(image, metadata, blur));
 				}
-				
+
 				const outputPath = FileUtils.addFilenameSuffix(tempFilePath, suffix);
 				const cachedPath = FileUtils.addFilenameSuffix(cachedFilePath, suffix);
-				
+
 				if (!ignoreCache && suffix.length > 0 && fs.existsSync(cachedPath)) {
 					this.logger.debug(`Using cached trasnformed image ${path.basename(outputPath)}`);
 					await fs.copyFile(cachedPath, outputPath);
@@ -339,15 +365,19 @@ export class MediaDownloader {
 			}
 		}
 	}
-	
+
 	/**
 	 * 
 	 * @param {sharp.Sharp} image 
 	 * @param {sharp.Metadata} metadata 
 	 * @param {number} scale 
-	 * @returns {Promise<sharp.Sharp>}
+	 * @returns {sharp.Sharp}
 	 */
 	_scaleImage(image, metadata, scale) {
+		if (!metadata.width || !metadata.height) {
+			throw new ImageTransformError('Image metadata is missing width or height');
+		}
+
 		return image.resize(
 			Math.round(metadata.width * scale),
 			Math.round(metadata.height * scale)
@@ -358,8 +388,8 @@ export class MediaDownloader {
 	 *
 	 * @param {sharp.Sharp} image
 	 * @param {sharp.Metadata} metadata
-	 * @param {object} options Options for Sharp resize()
-	 * @returns {Promise<sharp.Sharp>}
+	 * @param {sharp.ResizeOptions} options Options for Sharp resize()
+	 * @returns {sharp.Sharp}
 	 */
 	_resizeImage(image, metadata, options) {
 		return image.resize(options);
@@ -369,13 +399,16 @@ export class MediaDownloader {
 	 *
 	 * @param {sharp.Sharp} image
 	 * @param {sharp.Metadata} metadata
-	 * @param {object} amount Amount of blur in px
-	 * @returns {Promise<sharp.Sharp>}
+	 * @param {number} amount Amount of blur in px
+	 * @returns {sharp.Sharp}
 	 */
 	_blurImage(image, metadata, amount) {
 		return image.blur(amount);
 	}
 
+	/**
+	 * @param {string} filePath
+	 */
 	_getRequestHeaders(filePath) {
 		if (fs.existsSync(filePath)) {
 			return {
@@ -387,3 +420,13 @@ export class MediaDownloader {
 }
 
 export default MediaDownloader;
+
+class ImageTransformError extends Error {
+	/**
+	 * @param {string} [message] 
+	 * @param  {...any} args 
+	 */
+	constructor(message = '', ...args) {
+		super(message, ...args);
+	}
+}

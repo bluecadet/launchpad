@@ -11,20 +11,20 @@ import { SubEmitterSocket } from 'axon'; // used by PM2
 
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
-import { AppLogOptions, MonitorOptions, WindowOptions } from './monitor-options.js';
-import sortWindows, { SortApp } from './utils/sort-windows.js';
+import sortWindows from './utils/sort-windows.js';
+import { resolveMonitorConfig } from './monitor-options.js';
 
 export class LaunchpadMonitor {
-	/** @type {MonitorOptions} */
-	_config = null;
+	/** @type {import('./monitor-options.js').ResolvedMonitorOptions} */
+	_config;
 	
 	/**
 	 * @type {Logger}
 	 */
-	_logger = null;
+	_logger;
 	
 	/** @type {AppLogRouter} */
-	_appLogRouter = null;
+	_appLogRouter;
 	
 	/**
 	 * appName -> number of launches
@@ -33,14 +33,14 @@ export class LaunchpadMonitor {
 	_numAppLaunches = new Map();
 	
 	/**
-	 * @type {SubEmitterSocket}
+	 * @type {SubEmitterSocket | null}
 	 */
 	_pm2Bus = null;
 	
 	/**
 	 * Creates a new instance, starts it with the
 	 * config and resolves with the monitor instance.
-	 * @param {MonitorOptions} config 
+	 * @param {import('./monitor-options.js').MonitorOptions} config 
 	 * @returns {Promise<LaunchpadMonitor>} Promise that resolves with the new LaunchpadMonitor instance.
 	 */
 	static async createAndStart(config) {
@@ -50,10 +50,14 @@ export class LaunchpadMonitor {
 		return monitor;
 	}
 	
-	/** Force kills all PM2 instances */
+	/** 
+	 * Force kills all PM2 instances 
+	 * @returns {Promise<void>}
+	 */
 	static async kill() {
 		const logger = LogManager.getInstance().getLogger('monitor');
 		logger.info('Killing PM2...');
+
 		return new Promise((resolve, reject) => {
 			const child = spawn('npm', ['exec', 'pm2', 'kill'], {
 				shell: true
@@ -73,13 +77,13 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {MonitorOptions|Object} config 
-   * @param {Logger} parentLogger
+	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
+   * @param {Logger} [parentLogger]
 	 */
-	constructor(config, parentLogger = null) {
+	constructor(config, parentLogger) {
 		autoBind(this);
 		this._logger = LogManager.getInstance().getLogger('monitor', parentLogger);
-		this._config = new MonitorOptions(config);
+		this._config = resolveMonitorConfig(config);
 		this._appLogRouter = new AppLogRouter(this._logger);
 		this._applyWindowSettings = pDebounce(
 			this._applyWindowSettings,
@@ -145,8 +149,8 @@ export class LaunchpadMonitor {
 	/**
 	 * Starts an app or a list of app. Will connect to PM2 if not connected previously.
 	 * If no argument is passed, will start all apps.
-	 * @param @type {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
-	 * @returns {Promise}
+	 * @param {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
+	 * @returns {Promise<void>}
 	 */
 	async start(appNames = null) {
 		const isDaemonRunning = await this._isDaemonRunning();
@@ -175,8 +179,8 @@ export class LaunchpadMonitor {
 	/**
 	 * Stops an app or a list of app.
 	 * If no argument is passed, will stop all apps.
-	 * @param @type {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
-	 * @returns {Promise}
+	 * @param {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
+	 * @returns {Promise<void>}
 	 */
 	async stop(appNames = null) {
 		appNames = this._validateAppNames(appNames);
@@ -196,8 +200,8 @@ export class LaunchpadMonitor {
 	/**
 	 * Checks if any of these apps is currently running.
 	 * Checks against all apps if no argument is passed.
-	 * @param @type {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
-	 * @returns {Promise}
+	 * @param {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
+	 * @returns {Promise<boolean>}
 	 */
 	async isRunning(appNames = null) {
 		appNames = this._validateAppNames(appNames);
@@ -216,13 +220,13 @@ export class LaunchpadMonitor {
 	 * @returns {Promise<pm2.ProcessDescription>}
 	 */
 	async getAppProcess(appName, silent = false) {
-		return this._promisify(pm2.list, pm2).then(processes => {
-			const info = processes.find(appProcess => appProcess.name === appName);
+		return this._promisify(pm2.list, pm2).then((/** @type {any[]} */ processes) => {
+			const info = processes.find((/** @type {{ name: string; }} */ appProcess) => appProcess.name === appName);
 			if (!info) {
 				throw new Error(`No process found with the name '${appName}'`);
 			}
 			return info;
-		}).catch(err => {
+		}).catch((/** @type {any} */ err) => {
 			if (!silent) {
 				this._logger.warn(`Could not retrieve process info for: ${appName} (${err})`);
 			}
@@ -231,14 +235,16 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * Deletes all stored configs for all processes currently listed by PM2.
-	 * @returns {Promise}
+	 * @returns {Promise<void>}
 	 */
 	async deleteAllProcesses() {
 		try {
 			const processes = await this._promisify(pm2.list, pm2);
 			for (const process of processes) {
-				this._logger.debug(`Deleting process ${process.name}`);
-				await this._promisify(pm2.delete, pm2, process.name);
+				if (process.name) {
+					this._logger.debug(`Deleting process ${process.name}`);
+					await this._promisify(pm2.delete, pm2, process.name);
+				}
 			}
 		} catch (err) {
 			this._logger.error(`Could not delete all processes (${err})`);
@@ -248,7 +254,7 @@ export class LaunchpadMonitor {
 	/**
 	 * Get the startup options for appName
 	 * @param {string} appName 
-	 * @returns {AppOptions}
+	 * @returns {import('./monitor-options.js').ResolvedAppOptions}
 	 */
 	getAppOptions(appName) {
 		const options = this._config.apps.find(app => app.pm2.name === appName);
@@ -259,11 +265,17 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @returns {Array.<string>} An array containing the names of all configured apps (not to be confused with running processes).
+	 * @returns {Array<string>} An array containing the names of all configured apps (not to be confused with running processes).
 	 */
 	getAllAppNames() {
 		if ('apps' in this._config) {
-			return this._config.apps.map(app => app.pm2.name);
+			return this._config.apps.map(app => app.pm2.name).filter(
+				/** 
+				 * @param {string|undefined} name 
+				 * @returns {name is string}
+				*/
+				name => name !== undefined
+			);
 		} else {
 			return [];
 		}
@@ -278,16 +290,17 @@ export class LaunchpadMonitor {
 		
 		const options = this.getAppOptions(appName);
 		
+		// @ts-expect-error TS get's confused with the overloaded start signatures
 		return this._promisify(pm2.start, pm2, options.pm2)
-			.then(async appProcess => {
+			.then(async (/** @type {any} */ appProcess) => {
 				// Get expanded process info (otherwise pm2 just returns partial)
 				return (await this.getAppProcess(appName)) || appProcess;
 			})
-			.then(async appProcess => {
+			.then(async (/** @type {any} */ appProcess) => {
 				this._logger.info(`...app '${appName}' was started.`);
 				return appProcess;
 			})
-			.catch(err => {
+			.catch((/** @type {any} */ err) => {
 				this._logger.error(`Could not start app '${appName}':`);
 				this._logger.error(err);
 				throw err;
@@ -302,10 +315,10 @@ export class LaunchpadMonitor {
 		this._logger.info(`Stopping app '${appName}'...`);
 		
 		return this._promisify(pm2.stop, pm2, appName)
-			.then(async appProcess => {
+			.then(async (/** @type {any} */ appProcess) => {
 				this._logger.info(`...app '${appName}' was stopped.`);
 				return appProcess;
-			}).catch(err => {
+			}).catch((/** @type {any} */ err) => {
 				this._logger.error(`Could not stop app '${appName}':`, err);
 				throw err;
 			});
@@ -319,11 +332,12 @@ export class LaunchpadMonitor {
 	async _isAppRunning(appName, silent = true) {
 		return this.getAppProcess(appName, silent)
 			.then((appProcess) => {
-				return appProcess && appProcess.pm2_env && appProcess.pm2_env.status === 'online';
+				return !!appProcess && !!appProcess.pm2_env && appProcess.pm2_env.status === 'online';
 			}).catch(err => {
 				if (!silent) {
 					this._logger.warn(`Could not check if app '${appName}' is running: ${err}`);
 				}
+				return false;
 			});
 	}
 	
@@ -331,7 +345,7 @@ export class LaunchpadMonitor {
 		this._logger.debug('Checking if daemon is running...');
 		return new Promise((resolve, reject) => {
 			try {
-				// Private API as of 1/17/2022 -> could break
+				// @ts-expect-error - Private API as of 1/17/2022 -> could break
 				pm2.Client.pingDaemon(resolve);
 			} catch (err) {
 				reject(err);
@@ -346,8 +360,8 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @param @type {string|string[]|null} appNames 
-	 * @returns {string[]}
+	 * @param {string|string[]|null} appNames 
+	 * @returns {(string)[]}
 	 */
 	_validateAppNames(appNames = null) {
 		if (appNames === null || appNames === undefined) {
@@ -363,18 +377,16 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @param {AppOptions} options 
-	 * @returns {AppOptions} 
+	 * @param {import('./monitor-options.js').ResolvedAppOptions} options 
+	 * @returns {import('./monitor-options.js').ResolvedAppOptions} 
 	 */
 	_initAppOptions(options) {
 		if (!options.pm2 || !options.pm2.name) {
 			this._logger.error('PM2 config is incomplete or missing:', options);
 			return options;
 		}
-		options.logging = new AppLogOptions(options.logging);
-		options.windows = new WindowOptions(options.windows);
 		
-		// Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
+		// @ts-expect-error - Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
 		options.pm2.windowsHide = options.windows.hide;
 		this._appLogRouter.initAppOptions(options);
 		
@@ -384,19 +396,26 @@ export class LaunchpadMonitor {
 	/**
 	 * Applies windows settings to all apps in appNames based on their options.
 	 * 
-	 * @param {Array.<string>} appNames 
-	 * @returns {Promise}
+	 * @param {Array<string>} appNames 
+	 * @returns {Promise<void>}
 	 */
-	async _applyWindowSettings(appNames = null) {
+	async _applyWindowSettings(appNames = []) {
 		appNames = this._validateAppNames(appNames);
+		/** @type {import('./utils/sort-windows.js').SortApp[]} */
 		const apps = [];
 		
 		for (const appName of appNames) {
-			const sortApp = new SortApp();
-			sortApp.options = this.getAppOptions(appName);
-			
+			/** @type {import('./utils/sort-windows.js').SortApp} */
+			const sortApp = { options: this.getAppOptions(appName), pid: null };
+
 			try {
 				const process = await this.getAppProcess(appName);
+
+				if (process.pid === undefined) {
+					this._logger.error(`No process found for app ${appName}`);
+					continue;
+				}
+
 				sortApp.pid = process.pid;
 			} catch (error) {
 				this._logger.error(`Could not get process for app ${appName}`);
@@ -412,8 +431,10 @@ export class LaunchpadMonitor {
 	async _connectPm2Bus() {
 		this._logger.debug('Connecting to PM2 bus');
 		this._pm2Bus = await this._promisify(pm2.launchBus, pm2);
-		this._pm2Bus.on('process:event', this._handleBusProcessEvent);
-		this._appLogRouter.connectToBus(this._pm2Bus);
+		if (this._pm2Bus) {
+			this._pm2Bus.on('process:event', this._handleBusProcessEvent);
+			this._appLogRouter.connectToBus(this._pm2Bus);
+		}
 	}
 	
 	async _disconnectPm2Bus() {
@@ -444,7 +465,7 @@ export class LaunchpadMonitor {
 					this._logger.debug(`App is online: ${chalk.green(appName)}`);
 					let numLaunches = 1;
 					if (this._numAppLaunches.has(appName)) {
-						numLaunches = this._numAppLaunches.get(appName) + 1;
+						numLaunches = (this._numAppLaunches.get(appName) ?? 0) + 1;
 					}
 					if (numLaunches > 1) {
 						await this._applyWindowSettings();
@@ -464,19 +485,40 @@ export class LaunchpadMonitor {
 			this._logger.error(err);
 		}
 	}
+
+	/**
+	 * @template P
+	 * @template {readonly unknown[]} Q
+	 * @typedef  {((err:P, ...results: Q) => void)} PromisifyCallback
+	 */
 	
-	_promisify(fn, scope = null, ...args) {
+	/**
+	 * @template {readonly unknown[]} T
+	 * @template U
+	 * @template {readonly unknown[]} V
+	 * @param {(...fargs: [...T, PromisifyCallback<U, V>]) => void} fn
+	 * @param {unknown} scope
+	 * @param {T} args
+	 * @returns {Promise<V[0]>}
+	 */
+	_promisify(fn, scope, ...args) {
 		return new Promise((resolve, reject) => {
 			if (scope) {
 				fn = fn.bind(scope);
 			}
-			fn(...args, (err, ...results) => {
+
+			/**
+			 * @type {PromisifyCallback<U, V>}
+			 */
+			const cb = (err, ...result) => {
 				if (err) {
 					reject(err);
 				} else {
-					resolve(...results);
+					resolve(result[0]);
 				}
-			});
+			};
+
+			fn(...args, cb);
 		});
 	}
 }

@@ -41,6 +41,5 @@ npm link
 
 cd ../../my-test-project
 @REM If needed: npm init
-npm link @bluecadet/launchpad
-@REM  If needed for your project: npm i @bluecadet/launchpad
+npm link @bluecadet/launchpad --save
 ```

@@ -1,5 +1,28 @@
 # @bluecadet/launchpad
 
+## 1.5.0
+
+### Minor Changes
+
+- [#128](https://github.com/bluecadet/launchpad/pull/128) [`e11973d`](https://github.com/bluecadet/launchpad/commit/e11973d902f90ef3b94d7e29af23ea766301fc72) Thanks [@claytercek](https://github.com/claytercek)! - Add intellisense support to configs
+
+- [#124](https://github.com/bluecadet/launchpad/pull/124) [`55a98ba`](https://github.com/bluecadet/launchpad/commit/55a98ba9a2a50451fb733a0122f0054c59dc26dd) Thanks [@claytercek](https://github.com/claytercek)! - support js configs
+
+- [#133](https://github.com/bluecadet/launchpad/pull/133) [`4d537f2`](https://github.com/bluecadet/launchpad/commit/4d537f297d9c85b22a35f406e06e15d429ca7eb1) Thanks [@claytercek](https://github.com/claytercek)! - Load dotenv files when launching from CLI
+
+### Patch Changes
+
+- [#132](https://github.com/bluecadet/launchpad/pull/132) [`2393473`](https://github.com/bluecadet/launchpad/commit/2393473c61e7daa74e6363ffb758107817da1035) Thanks [@claytercek](https://github.com/claytercek)! - Add intellisense for hook names
+
+- [#118](https://github.com/bluecadet/launchpad/pull/118) [`0aed873`](https://github.com/bluecadet/launchpad/commit/0aed87333dcc3902adb077365a330a8e9190cefa) Thanks [@claytercek](https://github.com/claytercek)! - Generate d.ts declaration files for intellisense, and fix all type errors.
+
+- Updated dependencies [[`e11973d`](https://github.com/bluecadet/launchpad/commit/e11973d902f90ef3b94d7e29af23ea766301fc72), [`55a98ba`](https://github.com/bluecadet/launchpad/commit/55a98ba9a2a50451fb733a0122f0054c59dc26dd), [`4d537f2`](https://github.com/bluecadet/launchpad/commit/4d537f297d9c85b22a35f406e06e15d429ca7eb1), [`9e6d6d4`](https://github.com/bluecadet/launchpad/commit/9e6d6d417310697d29e6fb6656e87ff3d2bc3205), [`0aed873`](https://github.com/bluecadet/launchpad/commit/0aed87333dcc3902adb077365a330a8e9190cefa)]:
+  - @bluecadet/launchpad-content@1.12.0
+  - @bluecadet/launchpad-monitor@1.8.0
+  - @bluecadet/launchpad-utils@1.5.0
+  - @bluecadet/launchpad-dashboard@1.5.0
+  - @bluecadet/launchpad-scaffold@1.8.0
+
 ## 1.4.4
 
 ### Patch Changes

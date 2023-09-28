@@ -5,99 +5,78 @@
 import Airtable from 'airtable';
 // eslint-disable-next-line no-unused-vars
 import { Logger } from '@bluecadet/launchpad-utils';
-import { ContentSource, SourceOptions } from './content-source.js';
+import { ContentSource } from './content-source.js';
 import { ContentResult, MediaDownload } from './content-result.js';
 import Credentials from '../credentials.js';
 
 /**
- * Options for AirtableSource
+ * @typedef AirtableCredentials
+ * @property {string} apiKey Airtable API Key
  */
-export class AirtableOptions extends SourceOptions {
-	constructor({
-		baseId = undefined,
-		tables = [],
-		keyValueTables = [],
-		defaultView = 'Grid view',
-		endpointUrl = 'https://api.airtable.com',
-		appendLocalAttachmentPaths = true,
-		...rest
-	} = {}) {
-		super(rest);
 
-		/**
-		 * Airtable base ID. @see https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.
-		 * @type {string}
-		 */
-		this.baseId = baseId;
+/**
+ * @typedef BaseAirtableOptions
+ * @property {string} baseId Airtable base ID. See https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.
+ * @property {string} [defaultView] The table view which to select for syncing by default. Defaults to 'Grid view'.
+ * @property {string[]} [tables] The tables you want to fetch from. Defaults to [].
+ * @property {string[]} [keyValueTables] As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `"key"` and `"value"`. Defaults to [].
+ * @property {string} [endpointUrl] The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'.
+ * @property {boolean} [appendLocalAttachmentPaths] Appends the local path of attachments to the saved JSON. Defaults to true.
+ */
 
-		/**
-		 * @type {string}
-		 * @default 'Grid view'
-		 */
-		this.defaultView = defaultView;
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'airtable'> & BaseAirtableOptions & (AirtableCredentials | {})} AirtableOptions
+ */
 
-		/**
-		 * The tables you want to fetch from
-		 * @type {string}
-		 * @default []
-		 */
-		this.tables = tables;
+/**
+ * @typedef {import('./content-source.js').SourceOptions<'airtable'> & Required<BaseAirtableOptions> & AirtableCredentials} AirtableOptionsAssembled
+ */
 
-		/**
-		 * As a convenience feature, you can store tables listed here as
-		 * key/value pairs. Field names should be `"key"` and `"value"`.
-		 * @type {string}
-		 * @default []
-		 */
-		this.keyValueTables = keyValueTables;
+/**
+ * @satisfies {Partial<BaseAirtableOptions>}
+ */
+const AIRTABLE_OPTION_DEFAULTS = {
+	defaultView: 'Grid view',
+	tables: [],
+	keyValueTables: [],
+	endpointUrl: 'https://api.airtable.com',
+	appendLocalAttachmentPaths: true
+};
 
-		/**
-		 * The API endpoint to use for Airtable
-		 * @type {string}
-		 * @default 'https://api.airtable.com'
-		 */
-		this.endpointUrl = endpointUrl;
-
-		/**
-		 * The table view which to select for syncing by default
-		 * @type {string}
-		 */
-		this.defaultView = defaultView;
-
-		/**
-		 * Appends the local path of attachments to the saved JSON
-		 * @type {boolean}
-		 * @default true
-		 */
-		this.appendLocalAttachmentPaths = appendLocalAttachmentPaths;
-	}
-}
-
+/**
+ * @extends {ContentSource<AirtableOptionsAssembled>}
+ */
 export class AirtableSource extends ContentSource {
-	/** @type {Airtable.Base} */
-	_base = null;
+	/** 
+	 * @type {Airtable.Base}
+	 */
+	_base;
 
+	/**
+	 * @type {Record<string, Airtable.Record<Airtable.FieldSet>[]>}
+	 */
 	_rawAirtableData = {};
 
+	/**
+	 * @type {Record<string, unknown[]>}
+	 */
 	_simplifiedData = {};
 
 	/**
 	 *
-	 * @param {*} config
+	 * @param {AirtableOptions} config
 	 * @param {Logger} logger
 	 */
 	constructor(config, logger) {
-		super(new AirtableOptions(config), logger);
+		super(AirtableSource._assembleConfig(config), logger);
 
-		const credentials = Credentials.getCredentials(this.config.id);
-
-		if (!credentials.apiKey) {
+		if (!this.config.apiKey) {
 			throw new Error(`No Airtable API Key for '${this.config.id}'`);
 		}
 
 		Airtable.configure({
 			endpointUrl: this.config.endpointUrl,
-			apiKey: credentials.apiKey
+			apiKey: this.config.apiKey
 		});
 
 		this._base = Airtable.base(this.config.baseId);
@@ -135,7 +114,7 @@ export class AirtableSource extends ContentSource {
 	 * @param {string} tableId
 	 * @param {boolean} isKeyValueTable
 	 * @param {ContentResult} result
-	 * @returns {ContentResult}
+	 * @returns {Promise<ContentResult>}
 	 */
 	async _processTable(tableId, isKeyValueTable = false, result = new ContentResult()) {
 		// Write raw Data file.
@@ -143,6 +122,9 @@ export class AirtableSource extends ContentSource {
 		const rawDataPath = `${tableId}.raw.json`;
 		result.addDataFile(rawDataPath, this._rawAirtableData[tableId]);
 
+		/**
+		 * @type {any}
+		 */
 		const simpData = isKeyValueTable ? {} : [];
 		this._simplifiedData[tableId] = [];
 
@@ -198,15 +180,27 @@ export class AirtableSource extends ContentSource {
 		return result;
 	}
 
+	/**
+	 * @param {string} str 
+	 * @returns {boolean}
+	 */
 	_isBoolStr(str) {
 		return str === 'true' || str === 'false';
 	}
 
+	/**
+	 * @param {string} str 
+	 * @returns {boolean}
+	 */
 	_isNumericStr(str) {
-		return !isNaN(str);
+		return !isNaN(Number(str));
 	}
 
 	// Get Data.
+	/**
+	 * @param {string} table
+	 * @param {boolean} force
+	 */
 	async _getData(table, force = false) {
 		// If force, clear the data.
 		if (force) {
@@ -224,9 +218,16 @@ export class AirtableSource extends ContentSource {
 		});
 	}
 
-	// Fetch from Airtable.
+	/**
+	 * Fetch from Airtable.
+	 * @param {string} table table name
+	 * @returns {Promise<Airtable.Record<Airtable.FieldSet>[]>}
+	 */
 	async _fetchData(table) {
 		return new Promise((resolve, reject) => {
+			/**
+			 * @type {Airtable.Record<Airtable.FieldSet>[]}
+			 */
 			const rows = [];
 
 			this._base(table)
@@ -279,6 +280,49 @@ export class AirtableSource extends ContentSource {
 			}
 		}
 		return urls;
+	}
+
+	/**
+	 * @private
+	 * @param {AirtableOptions} config 
+	 * @returns {AirtableOptionsAssembled}
+	 */
+	static _assembleConfig(config) {
+		const creds = Credentials.getCredentials(config.id);
+
+		if (creds) {
+			if (!AirtableSource._validateCrendentials(creds)) {
+				throw new Error(
+					`Airtable credentials for source '${config.id}' are invalid.`
+				);
+			}
+			
+			return {
+				...AIRTABLE_OPTION_DEFAULTS,
+				...config,
+				...creds
+			};
+		}
+
+		if (!AirtableSource._validateCrendentials(config)) {
+			throw new Error(
+				`No airtable credentials found for source '${config.id}' in credentials file or launchpad config.`
+			);
+		}
+
+		return {
+			...AIRTABLE_OPTION_DEFAULTS,
+			...config
+		};
+	}
+
+	/**
+	 * @private
+	 * @param {unknown} creds 
+	 * @returns {creds is AirtableCredentials}
+	 */
+	static _validateCrendentials(creds) {
+		return (typeof creds !== 'object' || creds === null || !('apiKey' in creds));
 	}
 }
 

@@ -3,8 +3,7 @@
  */
 
 import path from 'path';
-import winston from 'winston';
-import Logger from 'winston/lib/winston/logger.js';
+import winston, { Logger } from 'winston';
 import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
 import moment from 'moment';
@@ -12,156 +11,97 @@ import chalk from 'chalk';
 
 export { Logger };
 
+const DATE_KEY = '%DATE%';
+const LOG_TYPE_KEY = '%LOG_TYPE%';
+const LOG_TIMESTAMP_FORMAT = 'YYYY-MM-DD-HH:mm:ss';
+const FILE_TIMESTAMP_FORMAT = 'YYYY-MM-DD';
+const DEFAULT_LOG_FORMAT = winston.format.combine(
+	winston.format.colorize(),
+	winston.format.timestamp({
+		format: LOG_TIMESTAMP_FORMAT
+	}),
+	winston.format.printf(info => {
+		const moduleStr = info.module ? chalk.gray(` (${info.module})`) : '';
+		return `${info.timestamp} ${info.level}:${moduleStr} ${info.message}`;
+	})
+);
+
 /**
- * Options object passed directly to Winston's constructor, with additional options for Launchpad logging.
- * 
- * @see https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
+ * @typedef LogFileOptions see https://github.com/winstonjs/winston-daily-rotate-file#options 
+ * @property {winston.Logform.Format} [format] The format used for individual file logs. Defaults to `YYYY-MM-DD-HH:mm:ss (level):(module) message`.
+ * @property {string} [extension] File extension. Defaults to '.log'.
+ * @property {string} [dirname] The directory under which all logs are saved. Defaults to '.logs'.
+ * @property {string} [maxSize] The max size of each individual log file. Defaults to '20m'.
+ * @property {string} [maxFiles] The maximum number of files to save per type. Defaults to '28d'.
+ * @property {string} [datePattern] The date pattern used in file names. Defaults to 'YYYY-MM-DD'.
  */
-export class LogOptions {
-	static DATE_KEY = '%DATE%';
-	static LOG_TYPE_KEY = '%LOG_TYPE%';
-	static LOG_TIMESTAMP_FORMAT = 'YYYY-MM-DD-HH:mm:ss';
-	static FILE_TIMESTAMP_FORMAT = 'YYYY-MM-DD';
-	static DEFAULT_LOG_FORMAT = winston.format.combine(
-		winston.format.colorize(),
-		winston.format.timestamp({
-			format: LogOptions.LOG_TIMESTAMP_FORMAT
-		}),
-		winston.format.printf(info => {
-			const moduleStr = info.module ? chalk.gray(` (${info.module})`) : '';
-			return `${info.timestamp} ${info.level}:${moduleStr} ${info.message}`;
-		})
-	);
-	
-	constructor({
-		filename = `${LogOptions.DATE_KEY}-${LogOptions.LOG_TYPE_KEY}`,
-		fileOptions = new LogFileOptions(),
-		level = 'info',
-		format = LogOptions.DEFAULT_LOG_FORMAT,
-		overrideConsole = true,
-		...rest
-	} = {}) {
-		/**
-		 * Where to save logs to.
-		 * @type {string}
-		 * @default `%DATE%-%LOG_TYPE%`
-		 */
-		this.filename = `${LogOptions.DATE_KEY}-${LogOptions.LOG_TYPE_KEY}`;
-		
-		/**
-		 * Options for individual files and streams.
-		 * @type {LogFileOptions}
-		 * @default new LogFileOptions(fileOptions)
-		 */
-		this.fileOptions = new LogFileOptions(fileOptions);
-		
-		/**
-		 * The maximum log level to display in all default logs.
-		 * @type {string}
-		 * @default 'info'
-		 */
-		this.level = level;
-		
-		/**
-		 * The format for how each line is logged.
-		 * @type {winston.Logform.Format}
-		 * @default LogOptions.DEFAULT_LOG_FORMAT
-		 */
-		this.format = format;
-		
-		/**
-		 * Route all console logs to the log manager. This helps
-		 * ensure that logs are routed to files and rotated properly.
-		 * 
-		 * This will also freeze the console object, so it can't be
-		 * modified further during runtime.
-		 * 
-		 * All console logs will be prefixed with `(console)`.
-		 * 
-		 * @type {boolean}
-		 * @default true
-		 */
-		this.overrideConsole = true;
-		
-		Object.assign(this, rest);
-	}
+
+/**
+ * @satisfies {LogFileOptions}
+ */
+const LOG_FILE_OPTIONS_DEFAULTS = {
+	format: DEFAULT_LOG_FORMAT,
+	extension: '.log',
+	dirname: '.logs',
+	maxSize: '20m',
+	maxFiles: '28d',
+	datePattern: FILE_TIMESTAMP_FORMAT
+};
+
+/**
+ * @typedef {typeof LOG_FILE_OPTIONS_DEFAULTS & Omit<LogFileOptions, keyof typeof LOG_FILE_OPTIONS_DEFAULTS>} ResolvedLogFileOptions 
+ */
+
+/**
+ * @typedef LaunchpadLogOptions 
+ * @property {string} [filename] Where to save logs to. Defaults to `%DATE%-%LOG_TYPE%`.
+ * @property {LogFileOptions} [fileOptions] Options for individual files and streams.
+ * @property {string} [level] The maximum log level to display in all default logs. Defaults to 'info'.
+ * @property {winston.Logform.Format} [format] The format for how each line is logged. Defaults to a colorized version of `YYYY-MM-DD-HH:mm:ss (level):(module) message`.
+ * @property {boolean} [overrideConsole] Route all console logs to the log manager. This helps ensure that logs are routed to files and rotated properly. This will also freeze the console object, so it can't be modified further during runtime. All console logs will be prefixed with `(console)`. Defaults to true.
+ */
+
+/**
+ * @typedef {LaunchpadLogOptions & Omit<winston.LoggerOptions, keyof LaunchpadLogOptions>} LogOptions Options object passed directly to Winston's constructor, with additional options for Launchpad logging. See https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
+ */
+
+/**
+ * @satisfies {LogOptions}
+ */
+const LOG_OPTIONS_DEFAULTS = {
+	filename: `${DATE_KEY}-${LOG_TYPE_KEY}`,
+	fileOptions: LOG_FILE_OPTIONS_DEFAULTS,
+	level: 'info',
+	format: DEFAULT_LOG_FORMAT,
+	overrideConsole: true
+};
+
+/**
+ * @param {LogOptions} [options] 
+ */
+function resolveLogOptions(options) {
+	return {
+		...LOG_OPTIONS_DEFAULTS,
+		...options,
+		fileOptions: {
+			...LOG_FILE_OPTIONS_DEFAULTS,
+			...options?.fileOptions
+		}
+	};
 }
 
 /**
- * @see https://github.com/winstonjs/winston-daily-rotate-file#options
+ * @typedef {ReturnType<typeof resolveLogOptions>} ResolvedLogOptions
  */
-export class LogFileOptions {
-	constructor({
-		format = winston.format.combine(
-			LogOptions.DEFAULT_LOG_FORMAT,
-			winston.format.uncolorize()
-		),
-		extension = '.log',
-		dirname = '.logs',
-		maxSize = '20m',
-		maxFiles = '28d',
-		datePattern = LogOptions.FILE_TIMESTAMP_FORMAT,
-		...rest
-	} = {}) {
-		/**
-		 * The format used for individual file logs. Uses the default log format but without colorization out of the box.
-		 * 
-		 * @type {winston.Logform.Format}
-		 * @default Uncolorized variant of LogOptions.DEFAULT_LOG_FORMAT
-		 */
-		this.format = format;
-		
-		/**
-		 * File extension.
-		 * 
-		 * @type {string}
-		 * @default '.log'
-		 */
-		this.extension = extension;
-		
-		/**
-		 * The directory under which all logs are saved.
-		 * 
-		 * @type {string}
-		 * @default '.logs'
-		 */
-		this.dirname = dirname;
-		
-		/**
-		 * The max size of each individual log file.
-		 * 
-		 * @type {string}
-		 * @default '20m'
-		 */
-		this.maxSize = maxSize;
-		
-		/**
-		 * The maximum number of files to save per type.
-		 * 
-		 * @type {string}
-		 * @default '28d'
-		 */
-		this.maxFiles = maxFiles;
-		
-		/**
-		 * The date pattern used in file names.
-		 * 
-		 * @type {string}
-		 * @default 'YYYY-MM-DD'
-		 */
-		this.datePattern = datePattern;
-		Object.assign(this, rest);
-	}
-}
 
 export class LogManager {
 	/**
-	 * @type {LogManager}
+	 * @type {LogManager | null}
 	 */
 	static _instance = null;
 	
 	/**
-	 * @param {LogOptions|Object} config 
+	 * @param {LogOptions} [config] 
 	 * @returns {LogManager}
 	 */
 	static getInstance(config) {
@@ -172,20 +112,20 @@ export class LogManager {
 	}
 	
 	/**
-	 * @type {LogOptions}
+	 * @type {ResolvedLogOptions}
 	 */
-	_config = null;
+	_config;
 	
 	/**
 	 * @type {Logger}
 	 */
-	_logger = null;
+	_logger;
 	
 	/**
-	 * @param {LogOptions|Object} config 
+	 * @param {LogOptions} [config] 
 	 */
 	constructor(config) {
-		this._config = new LogOptions(config);
+		this._config = resolveLogOptions(config);
 		this._logger = winston.createLogger({
 			...this._config,
 			transports: [
@@ -202,11 +142,11 @@ export class LogManager {
 	}
 	
 	/**
-	 * @param {string} moduleName If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
-	 * @param {Logger} parent The parent logger to create this logger from (if a moduleName is specified). Will default to the main logger instance if left empty.
+	 * @param {string} [moduleName] If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
+	 * @param {Logger} [parent] The parent logger to create this logger from (if a moduleName is specified). Will default to the main logger instance if left empty.
 	 * @returns {Logger}
 	 */
-	getLogger(moduleName = null, parent = null) {
+	getLogger(moduleName, parent) {
 		if (moduleName) {
 			parent = parent || this._logger;
 			const child = parent.child({ module: moduleName });
@@ -217,11 +157,15 @@ export class LogManager {
 		}
 	}
 	
+	/**
+	 * @param {string} logType
+	 * @param {boolean} templated
+	 */
 	getFilePath(logType, templated = true) {
-		let output = this._config.filename.replace(LogOptions.LOG_TYPE_KEY, logType);
+		let output = this._config.filename.replace(LOG_TYPE_KEY, logType);
 		if (templated) {
-			const dateStr = moment().format(LogOptions.FILE_TIMESTAMP_FORMAT);
-			output = output.replace(LogOptions.DATE_KEY, dateStr);
+			const dateStr = moment().format(FILE_TIMESTAMP_FORMAT);
+			output = output.replace(DATE_KEY, dateStr);
 			output = slugify(output);
 			output = output + this._config.fileOptions.extension;
 			output = path.join(this._config.fileOptions.dirname, output);

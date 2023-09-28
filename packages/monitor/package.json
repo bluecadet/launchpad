@@ -1,12 +1,14 @@
 {
   "name": "@bluecadet/launchpad-monitor",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "",
   "type": "module",
   "main": "index.js",
   "typesVersions": {
     "*": {
-      "*": ["types/*"]
+      "*": [
+        "types/*"
+      ]
     }
   },
   "bin": "index.js",
@@ -32,7 +34,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.4.0",
+    "@bluecadet/launchpad-utils": "~1.5.0",
     "auto-bind": "^5.0.1",
     "axon": "^2.0.3",
     "chalk": "^5.0.0",

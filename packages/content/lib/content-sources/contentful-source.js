@@ -30,7 +30,7 @@ import { Logger } from '@bluecadet/launchpad-utils';
 
 /**
  * @typedef BaseContentfulOptions
- * @property {string} space Your Contentful space ID. Note that credentials.json will require an accessToken in addition to this
+ * @property {string} space Your Contentful space ID. Note that an accessToken is required in addition to this
  * @property {string} [locale] Optional. Used to pull localized images.
  * @property {string} [filename] Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json'
  * @property {string} [protocol] Optional. Defaults to 'https'

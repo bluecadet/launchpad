@@ -1,8 +1,8 @@
 import LaunchpadCore from '@bluecadet/launchpad';
-import { ConfigManager, launchFromCli, onExit } from '@bluecadet/launchpad-utils';
+import { importJsConfig, launchFromCli, onExit } from '@bluecadet/launchpad-utils';
 
 const getConfig = async (paths = ['user-config.js', 'config.js']) => {
-	return ConfigManager.importJsConfig(paths, import.meta);
+	return importJsConfig(paths, import.meta);
 };
 
 const wait = async (seconds) => {

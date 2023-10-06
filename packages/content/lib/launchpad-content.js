@@ -56,7 +56,7 @@ export class LaunchpadContent {
 		}
 	}
 	
-	/** @type {Required<import('./content-options.js').ResolvedContentOptions>} */
+	/** @type {import('./content-options.js').ResolvedContentOptions} */
 	_config;
 	
 	/** @type {Logger} */

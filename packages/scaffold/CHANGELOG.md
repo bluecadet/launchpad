@@ -1,5 +1,20 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.8.0
+
+### Minor Changes
+
+- [#124](https://github.com/bluecadet/launchpad/pull/124) [`55a98ba`](https://github.com/bluecadet/launchpad/commit/55a98ba9a2a50451fb733a0122f0054c59dc26dd) Thanks [@claytercek](https://github.com/claytercek)! - support js configs
+
+### Patch Changes
+
+- [#122](https://github.com/bluecadet/launchpad/pull/122) [`9e6d6d4`](https://github.com/bluecadet/launchpad/commit/9e6d6d417310697d29e6fb6656e87ff3d2bc3205) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Adds script to disable Windows setup prompts
+
+- [#118](https://github.com/bluecadet/launchpad/pull/118) [`0aed873`](https://github.com/bluecadet/launchpad/commit/0aed87333dcc3902adb077365a330a8e9190cefa) Thanks [@claytercek](https://github.com/claytercek)! - Generate d.ts declaration files for intellisense, and fix all type errors.
+
+- Updated dependencies [[`e11973d`](https://github.com/bluecadet/launchpad/commit/e11973d902f90ef3b94d7e29af23ea766301fc72), [`55a98ba`](https://github.com/bluecadet/launchpad/commit/55a98ba9a2a50451fb733a0122f0054c59dc26dd), [`4d537f2`](https://github.com/bluecadet/launchpad/commit/4d537f297d9c85b22a35f406e06e15d429ca7eb1), [`0aed873`](https://github.com/bluecadet/launchpad/commit/0aed87333dcc3902adb077365a330a8e9190cefa)]:
+  - @bluecadet/launchpad-utils@1.5.0
+
 ## 1.7.2
 
 ### Patch Changes

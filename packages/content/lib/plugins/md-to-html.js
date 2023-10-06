@@ -8,7 +8,7 @@ import { applyTransformToFiles } from '../utils/content-transform-utils.js';
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
  * @param {boolean} [options.simplified] enable for single paragraph content, will render inline
- * @returns {import("../content-plugin.js").ContentPlugin}
+ * @returns {import("../content-plugin-driver.js").ContentPlugin}
  */
 export default function mdToHtml({ path, simplified = false }) {
 	return {

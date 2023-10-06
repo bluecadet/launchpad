@@ -10,6 +10,7 @@ import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
 import CommandCenter, { Command } from './command-center.js';
 import { resolveLaunchpadOptions } from './launchpad-options.js';
 import CommandHooks from './command-hooks.js';
+import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 
 /**
  * Core Launchpad class to configure, monitor apps, download content and manage logs.
@@ -35,6 +36,9 @@ export class LaunchpadCore {
 	
 	/** @type {boolean} */
 	_areAppsRunning = false;
+
+	/** @type {PluginDriver<import('./launchpad-options.js').AllHooks>}  */
+	_pluginDriver;
 	
 	/**
 	 * 
@@ -45,9 +49,10 @@ export class LaunchpadCore {
 		
 		this._config = resolveLaunchpadOptions(config);
 		this._logger = LogManager.getInstance(this._config.logging).getLogger();
+		this._pluginDriver = new PluginDriver(this._config.plugins ?? []);
 		this._commands = new CommandCenter(this._config.commands, this._logger);
-		this._content = new LaunchpadContent(this._config.content, this._logger);
-		this._monitor = new LaunchpadMonitor(this._config.monitor, this._logger);
+		this._content = new LaunchpadContent(this._config, this._logger);
+		this._monitor = new LaunchpadMonitor(this._config, this._logger);
 		
 		this._commands.add(new Command({ name: 'startup', callback: this._runStartup }));
 		this._commands.add(new Command({ name: 'shutdown', callback: this._runShutdown }));

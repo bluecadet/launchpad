@@ -40,10 +40,18 @@ export class ContentPluginDriver extends HookContextProvider {
 	 * @param {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').default<ContentHooks>} wrappee
 	 * @param {object} options
 	 * @param {MediaDownloader} options.mediaDownloader
+	 * @param {import('./content-options.js').ResolvedContentOptions} options.config
+	 * @param {import('@bluecadet/launchpad-utils/lib/log-manager.js').Logger} options.logger
 	 */
-	constructor(wrappee, { mediaDownloader }) {
+	constructor(wrappee, { mediaDownloader, config, logger }) {
 		super(wrappee);
 		this.#mediaDownloader = mediaDownloader;
+
+		const legacyPlugins = createPluginsFromConfig(config, logger);
+
+		if (legacyPlugins.length > 0) {
+			this.add(legacyPlugins);
+		}
 	}
 
 	/**
@@ -57,17 +65,22 @@ export class ContentPluginDriver extends HookContextProvider {
 }
 
 /**
+ * Backwards compatibility adapter for legacy configs.
  * @param {import('./content-options.js').ResolvedContentOptions} options
+ * @param {import('@bluecadet/launchpad-utils/lib/log-manager.js').Logger} logger
  * @returns {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Plugin<ContentHooks>[]}
- * @deprecated this is a temporary solution to add compatibility with the old config style. Once JS configs are supported, this will be removed.
  */
-export function createPluginsFromConfig(options) {
+function createPluginsFromConfig(options, logger) {
 	const transforms = options.contentTransforms;
 
 	/**
    * @type {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Plugin<ContentHooks>[]}
    */
 	const plugins = [];
+
+	if (Object.entries(transforms).length > 0) {
+		logger.warn('The `contentTransforms` option is deprecated. Please use content plugins instead.');
+	}
 
 	Object.entries(transforms).forEach(([key, transform]) => {
 		const transformArray = Array.isArray(transform) ? transform : [transform];

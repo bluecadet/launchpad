@@ -18,7 +18,7 @@ import FileUtils from './utils/file-utils.js';
 import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-sources/content-result.js';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
-import { ContentPluginDriver, createPluginsFromConfig } from './content-plugin.js';
+import { ContentPluginDriver } from './content-plugin-driver.js';
 
 /**
  * @enum {import('./content-options.js').AllSourceOptions['type']}
@@ -39,7 +39,7 @@ export const ContentSourceTypes = {
 export class LaunchpadContent {
 	/**
 	 * Creates a new LaunchpadContent and downloads content using an optional user config object.
-	 * @param {import('./content-options.js').ContentOptions} [config]
+	 * @param {import('./content-options.js').ConfigWithContent} config
 	 * @returns {Promise.<LaunchpadContent>} Promise that resolves with the new LaunchpadContent instance.
 	 */
 	static async createAndDownload(config) {
@@ -72,20 +72,25 @@ export class LaunchpadContent {
 	_mediaDownloader;
 
 	/**
-	 * @param {import('./content-options.js').ContentOptions} [config]
+	 * @param {import('./content-options.js').ConfigWithContent} [config]
 	 * @param {Logger} [parentLogger]
-	 * @param {PluginDriver<import('./content-plugin.js').ContentHooks>} [pluginDriver]
+	 * @param {PluginDriver<import('./content-plugin-driver.js').ContentHooks>} [pluginDriver]
 	 */
 	constructor(config, parentLogger, pluginDriver) {
-		this._config = resolveContentOptions(config);
+		this._config = resolveContentOptions(config?.content);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
-		const basePluginDriver = pluginDriver || new PluginDriver([]);
-		this._pluginDriver = new ContentPluginDriver(basePluginDriver, { mediaDownloader: this._mediaDownloader });
-
-		// TODO: remove once json configs are fully supported
-		const configPlugins = createPluginsFromConfig(this._config);
-		this._pluginDriver.add(configPlugins);
+		
+		const basePluginDriver = pluginDriver || new PluginDriver(config?.plugins ?? []);
+		
+		this._pluginDriver = new ContentPluginDriver(
+			basePluginDriver,
+			{
+				mediaDownloader: this._mediaDownloader,
+				config: this._config,
+				logger: this._logger
+			}
+		);
 		
 		if (this._config.credentialsPath) {
 			try {

@@ -124,7 +124,10 @@ export async function loadConfigFromFile(configPath) {
 			return config;
 		} else {
 			// otherwise, parse as js
-			return (await import(configPath)).default;
+
+			// need to use fileURLToPath here for windows support (prefixes with file://)
+			const fileUrl = url.pathToFileURL(configPath);
+			return (await import(fileUrl.toString())).default;
 		}
 	} catch (err) {
 		throw new Error(`Unable to load config file '${chalk.white(configPath)}'`, { cause: err });

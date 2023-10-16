@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-utils
 
+## 1.5.1
+
+### Patch Changes
+
+- [#136](https://github.com/bluecadet/launchpad/pull/136) [`33623e5`](https://github.com/bluecadet/launchpad/commit/33623e5dc8da9714fc91449de60a08fb4f2a0fa0) Thanks [@claytercek](https://github.com/claytercek)! - fix loading js configs on windows
+
 ## 1.5.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.12.1
+
+### Patch Changes
+
+- [#139](https://github.com/bluecadet/launchpad/pull/139) [`8d894c360d13a11fe662e2378be0ef644602dfe9`](https://github.com/bluecadet/launchpad/commit/8d894c360d13a11fe662e2378be0ef644602dfe9) Thanks [@benjaminbojko](https://github.com/benjaminbojko)! - Upgrade sharp dependency
+
 ## 1.12.0
 
 ### Minor Changes

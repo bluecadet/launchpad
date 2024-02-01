@@ -15,7 +15,10 @@
   "files": [
     "types",
     "index.js",
-    "lib"
+    "config",
+    "scripts",
+    "setup.bat",
+    "setup.ps1"
   ],
   "scripts": {
     "start": "node index.js --",

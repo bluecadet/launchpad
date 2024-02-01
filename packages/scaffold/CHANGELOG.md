@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 1.8.1
+
+### Patch Changes
+
+- [#142](https://github.com/bluecadet/launchpad/pull/142) [`b0433e74e0616ee07d07987b80b4bafdcfbcbd5e`](https://github.com/bluecadet/launchpad/commit/b0433e74e0616ee07d07987b80b4bafdcfbcbd5e) Thanks [@claytercek](https://github.com/claytercek)! - fix missing files in scaffold
+
 ## 1.8.0
 
 ### Minor Changes

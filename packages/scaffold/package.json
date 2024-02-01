@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-scaffold",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
   "main": "index.js",

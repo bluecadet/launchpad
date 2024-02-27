@@ -12,7 +12,7 @@ import path from 'path';
  * script was called directly. If it was included in another script, this
  * function will return a rejected promise with no error.
  * 
- * @template {{logging?: import('./log-manager.js').LogOptions}} T config type
+ * @template {import('./config.js').BaseConfig} T config type
  * @param {ImportMeta} importMeta Pass the import.meta property from your script here
  * @param {object} [options]
  * @param {object} [options.userConfig] Optional user config to be merged with the loaded config

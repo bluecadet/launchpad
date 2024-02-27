@@ -82,8 +82,12 @@ export function resolveContentOptions(config) {
  */
 
 /**
- * @param {ContentOptions} config 
- * @returns {ContentOptions}
+ * @typedef {import('@bluecadet/launchpad-utils').BaseConfig & {content?: ContentOptions, plugins?: import('./content-plugin-driver.js').ContentPlugin[]}} ConfigWithContent
+ */
+
+/**
+ * @param {ConfigWithContent} config 
+ * @returns {ConfigWithContent}
  */
 export function defineContentConfig(config) {
 	return config;

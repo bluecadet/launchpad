@@ -13,6 +13,8 @@ import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import sortWindows from './utils/sort-windows.js';
 import { resolveMonitorConfig } from './monitor-options.js';
+import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
+import { MonitorPluginDriver } from './monitor-plugin-driver.js';
 
 export class LaunchpadMonitor {
 	/** @type {import('./monitor-options.js').ResolvedMonitorOptions} */
@@ -36,11 +38,16 @@ export class LaunchpadMonitor {
 	 * @type {SubEmitterSocket | null}
 	 */
 	_pm2Bus = null;
+
+	/**
+	 * @type {MonitorPluginDriver}
+	 */
+	_pluginDriver;
 	
 	/**
 	 * Creates a new instance, starts it with the
 	 * config and resolves with the monitor instance.
-	 * @param {import('./monitor-options.js').MonitorOptions} config 
+	 * @param {import('./monitor-options.js').ConfigWithMonitor} config 
 	 * @returns {Promise<LaunchpadMonitor>} Promise that resolves with the new LaunchpadMonitor instance.
 	 */
 	static async createAndStart(config) {
@@ -77,13 +84,14 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
+	 * @param {import('./monitor-options.js').ConfigWithMonitor} [config] 
    * @param {Logger} [parentLogger]
+   * @param {PluginDriver<import('./monitor-plugin-driver.js').MonitorHooks>} [pluginDriver]
 	 */
-	constructor(config, parentLogger) {
+	constructor(config, parentLogger, pluginDriver) {
 		autoBind(this);
 		this._logger = LogManager.getInstance().getLogger('monitor', parentLogger);
-		this._config = resolveMonitorConfig(config);
+		this._config = resolveMonitorConfig(config?.monitor);
 		this._appLogRouter = new AppLogRouter(this._logger);
 		this._applyWindowSettings = pDebounce(
 			this._applyWindowSettings,
@@ -95,6 +103,12 @@ export class LaunchpadMonitor {
 		} else {
 			this._config.apps.forEach(this._initAppOptions);
 		}
+
+		const basePluginDriver = pluginDriver || new PluginDriver(config?.plugins ?? []);
+		
+		this._pluginDriver = new MonitorPluginDriver(
+			basePluginDriver
+		);
 	}
 	
 	/**

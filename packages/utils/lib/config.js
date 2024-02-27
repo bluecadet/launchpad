@@ -7,6 +7,11 @@ import chalk from 'chalk';
 const DEFAULT_CONFIG_PATHS = ['launchpad.config.js', 'launchpad.config.mjs', 'launchpad.json', 'config.json'];
 
 /**
+ * @typedef BaseConfig
+ * @property {import('./log-manager.js').LogOptions} [logging]
+ */
+
+/**
  * 
  * @param {ImportMeta?} importMeta 
  * @returns 
@@ -18,7 +23,7 @@ function getProcessDirname(importMeta) {
 /**
  * Imports a JS config from a set of paths. The JS files have to export
  * its config as the default export. Will return the first config found.
- * @template T config type
+ * @template {BaseConfig} T config type
  * @param {Array<string>} paths 
  * @param {ImportMeta?} importMeta The import.meta property of the file at your base directory.
  * @returns {Promise<Partial<T> | null>} The parsed config object or null if none can be found

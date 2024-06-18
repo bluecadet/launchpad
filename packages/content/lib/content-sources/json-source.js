@@ -54,7 +54,6 @@ class JsonSource extends ContentSource {
 	 */
 	async _downloadJsons() {
 		const result = new ContentResult();
-		
 		for (const [path, url] of Object.entries(this.config.files)) {
 			this.logger.debug(`Downloading json ${chalk.blue(url)}`);
 			const response = await got(url);
@@ -74,7 +73,7 @@ class JsonSource extends ContentSource {
 		for (const dataFile of result.dataFiles) {
 			this.logger.debug(`Scraping for media files in ${chalk.blue(dataFile.localPath)}...`);
 			const mediaUrls = JsonUtils.getUrls(dataFile.content, undefined, this.config.mediaPattern);
-			this.logger.debug(`Found ${chalk.blue(mediaUrls.size)} media files in ${chalk.blue(dataFile.localPath)}`);
+			this.logger.debug(`Found ${chalk.blue(mediaUrls.size.toString())} media files in ${chalk.blue(dataFile.localPath)}`);
 			result.addMediaDownloads([...mediaUrls].map(url => new MediaDownload({ url })));
 		}
 		return result;

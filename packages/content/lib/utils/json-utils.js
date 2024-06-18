@@ -22,6 +22,7 @@ class JsonUtils {
 		}
 
 		const possibleUrls = getUrls(JSON.stringify(json), config);
+
 		for (const url of possibleUrls) {
 			if (include && (include instanceof RegExp) && !url.match(include)) {
 				continue; // url doesn't match include
@@ -35,7 +36,8 @@ class JsonUtils {
 	}
 
 	/**
-	 * @param {any} [userSettings]
+	 * @param {import('get-urls').Options} [userSettings]
+	 * @returns {import('get-urls').Options}
 	 */
 	static getUrlOptions(userSettings) {
 		return {
@@ -43,7 +45,8 @@ class JsonUtils {
 				stripAuthentication: false,
 				stripWWW: false,
 				removeTrailingSlash: false,
-				sortQueryParameters: false
+				sortQueryParameters: false,
+				requireSchemeOrWww: true
 			},
 			...userSettings
 		};

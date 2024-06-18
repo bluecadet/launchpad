@@ -357,11 +357,11 @@ export class MediaDownloader {
 					await image.toFile(outputPath);
 				}
 			} catch (err) {
-				// if (!ignoreErrors) {
-				this.logger.error(`Couldn't transform image ${tempFilePath}`);
-				this.logger.error(err);
-				throw err;
-				// }
+				if (!ignoreErrors) {
+					this.logger.error(`Couldn't transform image ${tempFilePath}`);
+					this.logger.error(err);
+					throw err;
+				}
 			}
 		}
 	}

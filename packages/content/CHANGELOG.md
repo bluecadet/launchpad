@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.12.3
+
+### Patch Changes
+
+- [`8f3511870ee290678e8b987f75ac9f39929cfba0`](https://github.com/bluecadet/launchpad/commit/8f3511870ee290678e8b987f75ac9f39929cfba0) Thanks [@claytercek](https://github.com/claytercek)! - oops. _Actually_ fix ignoreImageTransformErrors flag
+
 ## 1.12.2
 
 ### Patch Changes

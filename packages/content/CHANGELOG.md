@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.12.2
+
+### Patch Changes
+
+- [#146](https://github.com/bluecadet/launchpad/pull/146) [`c203bda5812f3573dde4fdc4a000002b4e747325`](https://github.com/bluecadet/launchpad/commit/c203bda5812f3573dde4fdc4a000002b4e747325) Thanks [@claytercek](https://github.com/claytercek)! - Fix json content source media URL scraping
+
 ## 1.12.1
 
 ### Patch Changes

@@ -29,6 +29,8 @@ export class MediaDownloader {
 		this.logger = logger || console;
 	}
 
+	#abortController = new AbortController();
+
 	/**
 	 * Downloads a set of URLs into a destination folder.
 	 *
@@ -204,6 +206,13 @@ export class MediaDownloader {
 	}
 
 	/**
+	 * Abort all downloads in progress
+	 */
+	abort() {
+		this.#abortController.abort();
+	}
+
+	/**
 	 * @param {MediaDownload} task
 	 * @param {string} tempDir Directory path for temporary files
 	 * @param {string} destDir Directory path for final downloaded files
@@ -229,6 +238,7 @@ export class MediaDownloader {
 					// Get just the file header to check for modified date and file size
 					const response = await got.head(task.url, {
 						headers: this._getRequestHeaders(destPath),
+						signal: this.#abortController.signal,
 						timeout: {
 							response: options.maxTimeout
 						}
@@ -260,6 +270,7 @@ export class MediaDownloader {
 			if (!isCached) {
 				await pipeline(
 					got.stream(task.url, {
+						signal: this.#abortController.signal,
 						timeout: {
 							response: options.maxTimeout
 						}

@@ -18,7 +18,7 @@ import FileUtils from './utils/file-utils.js';
 import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
 import ContentTransform from './content-transforms/content-transform.js';
 
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-sources/content-result.js';
 import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
 import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
@@ -59,19 +59,19 @@ export class LaunchpadContent {
 			return Promise.reject(error);
 		}
 	}
-	
+
 	/** @type {import('./content-options.js').ResolvedContentOptions} */
 	_config;
 	
 	/** @type {Logger} */
 	_logger;
-	
+
 	/** @type {Array<ContentSource>} */
 	_sources = [];
-	
+
 	/** @type {MediaDownloader} */
 	_mediaDownloader;
-	
+
 	/** @type {Map<string, ContentTransform>} */
 	_contentTransforms = new Map();
 
@@ -91,7 +91,7 @@ export class LaunchpadContent {
 		this._contentTransforms.set('sanityToHtml', new SanityToHtmlTransform());
 		this._contentTransforms.set('sanityToMd', new SanityToMarkdownTransform());
 		this._contentTransforms.set('sanityToMarkdown', new SanityToMarkdownTransform());
-		
+
 		if (this._config.credentialsPath) {
 			try {
 				Credentials.init(this._config.credentialsPath, this._logger);
@@ -101,11 +101,12 @@ export class LaunchpadContent {
 				}
 			}
 		}
-		
+
 		this.sources = this._createSources(this._config.sources);
-		// onExit(() => {
-		//   // TODO: Abort media downloader and wait for remaining downloads to finish
-		// });
+
+		onExit(async () => {
+			this._mediaDownloader.abort();
+		});
 	}
 
 	/**
@@ -118,17 +119,17 @@ export class LaunchpadContent {
 			this._logger.warn(chalk.yellow('No sources found to download'));
 			return Promise.resolve();
 		}
-		
+
 		try {
 			this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
-			
+
 			if (this._config.backupAndRestore) {
 				this._logger.info(`Backing up ${chalk.cyan(sources.length)} sources`);
 				await this.backup(sources);
 			}
-			
+
 			let sourcesComplete = 0;
-			
+
 			for (const source of sources) {
 				const progress = (sourcesComplete + 1) + '/' + sources.length;
 				this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
@@ -140,7 +141,7 @@ export class LaunchpadContent {
 
 				sourcesComplete++;
 			}
-			
+
 			this._logger.info(
 				chalk.green(`Finished downloading ${sources.length} sources`)
 			);
@@ -151,7 +152,7 @@ export class LaunchpadContent {
 				await this.restore(sources);
 			}
 		}
-		
+
 		try {
 			this._logger.debug('Cleaning up temp and backup files');
 			await this.clear(sources, {
@@ -162,10 +163,10 @@ export class LaunchpadContent {
 		} catch (err) {
 			this._logger.error('Could not clean up temp and backup files', err);
 		}
-		
+
 		return Promise.resolve();
 	}
-	
+
 	/**
 	 * Alias for start(source)
 	 * @param {Array<ContentSource>} sources
@@ -174,7 +175,7 @@ export class LaunchpadContent {
 	async download(sources = []) {
 		return this.start(sources);
 	}
-	
+
 	/**
 	 * Clears all cached content except for files that match config.keep.
 	 * @param {Array<ContentSource>} sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
@@ -207,7 +208,7 @@ export class LaunchpadContent {
 				await this._clearDir(this.getDownloadPath(source), { removeIfEmpty });
 			}
 		}
-		
+
 		if (removeIfEmpty && temp) {
 			await FileUtils.removeDirIfEmpty(this.getTempPath());
 		}
@@ -217,10 +218,10 @@ export class LaunchpadContent {
 		if (removeIfEmpty && downloads) {
 			await FileUtils.removeDirIfEmpty(this.getDownloadPath());
 		}
-		
+
 		return Promise.resolve();
 	}
-	
+
 	/**
 	 * Backs up all downloads of source to a separate backup dir.
 	 * @param {Array<ContentSource>} sources
@@ -240,7 +241,7 @@ export class LaunchpadContent {
 			}
 		}
 	}
-	
+
 	/**
 	 * Restores all downloads of source from its backup dir if it exists.
 	 * @param {Array<ContentSource>} sources 
@@ -265,7 +266,7 @@ export class LaunchpadContent {
 			}
 		}
 	}
-	
+
 	/**
 	 * @param {ContentSource} [source] 
 	 * @returns {string}
@@ -277,7 +278,7 @@ export class LaunchpadContent {
 			return path.resolve(this._config.downloadPath);
 		}
 	}
-	
+
 	/**
 	 * @param {ContentSource} [source] 
 	 * @returns {string}
@@ -292,7 +293,7 @@ export class LaunchpadContent {
 			return detokenizedPath;
 		}
 	}
-	
+
 	/**
 	 * @param {ContentSource} [source] 
 	 * @returns {string}
@@ -307,7 +308,7 @@ export class LaunchpadContent {
 			return detokenizedPath;
 		}
 	}
-	
+
 	/**
 	 * @param {import('./content-options.js').ContentOptions['sources']} sourceConfigs 
 	 * @returns {Array<ContentSource>}
@@ -317,14 +318,14 @@ export class LaunchpadContent {
 			this._logger.warn('No content sources found in config.');
 			return [];
 		}
-		
+
 		const sources = [];
 
 		/**
 		 * @type {(import('./content-options.js').AllSourceOptions)[]}
 		 */
 		let sourceConfigArray = [];
-		
+
 		if (!Array.isArray(sourceConfigs)) {
 			// Backwards compatibility for key/value-based
 			// configs where the key is the source ID
@@ -380,7 +381,7 @@ export class LaunchpadContent {
 				this._logger.error('Could not create content source:', err);
 			}
 		}
-		
+
 		return sources;
 	}
 
@@ -447,12 +448,12 @@ export class LaunchpadContent {
 						this._logger.error(`Unsupported content transform: '${transformId}'`);
 						continue;
 					}
-					
+
 					const transformIdStr = chalk.yellow(transformId);
 					const pathStr = chalk.yellow(path);
 					const localPathStr = chalk.yellow(resultData.localPath);
 					const transformer = this._contentTransforms.get(transformId);
-					
+
 					try {
 						if (!transformer) {
 							throw new Error(`Could not find content transform '${transformId}'`);
@@ -473,7 +474,7 @@ export class LaunchpadContent {
 
 		return Promise.resolve(result);
 	}
-	
+
 	/**
 	 * @param {string} dirPath
 	 */

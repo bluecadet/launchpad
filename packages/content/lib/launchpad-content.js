@@ -75,6 +75,9 @@ export class LaunchpadContent {
 	/** @type {Map<string, ContentTransform>} */
 	_contentTransforms = new Map();
 
+	/** @type {Date} */
+	_startDatetime = new Date();
+
 	/**
 	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @param {Logger} [parentLogger]
@@ -119,6 +122,8 @@ export class LaunchpadContent {
 			this._logger.warn(chalk.yellow('No sources found to download'));
 			return Promise.resolve();
 		}
+
+		this._startDatetime = new Date();
 
 		try {
 			this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
@@ -501,7 +506,7 @@ export class LaunchpadContent {
 	 */
 	_getDetokenizedPath(tokenizedPath, downloadPath) {
 		if (tokenizedPath.includes(TIMESTAMP_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString());
+			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString(this._startDatetime));
 		}
 		if (tokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
 			tokenizedPath = tokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);

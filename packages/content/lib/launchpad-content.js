@@ -71,6 +71,9 @@ export class LaunchpadContent {
 	/** @type {MediaDownloader} */
 	_mediaDownloader;
 
+	/** @type {Date} */
+	_startDatetime = new Date();
+
 	/**
 	 * @param {import('./content-options.js').ConfigWithContent} [config]
 	 * @param {Logger} [parentLogger]
@@ -121,6 +124,7 @@ export class LaunchpadContent {
 		}
 
 		await this._pluginDriver.runHookSequential('onContentFetchSetup');
+		this._startDatetime = new Date();
 
 		try {
 			this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
@@ -457,7 +461,7 @@ export class LaunchpadContent {
 	 */
 	_getDetokenizedPath(tokenizedPath, downloadPath) {
 		if (tokenizedPath.includes(TIMESTAMP_TOKEN)) {
-			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString());
+			tokenizedPath = tokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString(this._startDatetime));
 		}
 		if (tokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
 			tokenizedPath = tokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);

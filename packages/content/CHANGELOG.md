@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-content
 
+## 1.12.4
+
+### Patch Changes
+
+- [#150](https://github.com/bluecadet/launchpad/pull/150) [`30ddcffdeaa045c7f19b80d454eebdbbe6a978df`](https://github.com/bluecadet/launchpad/commit/30ddcffdeaa045c7f19b80d454eebdbbe6a978df) Thanks [@github-actions](https://github.com/apps/github-actions)! - Abort content downloads on exit
+
+- [`6e214aa9dd6a847a7bc1558a35f1153f976bb1d4`](https://github.com/bluecadet/launchpad/commit/6e214aa9dd6a847a7bc1558a35f1153f976bb1d4) Thanks [@claytercek](https://github.com/claytercek)! - Fix inconsistent deletion of temp/backup directories
+
 ## 1.12.3
 
 ### Patch Changes

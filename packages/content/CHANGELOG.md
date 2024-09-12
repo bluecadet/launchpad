@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-content
 
+## 1.13.1
+
+### Patch Changes
+
+- [#153](https://github.com/bluecadet/launchpad/pull/153) [`ae7bd38cbc16d404902db90e615ec897af1b5e6d`](https://github.com/bluecadet/launchpad/commit/ae7bd38cbc16d404902db90e615ec897af1b5e6d) Thanks [@claytercek](https://github.com/claytercek)! - Fix event warning in media downloader. Also switch from `got` to `ky` for fetching (recommended by maintainers).
+
+- [#153](https://github.com/bluecadet/launchpad/pull/153) [`ae7bd38cbc16d404902db90e615ec897af1b5e6d`](https://github.com/bluecadet/launchpad/commit/ae7bd38cbc16d404902db90e615ec897af1b5e6d) Thanks [@claytercek](https://github.com/claytercek)! - Update default backup path to avoid polluting the launchpad directory with empty timestamp folders
+
 ## 1.13.0
 
 ### Minor Changes

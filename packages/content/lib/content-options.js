@@ -49,7 +49,7 @@ export const CONTENT_OPTION_DEFAULTS = {
 	contentTransforms: {},
 	downloadPath: '.downloads/',
 	tempPath: '%DOWNLOAD_PATH%/.tmp/',
-	backupPath: '%TIMESTAMP%/.tmp-backup/',
+	backupPath: '.tmp-backup/%TIMESTAMP%/',
 	keep: '',
 	strip: '',
 	backupAndRestore: true,

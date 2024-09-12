@@ -55,7 +55,7 @@ export class MediaDownload {
 		 * The path of this asset relative to this source's root asset dir.
 		 * Can optionally be overriden to save this file at another location.
 		 */
-		this.localPath = localPath || new URL(this.url).pathname;
+		this.localPath = localPath || new URL(this.url).pathname + new URL(this.url).search;
 		
 		Object.assign(this, rest);
 	}

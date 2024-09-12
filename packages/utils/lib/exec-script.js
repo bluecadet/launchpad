@@ -4,7 +4,7 @@ import { exec } from 'child_process';
  * Executes a scripts and pipes output and error to a logger
  * @param {string} script 
  * @param {string} [cwd] 
- * @param {import("./log-manager").Logger | Console} logger 
+ * @param {import("./log-manager.js").Logger | Console} logger 
  * @returns {Promise<number | null>} A promise with the exit code passed on close
  */
 export const execScript = async (script, cwd, logger = console) => {

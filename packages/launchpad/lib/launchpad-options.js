@@ -6,9 +6,9 @@
  * @typedef LaunchpadOptions Combined options to initialize Launchpad.
  * @property {import("@bluecadet/launchpad-content").ContentOptions} [content]
  * @property {import("@bluecadet/launchpad-monitor").MonitorOptions} [monitor]
- * @property {import("./command-center").CommandOptions} [commands]
- * @property {import("./command-hooks").HookMapping} [hooks]
- * @property {import("@bluecadet/launchpad-utils/lib/log-manager").LogOptions} [logging]
+ * @property {import("./command-center.js").CommandOptions} [commands]
+ * @property {import("./command-hooks.js").HookMapping} [hooks]
+ * @property {import("@bluecadet/launchpad-utils/lib/log-manager.js").LogOptions} [logging]
  * @property {boolean} [shutdownOnExit] Will listen for exit events. Defaults to 'true'
  */
 

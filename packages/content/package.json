@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-content",
-  "version": "1.13.0",
+  "version": "1.13.1",
   "description": "Content syncing pipeline for various sources",
   "type": "module",
   "main": "index.js",

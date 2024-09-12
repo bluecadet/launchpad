@@ -4,7 +4,7 @@
 
 import chalk from 'chalk';
 import jsonpath from 'jsonpath';
-import got from 'got';
+import ky from 'ky';
 import qs from 'qs';
 
 import ContentSource from './content-source.js';
@@ -348,7 +348,7 @@ class StrapiSource extends ContentSource {
 		
 		this.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
-		return got(this._versionUtils.buildUrl(parsedQuery, pagination), {
+		return ky(this._versionUtils.buildUrl(parsedQuery, pagination), {
 			headers: {
 				Authorization: `Bearer ${jwt}`
 			}
@@ -416,9 +416,9 @@ class StrapiSource extends ContentSource {
 		
 		const url = new URL('/auth/local', this.config.baseUrl);
 		
-		return got
+		return ky
 			.post(url.toString(), {
-				form: {
+				searchParams: {
 					identifier,
 					password
 				}

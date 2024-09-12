@@ -1,17 +1,16 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { promisify } from 'util';
-import stream from 'stream';
+import { pipeline } from 'node:stream/promises';
+import util from 'node:util';
 
 import chalk from 'chalk';
-import got from 'got'; // http requests
+import ky from 'ky'; // http requests
 import sharp from 'sharp'; // image manipulation
 import cliProgress from 'cli-progress';
 
 import FileUtils from './file-utils.js';
 import { MediaDownload } from '../content-sources/content-result.js';
-
-const pipeline = promisify(stream.pipeline);
+import { setMaxListeners } from 'events';
 
 /**
  * @type {typeof import('p-queue').default?}
@@ -58,6 +57,11 @@ export class MediaDownloader {
 			concurrency: options.maxConcurrent || 4
 		});
 
+		// Note, this should be 1 per concurrent request, plus 1 for the PQueue, 
+		// but there's a bug in node where it doesn't cleanup the fetch listeners.
+		// for now we'll just set it to no limit
+		setMaxListeners(0, this.#abortController.signal);
+		
 		let tempDir = '';
 		/**
 		 * @type {cliProgress.Bar | null}
@@ -127,7 +131,6 @@ export class MediaDownloader {
 						};
 					})
 					.catch((error) => {
-						// this.logger.error(error);
 						if (options.abortOnError) {
 							throw error;
 						}
@@ -146,14 +149,19 @@ export class MediaDownloader {
 
 			// Run download queue
 			await queue
-				.addAll(taskFns)
+				.addAll(taskFns, { signal: this.#abortController.signal })
 				.then(async (results) => {
 					// Finish progress animation before printing anything to console
 					if (progress) {
 						progress.stop();
 					}
 					// Return only errors
-					return results.filter(r => !!r.error).map(r => r.error);
+					return results.reduce((errors, r) => {
+						if (r && r.error !== null) {
+							errors.push(r.error);
+						}
+						return errors;
+					}, /** @type {Array<unknown>} */ ([]));
 				})
 				.then(async (errors) => {
 					// Print any errors
@@ -235,48 +243,55 @@ export class MediaDownloader {
 			// check for cached image first
 			if (!options.ignoreCache && exists && stats && stats.isFile()) {
 				if (options.enableIfModifiedSinceCheck || options.enableContentLengthCheck) {
-					// Get just the file header to check for modified date and file size
-					const response = await got.head(task.url, {
-						headers: this._getRequestHeaders(destPath),
-						signal: this.#abortController.signal,
-						timeout: {
-							response: options.maxTimeout
+					try {
+						// Get just the file header to check for modified date and file size
+						const response = await ky.head(task.url, {
+							headers: this._getRequestHeaders(destPath),
+							signal: this.#abortController.signal,
+							timeout: options.maxTimeout,
+							throwHttpErrors: false // Don't throw on non-2xx status codes
+						});
+
+						let isRemoteNew = false;
+
+						if (options.enableIfModifiedSinceCheck) {
+							// Remote file has been modified since the local file changed
+							isRemoteNew = response.status !== 304;
 						}
-					});
 
-					let isRemoteNew = false;
+						if (options.enableContentLengthCheck && response.headers && response.headers.get('content-length')) {
+							// Remote file has a different size than the local file
+							const remoteSize = parseInt(response.headers.get('content-length') ?? '');
+							const localSize = stats.size;
+							isRemoteNew = isRemoteNew || (remoteSize !== localSize);
+						}
 
-					if (options.enableIfModifiedSinceCheck) {
-						// Remote file has been modified since the local file changed
-						isRemoteNew = isRemoteNew || (response.statusCode !== 304);
-					}
-
-					if (options.enableContentLengthCheck && response.headers && response.headers['content-length']) {
-						// Remote file has a different size than the local file
-						const remoteSize = parseInt(response.headers['content-length']);
-						const localSize = stats.size;
-						isRemoteNew = isRemoteNew || (remoteSize !== localSize);
-					}
-
-					if (!isRemoteNew) {
-						// copy existing, cached file from dest dir
-						fs.copyFileSync(destPath, tempFilePath);
-						isCached = true;
+						if (!isRemoteNew) {
+							// copy existing, cached file from dest dir
+							fs.copyFileSync(destPath, tempFilePath);
+							isCached = true;
+						}
+					} catch (headError) {
+						// Log the error but continue with the download
+						this.logger.warn(`Error checking file headers for ${task.url}: ${headError instanceof Error ? headError.message : 'Unknown error'}`);
 					}
 				}
 			}
 
 			// download new or modified file
 			if (!isCached) {
-				await pipeline(
-					got.stream(task.url, {
-						signal: this.#abortController.signal,
-						timeout: {
-							response: options.maxTimeout
-						}
-					}),
-					fs.createWriteStream(tempFilePath)
-				);
+				const response = await ky.get(task.url, {
+					signal: this.#abortController.signal,
+					timeout: options.maxTimeout
+				});
+				
+				if (!response.body) {
+					throw new Error('No response body');
+				}
+
+				const writer = fs.createWriteStream(tempFilePath);
+
+				await pipeline(response.body, writer);
 			}
 
 			// apply optional transforms

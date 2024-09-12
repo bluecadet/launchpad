@@ -5,7 +5,7 @@
 import JsonUtils from '../utils/json-utils.js';
 import ContentSource, { MEDIA_REGEX } from './content-source.js';
 import ContentResult, { MediaDownload } from './content-result.js';
-import got from 'got';
+import ky from 'ky';
 import { Logger } from '@bluecadet/launchpad-utils';
 import chalk from 'chalk';
 
@@ -56,8 +56,8 @@ class JsonSource extends ContentSource {
 		const result = new ContentResult();
 		for (const [path, url] of Object.entries(this.config.files)) {
 			this.logger.debug(`Downloading json ${chalk.blue(url)}`);
-			const response = await got(url);
-			const json = JSON.parse(response.body);
+			const response = await ky(url);
+			const json = await response.json();
 			result.addDataFile(path, json);
 		}
 		

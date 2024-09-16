@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.14.0
+
+### Minor Changes
+
+- [`4bafb91969f7768b00f8ed353eb7b86b611dff9e`](https://github.com/bluecadet/launchpad/commit/4bafb91969f7768b00f8ed353eb7b86b611dff9e) Thanks [@claytercek](https://github.com/claytercek)! - Add more control over how `launchpad content` encodes URL characters when writing to disk. Added new `encodeChars` option to content options.
+
 ## 1.13.1
 
 ### Patch Changes

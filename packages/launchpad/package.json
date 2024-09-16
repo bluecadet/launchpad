@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Suite of tools to manage media installations",
   "engines": {
     "npm": ">=8.5.1",
@@ -60,7 +60,7 @@
     "@bluecadet/launchpad-dashboard": "~1.5.0",
     "@bluecadet/launchpad-monitor": "~1.8.0",
     "@bluecadet/launchpad-scaffold": "~1.8.0",
-    "@bluecadet/launchpad-content": "~1.13.0",
+    "@bluecadet/launchpad-content": "~1.14.0",
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "fs-extra": "^10.0.0"

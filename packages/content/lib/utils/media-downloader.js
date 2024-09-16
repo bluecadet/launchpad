@@ -229,7 +229,8 @@ export class MediaDownloader {
 	 */
 	async download(task, tempDir, destDir, options) {
 		try {
-			const localPath = task.localPath.replace(options.strip, '');
+			const encodeRegex = new RegExp(`[${options.encodeChars}]`, 'g');
+			const localPath = task.localPath.replace(options.strip, '').replace(encodeRegex, encodeURIComponent);
 			const destPath = path.join(destDir, localPath);
 			const tempFilePath = path.join(tempDir, localPath);
 			const tempFilePathDir = path.dirname(tempFilePath);

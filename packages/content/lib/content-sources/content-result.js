@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export class DataFile {
 	/**
 	 * The relative local path where the file should be saved.
@@ -55,7 +57,7 @@ export class MediaDownload {
 		 * The path of this asset relative to this source's root asset dir.
 		 * Can optionally be overriden to save this file at another location.
 		 */
-		this.localPath = localPath || new URL(this.url).pathname + new URL(this.url).search;
+		this.localPath = localPath || MediaDownload.buildLocalPath(this.url);
 		
 		Object.assign(this, rest);
 	}
@@ -67,6 +69,26 @@ export class MediaDownload {
 	 */
 	getKey() {
 		return `${this.url}_${this.localPath}`;
+	}
+
+	/**
+	 * Given a full URL, build a unique path to save the file
+	 * @param {string} url
+	 * @returns {string}
+	 */
+	static buildLocalPath(url) {
+		// Remove protocol and domain
+		let urlPath = url.replace(/^[^:]+:\/\/[^\/]+/, '');
+		
+		// Remove leading slash if present
+		if (urlPath.startsWith('/')) {
+			urlPath = urlPath.slice(1);
+		}
+
+		// Use the OS path separator
+		const localPath = urlPath.replace(/\//g, path.sep);
+		
+		return localPath;
 	}
 }
 

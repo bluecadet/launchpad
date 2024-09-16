@@ -38,6 +38,7 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
  * @property {boolean} [ignoreImageTransformCache] Set to `true` to always re-generate transformed images, even if cached versions of the original and transformed image already exist. Defaults to false.
  * @property {boolean} [ignoreImageTransformErrors] Set to `false` if you want to abort a content source from downloading if any of the image transforms fail. Leaving this to `true` will allow for non-image files to fail quietly. Defaults to true.
  * @property {boolean} [forceClearTempFiles] Set to `false` if you want to keep all contents of the tempPath dir before downloading. Defaults to true.
+ * @property {string} [encodeChars] Characters to encode in the path when saving files locally. Defaults to `<>:"|?*`. Applies to both content source paths and media download paths.
  */
 
 /**
@@ -63,7 +64,8 @@ export const CONTENT_OPTION_DEFAULTS = {
 	abortOnError: true,
 	ignoreImageTransformCache: false,
 	ignoreImageTransformErrors: true,
-	forceClearTempFiles: true
+	forceClearTempFiles: true,
+	encodeChars: '<>:"|?*',
 };
 
 /**

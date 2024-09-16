@@ -416,11 +416,12 @@ export class LaunchpadContent {
 	async _saveDataFiles(source, result) {
 		for (const resultData of result.dataFiles) {
 			try {
+				const encodeRegex = new RegExp(`[${this._config.encodeChars}]`, 'g');
 				const filePath = path.join(
 					this._config.downloadPath,
 					source.config.id,
 					resultData.localPath
-				);
+				).replace(encodeRegex, encodeURIComponent);
 				await FileUtils.saveJson(resultData.content, filePath);
 			} catch (error) {
 				this._logger.error(`Could not save json ${resultData.localPath}`);

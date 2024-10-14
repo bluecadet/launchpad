@@ -9,10 +9,21 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   release:
+    # prevents this action from running on forks
+    if: github.repository == 'bluecadet/launchpad'
+
+    permissions:
+      contents: write # to create release (changesets/action)
+      id-token: write # OpenID Connect token needed for provenance
+      pull-requests: write # to create pull request (changesets/action)
+
     name: Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+          # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
+          fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: 'package.json'

@@ -18,7 +18,7 @@ import FileUtils from './utils/file-utils.js';
 import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-sources/content-result.js';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
-import { createPluginsFromConfig } from './content-plugin.js';
+import { ContentPluginDriver, createPluginsFromConfig } from './content-plugin.js';
 
 /**
  * @enum {import('./content-options.js').AllSourceOptions['type']}
@@ -62,7 +62,7 @@ export class LaunchpadContent {
 	/** @type {Logger} */
 	_logger;
 
-	/** @type {PluginDriver<import('./content-plugin.js').ContentHooks>} */
+	/** @type {ContentPluginDriver} */
 	_pluginDriver;
 
 	/** @type {Array<ContentSource>} */
@@ -83,7 +83,8 @@ export class LaunchpadContent {
 		this._config = resolveContentOptions(config);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
-		this._pluginDriver = pluginDriver || new PluginDriver([]);
+		const basePluginDriver = pluginDriver || new PluginDriver([]);
+		this._pluginDriver = new ContentPluginDriver(basePluginDriver, { mediaDownloader: this._mediaDownloader });
 
 		// TODO: remove once json configs are fully supported
 		const configPlugins = createPluginsFromConfig(this._config);

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 1.14.1
+
+### Patch Changes
+
+- [#158](https://github.com/bluecadet/launchpad/pull/158) [`a331bfed02f2ede745c3c54da8fdb3c57537e404`](https://github.com/bluecadet/launchpad/commit/a331bfed02f2ede745c3c54da8fdb3c57537e404) Thanks [@claytercek](https://github.com/claytercek)! - add maxTimeout property to json source config
+
 ## 1.14.0
 
 ### Minor Changes

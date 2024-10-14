@@ -2,25 +2,34 @@ name: Main
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+  push:
     branches:
       - develop
-      - main
+  merge_group:
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+env:
+  FORCE_COLOR: 3
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version-file: 'package.json'
+          cache: 'npm'
           
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
         
       - name: Run eslint
         run: npm run lint

@@ -62,9 +62,6 @@ export class LaunchpadContent {
 	/** @type {Logger} */
 	_logger;
 
-	/** @type {ContentPluginDriver} */
-	_pluginDriver;
-
 	/** @type {Array<ContentSource>} */
 	_sources = [];
 
@@ -124,6 +121,7 @@ export class LaunchpadContent {
 		}
 
 		await this._pluginDriver.runHookSequential('onContentFetchSetup');
+
 		this._startDatetime = new Date();
 
 		try {

@@ -13,6 +13,7 @@ import chalk from 'chalk';
  * @typedef BaseJsonOptions
  * @property {RegExp} [mediaPattern] Regex for media files that should be downloaded from json sources. Defaults to `/.+(\.jpg|\.jpeg|\.png)/gi|/.+(\.avi|\.mov|\.mp4|\.mpg|\.mpeg)/gi`
  * @property {Record<string, string>} files A mapping of json file-path -> url
+ * @property {number} [maxTimeout] Max request timeout in ms. Defaults to 30 seconds.
  */
 
 /**
@@ -24,7 +25,8 @@ import chalk from 'chalk';
  */
 
 const JSON_OPTIONS_DEFAULTS = {
-	mediaPattern: MEDIA_REGEX
+	mediaPattern: MEDIA_REGEX,
+	maxTimeout: 30_000
 };
 
 /**
@@ -39,7 +41,7 @@ class JsonSource extends ContentSource {
 	constructor(config, logger) {
 		super({ ...JSON_OPTIONS_DEFAULTS, ...config }, logger);
 	}
-	
+
 	/**
 	 * @returns {Promise<ContentResult>} 
 	 */
@@ -56,14 +58,16 @@ class JsonSource extends ContentSource {
 		const result = new ContentResult();
 		for (const [path, url] of Object.entries(this.config.files)) {
 			this.logger.debug(`Downloading json ${chalk.blue(url)}`);
-			const response = await ky(url);
+			const response = await ky(url, {
+				timeout: this.config.maxTimeout
+			});
 			const json = await response.json();
 			result.addDataFile(path, json);
 		}
-		
+
 		return result;
 	}
-	
+
 	/**
 	 * 
 	 * @param {ContentResult} result

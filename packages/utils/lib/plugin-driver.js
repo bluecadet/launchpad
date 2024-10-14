@@ -40,7 +40,7 @@ export default class PluginDriver {
 
 	/**
 	 * @readonly
-	 * @type {ReadonlyMap<Plugin, PluginContext>}
+	 * @type {ReadonlyMap<Plugin<T>, PluginContext>}
 	 */
 	#pluginContexts;
 
@@ -70,7 +70,13 @@ export default class PluginDriver {
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
-				await hook(this.#pluginContexts.get(plugin), args);
+				const ctx = this.#pluginContexts.get(plugin);
+
+				if (!ctx) {
+					throw new Error(`Plugin context not found for plugin ${plugin.name}`);
+				}
+				
+				await hook(ctx, args);
 			}
 		}
 	}

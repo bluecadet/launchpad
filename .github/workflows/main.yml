@@ -2,8 +2,6 @@ name: Main
 
 on:
   pull_request:
-    branches:
-      - develop
   push:
     branches:
       - develop
@@ -11,7 +9,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
 
 env:
   FORCE_COLOR: 3

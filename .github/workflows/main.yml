@@ -6,8 +6,18 @@ on:
     branches:
       - develop
       - main
+  push:
+    branches:
+      - develop
+      - main
+  merge_group:
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
+
+env:
+  FORCE_COLOR: 3
 
 jobs:
   lint:

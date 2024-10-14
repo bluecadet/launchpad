@@ -3,7 +3,7 @@ import { applyTransformToFiles, isBlockContent } from '../utils/content-transfor
 /**
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
- * @returns {import("../content-plugin.js").ContentPlugin}
+ * @returns {import("../content-plugin-driver.js").ContentPlugin}
  */
 export default function sanityToPlain({ path }) {
 	return {

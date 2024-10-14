@@ -1,4 +1,4 @@
-import LogManager from './log-manager';
+import LogManager from './log-manager.js';
 
 /**
  * Plugin and PluginDriver types are generic so that hook
@@ -7,24 +7,19 @@ import LogManager from './log-manager';
 
 /**
  * @typedef PluginContext
- * @property {import('./log-manager').Logger} logger
+ * @property {import('./log-manager.js').Logger} logger
  */
 
 /**
- * @template {unknown[]} T
- * @typedef  {T extends [any, infer U] ? U : never} Second get the second type in a tuple
- */
-
-/**
- * @template {unknown} [T=undefined]
- * @typedef {(ctx: PluginContext, args: T) => void | Promise<void>} Hook
+ * @template {unknown[]} [T=never[]]
+ * @typedef {(...args: T) => void | Promise<void>} Hook
  */
 
 /**
  * @template {Record<string, Hook>} T
  * @typedef Plugin
  * @property {string} name
- * @property {Partial<T>} hooks
+ * @property {{[K in keyof T]?: (ctx: PluginContext, ...args: Parameters<T[K]>) => void | Promise<void>}} hooks
  */
 
 /**
@@ -33,40 +28,45 @@ import LogManager from './log-manager';
  */
 export default class PluginDriver {
 	/**
-	 * @readonly
-	 * @type {ReadonlyArray<Plugin<T>>}
+	 * @type {Plugin<T>[]}
 	 */
-	#plugins;
+	#plugins = [];
 
 	/**
 	 * @readonly
-	 * @type {ReadonlyMap<Plugin<T>, PluginContext>}
+	 * @type {Map<Plugin<T>, PluginContext>}
 	 */
-	#pluginContexts;
+	#pluginContexts = new Map();
 
 	/**
 	 * @param {Plugin<T>[]} plugins
 	 */
 	constructor(plugins) {
-		this.#plugins = plugins;
-
-		this.#pluginContexts = new Map(
-			plugins.map((plugin) => [
-				plugin,
-				{
-					logger: LogManager.getInstance().getLogger(plugin.name)
-				}
-			])
-		);
+		this.add(plugins);
 	}
 
 	/**
-	 * Run a hook in all plugins sequentially
+	 * add a plugin or array of plugins to the driver
+	 * @param {Plugin<T> | Plugin<T>[]} plugins 
+	 */
+	add(plugins) {
+		const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
+
+		for (const plugin of pluginArray) {
+			this.#plugins.push(plugin);
+			this.#pluginContexts.set(plugin, {
+				logger: LogManager.getInstance().getLogger(`plugin:${plugin.name}`)
+			});
+		}
+	}
+
+	/**
+	 * Run a hook in all plugins sequentially, passing the same argument to each.
 	 * @template {keyof T} K
 	 * @param {K} hookName
-	 * @param {Second<Parameters<T[K]>>} args
+	 * @param {Parameters<T[K]>} args
 	 */
-	async runHookSequential(hookName, args) {
+	async runHookSequential(hookName, ...args) {
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
@@ -76,7 +76,7 @@ export default class PluginDriver {
 					throw new Error(`Plugin context not found for plugin ${plugin.name}`);
 				}
 				
-				await hook(ctx, args);
+				await hook(ctx, ...args);
 			}
 		}
 	}

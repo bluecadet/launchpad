@@ -1,5 +1,4 @@
 import path from 'path';
-import jsonpath from 'jsonpath';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 
@@ -15,14 +14,11 @@ import SanitySource from './content-sources/sanity-source.js';
 
 import MediaDownloader from './utils/media-downloader.js';
 import FileUtils from './utils/file-utils.js';
-import MdToHtmlTransform from './content-transforms/md-to-html-transform.js';
-import ContentTransform from './content-transforms/content-transform.js';
 
 import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
 import ContentResult from './content-sources/content-result.js';
-import SanityToPlainTransform from './content-transforms/sanity-to-plain.js';
-import SanityToHtmlTransform from './content-transforms/sanity-to-html.js';
-import SanityToMarkdownTransform from './content-transforms/sanity-to-markdown.js';
+import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
+import { createPluginsFromConfig } from './content-plugin.js';
 
 /**
  * @enum {import('./content-options.js').AllSourceOptions['type']}
@@ -62,9 +58,12 @@ export class LaunchpadContent {
 
 	/** @type {import('./content-options.js').ResolvedContentOptions} */
 	_config;
-	
+
 	/** @type {Logger} */
 	_logger;
+
+	/** @type {PluginDriver<import('./content-plugin.js').ContentHooks>} */
+	_pluginDriver;
 
 	/** @type {Array<ContentSource>} */
 	_sources = [];
@@ -72,28 +71,23 @@ export class LaunchpadContent {
 	/** @type {MediaDownloader} */
 	_mediaDownloader;
 
-	/** @type {Map<string, ContentTransform>} */
-	_contentTransforms = new Map();
-
 	/** @type {Date} */
 	_startDatetime = new Date();
 
 	/**
 	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @param {Logger} [parentLogger]
+	 * @param {PluginDriver<import('./content-plugin.js').ContentHooks>} [pluginDriver]
 	 */
-	constructor(config, parentLogger) {
+	constructor(config, parentLogger, pluginDriver) {
 		this._config = resolveContentOptions(config);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
 		this._mediaDownloader = new MediaDownloader(this._logger);
-		this._contentTransforms.set('mdToHtml', new MdToHtmlTransform(false));
-		this._contentTransforms.set('mdToHtmlSimplified', new MdToHtmlTransform(true));
-		this._contentTransforms.set('markdownToHtml', new MdToHtmlTransform(false));
-		this._contentTransforms.set('markdownToHtmlSimplified', new MdToHtmlTransform(true));
-		this._contentTransforms.set('sanityToPlain', new SanityToPlainTransform());
-		this._contentTransforms.set('sanityToHtml', new SanityToHtmlTransform());
-		this._contentTransforms.set('sanityToMd', new SanityToMarkdownTransform());
-		this._contentTransforms.set('sanityToMarkdown', new SanityToMarkdownTransform());
+		this._pluginDriver = pluginDriver || new PluginDriver([]);
+
+		// TODO: remove once json configs are fully supported
+		const configPlugins = createPluginsFromConfig(this._config);
+		this._pluginDriver.add(configPlugins);
 
 		if (this._config.credentialsPath) {
 			try {
@@ -125,6 +119,8 @@ export class LaunchpadContent {
 
 		this._startDatetime = new Date();
 
+		await this._pluginDriver.runHookSequential('onContentFetchSetup');
+
 		try {
 			this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
 
@@ -140,8 +136,11 @@ export class LaunchpadContent {
 				this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
 				let result = await source.fetchContent();
 
+				await this._pluginDriver.runHookSequential('onContentFetchData', {
+					dataFiles: result.dataFiles
+				});
+
 				result = await this._downloadMedia(source, result);
-				result = await this._applyContentTransforms(source, result);
 				result = await this._saveDataFiles(source, result);
 
 				sourcesComplete++;
@@ -152,6 +151,7 @@ export class LaunchpadContent {
 			);
 		} catch (err) {
 			this._logger.error(chalk.red('Could not download all content:'), err);
+			await this._pluginDriver.runHookSequential('onContentFetchError');
 			if (this._config.backupAndRestore) {
 				this._logger.info(`Restoring ${chalk.cyan(sources.length)} sources`);
 				await this.restore(sources);
@@ -430,57 +430,6 @@ export class LaunchpadContent {
 		}
 		return Promise.resolve(result);
 	}
-
-	/**
-	 * Saves a result's data file to a local path
-	 * @param {ContentSource} source
-	 * @param {ContentResult} result
-	 * @returns {Promise<ContentResult>}
-	 */
-	async _applyContentTransforms(source, result) {
-		/**
-		 * @type {any}
-		 */
-		const transforms = 'contentTransforms' in source.config ? source.config.contentTransforms : this._config.contentTransforms;
-
-		for (const resultData of result.dataFiles) {
-			if (!resultData.content) {
-				continue;
-			}
-
-			for (const [path, transformIds] of Object.entries(transforms)) {
-				for (const transformId of transformIds) {
-					if (!this._contentTransforms.has(transformId)) {
-						this._logger.error(`Unsupported content transform: '${transformId}'`);
-						continue;
-					}
-
-					const transformIdStr = chalk.yellow(transformId);
-					const pathStr = chalk.yellow(path);
-					const localPathStr = chalk.yellow(resultData.localPath);
-					const transformer = this._contentTransforms.get(transformId);
-
-					try {
-						if (!transformer) {
-							throw new Error(`Could not find content transform '${transformId}'`);
-						}
-
-						this._logger.debug(
-							chalk.gray(`Applying content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`));
-						jsonpath.apply(resultData.content, path, transformer.transform);
-					} catch (error) {
-						this._logger.error(
-							chalk.red(`Could not apply content transform ${transformIdStr} to '${pathStr}' in ${localPathStr}`)
-						);
-						this._logger.error(error);
-					}
-				}
-			}
-		}
-
-		return Promise.resolve(result);
-	}
-
 	/**
 	 * @param {string} dirPath
 	 */

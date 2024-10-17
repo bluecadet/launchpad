@@ -16,15 +16,12 @@ import Credentials from '../credentials.js';
 import { Logger } from '@bluecadet/launchpad-utils';
 import FileUtils from '../utils/file-utils.js';
 
-/**
- * @typedef SanityCredentials
- * @property {string} apiToken API Token defined in your sanity project.
- */
 
 /**
  * @typedef BaseSanityOptions
  * @property {string} [apiVersion] API Version. Defailts to 'v2021-10-21'
  * @property {string} projectId Sanity Project ID
+ * @property {string} apiToken API Token defined in your sanity project.
  * @property {string} [dataset] Dataset. Defaults to 'production'
  * @property {boolean} [useCdn] `false` if you want to ensure fresh data
  * @property {string} baseUrl The base url of your Sanity CMS (with or without trailing slash).
@@ -227,19 +224,19 @@ class SanitySource extends ContentSource {
 				task.localPath,
 				`_${sanitize(url.search.replace('?', ''))}`
 			);
-			
+
 			if (this.config.appendCroppedFilenames) {
 				image.launchpad = {
 					croppedFilename: path.basename(task.localPath)
 				};
 			}
-			
+
 			downloads.push(task);
 		}
 
 		return downloads;
 	}
-	
+
 	/**
 	 *
 	 * @param {SanityOptions} config
@@ -256,7 +253,7 @@ class SanitySource extends ContentSource {
 			);
 		}
 	}
-	
+
 	/**
 	 * @private
 	 * @param {SanityOptions} config
@@ -271,7 +268,7 @@ class SanitySource extends ContentSource {
 					`Sanity credentials for source '${config.id}' are invalid.`
 				);
 			}
-			
+
 			return {
 				...SANITY_OPTION_DEFAULTS,
 				...config,

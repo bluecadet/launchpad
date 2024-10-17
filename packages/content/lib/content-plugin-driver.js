@@ -1,5 +1,23 @@
 import { HookContextProvider } from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 
+export class ContentFetchError extends Error {
+	/**
+	 * @type {string}
+	 */
+	sourceKey;
+
+	/**
+	 * @param {string} message
+	 * @param {string} sourceKey
+	 * @param {Error} [cause]
+	 */
+	constructor(message, sourceKey, cause) {
+		super(message, { cause });
+		this.name = 'ContentFetchError';
+		this.sourceKey = sourceKey;
+	}
+}
+
 /**
  * @typedef ContentHookContext
  * @prop {import('./utils/data-store.js').default} data
@@ -10,11 +28,16 @@ import { HookContextProvider } from '@bluecadet/launchpad-utils/lib/plugin-drive
  */
 
 /**
+ * @template T
+ * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<T>} Awaitable
+ */
+
+/**
  * @typedef ContentHooks
  * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchSetup Called before any content is fetched
- * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchData Called to initialize all content fetches
+ * @prop {(ctx: CombinedContentHookContext, reportFetchError: (err: ContentFetchError) => void) => Awaitable<void>} onContentFetchData Runs all content fetches and reports any errors
  * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchDataDone Called when all content has been fetched
- * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchError Called when a content source fails to fetch
+ * @prop {(ctx: CombinedContentHookContext, error: ContentFetchError) => void} onContentFetchError Called when a content source fails to fetch
  */
 
 /**

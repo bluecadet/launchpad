@@ -1,15 +1,13 @@
 import { HookContextProvider } from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { DataFile } from './content-sources/content-result.js';
-import mdToHtml from './plugins/md-to-html.js';
-import sanityToHtml from './plugins/sanity-to-html.js';
-import sanityToMd from './plugins/sanity-to-markdown.js';
-import sanityToPlain from './plugins/sanity-to-plain.js';
-import MediaDownloader from './utils/media-downloader.js';
+import mdToHtml from './plugins/transforms/md-to-html.js';
+import sanityToHtml from './plugins/transforms/sanity-to-html.js';
+import sanityToMd from './plugins/transforms/sanity-to-markdown.js';
+import sanityToPlain from './plugins/transforms/sanity-to-plain.js';
 
 /**
  * @typedef ContentHookContext
- * @prop {MediaDownloader} mediaDownloader
- * // TBD 
+ * @prop {import('./utils/data-store.js').default} data
  */
 
 /**
@@ -18,8 +16,9 @@ import MediaDownloader from './utils/media-downloader.js';
 
 /**
  * @typedef ContentHooks
- * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchSetup Called before a content source is fetched
- * @prop {(ctx: CombinedContentHookContext, param: {dataFiles: DataFile[]}) => void} onContentFetchData Called when all content for a given source has been fetched
+ * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchSetup Called before any content is fetched
+ * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchData Called to initialize all content fetches
+ * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchDataDone Called when all content has been fetched
  * @prop {(ctx: CombinedContentHookContext, ) => void} onContentFetchError Called when a content source fails to fetch
  */
 
@@ -32,20 +31,20 @@ import MediaDownloader from './utils/media-downloader.js';
  */
 export class ContentPluginDriver extends HookContextProvider {
 	/**
-	 * @type {MediaDownloader}
+	 * @type {import('./utils/data-store.js').default}
 	 */
-	#mediaDownloader;
+	#dataStore;
 
 	/**
 	 * @param {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').default<ContentHooks>} wrappee
 	 * @param {object} options
-	 * @param {MediaDownloader} options.mediaDownloader
+	 * @param {import('./utils/data-store.js').default} options.dataStore
 	 * @param {import('./content-options.js').ResolvedContentOptions} options.config
 	 * @param {import('@bluecadet/launchpad-utils/lib/log-manager.js').Logger} options.logger
 	 */
-	constructor(wrappee, { mediaDownloader, config, logger }) {
+	constructor(wrappee, { dataStore, config, logger }) {
 		super(wrappee);
-		this.#mediaDownloader = mediaDownloader;
+		this.#dataStore = dataStore;
 
 		const legacyPlugins = createPluginsFromConfig(config, logger);
 
@@ -59,7 +58,7 @@ export class ContentPluginDriver extends HookContextProvider {
 	 */
 	_getPluginContext() {
 		return {
-			mediaDownloader: this.#mediaDownloader
+			data: this.#dataStore
 		};
 	}
 }

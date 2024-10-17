@@ -1,23 +1,25 @@
 import sanitizeHtml from 'sanitize-html';
 import MarkdownIt from 'markdown-it';
 
-import markdownItItalicBold from '../utils/markdown-it-italic-bold.js';
-import { applyTransformToFiles } from '../utils/content-transform-utils.js';
+import markdownItItalicBold from '../../utils/markdown-it-italic-bold.js';
+import { applyTransformToFiles } from '../../utils/content-transform-utils.js';
 
 /**
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
  * @param {boolean} [options.simplified] enable for single paragraph content, will render inline
- * @returns {import("../content-plugin-driver.js").ContentPlugin}
+ * @param {string[]} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
+ * @returns {import("../../content-plugin-driver.js").ContentPlugin}
  */
-export default function mdToHtml({ path, simplified = false }) {
+export default function mdToHtml({ path, simplified = false, keys }) {
 	return {
 		name: 'md-to-html-transform',
 		hooks: {
-			onContentFetchData(ctx, { dataFiles }) {
+			onContentFetchData(ctx) {
 				applyTransformToFiles({
-					dataFiles,
+					dataStore: ctx.data,
 					path,
+					keys,
 					logger: ctx.logger,
 					transformFn: (content) => {
 						if (typeof content !== 'string') {
@@ -30,9 +32,9 @@ export default function mdToHtml({ path, simplified = false }) {
 						if (simplified) {
 							md.use(markdownItItalicBold);
 							return md.renderInline(sanitizedStr);
-						} else {
-							return md.render(sanitizedStr);
 						}
+
+						return md.render(sanitizedStr);
 					}
 				});
 			}

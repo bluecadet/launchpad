@@ -1,36 +1,37 @@
-import jsonpath from 'jsonpath';
 import chalk from 'chalk';
-import { DataFile } from '../content-sources/content-result.js';
 
 /**
+ * Shared logic for content transforms
  * @param {object} params
- * @param {DataFile[]} params.dataFiles
+ * @param {import('./data-store.js').default} params.dataStore
  * @param {string} params.path
  * @param {(content: unknown) => unknown} params.transformFn
  * @param {import('@bluecadet/launchpad-utils').Logger} params.logger
+ * @param {string[]} [params.keys]
  */
-export function applyTransformToFiles({ dataFiles, path, transformFn, logger }) {
+export function applyTransformToFiles({ dataStore, path, transformFn, logger, keys }) {
 	const pathStr = chalk.yellow(path);
-  
-	return dataFiles.map((data) => {
-		const localPathStr = chalk.yellow(data.localPath);
 
-		try {
-			logger.debug(
-				chalk.gray(`Applying content transform to '${pathStr}' in ${localPathStr}`));
-              
-			jsonpath.apply(data.content, path, transformFn);
+	// if no keys are provided, iterate over all keys in the data store
+	const keysToIterate = keys ?? dataStore.keys();
 
-			return data;
-		} catch (err) {
+	for (const key of keysToIterate) {
+		logger.debug(
+			chalk.gray(`Applying content transform to '${pathStr}' for key '${key}'`));
+
+		const result = dataStore.apply(key, path, transformFn);
+
+		if (result.isErr()) {
 			logger.error(
-				chalk.red(`Could not apply content transform to '${pathStr}' in ${localPathStr}`)
+				chalk.red(`Could not apply content transform to '${pathStr}' for key '${key}'`)
 			);
-			logger.error(err);
-
-			return data;
+			logger.error(result.error);
+		} else {
+			logger.debug(
+				chalk.green(`Content transform applied to '${pathStr}' for key '${key}'`)
+			);
 		}
-	});
+	}
 }
 
 /**

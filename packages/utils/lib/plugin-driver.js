@@ -33,6 +33,11 @@ import LogManager from './log-manager.js';
  */
 
 /**
+ * @template T
+ * @typedef {Promise<void> | void} Awaitable<T>
+ */
+
+/**
  * Manage plugins and run hooks.
  * @template {HookSet} T
  */

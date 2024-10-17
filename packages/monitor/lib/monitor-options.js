@@ -124,8 +124,12 @@ export function resolveMonitorConfig(config) {
  */
 
 /**
- * @param {MonitorOptions} config 
- * @returns {MonitorOptions}
+ * @typedef {import('@bluecadet/launchpad-utils').BaseConfig & {monitor?: MonitorOptions, plugins?: import('./monitor-plugin-driver.js').MonitorPlugin[]}} ConfigWithMonitor
+ */
+
+/**
+ * @param {ConfigWithMonitor} config 
+ * @returns {ConfigWithMonitor}
  */
 export function defineMonitorConfig(config) {
 	return config;

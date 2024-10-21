@@ -14,12 +14,10 @@
  * @prop {(ctx: FetchContext) => FetchResult} fetch
  */
 
-
 /**
  * @template T
  * @typedef {(options: T) => import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<ContentSource, string>>} ContentSourceBuilder
  */
-
 
 /**
  * This function doesn't do anything, just returns the source parameter. It's just to make it easier to define/type sources.
@@ -27,5 +25,5 @@
  * @returns {ContentSource}
  */
 export function defineSource(src) {
-  return src;
+	return src;
 }

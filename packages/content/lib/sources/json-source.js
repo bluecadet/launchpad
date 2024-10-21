@@ -1,7 +1,7 @@
-import chalk from "chalk";
-import ky from "ky";
-import { err, ok } from "neverthrow";
-import { defineSource } from "./source.js";
+import chalk from 'chalk';
+import ky from 'ky';
+import { err, ok } from 'neverthrow';
+import { defineSource } from './source.js';
 
 /**
  * @typedef {object} JsonSourceOptions
@@ -14,29 +14,29 @@ import { defineSource } from "./source.js";
  * @type {import("./source.js").ContentSourceBuilder<JsonSourceOptions>}
  */
 export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
-  return ok(defineSource({
-    id: id,
-    fetch: async (ctx) => {
-      const resultMap = new Map();
-      for (const [key, url] of Object.entries(files)) {
-        ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-        const response = await ky(url, {
-          timeout: maxTimeout
-        });
+	return ok(defineSource({
+		id,
+		fetch: async (ctx) => {
+			const resultMap = new Map();
+			for (const [key, url] of Object.entries(files)) {
+				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
+				const response = await ky(url, {
+					timeout: maxTimeout
+				});
 
-        if (!response.ok) {
-          return err(`Could not fetch json from ${url}`);
-        }
+				if (!response.ok) {
+					return err(`Could not fetch json from ${url}`);
+				}
 
-        try {
-          const json = await response.json();
-          resultMap.set(key, json);
-        } catch (error) {
-          return err(`Could not parse json from ${url}`);
-        }
-      }
+				try {
+					const json = await response.json();
+					resultMap.set(key, json);
+				} catch (error) {
+					return err(`Could not parse json from ${url}`);
+				}
+			}
 
-      return ok(resultMap);
-    }
-  }))
+			return ok(resultMap);
+		}
+	}));
 }

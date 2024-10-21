@@ -1,5 +1,5 @@
-import { err, ok } from "neverthrow";
-import { defineSource } from "./source.js";
+import { err, ok } from 'neverthrow';
+import { defineSource } from './source.js';
 
 /**
  * @typedef BaseSanityOptions
@@ -18,49 +18,49 @@ import { defineSource } from "./source.js";
  */
 
 const SANITY_OPTION_DEFAULTS = {
-  apiVersion: 'v2021-10-21',
-  dataset: 'production',
-  useCdn: false,
-  limit: 100,
-  maxNumPages: -1,
-  mergePages: true,
-  pageNumZeroPad: 0,
-  appendCroppedFilenames: true
+	apiVersion: 'v2021-10-21',
+	dataset: 'production',
+	useCdn: false,
+	limit: 100,
+	maxNumPages: -1,
+	mergePages: true,
+	pageNumZeroPad: 0,
+	appendCroppedFilenames: true
 };
 
 /**
  * @type {import("./source.js").ContentSourceBuilder<BaseSanityOptions>}
  */
 export default async function sanitySource(options) {
-  if (!options.projectId || !options.apiToken) {
-    return err('Missing projectId or apiToken');
-  }
+	if (!options.projectId || !options.apiToken) {
+		return err('Missing projectId or apiToken');
+	}
 
-  const assembledOptions = {
-    ...SANITY_OPTION_DEFAULTS,
-    ...options
-  };
+	const assembledOptions = {
+		...SANITY_OPTION_DEFAULTS,
+		...options
+	};
 
-  /**
+	/**
    * @type {import('@sanity/client').SanityClient}
    */
-  let sanityClient;
+	let sanityClient;
 
-  // async import because it's an optional dependency
-  try {
-    const { createClient } = await import('@sanity/client');
-    sanityClient = createClient({
-      projectId: assembledOptions.projectId,
-      dataset: assembledOptions.dataset,
-      apiVersion: assembledOptions.apiVersion, // use current UTC date - see "specifying API version"!
-      token: assembledOptions.apiToken, // or leave blank for unauthenticated usage
-      useCdn: assembledOptions.useCdn // `false` if you want to ensure fresh data);
-    });
-  } catch (error) {
-    return err('Could not find "@sanity/client". Make sure you have installed it.');
-  }
+	// async import because it's an optional dependency
+	try {
+		const { createClient } = await import('@sanity/client');
+		sanityClient = createClient({
+			projectId: assembledOptions.projectId,
+			dataset: assembledOptions.dataset,
+			apiVersion: assembledOptions.apiVersion, // use current UTC date - see "specifying API version"!
+			token: assembledOptions.apiToken, // or leave blank for unauthenticated usage
+			useCdn: assembledOptions.useCdn // `false` if you want to ensure fresh data);
+		});
+	} catch (error) {
+		return err('Could not find "@sanity/client". Make sure you have installed it.');
+	}
 
-  /**
+	/**
    * @param {string} id
    * @param {string} query
    * @param {Array<unknown>} pageResultArray
@@ -68,106 +68,102 @@ export default async function sanitySource(options) {
    * @param {import('@bluecadet/launchpad-utils').Logger} logger
    * @returns {Promise<import('neverthrow').Result<Array<unknown>, string>>}
    */
-  async function fetchSanityPagesRecursive(id, query, logger, params = { start: 0, limit: 100 }, pageResultArray = []) {
-    const pageNum = params.start / params.limit || 0;
+	async function fetchSanityPagesRecursive(id, query, logger, params = { start: 0, limit: 100 }, pageResultArray = []) {
+		const pageNum = params.start / params.limit || 0;
 
-    const q = `${query}[${params.start}..${params.start + params.limit - 1}]`;
+		const q = `${query}[${params.start}..${params.start + params.limit - 1}]`;
 
-    logger.debug(`Fetching page ${pageNum} of ${id}`);
+		logger.debug(`Fetching page ${pageNum} of ${id}`);
 
-    try {
-      const content = await sanityClient.fetch(q);
+		try {
+			const content = await sanityClient.fetch(q);
 
-      if (!content || !content.length) {
-        return ok(pageResultArray);
-      }
+			if (!content || !content.length) {
+				return ok(pageResultArray);
+			}
 
-      pageResultArray.push(content);
+			pageResultArray.push(content);
 
-      return fetchSanityPagesRecursive(id, query, logger, { start: params.start + params.limit, limit: params.limit }, pageResultArray);
-    } catch (error) {
+			return fetchSanityPagesRecursive(id, query, logger, { start: params.start + params.limit, limit: params.limit }, pageResultArray);
+		} catch (error) {
+			if (error instanceof Error) {
+				logger.error(`Could not fetch page: ${error.message}`);
+			} else {
+				logger.error(`Could not fetch page: ${error}`);
+			}
+			return err(`Could not fetch page with query: '${query}'`);
+		}
+	}
 
-      if (error instanceof Error) {
-        logger.error(`Could not fetch page: ${error.message}`);
-      } else {
-        logger.error(`Could not fetch page: ${error}`);
-      }
-      return err(`Could not fetch page with query: '${query}'`);
-    }
-  }
-
-  return ok(defineSource({
-    id: options.id,
-    fetch: async (ctx) => {
-
-      /**
+	return ok(defineSource({
+		id: options.id,
+		fetch: async (ctx) => {
+			/**
        * @type {Array<ReturnType<typeof fetchSanityPagesRecursive>>}
        */
-      const queryPromises = [];
+			const queryPromises = [];
 
-      const queryKeys = [];
+			const queryKeys = [];
 
-      for (const query of assembledOptions.queries) {
-        if (typeof query === 'string') {
-          const queryFull = '*[_type == "' + query + '" ]';
+			for (const query of assembledOptions.queries) {
+				if (typeof query === 'string') {
+					const queryFull = '*[_type == "' + query + '" ]';
 
-          queryPromises.push(
-            fetchSanityPagesRecursive(query, queryFull, ctx.logger, {
-              start: 0,
-              limit: assembledOptions.limit
-            })
-          );
+					queryPromises.push(
+						fetchSanityPagesRecursive(query, queryFull, ctx.logger, {
+							start: 0,
+							limit: assembledOptions.limit
+						})
+					);
 
-          queryKeys.push(query);
+					queryKeys.push(query);
+				} else if (typeof query === 'object' && query.query && query.id) {
+					queryPromises.push(
+						fetchSanityPagesRecursive(query.id, query.query, ctx.logger, {
+							start: 0,
+							limit: assembledOptions.limit
+						})
+					);
 
-        } else if (typeof query === 'object' && query.query && query.id) {
-          queryPromises.push(
-            fetchSanityPagesRecursive(query.id, query.query, ctx.logger, {
-              start: 0,
-              limit: assembledOptions.limit
-            })
-          );
+					queryKeys.push(query.id);
+				} else {
+					ctx.logger.error(`Invalid query: ${query}`);
+					return err(`Invalid query: ${query}`);
+				}
+			}
 
-          queryKeys.push(query.id);
+			const results = await Promise.all(queryPromises);
 
-        } else {
-          ctx.logger.error(`Invalid query: ${query}`);
-          return err(`Invalid query: ${query}`);
-        }
-      }
+			const resultMap = new Map();
 
-      const results = await Promise.all(queryPromises);
+			let index = -1;
+			for (const result of results) {
+				index++;
+				const queryKey = queryKeys[index];
 
-      const resultMap = new Map();
+				if (result.isErr()) {
+					return err(result.error);
+				}
 
-      let index = -1;
-      for (const result of results) {
-        index++;
-        const queryKey = queryKeys[index];
+				const resultArray = result.value;
 
-        if (result.isErr()) {
-          return err(result.error);
-        }
+				if (assembledOptions.mergePages) {
+					const combinedResult = resultArray.flat(1);
 
-        const resultArray = result.value;
+					resultMap.set(queryKey, combinedResult);
+				} else {
+					for (let i = 0; i < resultArray.length; i++) {
+						const pageNum = i + 1;
+						const keyWithPageNum = `${queryKey}-${pageNum
+							.toString()
+							.padStart(assembledOptions.pageNumZeroPad, '0')}`;
 
-        if (assembledOptions.mergePages) {
-          const combinedResult = resultArray.flat(1);
+						resultMap.set(keyWithPageNum, resultArray[i]);
+					}
+				}
+			}
 
-          resultMap.set(queryKey, combinedResult);
-        } else {
-          for (let i = 0; i < resultArray.length; i++) {
-            const pageNum = i + 1;
-            const keyWithPageNum = `${queryKey}-${pageNum
-              .toString()
-              .padStart(assembledOptions.pageNumZeroPad, '0')}`;
-
-            resultMap.set(keyWithPageNum, resultArray[i]);
-          }
-        }
-      }
-
-      return ok(resultMap);
-    }
-  }));
+			return ok(resultMap);
+		}
+	}));
 }

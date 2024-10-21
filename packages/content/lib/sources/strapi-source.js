@@ -1,9 +1,8 @@
-import chalk from 'chalk';
-import jsonpath from 'jsonpath';
 import ky from 'ky';
 import qs from 'qs';
 import { defineSource } from './source.js';
 import { err, ok } from 'neverthrow';
+import chalk from 'chalk';
 
 /**
  * @typedef StrapiObjectQuery
@@ -30,7 +29,7 @@ import { err, ok } from 'neverthrow';
 
 /**
  * @typedef BaseStrapiOptions
- * @property {string} id The id of the source.
+ * @property {string} id Required field to identify this source. Will be used as download path.
  * @property {'4' | '3'} [version] Versions `3` and `4` are supported. Defaults to `3`.
  * @property {string} baseUrl The base url of your Strapi CMS (with or without trailing slash).
  * @property {Array<string | StrapiObjectQuery>} queries Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
@@ -294,7 +293,7 @@ async function fetchPages(versionUtils, query, jwt, results, pagination, logger,
 		
 	const fileName = `${parsedQuery.contentType}-${pageNum.toString().padStart(config.pageNumZeroPad, '0')}.json`;
 
-	// logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+	logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
 	return ky(versionUtils.buildUrl(parsedQuery, pagination), {
 		headers: {
@@ -326,7 +325,7 @@ async function fetchPages(versionUtils, query, jwt, results, pagination, logger,
 			}
 		})
 		.catch((error) => {
-			// this.logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
+			logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
 			return err(`Could not fetch page: ${error ? error.message || '' : ''}`);
 		});
 }

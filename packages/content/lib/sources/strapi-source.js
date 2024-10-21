@@ -1,9 +1,8 @@
-import chalk from 'chalk';
-import jsonpath from 'jsonpath';
 import ky from 'ky';
 import qs from 'qs';
 import { defineSource } from './source.js';
 import { err, ok } from 'neverthrow';
+import chalk from 'chalk';
 
 /**
  * @typedef StrapiObjectQuery
@@ -294,7 +293,7 @@ async function fetchPages(versionUtils, query, jwt, results, pagination, logger,
 		
 	const fileName = `${parsedQuery.contentType}-${pageNum.toString().padStart(config.pageNumZeroPad, '0')}.json`;
 
-	// logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+	logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
 	return ky(versionUtils.buildUrl(parsedQuery, pagination), {
 		headers: {
@@ -326,7 +325,7 @@ async function fetchPages(versionUtils, query, jwt, results, pagination, logger,
 			}
 		})
 		.catch((error) => {
-			// this.logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
+			logger.error(chalk.red(`Could not fetch page: ${error ? error.message || '' : ''}`));
 			return err(`Could not fetch page: ${error ? error.message || '' : ''}`);
 		});
 }

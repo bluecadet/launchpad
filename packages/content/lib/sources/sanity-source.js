@@ -3,7 +3,7 @@ import { defineSource } from './source.js';
 
 /**
  * @typedef BaseSanityOptions
- * @property {string} id ID for this source.
+ * @property {string} id Required field to identify this source. Will be used as download path.
  * @property {string} [apiVersion] API Version. Defailts to 'v2021-10-21'
  * @property {string} projectId Sanity Project ID
  * @property {string} apiToken API Token defined in your sanity project.

@@ -5,7 +5,7 @@ import { defineSource } from './source.js';
 
 /**
  * @typedef {object} JsonSourceOptions
- * @prop {string} id
+ * @prop {string} id Required field to identify this source. Will be used as download path.
  * @prop {Record<string, string>} files A mapping of json key -> url
  * @prop {number} [maxTimeout] Max request timeout in ms. Defaults to 30 seconds.
  */

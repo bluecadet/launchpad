@@ -30,7 +30,7 @@ import { err, ok } from 'neverthrow';
 
 /**
  * @typedef BaseStrapiOptions
- * @property {string} id The id of the source.
+ * @property {string} id Required field to identify this source. Will be used as download path.
  * @property {'4' | '3'} [version] Versions `3` and `4` are supported. Defaults to `3`.
  * @property {string} baseUrl The base url of your Strapi CMS (with or without trailing slash).
  * @property {Array<string | StrapiObjectQuery>} queries Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.

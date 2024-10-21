@@ -34,7 +34,7 @@ import LogManager from './log-manager.js';
 
 /**
  * @template T
- * @typedef {Promise<void> | void} Awaitable<T>
+ * @typedef {Promise<T> | T} Awaitable<T>
  */
 
 /**

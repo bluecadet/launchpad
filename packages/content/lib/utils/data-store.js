@@ -1,76 +1,240 @@
 import jsonpath from 'jsonpath';
-import { ok, err } from 'neverthrow';
+import { ok, err, Result } from 'neverthrow';
+
+/**
+ * A document represents a single file or resource.
+ * @template {unknown} [T=unknown]
+ */
+export class Document {
+  /**
+   * @type {string}
+   */
+  #id;
+
+  /**
+   * @type {T}
+   */
+  #originalData;
+
+  /**
+   * @type {T}
+   */
+  #readonlyCopy;
+
+  /**
+   * @param {string} id
+   * @param {T} data
+   */
+  constructor(id, data) {
+    this.#id = id;
+    this.#originalData = data;
+
+    if (typeof data === 'object' && data !== null) {
+      const proxy = new Proxy(/** @type {object} */(this.#originalData), {
+        get: (target, prop) => {
+          return /** @type {any} */ (target)[prop];
+        }
+      });
+      this.#readonlyCopy = /** @type {Readonly<T>} */ (proxy);
+    } else {
+      this.#readonlyCopy = /** @type {Readonly<T>} */ (data); // not necessarily readonly, but still a copy
+    }
+  }
+
+  /**
+   * @returns {string}
+   */
+  get id() {
+    return this.#id;
+  }
+
+  /**
+   * Read-only copy of the document's data.
+   */
+  get data() {
+    return this.#readonlyCopy;
+  }
+
+  /**
+   * @param {T} data
+   */
+  update(data) {
+    this.#originalData = data;
+  }
+
+  /**
+   * Apply a function to each element matching the given jsonpath.
+   * @param {string} pathExpression
+   * @param {(x: unknown) => unknown} fn
+   */
+  apply(pathExpression, fn) {
+    return jsonpath.apply(this.#originalData, pathExpression, fn);
+  }
+}
+
+/**
+ * A namespace represents a collection of documents for a single source. 
+ */
+class Namespace {
+  /**
+   * @type {string}
+   */
+  #id;
+
+  /**
+   * @type {Map<string, Document>}
+   */
+  #documents = new Map();
+
+  /**
+   * @param {string} id
+   */
+  constructor(id) {
+    this.#id = id;
+  }
+
+  /**
+   * @param {string} id
+   * @param {unknown} data
+   * @returns {Result<void, string>}
+   */
+  insert(id, data) {
+    if (this.#documents.has(id)) {
+      return err(`Document ${id} already exists in namespace ${this.#id}`);
+    }
+
+    this.#documents.set(id, new Document(id, data));
+    return ok(undefined);
+  }
+
+  /**
+   * @param {string} id
+   * @returns {Result<Document, string>}
+   */
+  get(id) {
+    const document = this.#documents.get(id);
+    if (!document) {
+      return err(`Document ${id} not found in namespace ${this.#id}`);
+    }
+
+    return ok(document);
+  }
+
+  /**
+   * @returns {Iterable<Document>}
+   */
+  *documents() {
+    yield* this.#documents.values();
+  }
+
+  /**
+   * @param {string} id
+   * @returns {Result<void, string>}
+   */
+  delete(id) {
+    this.#documents.delete(id);
+    return ok(undefined);
+  }
+
+  /**
+   * @param {string} id
+   * @param {unknown} data
+   * @returns {Result<void, string>}
+   */
+  update(id, data) {
+    this.#documents.set(id, new Document(id, data));
+    return ok(undefined);
+  }
+}
 
 /**
  * In-memory data store for content. Used to store content during the fetch process,
  * and to provide an easy api for content transforms before writing to disk.
  */
-export default class DataStore {
+export class DataStore {
   /**
-   * @type {Map<string, unknown>}
+   * @type {Map<string, Namespace>}
    */
-  #data = new Map();
+  #namespaces = new Map();
 
   /**
-   * @param {string} key
-   * @param {unknown} value
+   * @param {string} namespaceId
+   * @param {string} documentId
+   * @returns {Result<Document, string>}
    */
-  insert(key, value) {
-    if (this.#data.has(key)) {
-      return err(`Key ${key} already exists in data store. Did you mean to use update()?`);
+  get(namespaceId, documentId) {
+    const namespace = this.#namespaces.get(namespaceId);
+    if (!namespace) {
+      return err(`Namespace ${namespaceId} not found in data store`);
     }
 
-    this.#data.set(key, value);
-    return ok(value);
+    return namespace.get(documentId);
   }
 
   /**
-   * @param {string} key
-   * @returns {unknown}
+   * @param {string} namespaceId
+   * @returns {Result<Iterable<Document>, string>}
    */
-  get(key) {
-    if (!this.#data.has(key)) {
-      return err(`Key ${key} not found in data store`);
+  documents(namespaceId) {
+    const namespace = this.#namespaces.get(namespaceId);
+    if (!namespace) {
+      return err(`Namespace ${namespaceId} not found in data store`);
     }
 
-    return ok(this.#data.get(key));
+    return ok(namespace.documents());
   }
 
   /**
-   * @param {string} key
-   * @param {unknown} value
+   * @returns {Iterable<Document>}
    */
-  update(key, value) {
-    if (!this.#data.has(key)) {
-      return err(`Key ${key} not found in data store. Did you mean to use insert()?`);
+  *allDocuments() {
+    for (const namespace of this.namespaces()) {
+      yield* namespace.documents();
     }
-
-    this.#data.set(key, value);
-    return ok(value);
   }
 
   /**
-   * Runs the supplied applyFn on the nodes located at the specified path.
-   * Uses jsonpath under the hood.
-   * 
-   * @param {string} key
-   * @param {string} path
-   * @param {(value: unknown) => unknown} applyFn
+   * @returns {Iterable<Namespace>}
    */
-  apply(key, path, applyFn) {
-    if (!this.#data.has(key)) {
-      return err(`Key ${key} not found in data store`);
-    }
-
-    const result = jsonpath.apply(this.#data.get(key), path, applyFn);
-    return ok(result);
+  *namespaces() {
+    yield* this.#namespaces.values();
   }
 
   /**
-   * Get all keys in the data store.
-   * @returns {Iterable<string>}
+   * @param {string} namespaceId
+   * @returns {Result<void, string>}
    */
-  keys() {
-    return this.#data.keys();
+  createNamespace(namespaceId) {
+    this.#namespaces.set(namespaceId, new Namespace(namespaceId));
+    return ok(undefined);
+  }
+
+  /**
+   * @param {string} namespaceId
+   * @param {string} documentId
+   * @param {unknown} data
+   * @returns {Result<void, string>}
+   */
+  insert(namespaceId, documentId, data) {
+    const namespace = this.#namespaces.get(namespaceId);
+    if (!namespace) {
+      return err(`Namespace ${namespaceId} not found in data store`);
+    }
+
+    return namespace.insert(documentId, data);
+  }
+
+  /**
+   * @param {string} namespaceId
+   * @param {string} documentId
+   * @returns {Result<void, string>}
+   */
+  delete(namespaceId, documentId) {
+    const namespace = this.#namespaces.get(namespaceId);
+    if (!namespace) {
+      return err(`Namespace ${namespaceId} not found in data store`);
+    }
+
+    return namespace.delete(documentId);
   }
 }

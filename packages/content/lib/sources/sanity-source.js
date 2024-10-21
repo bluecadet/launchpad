@@ -1,8 +1,9 @@
-import { Err, err, Ok, ok } from "neverthrow";
-import { ContentFetchError } from "../../content-plugin-driver.js";
+import { err, ok } from "neverthrow";
+import { defineSource } from "./source.js";
 
 /**
  * @typedef BaseSanityOptions
+ * @property {string} id ID for this source.
  * @property {string} [apiVersion] API Version. Defailts to 'v2021-10-21'
  * @property {string} projectId Sanity Project ID
  * @property {string} apiToken API Token defined in your sanity project.
@@ -28,7 +29,7 @@ const SANITY_OPTION_DEFAULTS = {
 };
 
 /**
- * @param {BaseSanityOptions} options
+ * @type {import("./source.js").ContentSourceBuilder<BaseSanityOptions>}
  */
 export default async function sanitySource(options) {
   if (!options.projectId || !options.apiToken) {
@@ -65,7 +66,7 @@ export default async function sanitySource(options) {
    * @param {Array<unknown>} pageResultArray
    * @param {{start: number, limit: number}} params
    * @param {import('@bluecadet/launchpad-utils').Logger} logger
-   * @returns {Promise<Ok<Array<unknown>, never> | Err<never, string>>}
+   * @returns {Promise<import('neverthrow').Result<Array<unknown>, string>>}
    */
   async function fetchSanityPagesRecursive(id, query, logger, params = { start: 0, limit: 100 }, pageResultArray = []) {
     const pageNum = params.start / params.limit || 0;
@@ -95,83 +96,78 @@ export default async function sanitySource(options) {
     }
   }
 
-  /**
-   * @type {import("../../content-plugin-driver.js").ContentPlugin}
-   */
-  const plugin = {
-    name: 'sanity-source',
-    hooks: {
-      async onContentFetchData(ctx, reportFetchError) {
+  return ok(defineSource({
+    id: options.id,
+    fetch: async (ctx) => {
 
-        /**
-         * @type {Array<ReturnType<typeof fetchSanityPagesRecursive>>}
-         */
-        const queryPromises = [];
+      /**
+       * @type {Array<ReturnType<typeof fetchSanityPagesRecursive>>}
+       */
+      const queryPromises = [];
 
-        const queryKeys = [];
+      const queryKeys = [];
 
-        for (const query of assembledOptions.queries) {
-          if (typeof query === 'string') {
-            const queryFull = '*[_type == "' + query + '" ]';
+      for (const query of assembledOptions.queries) {
+        if (typeof query === 'string') {
+          const queryFull = '*[_type == "' + query + '" ]';
 
-            queryPromises.push(
-              fetchSanityPagesRecursive(query, queryFull, ctx.logger, {
-                start: 0,
-                limit: assembledOptions.limit
-              })
-            );
+          queryPromises.push(
+            fetchSanityPagesRecursive(query, queryFull, ctx.logger, {
+              start: 0,
+              limit: assembledOptions.limit
+            })
+          );
 
-            queryKeys.push(query);
+          queryKeys.push(query);
 
-          } else if (typeof query === 'object' && query.query && query.id) {
-            queryPromises.push(
-              fetchSanityPagesRecursive(query.id, query.query, ctx.logger, {
-                start: 0,
-                limit: assembledOptions.limit
-              })
-            );
+        } else if (typeof query === 'object' && query.query && query.id) {
+          queryPromises.push(
+            fetchSanityPagesRecursive(query.id, query.query, ctx.logger, {
+              start: 0,
+              limit: assembledOptions.limit
+            })
+          );
 
-            queryKeys.push(query.id);
+          queryKeys.push(query.id);
 
-          } else {
-            ctx.logger.error(`Invalid query: ${query}`);
-            reportFetchError(new ContentFetchError(`Invalid query: ${query}`, 'sanity-source'));
-          }
+        } else {
+          ctx.logger.error(`Invalid query: ${query}`);
+          return err(`Invalid query: ${query}`);
         }
-
-        const results = await Promise.all(queryPromises);
-
-        let index = -1;
-        for (const result of results) {
-          index++;
-          const queryKey = queryKeys[index];
-
-          if (result.isErr()) {
-            reportFetchError(new ContentFetchError(result.error, 'sanity-source'));
-            continue;
-          }
-
-          const resultArray = result.value;
-
-          if (assembledOptions.mergePages) {
-            const combinedResult = resultArray.flat(1);
-
-            ctx.data.insert(queryKey, combinedResult);
-          } else {
-            for (let i = 0; i < resultArray.length; i++) {
-              const pageNum = i + 1;
-              const keyWithPageNum = `${queryKey}-${pageNum
-                .toString()
-                .padStart(assembledOptions.pageNumZeroPad, '0')}`;
-
-              ctx.data.insert(keyWithPageNum, resultArray[i]);
-            }
-          }
-        }
-
       }
-    }
-  }
 
-  return ok(plugin);
+      const results = await Promise.all(queryPromises);
+
+      const resultMap = new Map();
+
+      let index = -1;
+      for (const result of results) {
+        index++;
+        const queryKey = queryKeys[index];
+
+        if (result.isErr()) {
+          return err(result.error);
+        }
+
+        const resultArray = result.value;
+
+        if (assembledOptions.mergePages) {
+          const combinedResult = resultArray.flat(1);
+
+          resultMap.set(queryKey, combinedResult);
+        } else {
+          for (let i = 0; i < resultArray.length; i++) {
+            const pageNum = i + 1;
+            const keyWithPageNum = `${queryKey}-${pageNum
+              .toString()
+              .padStart(assembledOptions.pageNumZeroPad, '0')}`;
+
+            resultMap.set(keyWithPageNum, resultArray[i]);
+          }
+        }
+      }
+
+      return ok(resultMap);
+    }
+  }));
 }

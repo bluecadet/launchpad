@@ -8,14 +8,14 @@ import { applyTransformToFiles } from '../../utils/content-transform-utils.js';
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
  * @param {boolean} [options.simplified] enable for single paragraph content, will render inline
- * @param {string[]} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
+ * @param {import('../../utils/content-transform-utils.js').DataKeys} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
  * @returns {import("../../content-plugin-driver.js").ContentPlugin}
  */
 export default function mdToHtml({ path, simplified = false, keys }) {
 	return {
 		name: 'md-to-html-transform',
 		hooks: {
-			onContentFetchData(ctx) {
+			onContentFetchDataDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
 					path,

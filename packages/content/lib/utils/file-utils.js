@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import rimraf from 'rimraf';
+import { Result, ResultAsync } from 'neverthrow';
 
 export class FileUtils {
 	/**
@@ -85,14 +86,15 @@ export class FileUtils {
      * @param {unknown} json 
      * @param {string} filePath 
      * @param {boolean} appendJsonExtension
+     * @returns {Promise<import('neverthrow').Result<void, string>>}
      */
 	static async saveJson(json, filePath, appendJsonExtension = true) {
 		if (appendJsonExtension && !(filePath + '').endsWith('.json')) {
 			filePath += '.json';
 		}
 		const jsonStr = (typeof json === 'string') ? json : JSON.stringify(json, null, 0);
-		await fs.ensureFile(filePath);
-		return fs.writeFile(filePath, jsonStr);
+		await ResultAsync.fromPromise(fs.ensureFile(filePath), (_) => `Could not ensure file ${filePath}`);
+		return ResultAsync.fromPromise(fs.writeFile(filePath, jsonStr), (_) => `Could not write file ${filePath}`);
 	}
     
 	/**

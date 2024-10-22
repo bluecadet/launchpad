@@ -5,7 +5,7 @@
 /**
  * @typedef {object} FetchContext
  * @prop {import('@bluecadet/launchpad-utils').Logger} logger
- * @prop {import('../utils/data-store.js').DataStore} data
+ * @prop {import('../utils/data-store.js').DataStore} dataStore
  */
 
 /**

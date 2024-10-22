@@ -6,6 +6,8 @@
 
 import { err, ok } from 'neverthrow';
 import { defineSource } from './source.js';
+import { configError, fetchError } from './source-errors.js';
+import { fetchPaginated } from '../utils/fetch-paginated.js';
 
 /**
  * @typedef ContentfulCredentialsPreviewToken
@@ -41,7 +43,7 @@ import { defineSource } from './source.js';
  *
  * @see Configuration under https://contentful.github.io/contentful.js/contentful/9.1.7/
  * 
- * @typedef {BaseContentfulOptions & ContentfulClientParams} ContentfulOptions
+ * @typedef {BaseContentfulOptions & ContentfulClientParams & ContentfulCredentials} ContentfulOptions
  */
 
 /** 
@@ -67,51 +69,8 @@ async function getContentful() {
 		const contentful = await import('contentful');
 		return ok(contentful.default);
 	} catch (error) {
-		return err('Could not find module "contentful". Make sure you have installed it.');
+		return err(configError('Could not find module "contentful". Make sure you have installed it.'));
 	}
-}
-
-/**
- * @param {ContentfulOptions} config 
- */
-function assembleConfig(config) {
-	const assembled = {
-		accessToken: '',
-		...CONTENTFUL_OPTIONS_DEFAULTS,
-		...config
-	};
-  
-	if (!('deliveryToken' in config) && 'previewToken' in config) {
-		// if we only have a preview token, use the preview API
-		assembled.usePreviewApi = true;
-	}
-
-	if (assembled.usePreviewApi) {
-		assembled.host = 'preview.contentful.com';
-	}
-  
-	if ('accessToken' in config && typeof config.accessToken === 'string') {
-		// if access token is set, use it
-		assembled.accessToken = config.accessToken;
-	} else if (assembled.usePreviewApi) {
-		// if usePreviewApi is true, use previewToken
-		if (!('previewToken' in config) || typeof config.previewToken !== 'string') {
-			throw new Error(`usePreviewApi is set to true, but no previewToken is provided for '${config.id}'`);
-		}
-		assembled.accessToken = config.previewToken;
-	} else {
-		// otherwise just use deliveryToken
-		if (!('deliveryToken' in config) || typeof config.deliveryToken !== 'string') {
-			throw new Error(`no deliveryToken is provided for '${config.id}'`);
-		}
-		assembled.accessToken = config.deliveryToken;
-	}
-
-	if (assembled.contentTypes && assembled.contentTypes.length > 0) {
-		assembled.searchParams['sys.contentType.sys.id[in]'] = assembled.contentTypes.join(',');
-	}
-
-	return assembled;
 }
 
 /**
@@ -150,39 +109,27 @@ function parseAssets(responseObj) {
 }
 
 /**
- * Recursively fetches content using the Contentful client.
- * 
- * @param {import('contentful').ContentfulClientApi} client
- * @param {any} searchParams
- * @param {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[], numPages: number}} result
- */
-async function fetchPage(client, searchParams = {}, result = { entries: [], assets: [], numPages: 0 }) {
-	const rawPage = await client.getEntries(searchParams);
-
-	if (rawPage.errors) {
-		return err(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`);
-	}
-
-	const page = rawPage.toPlainObject();
-	result.numPages++;
-	result.entries.push(...parseEntries(page));
-	result.assets.push(...parseAssets(page));
-
-	if (rawPage.limit + rawPage.skip < rawPage.total) {
-		// Fetch next page
-		searchParams.skip = searchParams.skip || 0;
-		searchParams.skip += rawPage.limit;
-		return fetchPage(client, searchParams, result);
-	} else {
-		return ok(result);
-	}
-}
-
-/**
  * @type {import("./source.js").ContentSourceBuilder<ContentfulOptions>}
  */
 export default async function contentfulSource(options) {
-	const assembledOptions = assembleConfig(options);
+	const assembled = {
+		accessToken: '',
+		...CONTENTFUL_OPTIONS_DEFAULTS,
+		...options
+	};
+
+	if (assembled.usePreviewApi) {
+		if (!assembled.previewToken) {
+			return err(configError('usePreviewApi is set to true, but no previewToken is provided'));
+		}
+		assembled.accessToken = assembled.previewToken;
+	} else {
+		if (!('deliveryToken' in assembled) || !assembled.deliveryToken) {
+			return err(configError('usePreviewApi is set to false, but no deliveryToken is provided'));
+		}
+
+		assembled.accessToken = assembled.deliveryToken;
+	}
 
 	const contentful = await getContentful();
 
@@ -190,20 +137,57 @@ export default async function contentfulSource(options) {
 		return contentful;
 	}
 
-	const client = contentful.value.createClient(assembledOptions);
+	const client = contentful.value.createClient(assembled);
 
 	return ok(defineSource({
 		id: options.id,
 		fetch: async (ctx) => {
-			const fetchResult = await fetchPage(client, assembledOptions.searchParams);
+			// const fetchResult = await fetchPage(client, assembled.searchParams);
+			
+			// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
+			/** @type {Awaited<ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>>} */
+			const fetchResult = await fetchPaginated({
+				fetchPageFn: async (params) => {
+					const rawPage = await client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit });
 
+					if (rawPage.errors) {
+						return err(fetchError(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`));
+					}
+
+					const page = rawPage.toPlainObject();
+
+					const entries = parseEntries(page);
+					const assets = parseAssets(page);
+
+					if (!entries.length) {
+						return ok(null); // No more pages left
+					}
+
+					return ok({
+						entries,
+						assets
+					});
+				},
+				limit: options.searchParams.limit,
+				logger: ctx.logger
+			});
+			
 			if (fetchResult.isErr()) {
 				return err(fetchResult.error);
 			}
 
 			const result = new Map();
 
-			result.set(assembledOptions.filename, fetchResult.value);
+			// combine page results
+
+			const combined = fetchResult.value.pages.reduce((acc, page) => {
+				return {
+					entries: [...acc.entries, ...page.entries],
+					assets: [...acc.assets, ...page.assets]
+				};
+			}, /** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */ ({ entries: [], assets: [] }));
+
+			result.set(assembled.filename, combined);
 
 			return ok(result);
 		}

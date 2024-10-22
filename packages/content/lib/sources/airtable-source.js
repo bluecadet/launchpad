@@ -12,6 +12,7 @@
 
 import { err, ok, Result } from 'neverthrow';
 import { defineSource } from './source.js';
+import { fetchError } from './source-errors.js';
 
 /**
  * @typedef {Required<AirtableOptions>} AirtableOptionsAssembled
@@ -149,7 +150,7 @@ export default async function airtableSource(options) {
 	const airtableResult = await getAirtable();
 
 	if (airtableResult.isErr()) {
-		return err(airtableResult.error);
+		return err(fetchError(airtableResult.error));
 	}
 
 	const Airtable = airtableResult.value;

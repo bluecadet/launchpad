@@ -1,4 +1,5 @@
 import LogManager from './log-manager.js';
+import onExit from './on-exit.js';
 
 /**
  * Plugin and PluginDriver types are generic so that hook
@@ -7,7 +8,8 @@ import LogManager from './log-manager.js';
 
 /**
  * @typedef BaseHookContext
- * @property {import('./log-manager.js').Logger} logger
+ * @property {import('./log-manager.js').Logger} logger a logger instance specific to the plugin
+ * @property {AbortSignal} abortSignal an abort signal that indicates if the launchpad process is exiting
  */
 
 /**
@@ -60,11 +62,17 @@ export default class PluginDriver {
 	 */
 	#baseHookContexts = new Map();
 
+	#abortController = new AbortController();
+
 	/**
 	 * @param {Plugin<T>[]} plugins
 	 */
 	constructor(plugins) {
 		this.add(plugins);
+
+		onExit(() => {
+			this.#abortController.abort();
+		});
 	}
 
 	/**
@@ -77,7 +85,8 @@ export default class PluginDriver {
 		for (const plugin of pluginArray) {
 			this.#plugins.push(plugin);
 			this.#baseHookContexts.set(plugin, {
-				logger: LogManager.getInstance().getLogger(`plugin:${plugin.name}`)
+				logger: LogManager.getInstance().getLogger(`plugin:${plugin.name}`),
+				abortSignal: this.#abortController.signal
 			});
 		}
 	}

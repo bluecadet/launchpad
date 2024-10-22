@@ -7,21 +7,18 @@ export const DOWNLOAD_PATH_TOKEN = '%DOWNLOAD_PATH%';
 export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 
 /**
- * @typedef { import('./content-sources/airtable-source.js').AirtableOptions 
- *  | import('./content-sources/contentful-source.js').ContentfulOptions
- *  | import('./content-sources/json-source.js').JsonOptions
- *  | import('./content-sources/sanity-source.js').SanityOptions
- *  | import('./content-sources/strapi-source.js').StrapiOptions
- * } AllSourceOptions
+ * @typedef {import('./sources/source.js').ContentSource
+ * | Promise<import('./sources/source.js').ContentSource>
+ * | import('neverthrow').Result<import('./sources/source.js').ContentSource, import('./sources/source-errors.js').SourceError>
+ * } ConfigContentSource
  */
 
 /**
  * @typedef ContentOptions
- * @property {AllSourceOptions[]} [sources] A list of content source options. This defines which content is downloaded from where.
+ * @property {ConfigContentSource[]} [sources] A list of content source options. This defines which content is downloaded from where.
  * @property {Array<Object<string, number>>} [imageTransforms] A list of image transforms to apply to a copy of each downloaded image.
  * @property {Object<string, string>} [contentTransforms] A list of content transforms to apply to all donwloaded content.
  * @property {string} [downloadPath] The path at which to store all downloaded files. Defaults to '.downloads/'.
- * @property {string} [credentialsPath] The path to the json containing credentials for all content sources. Defaults to '.credentials.json'. Deprecated in favor of `.env`/`.env.local`.
  * @property {string} [tempPath] Temp file directory path. Defaults to '%DOWNLOAD_PATH%/.tmp/'.
  * @property {string} [backupPath] Temp directory path where all downloaded content will be backed up before removal. Defaults to '%TIMESTAMP%/.tmp-backup/'.
  * @property {string} [keep] Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `'*.json|*.csv|*.xml|*.git*'`
@@ -65,7 +62,7 @@ export const CONTENT_OPTION_DEFAULTS = {
 	ignoreImageTransformCache: false,
 	ignoreImageTransformErrors: true,
 	forceClearTempFiles: true,
-	encodeChars: '<>:"|?*',
+	encodeChars: '<>:"|?*'
 };
 
 /**

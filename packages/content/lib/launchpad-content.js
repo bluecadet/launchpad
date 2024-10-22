@@ -2,39 +2,16 @@ import path from 'path';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 
-import Credentials from './credentials.js';
-import { CONTENT_OPTION_DEFAULTS, DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
+import { DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
 
-import ContentSource from './content-sources/content-source.js';
-import AirtableSource from './content-sources/airtable-source.js';
-import JsonSource from './content-sources/json-source.js';
-import ContentfulSource from './content-sources/contentful-source.js';
-import StrapiSource from './content-sources/strapi-source.js';
-import SanitySource from './content-sources/sanity-source.js';
-
-import MediaDownloader from './utils/media-downloader.js';
 import FileUtils from './utils/file-utils.js';
 
 import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
-import ContentResult from './content-sources/content-result.js';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
-import { ContentPluginDriver } from './content-plugin-driver.js';
-
-/**
- * @enum {import('./content-options.js').AllSourceOptions['type']}
- */
-export const ContentSourceTypes = {
-	/** @type {'json'} */
-	json: 'json',
-	/** @type {'airtable'} */
-	airtable: 'airtable',
-	/** @type {'contentful'} */
-	contentful: 'contentful',
-	/** @type {'sanity'} */
-	sanity: 'sanity',
-	/** @type {'strapi'} */
-	strapi: 'strapi'
-};
+import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
+import { DataStore } from './utils/data-store.js';
+import { err, ok, Result, ResultAsync } from 'neverthrow';
+import { configError } from './sources/source-errors.js';
 
 export class LaunchpadContent {
 	/**
@@ -65,14 +42,14 @@ export class LaunchpadContent {
 	/** @type {ContentPluginDriver} */
 	_pluginDriver;
 
-	/** @type {Array<ContentSource>} */
-	_sources = [];
-
-	/** @type {MediaDownloader} */
-	_mediaDownloader;
+	/** @type {import('./content-options.js').ConfigContentSource[]} */
+	_rawSources;
 
 	/** @type {Date} */
 	_startDatetime = new Date();
+
+	/** @type {DataStore} */
+	_dataStore;
 
 	/**
 	 * @param {import('./content-options.js').ConfigWithContent} [config]
@@ -82,86 +59,113 @@ export class LaunchpadContent {
 	constructor(config, parentLogger, pluginDriver) {
 		this._config = resolveContentOptions(config?.content);
 		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
-		this._mediaDownloader = new MediaDownloader(this._logger);
+		this._dataStore = new DataStore();
+
+		// create all sources
+		this._rawSources = this._config.sources;
 
 		const basePluginDriver = pluginDriver || new PluginDriver(config?.plugins ?? []);
 
 		this._pluginDriver = new ContentPluginDriver(
 			basePluginDriver,
 			{
-				mediaDownloader: this._mediaDownloader,
-				config: this._config,
-				logger: this._logger
+				dataStore: new DataStore()
 			}
 		);
-
-		if (this._config.credentialsPath) {
-			try {
-				Credentials.init(this._config.credentialsPath, this._logger);
-			} catch (err) {
-				if (err instanceof Error) {
-					this._logger.warn('Could not load credentials:', err.message);
-				}
-			}
-		}
-
-		this.sources = this._createSources(this._config.sources);
-
-		onExit(async () => {
-			this._mediaDownloader.abort();
-		});
 	}
 
 	/**
-	 * @param {Array<ContentSource>?} sources
-	 * @returns {Promise<void>}
+	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
+	 * @returns {Promise<import('neverthrow').Result<void, string | undefined>>}
 	 */
-	async start(sources = null) {
-		sources = sources || this.sources;
-		if (!sources || sources.length <= 0) {
+	async start(rawSources = null) {
+		rawSources = rawSources || this._rawSources;
+		if (!rawSources || rawSources.length <= 0) {
 			this._logger.warn(chalk.yellow('No sources found to download'));
-			return Promise.resolve();
+			return ok(undefined);
 		}
+
+		const sourcesResult = await this._createSourcesFromConfig(rawSources);
+		if (sourcesResult.isErr()) {
+			this._logger.error('Error constructing sources. Cancelling content fetch.');
+			await this._pluginDriver.runHookSequential('onSetupError', new ContentError(sourcesResult.error.message));
+			return err(sourcesResult.error.message);
+		}
+
+		const sources = sourcesResult.value;
 
 		this._startDatetime = new Date();
 
 		await this._pluginDriver.runHookSequential('onContentFetchSetup');
 
-		try {
-			this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
+		this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
 
-			if (this._config.backupAndRestore) {
-				this._logger.info(`Backing up ${chalk.cyan(sources.length)} sources`);
-				await this.backup(sources);
-			}
+		if (this._config.backupAndRestore) {
+			this._logger.info(`Backing up ${chalk.cyan(sources.length)} sources`);
 
-			let sourcesComplete = 0;
+			await this.backup(sources);
+		}
 
-			for (const source of sources) {
-				const progress = (sourcesComplete + 1) + '/' + sources.length;
-				this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
-				let result = await source.fetchContent();
-
-				await this._pluginDriver.runHookSequential('onContentFetchData', {
-					dataFiles: result.dataFiles
-				});
-
-				result = await this._downloadMedia(source, result);
-				result = await this._saveDataFiles(source, result);
-
-				sourcesComplete++;
-			}
-
-			this._logger.info(
-				chalk.green(`Finished downloading ${sources.length} sources`)
-			);
-		} catch (err) {
-			this._logger.error(chalk.red('Could not download all content:'), err);
-			await this._pluginDriver.runHookSequential('onContentFetchError');
-			if (this._config.backupAndRestore) {
+		/**
+		 * Restore sources and return an error
+		 * @param {string} [errorMessage] 
+		 * @returns {Promise<import('neverthrow').Err<never, string | undefined>>}
+		 */
+		const restoreAndErr = async (errorMessage) => {
+			if (this._config.backupAndRestore && sources && sources.length > 0) {
 				this._logger.info(`Restoring ${chalk.cyan(sources.length)} sources`);
 				await this.restore(sources);
 			}
+			return err(errorMessage);
+		};
+
+		let sourcesComplete = 0;
+		
+		for (const source of sources) {
+			const progress = (sourcesComplete + 1) + '/' + sources.length;
+			this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
+
+			const sourceLogger = LogManager.getInstance().getLogger(`source:${source.id}`);
+			
+			const result = await source.fetch({
+				logger: sourceLogger,
+				dataStore: this._dataStore
+			});
+
+			if (result.isErr()) {
+				this._logger.error(`Error fetching source ${source.id}. Cancelling content fetch.`);
+				await this._pluginDriver.runHookSequential('onContentFetchError', new ContentError(result.error.message));
+				return restoreAndErr(result.error.message);
+			}
+
+			if (!result.value) {
+				this._logger.warn(`No data returned for source ${source.id}`);
+				continue;
+			}
+
+			const dataNamespace = this._dataStore.createNamespaceFromMap(source.id, result.value);
+
+			if (dataNamespace.isErr()) {
+				this._logger.error(`Error creating data namespace for source ${source.id}. Cancelling content fetch.`);
+				this._logger.error(dataNamespace.error);
+				await this._pluginDriver.runHookSequential('onContentFetchError', new ContentError(dataNamespace.error));
+				return restoreAndErr(dataNamespace.error);
+			}
+	
+			sourcesComplete++;
+		}
+
+		this._logger.info(
+			chalk.green(`Finished downloading ${sources.length} sources`)
+		);
+
+		await this._pluginDriver.runHookSequential('onContentFetchDone');
+
+		const writeResult = await this._writeDataStoreToDisk(this._dataStore);
+
+		if (writeResult.isErr()) {
+			this._logger.error('Error writing data store to disk', writeResult.error);
+			return restoreAndErr(writeResult.error);
 		}
 
 		try {
@@ -175,21 +179,21 @@ export class LaunchpadContent {
 			this._logger.error('Could not clean up temp and backup files', err);
 		}
 
-		return Promise.resolve();
+		return ok(undefined);
 	}
 
 	/**
 	 * Alias for start(source)
-	 * @param {Array<ContentSource>} sources
-	 * @returns {Promise<void>}
+	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
+	 * @returns {Promise<import('neverthrow').Result<void, string | undefined>>}
 	 */
-	async download(sources = []) {
-		return this.start(sources);
+	async download(rawSources = null) {
+		return this.start(rawSources);
 	}
 
 	/**
 	 * Clears all cached content except for files that match config.keep.
-	 * @param {Array<ContentSource>} sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
+	 * @param {Array<import('./sources/source.js').ContentSource>} sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
 	 * 
 	 * @param {object} options
 	 * @param {boolean} [options.temp] Clear the temp dir
@@ -235,7 +239,7 @@ export class LaunchpadContent {
 
 	/**
 	 * Backs up all downloads of source to a separate backup dir.
-	 * @param {Array<ContentSource>} sources
+	 * @param {Array<import('./sources/source.js').ContentSource>} sources
 	 */
 	async backup(sources = []) {
 		for (const source of sources) {
@@ -255,7 +259,7 @@ export class LaunchpadContent {
 
 	/**
 	 * Restores all downloads of source from its backup dir if it exists.
-	 * @param {Array<ContentSource>} sources 
+	 * @param {Array<import('./sources/source.js').ContentSource>} sources 
 	 * @param {boolean} removeBackups
 	 */
 	async restore(sources = [], removeBackups = true) {
@@ -279,19 +283,19 @@ export class LaunchpadContent {
 	}
 
 	/**
-	 * @param {ContentSource} [source] 
+	 * @param {import('./sources/source.js').ContentSource} [source] 
 	 * @returns {string}
 	 */
 	getDownloadPath(source) {
 		if (source) {
-			return path.resolve(path.join(this._config.downloadPath, source.config.id));
+			return path.resolve(path.join(this._config.downloadPath, source.id));
 		} else {
 			return path.resolve(this._config.downloadPath);
 		}
 	}
 
 	/**
-	 * @param {ContentSource} [source] 
+	 * @param {import('./sources/source.js').ContentSource} [source] 
 	 * @returns {string}
 	 */
 	getTempPath(source) {
@@ -299,14 +303,14 @@ export class LaunchpadContent {
 		const tokenizedPath = this._config.tempPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 		if (source) {
-			return path.join(detokenizedPath, source.config.id);
+			return path.join(detokenizedPath, source.id);
 		} else {
 			return detokenizedPath;
 		}
 	}
 
 	/**
-	 * @param {ContentSource} [source] 
+	 * @param {import('./sources/source.js').ContentSource} [source] 
 	 * @returns {string}
 	 */
 	getBackupPath(source) {
@@ -314,128 +318,75 @@ export class LaunchpadContent {
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 		if (source) {
-			return path.join(detokenizedPath, source.config.id);
+			return path.join(detokenizedPath, source.id);
 		} else {
 			return detokenizedPath;
 		}
 	}
 
 	/**
-	 * @param {import('./content-options.js').ContentOptions['sources']} sourceConfigs 
-	 * @returns {Array<ContentSource>}
+	 * @param {import('./content-options.js').ConfigContentSource[]} rawSources
+	 * @returns {Promise<Result<Array<import('./sources/source.js').ContentSource>, import('./sources/source-errors.js').SourceError>>}
 	 */
-	_createSources(sourceConfigs) {
-		if (!sourceConfigs || (Array.isArray(sourceConfigs) && sourceConfigs.length === 0)) {
-			this._logger.warn('No content sources found in config.');
-			return [];
-		}
-
-		const sources = [];
-
-		/**
-		 * @type {(import('./content-options.js').AllSourceOptions)[]}
-		 */
-		let sourceConfigArray = [];
-
-		if (!Array.isArray(sourceConfigs)) {
-			// Backwards compatibility for key/value-based
-			// configs where the key is the source ID
-			const entries = Object.entries(sourceConfigs);
-			for (const [id, config] of entries) {
-				sourceConfigArray.push({
-					...config,
-					id
-				});
-			}
-		} else {
-			sourceConfigArray = sourceConfigs;
-		}
-
-		for (const sourceConfig of sourceConfigArray) {
+	async _createSourcesFromConfig(rawSources) {
+		const allSourcesAsResults = rawSources.map(async (source) => {
+			// need to wrap in try/catch for user sources that don't use the neverthrow api
 			try {
-				/**
-				 * @type {ContentSource}
-				 */
-				let source;
+				// await any promises
+				const awaited = await source;
 
-				switch (sourceConfig.type) {
-					case ContentSourceTypes.airtable:
-						source = new AirtableSource(sourceConfig, this._logger);
-						break;
-					case ContentSourceTypes.contentful:
-						source = new ContentfulSource(sourceConfig, this._logger);
-						break;
-					case ContentSourceTypes.strapi:
-						source = new StrapiSource(sourceConfig, this._logger);
-						break;
-					case ContentSourceTypes.sanity:
-						source = new SanitySource(sourceConfig, this._logger);
-						break;
-					case ContentSourceTypes.json:
-					default:
-						if (sourceConfig.type !== ContentSourceTypes.json) {
-							// @ts-expect-error - user may have passed in a custom type that we don't know about
-							if ((sourceConfig).type) {
-								// @ts-expect-error
-								this._logger.warn(`Unknown source type '${sourceConfig.type}'. Defaulting ${sourceConfig.id} to '${ContentSourceTypes.json}'.`);
-							} else {
-								// @ts-expect-error
-								this._logger.info(`Defaulting source '${sourceConfig.id}' to 'json'.`);
-							}
-						}
-						source = new JsonSource(sourceConfig, this._logger);
-						break;
+				if ('value' in awaited || 'error' in awaited) {
+					// this is already a result, just return it
+					return awaited;
 				}
 
-				sources.push(source);
-			} catch (err) {
-				this._logger.error('Could not create content source:', err);
+				return ok(awaited);
+			} catch (e) {
+				this._logger.error('Error creating source', e);
+
+				if (e instanceof Error) {
+					return err(configError(e.message));
+				} else {
+					return err(configError('Unknown error'));
+				}
 			}
-		}
-
-		return sources;
-	}
-
-	/**
-	 * Downloads media files from a content result with rollback capabilities.
-	 *
-	 * @param {ContentSource} source
-	 * @param {ContentResult} result
-	 * @returns {Promise<ContentResult>}
-	 */
-	async _downloadMedia(source, result) {
-		await this._mediaDownloader.sync(result.mediaDownloads, {
-			...this._config,
-			downloadPath: this.getDownloadPath(source),
-			tempPath: this.getTempPath(source)
 		});
 
-		return result;
+		const createdSources = await Result.combine(await Promise.all(allSourcesAsResults));
+
+		if (createdSources.isErr()) {
+			this._logger.error('Error creating sources', createdSources.error);
+			return err(createdSources.error);
+		}
+
+		return ok(createdSources.value);
 	}
 
 	/**
-	 * Saves a result's data file to a local path
-	 * @param {ContentSource} source
-	 * @param {ContentResult} result
-	 * @returns {Promise<ContentResult>}
+	 * Writes the data store to the configured download path.
+	 * @param {import('./utils/data-store.js').DataStore} dataStore
+	 * @returns {Promise<Result<void, string>>}
 	 */
-	async _saveDataFiles(source, result) {
-		for (const resultData of result.dataFiles) {
-			try {
+	async _writeDataStoreToDisk(dataStore) {
+		for (const namespace of dataStore.namespaces()) {
+			for (const document of namespace.documents()) {
 				const encodeRegex = new RegExp(`[${this._config.encodeChars}]`, 'g');
 				const filePath = path.join(
 					this._config.downloadPath,
-					source.config.id,
-					resultData.localPath
+					namespace.id,
+					document.id
 				).replace(encodeRegex, encodeURIComponent);
-				await FileUtils.saveJson(resultData.content, filePath);
-			} catch (error) {
-				this._logger.error(`Could not save json ${resultData.localPath}`);
-				this._logger.error(error);
+				const saveResult = await FileUtils.saveJson(document.data, filePath);
+
+				if (saveResult.isErr()) {
+					return err(saveResult.error);
+				}
 			}
 		}
-		return Promise.resolve(result);
+
+		return ok(undefined);
 	}
+
 	/**
 	 * @param {string} dirPath
 	 */

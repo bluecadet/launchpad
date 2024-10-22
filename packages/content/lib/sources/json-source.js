@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import ky from 'ky';
-import { err, ok } from 'neverthrow';
+import { err, ok, ResultAsync } from 'neverthrow';
 import { defineSource } from './source.js';
+import { fetchError, parseError } from './source-errors.js';
 
 /**
  * @typedef {object} JsonSourceOptions
@@ -20,19 +21,22 @@ export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
 			const resultMap = new Map();
 			for (const [key, url] of Object.entries(files)) {
 				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-				const response = await ky(url, {
-					timeout: maxTimeout
-				});
+				const response = await ResultAsync.fromPromise(
+					ky(url, {
+						timeout: maxTimeout
+					}),
+					() => fetchError(`Could not fetch json from ${url}`)
+				);
 
-				if (!response.ok) {
-					return err(`Could not fetch json from ${url}`);
+				if (!response.isOk() || !response.value.ok) {
+					return err(fetchError(`Could not fetch json from ${url}`));
 				}
 
 				try {
-					const json = await response.json();
+					const json = await response.value.json();
 					resultMap.set(key, json);
 				} catch (error) {
-					return err(`Could not parse json from ${url}`);
+					return err(parseError(`Could not parse json from ${url}`));
 				}
 			}
 

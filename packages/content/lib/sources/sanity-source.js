@@ -1,5 +1,7 @@
-import { err, ok } from 'neverthrow';
+import { err, ok, Result, ResultAsync } from 'neverthrow';
 import { defineSource } from './source.js';
+import { fetchPaginated } from '../utils/fetch-paginated.js';
+import { configError, fetchError } from './source-errors.js';
 
 /**
  * @typedef BaseSanityOptions
@@ -33,7 +35,7 @@ const SANITY_OPTION_DEFAULTS = {
  */
 export default async function sanitySource(options) {
 	if (!options.projectId || !options.apiToken) {
-		return err('Missing projectId or apiToken');
+		return err(configError('Missing projectId or apiToken'));
 	}
 
 	const assembledOptions = {
@@ -57,108 +59,81 @@ export default async function sanitySource(options) {
 			useCdn: assembledOptions.useCdn // `false` if you want to ensure fresh data);
 		});
 	} catch (error) {
-		return err('Could not find "@sanity/client". Make sure you have installed it.');
-	}
-
-	/**
-   * @param {string} id
-   * @param {string} query
-   * @param {Array<unknown>} pageResultArray
-   * @param {{start: number, limit: number}} params
-   * @param {import('@bluecadet/launchpad-utils').Logger} logger
-   * @returns {Promise<import('neverthrow').Result<Array<unknown>, string>>}
-   */
-	async function fetchSanityPagesRecursive(id, query, logger, params = { start: 0, limit: 100 }, pageResultArray = []) {
-		const pageNum = params.start / params.limit || 0;
-
-		const q = `${query}[${params.start}..${params.start + params.limit - 1}]`;
-
-		logger.debug(`Fetching page ${pageNum} of ${id}`);
-
-		try {
-			const content = await sanityClient.fetch(q);
-
-			if (!content || !content.length) {
-				return ok(pageResultArray);
-			}
-
-			pageResultArray.push(content);
-
-			return fetchSanityPagesRecursive(id, query, logger, { start: params.start + params.limit, limit: params.limit }, pageResultArray);
-		} catch (error) {
-			if (error instanceof Error) {
-				logger.error(`Could not fetch page: ${error.message}`);
-			} else {
-				logger.error(`Could not fetch page: ${error}`);
-			}
-			return err(`Could not fetch page with query: '${query}'`);
-		}
+		return err(configError('Could not find "@sanity/client". Make sure you have installed it.'));
 	}
 
 	return ok(defineSource({
 		id: options.id,
 		fetch: async (ctx) => {
 			/**
-       * @type {Array<ReturnType<typeof fetchSanityPagesRecursive>>}
+       * @type {Array<ReturnType<typeof fetchPaginated<unknown, {key: string}>>>}
        */
 			const queryPromises = [];
-
-			const queryKeys = [];
 
 			for (const query of assembledOptions.queries) {
 				if (typeof query === 'string') {
 					const queryFull = '*[_type == "' + query + '" ]';
 
 					queryPromises.push(
-						fetchSanityPagesRecursive(query, queryFull, ctx.logger, {
-							start: 0,
-							limit: assembledOptions.limit
+						fetchPaginated({
+							fetchPageFn: async (params) => {
+								const q = `${queryFull}[${params.offset}..${params.offset + params.limit - 1}]`;
+								return await ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+							},
+							limit: assembledOptions.limit,
+							logger: ctx.logger,
+							meta: {
+								key: query
+							}
 						})
 					);
-
-					queryKeys.push(query);
 				} else if (typeof query === 'object' && query.query && query.id) {
 					queryPromises.push(
-						fetchSanityPagesRecursive(query.id, query.query, ctx.logger, {
-							start: 0,
-							limit: assembledOptions.limit
+						fetchPaginated({
+							fetchPageFn: async (params) => {
+								const q = `${query.query}[${params.offset}..${params.offset + params.limit - 1}]`;
+								return await ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+							},
+							limit: assembledOptions.limit,
+							logger: ctx.logger,
+							meta: {
+								key: query.id
+							}
 						})
 					);
-
-					queryKeys.push(query.id);
 				} else {
 					ctx.logger.error(`Invalid query: ${query}`);
-					return err(`Invalid query: ${query}`);
+					return err(configError(`Invalid query: ${query}`));
 				}
 			}
 
-			const results = await Promise.all(queryPromises);
+			const promiseResults = Result.combine(await Promise.all(queryPromises));
 
+			if (promiseResults.isErr()) {
+				return err(promiseResults.error);
+			}
+
+			/**
+			 * @type {Map<string, unknown>}
+			 */
 			const resultMap = new Map();
 
 			let index = -1;
-			for (const result of results) {
+			for (const result of promiseResults.value) {
 				index++;
-				const queryKey = queryKeys[index];
-
-				if (result.isErr()) {
-					return err(result.error);
-				}
-
-				const resultArray = result.value;
 
 				if (assembledOptions.mergePages) {
-					const combinedResult = resultArray.flat(1);
+					const combinedResult = result.pages.flat(1);
 
-					resultMap.set(queryKey, combinedResult);
+					resultMap.set(result.meta.key, combinedResult);
 				} else {
-					for (let i = 0; i < resultArray.length; i++) {
+					for (let i = 0; i < result.pages.length; i++) {
 						const pageNum = i + 1;
-						const keyWithPageNum = `${queryKey}-${pageNum
+						const keyWithPageNum = `${result.meta.key}-${pageNum
 							.toString()
 							.padStart(assembledOptions.pageNumZeroPad, '0')}`;
 
-						resultMap.set(keyWithPageNum, resultArray[i]);
+						resultMap.set(keyWithPageNum, result.pages[i]);
 					}
 				}
 			}

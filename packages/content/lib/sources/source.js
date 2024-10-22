@@ -1,5 +1,5 @@
 /**
- * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<Map<string, unknown> | undefined, string>>} FetchResult
+ * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<Map<string, unknown> | undefined, import('./source-errors.js').SourceError>>} FetchResult
  */
 
 /**
@@ -16,7 +16,7 @@
 
 /**
  * @template T
- * @typedef {(options: T) => import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<ContentSource, string>>} ContentSourceBuilder
+ * @typedef {(options: T) => import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<ContentSource, import('./source-errors.js').SourceError>>} ContentSourceBuilder
  */
 
 /**

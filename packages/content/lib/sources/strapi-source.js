@@ -1,9 +1,10 @@
-import ky from 'ky';
+
 import qs from 'qs';
 import { defineSource } from './source.js';
 import { errAsync, ok, okAsync, ResultAsync } from 'neverthrow';
 import { configError, fetchError, parseError } from './source-errors.js';
 import { fetchPaginated } from '../utils/fetch-paginated.js';
+import { safeKy } from '../utils/safe-ky.js';
 
 /**
  * @typedef StrapiObjectQuery
@@ -257,18 +258,11 @@ class StrapiV3 extends StrapiVersionUtils {
 function getJwt(baseUrl, identifier, password) {
 	const url = new URL('/auth/local', baseUrl);
 
-	return ResultAsync.fromPromise(
-		ky.post(url.toString(), {
-			json: { identifier, password }
-		}),
-		error => fetchError(`Could not complete request to get JWT for ${identifier}: ${error}`)
-	).andThen(response => {
-		if (!response.ok) {
-			return errAsync(fetchError(response.statusText));
-		}
-
-		return ResultAsync.fromPromise(response.json(), error => parseError(`Could not parse JWT response for ${identifier}: ${error}`));
-	}).map(response => response.jwt);
+	return safeKy(url.toString(), {
+		json: { identifier, password }
+	}).json()
+		.map(response => response.jwt)
+		.mapErr(e => fetchError(`Could not complete request to get JWT for ${identifier}: ${e.message}`));
 }
 
 /**
@@ -295,8 +289,8 @@ export default function strapiSource(options) {
 		return errAsync(configError(`Unsupported strapi version '${assembledOptions.version}'`));
 	}
 
-	return getToken(assembledOptions).andThen(token =>
-		ok(defineSource({
+	return getToken(assembledOptions).map(token =>
+		defineSource({
 			id: options.id,
 			fetch: (ctx) => {
 				/**
@@ -316,57 +310,52 @@ export default function strapiSource(options) {
 						parsedQuery = query;
 					}
 
-					return fetchPaginated({
-						fetchPageFn: (params) => {
-							const pageNum = params.offset / params.limit;
+					return {
+						id: parsedQuery.contentType,
+						dataPromise: fetchPaginated({
+							fetchPageFn: (params) => {
+								const pageNum = params.offset / params.limit;
 
-							if (pageNum > assembledOptions.maxNumPages) {
-								return okAsync(null);
-							}
-
-							ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
-
-							const req = ky(versionUtils.buildUrl(parsedQuery, {
-								start: params.offset,
-								limit: params.limit
-							}), {
-								headers: {
-									Authorization: `Bearer ${token}`
-								}
-							});
-
-							return ResultAsync.fromPromise(req.json(), error => parseError(`Could not parse response from ${parsedQuery}: ${error}`)).andThen(json => {
-								const transformedContent = versionUtils.transformResult(json);
-
-								if (!transformedContent || !transformedContent.length) {
+								if (pageNum > assembledOptions.maxNumPages) {
 									return okAsync(null);
 								}
 
-								return okAsync(transformedContent);
+								ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+
+								return safeKy(versionUtils.buildUrl(parsedQuery, {
+									start: params.offset,
+									limit: params.limit
+								}), {
+									headers: {
+										Authorization: `Bearer ${token}`
+									}
+								}).json()
+									.map(json => {
+										const transformedContent = versionUtils.transformResult(json);
+
+										if (!transformedContent || !transformedContent.length) {
+											return null;
+										}
+
+										return transformedContent;
+									})
+									.mapErr(e => fetchError(`Could not fetch page ${pageNum} of ${parsedQuery.contentType}: ${e.message}`));
+							},
+							limit: assembledOptions.limit,
+							logger: ctx.logger
+						}).map(data => {
+							return data.pages.map((page, i) => {
+								const fileName = `${parsedQuery.contentType}-${i.toString().padStart(assembledOptions.pageNumZeroPad, '0')}.json`;
+								return {
+									id: fileName,
+									data: page
+								};
 							});
-						},
-						limit: assembledOptions.limit,
-						logger: ctx.logger,
-						meta: {
-							key: parsedQuery.contentType
-						}
-					});
-				});
-
-				return ResultAsync.combine(fetchPromises).andThen(allFetches => {
-					const results = new Map();
-
-					for (const fetchResult of allFetches) {
-						let i = 0;
-						for (const content of fetchResult.pages) {
-							const fileName = `${fetchResult.meta.key}-${i.toString().padStart(assembledOptions.pageNumZeroPad, '0')}.json`;
-							results.set(fileName, content);
-							i++;
-						}
+						})
 					}
-
-					return ok(results);
 				});
+
+				return ok(fetchPromises);
 			}
-		})));
+		}));
 }

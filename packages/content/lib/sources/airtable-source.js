@@ -1,3 +1,7 @@
+import { err, ok, okAsync, Result, ResultAsync } from 'neverthrow';
+import { defineSource } from './source.js';
+import { configError, fetchError, parseError } from './source-errors.js';
+
 /**
  * @typedef AirtableOptions
  * @property {string} id Required field to identify this source. Will be used as download path.
@@ -9,10 +13,6 @@
  * @property {boolean} [appendLocalAttachmentPaths] Appends the local path of attachments to the saved JSON. Defaults to true.
  * @property {string} apiKey Airtable API Key
  */
-
-import { err, ok, okAsync, Result, ResultAsync } from 'neverthrow';
-import { defineSource } from './source.js';
-import { configError, fetchError, parseError } from './source-errors.js';
 
 /**
  * @typedef {Required<AirtableOptions>} AirtableOptionsAssembled
@@ -129,7 +129,7 @@ function processTableToSimplified(tableData, isKeyValueTable) {
 		}
 	}
 
-	return ok(simpData);
+	return simpData;
 }
 
 /**
@@ -142,7 +142,7 @@ export default function airtableSource(options) {
 	};
 
 	return ResultAsync.fromPromise(import('airtable'), () => configError('Could not find module "airtable". Make sure you have installed it.'))
-		.andThen(({ default: Airtable }) => {
+		.map(({ default: Airtable }) => {
 			Airtable.configure({
 				endpointUrl: assembledOptions.endpointUrl,
 				apiKey: assembledOptions.apiKey
@@ -180,51 +180,60 @@ export default function airtableSource(options) {
 				});
 			}
 
-			return ok(defineSource({
+			return defineSource({
 				id: assembledOptions.id,
 				fetch: (ctx) => {
 					/**
-					 * @type {ReturnType<typeof getDataCached>[]}
+					 * @type {Array<import('./source.js').SourceFetchPromise>}
 					 */
 					const tablePromises = [];
-					/**
-					 * @type {string[]}
-					 */
-					const tableIds = [];
 
 					for (const tableId of assembledOptions.tables) {
-						tablePromises.push(getDataCached(tableId, false, ctx.logger));
-						tableIds.push(tableId);
-					}
+						tablePromises.push({
+							id: tableId,
+							dataPromise: getDataCached(tableId, false, ctx.logger).andThen(data => {
+								const simplifiedTable = processTableToSimplified(data, false);
 
-					for (const tableId of assembledOptions.keyValueTables) {
-						tablePromises.push(getDataCached(tableId, false, ctx.logger));
-						tableIds.push(tableId);
-					}
-
-					return ResultAsync.combine(tablePromises)
-						.andThen((tables) => {
-							/**
-							 * @type {import('./source.js').FetchResultMap}
-							 */
-							const result = new Map();
-
-							for (let i = 0; i < tables.length; i++) {
-								const table = tables[i];
-								const tableId = tableIds[i];
-								result.set(`${tableId}.raw`, table);
-								const simplifiedTable = processTableToSimplified(table, assembledOptions.keyValueTables.includes(tableId));
 								if (simplifiedTable.isErr()) {
 									ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
 									return err(simplifiedTable.error);
 								}
 
-								result.set(tableId, simplifiedTable.value);
-							}
+								return ok([{
+									id: `${tableId}.raw`,
+									data: data
+								}, {
+									id: tableId,
+									data: simplifiedTable
+								}]);
+							})
+						})
+					}
 
-							return ok(result);
-						});
+					for (const tableId of assembledOptions.keyValueTables) {
+						tablePromises.push({
+							id: tableId,
+							dataPromise: getDataCached(tableId, false, ctx.logger).andThen(data => {
+								const simplifiedTable = processTableToSimplified(data, true);
+
+								if (simplifiedTable.isErr()) {
+									ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
+									return err(simplifiedTable.error);
+								}
+
+								return ok([{
+									id: `${tableId}.raw`,
+									data: data
+								}, {
+									id: tableId,
+									data: simplifiedTable
+								}]);
+							})
+						})
+					}
+
+					return ok(tablePromises);
 				}
-			}));
+			});
 		});
 }

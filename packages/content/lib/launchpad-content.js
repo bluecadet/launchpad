@@ -10,7 +10,7 @@ import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
 import { DataStore } from './utils/data-store.js';
-import { ok, err, ResultAsync, okAsync } from 'neverthrow';
+import { ok, err, ResultAsync, okAsync, Result } from 'neverthrow';
 
 export class LaunchpadContent {
 	/**
@@ -283,23 +283,26 @@ export class LaunchpadContent {
 			sources.map((source) => {
 				const sourceLogger = LogManager.getInstance().getLogger(`source:${source.id}`);
 
-				const fetchCall = source.fetch({
+				return source.fetch({
 					logger: sourceLogger,
 					dataStore: this._dataStore
-				});
+				})
+					.asyncAndThen(calls => {
+						return ResultAsync.combine(calls.map(call => call.dataPromise));
+					})
+					.mapErr(e => new ContentError(`Failed to fetch source ${source.id}: ${e instanceof Error ? e.message : String(e)}`))
+					.andThrough(fetchResults => {
+						/** @type {Map<string, unknown>} */
+						const map = new Map();
 
-				const fetchResult = fetchCall instanceof Promise
-					? ResultAsync.fromPromise(fetchCall, error => new ContentError(`Failed to fetch source ${source.id}: ${error instanceof Error ? error.message : String(error)}`))
-					: fetchCall.mapErr(error => new ContentError(`Failed to fetch source ${source.id}: ${error instanceof Error ? error.message : String(error)}`));
+						for (const result of fetchResults.flat()) {
+							map.set(result.id, result.data);
+						}
 
-				return fetchResult.andThen(result => {
-					if (!result) {
-						this._logger.warn(`No data returned for source ${source.id}`);
-						return ok(undefined);
-					}
-					return this._dataStore.createNamespaceFromMap(source.id, result).mapErr(e => new ContentError(`Unable to create namespace for source ${source.id}: ${e}`));
-				});
-			})).map(() => undefined); // return void instead of void[]
+						return this._dataStore.createNamespaceFromMap(source.id, map).mapErr(e => new ContentError(`Unable to create namespace for source ${source.id}: ${e}`));
+					});
+			}))
+			.map(() => undefined); // return void instead of void[]
 	}
 
 	/**

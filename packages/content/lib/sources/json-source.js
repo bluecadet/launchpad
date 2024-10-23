@@ -1,8 +1,8 @@
 import chalk from 'chalk';
-import ky from 'ky';
-import { err, ok, okAsync, ResultAsync } from 'neverthrow';
+import { ok, okAsync } from 'neverthrow';
 import { defineSource } from './source.js';
 import { fetchError, parseError } from './source-errors.js';
+import { safeKy, SafeKyError } from '../utils/safe-ky.js';
 
 /**
  * @typedef {object} JsonSourceOptions
@@ -18,38 +18,28 @@ export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
 	return okAsync(defineSource({
 		id,
 		fetch: (ctx) => {
-			const promises = Object.entries(files).map(
+			const jsonFetchPromises = Object.entries(files).map(
 				([key, url]) => {
 					ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-					return ResultAsync.fromPromise(
-						ky(url, {
-							timeout: maxTimeout
-						}),
-						() => fetchError(`Could not fetch json from ${url}`)
-					).andThen(
-						res => {
-							if (!res.ok) {
-								return err(fetchError(`Could not fetch json from ${url}`));
-							}
-
-							return ResultAsync.fromThrowable(res.json, e => parseError(`Could not parse json from ${url}`))();
-						}
-					).andThen(json => ok({
-						key,
-						json
-					}));
+					return {
+						id: key,
+						dataPromise: safeKy(url, { timeout: maxTimeout }).json()
+							.mapErr((e) => {
+								if (e instanceof SafeKyError.ParseError) {
+									return parseError(e.message);
+								}
+								return fetchError(e.message);
+							})
+							.map(data => {
+								return [{
+									id: key,
+									data
+								}]
+							})
+					}
 				}
-			);
-
-			return ResultAsync.combine(promises).andThen(data => {
-				const resultMap = new Map();
-
-				data.forEach(({ key, json }) => {
-					resultMap.set(key, json);
-				});
-
-				return ok(resultMap);
-			});
+			)
+			return ok(jsonFetchPromises);
 		}
 	}));
 }

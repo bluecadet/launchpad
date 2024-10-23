@@ -38,6 +38,15 @@ export class ContentError extends Error {
  */
 
 /**
+ * Utility function for defining a content plugin
+ * @param {ContentPlugin} plugin 
+ * @returns {ContentPlugin}
+ */
+export function defineContentPlugin(plugin) {
+	return plugin;
+}
+
+/**
  * @extends {HookContextProvider<ContentHooks, ContentHookContext>}
  */
 export class ContentPluginDriver extends HookContextProvider {

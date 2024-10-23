@@ -1,14 +1,14 @@
-import { applyTransformToFiles, isBlockContent } from '../../utils/content-transform-utils.js';
+import { defineContentPlugin } from '../content-plugin-driver.js';
+import { applyTransformToFiles, isBlockContent } from '../utils/content-transform-utils.js';
 
 /**
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
- * @param {import('../../utils/content-transform-utils.js').DataKeys} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
- * @returns {import("../../content-plugin-driver.js").ContentPlugin}
+ * @param {import('../utils/content-transform-utils.js').DataKeys} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
  */
 export default function sanityToPlain({ path, keys }) {
-	return {
-		name: 'md-to-html-transform',
+	return defineContentPlugin({
+		name: 'sanity-to-plain',
 		hooks: {
 			onContentFetchDone(ctx) {
 				applyTransformToFiles({
@@ -26,7 +26,7 @@ export default function sanityToPlain({ path, keys }) {
 				});
 			}
 		}
-	};
+	});
 }
 
 /**

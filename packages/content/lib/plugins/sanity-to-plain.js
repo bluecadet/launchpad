@@ -4,7 +4,7 @@ import { applyTransformToFiles, isBlockContent } from '../utils/content-transfor
 /**
  * @param {object} options
  * @param {string} options.path JSONPath to the content to transform
- * @param {import('../utils/content-transform-utils.js').DataKeys} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
+ * @param {import('../utils/data-store.js').DataKeys} [options.keys] Data keys to apply the transform to. If not provided, all keys will be transformed.
  */
 export default function sanityToPlain({ path, keys }) {
 	return defineContentPlugin({

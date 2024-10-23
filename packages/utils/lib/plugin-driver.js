@@ -1,5 +1,25 @@
+import chalk from 'chalk';
 import LogManager from './log-manager.js';
 import onExit from './on-exit.js';
+import { err, ok, okAsync, ResultAsync } from 'neverthrow';
+
+class PluginError extends Error {
+	/**
+	 * @type {string | undefined}
+	 */
+	pluginId;
+
+	/**
+	 * @param {string} message 
+	 * @param {object} [options]
+	 * @param {string} [options.pluginId]
+	 * @param {unknown} [options.cause]
+	 */
+	constructor(message, { pluginId, cause } = {}) {
+		super(message, { cause });
+		this.pluginId = pluginId;
+	}
+}
 
 /**
  * Plugin and PluginDriver types are generic so that hook
@@ -109,9 +129,14 @@ export default class PluginDriver {
 	 * @param {K} hookName
 	 * @param {(plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>} contextGetter
 	 * @param {Tail<Parameters<T[K]>>} additionalArgs
-	 * @returns {Promise<void>}
+	 * @returns {ResultAsync<void, PluginError>}
 	 */
-	async _runHookSequentialWithCtx(hookName, contextGetter, additionalArgs) {
+	_runHookSequentialWithCtx(hookName, contextGetter, additionalArgs) {
+		/**
+		 * @type {ResultAsync<void, PluginError>}
+		 */
+		let result = okAsync(undefined);
+
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
@@ -119,9 +144,23 @@ export default class PluginDriver {
 					...this.#getBaseContext(plugin),
 					...contextGetter(plugin)
 				};
-				await hook(context, ...additionalArgs);
+
+				const thisPluginResult = ResultAsync.fromPromise(
+					// wrap in Promise.resolve to make all hook calls promises, and therefor compatible with ResultAsync
+					Promise.resolve(hook(context, ...additionalArgs)), (e) => {
+						this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
+						this.#getBaseContext(plugin).logger.error(chalk.red(e));
+						return new PluginError(String(e), { pluginId: plugin.name });
+					});
+
+				// build chain
+				result = result.andThen(
+					() => thisPluginResult
+				);
 			}
 		}
+
+		return result;
 	}
 
 	/**
@@ -192,10 +231,9 @@ export class HookContextProvider {
 	/**
 	 * @template {KeysWithFullContext<T, C & BaseHookContext>} K
 	 * @param {K} hookName 
-	 * @param  {Tail<Parameters<T[K]>>} additionalArgs 
-	 * @returns 
+	 * @param  {Tail<Parameters<T[K]>>} additionalArgs
 	 */
-	async runHookSequential(hookName, ...additionalArgs) {
+	runHookSequential(hookName, ...additionalArgs) {
 		return this.#innerDriver._runHookSequentialWithCtx(
 			hookName,
 			this._getPluginContext,

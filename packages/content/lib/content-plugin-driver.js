@@ -14,6 +14,7 @@ export class ContentError extends Error {
 /**
  * @typedef ContentHookContext
  * @prop {import('./utils/data-store.js').DataStore} data
+ * @prop {import('./content-options.js').ResolvedContentOptions} contentOptions
  */
 
 /**
@@ -27,10 +28,10 @@ export class ContentError extends Error {
 
 /**
  * @typedef ContentHooks
- * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void} onSetupError Called when a content source fails to setup
- * @prop {(ctx: CombinedContentHookContext) => void} onContentFetchSetup Called before any content is fetched
- * @prop {(ctx: CombinedContentHookContext) => void} onContentFetchDone Called when all content has been fetched
- * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void} onContentFetchError Called when a content source fails to fetch
+ * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | Promise<void>} onSetupError Called when a content source fails to setup
+ * @prop {(ctx: CombinedContentHookContext) => void | Promise<void>} onContentFetchSetup Called before any content is fetched
+ * @prop {(ctx: CombinedContentHookContext) => void | Promise<void>} onContentFetchDone Called when all content has been fetched
+ * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | Promise<void>} onContentFetchError Called when a content source fails to fetch
  */
 
 /**
@@ -56,13 +57,20 @@ export class ContentPluginDriver extends HookContextProvider {
 	#dataStore;
 
 	/**
+	 * @type {import('./content-options.js').ResolvedContentOptions}
+	 */
+	#options;
+
+	/**
 	 * @param {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').default<ContentHooks>} wrappee
 	 * @param {object} options
 	 * @param {import('./utils/data-store.js').DataStore} options.dataStore
+	 * @param {import('./content-options.js').ResolvedContentOptions} options.options
 	 */
-	constructor(wrappee, { dataStore }) {
+	constructor(wrappee, { dataStore, options }) {
 		super(wrappee);
 		this.#dataStore = dataStore;
+		this.#options = options;
 	}
 
 	/**
@@ -70,7 +78,8 @@ export class ContentPluginDriver extends HookContextProvider {
 	 */
 	_getPluginContext() {
 		return {
-			data: this.#dataStore
+			data: this.#dataStore,
+			contentOptions: this.#options
 		};
 	}
 }

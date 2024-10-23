@@ -37,6 +37,7 @@
     "fs-extra": "^10.0.0",
     "logform": "^2.3.2",
     "moment": "^2.29.1",
+    "neverthrow": "^8.1.0",
     "strip-json-comments": "^4.0.0",
     "winston": "^3.4.0",
     "winston-daily-rotate-file": "^4.5.5",

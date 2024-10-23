@@ -1,8 +1,7 @@
 import ky from 'ky';
 import qs from 'qs';
 import { defineSource } from './source.js';
-import { err, errAsync, ok, okAsync, Result, ResultAsync } from 'neverthrow';
-import chalk from 'chalk';
+import { errAsync, ok, okAsync, ResultAsync } from 'neverthrow';
 import { configError, fetchError, parseError } from './source-errors.js';
 import { fetchPaginated } from '../utils/fetch-paginated.js';
 
@@ -62,47 +61,47 @@ const STRAPI_OPTION_DEFAULTS = {
 
 class StrapiVersionUtils {
 	/**
-   * @type {StrapiOptions}
-   * @protected
-   */
+	 * @type {StrapiOptions}
+	 * @protected
+	 */
 	config;
 
 	/**
-   * @type {import('@bluecadet/launchpad-utils').Logger}
-   * @protected
-   */
+	 * @type {import('@bluecadet/launchpad-utils').Logger}
+	 * @protected
+	 */
 	logger;
 
 	/**
-   * @param {StrapiOptions} config
-   * @param {import('@bluecadet/launchpad-utils').Logger} logger
-   */
+	 * @param {StrapiOptions} config
+	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
+	 */
 	constructor(config, logger) {
 		this.config = config;
 		this.logger = logger;
 	}
 
 	/**
-   * @param {StrapiObjectQuery} query
-   * @param {StrapiPagination} [pagination]
-   * @returns {string}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
+	 * @returns {string}
+	 */
 	buildUrl(query, pagination) {
 		throw new Error('Not implemented');
 	}
 
 	/**
-   * @param {StrapiObjectQuery} query
-   * @returns {boolean}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
 	hasPaginationParams(query) {
 		throw new Error('Not implemented');
 	}
 
 	/**
-   * @param {unknown} result
-   * @returns {unknown[]}
-   */
+	 * @param {unknown} result
+	 * @returns {unknown[]}
+	 */
 	transformResult(result) {
 		if (!Array.isArray(result)) {
 			throw new Error('Expected result to be an array');
@@ -112,17 +111,17 @@ class StrapiVersionUtils {
 	}
 
 	/**
-   * @param {unknown} result
-   * @returns {boolean}
-   */
+	 * @param {unknown} result
+	 * @returns {boolean}
+	 */
 	canFetchMore(result) {
 		throw new Error('Not implemented');
 	}
 
 	/**
-   * @param {string} string
-   * @returns {StrapiObjectQuery}
-   */
+	 * @param {string} string
+	 * @returns {StrapiObjectQuery}
+	 */
 	parseQuery(string) {
 		const url = new URL(string, this.config.baseUrl);
 		const params = qs.parse(url.search.slice(1));
@@ -138,10 +137,10 @@ class StrapiVersionUtils {
 
 class StrapiV4 extends StrapiVersionUtils {
 	/**
-   * @param {StrapiObjectQuery} query
-   * @param {StrapiPagination} [pagination]
-   * @returns {string}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
+	 * @returns {string}
+	 */
 	buildUrl(query, pagination) {
 		const url = new URL(query.contentType, this.config.baseUrl);
 
@@ -170,25 +169,25 @@ class StrapiV4 extends StrapiVersionUtils {
 	}
 
 	/**
-   * @param {StrapiObjectQuery} query
-   * @returns {boolean}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
 	hasPaginationParams(query) {
 		return query?.params?.pagination?.page !== undefined || query?.params?.pagination?.pageSize !== undefined;
 	}
 
 	/**
-   * @param {{data: unknown[]}} result
-   * @returns {unknown[]}
-   */
+	 * @param {{data: unknown[]}} result
+	 * @returns {unknown[]}
+	 */
 	transformResult(result) {
 		return result.data;
 	}
 
 	/**
-   * @param {{meta?: {pagination?: {page: number, pageCount: number}}}} result
-   * @returns {boolean}
-   */
+	 * @param {{meta?: {pagination?: {page: number, pageCount: number}}}} result
+	 * @returns {boolean}
+	 */
 	canFetchMore(result) {
 		if (result?.meta?.pagination) {
 			const { page, pageCount } = result.meta.pagination;
@@ -201,10 +200,10 @@ class StrapiV4 extends StrapiVersionUtils {
 
 class StrapiV3 extends StrapiVersionUtils {
 	/**
-   * @param {StrapiObjectQuery} query
-   * @param {StrapiPagination} [pagination]
-   * @returns {string}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @param {StrapiPagination} [pagination]
+	 * @returns {string}
+	 */
 	buildUrl(query, pagination) {
 		const url = new URL(query.contentType, this.config.baseUrl);
 
@@ -230,17 +229,17 @@ class StrapiV3 extends StrapiVersionUtils {
 	}
 
 	/**
-   * @param {StrapiObjectQuery} query
-   * @returns {boolean}
-   */
+	 * @param {StrapiObjectQuery} query
+	 * @returns {boolean}
+	 */
 	hasPaginationParams(query) {
 		return query?.params?._start !== undefined || query?.params?._limit !== undefined;
 	}
 
 	/**
-   * @param {unknown} result
-   * @returns {boolean}
-   */
+	 * @param {unknown} result
+	 * @returns {boolean}
+	 */
 	canFetchMore(result) {
 		// strapi v3 doesn't have any pagination info in the response,
 		// so we can't know if there are more results

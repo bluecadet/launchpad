@@ -43,7 +43,7 @@ function fetchData(base, tableId, defaultView) {
 			 * @type {import("airtable").Record<import("airtable").FieldSet>[]}
 			 */
 			const rows = [];
-			
+
 			base(tableId)
 				.select({
 					view: defaultView
@@ -93,8 +93,8 @@ function isBoolStr(value) {
  */
 function processTableToSimplified(tableData, isKeyValueTable) {
 	/**
-   * @type {Record<string | number, any>}
-   */
+	 * @type {Record<string | number, any>}
+	 */
 	const simpData = isKeyValueTable ? {} : [];
 
 	for (const row of tableData) {
@@ -208,7 +208,7 @@ export default function airtableSource(options) {
 							 * @type {import('./source.js').FetchResultMap}
 							 */
 							const result = new Map();
-							
+
 							for (let i = 0; i < tables.length; i++) {
 								const table = tables[i];
 								const tableId = tableIds[i];

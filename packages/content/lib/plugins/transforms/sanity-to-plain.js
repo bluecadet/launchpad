@@ -10,7 +10,7 @@ export default function sanityToPlain({ path, keys }) {
 	return {
 		name: 'md-to-html-transform',
 		hooks: {
-			onContentFetchDataDone(ctx) {
+			onContentFetchDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
 					path,

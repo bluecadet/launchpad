@@ -15,7 +15,7 @@ export default function mdToHtml({ path, simplified = false, keys }) {
 	return {
 		name: 'md-to-html-transform',
 		hooks: {
-			onContentFetchDataDone(ctx) {
+			onContentFetchDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
 					path,

@@ -31,7 +31,7 @@ export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
 							if (!res.ok) {
 								return err(fetchError(`Could not fetch json from ${url}`));
 							}
-						
+
 							return ResultAsync.fromThrowable(res.json, e => parseError(`Could not parse json from ${url}`))();
 						}
 					).andThen(json => ok({

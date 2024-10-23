@@ -10,9 +10,9 @@
  * @property {string} apiKey Airtable API Key
  */
 
-import { err, ok, Result } from 'neverthrow';
+import { err, ok, okAsync, Result, ResultAsync } from 'neverthrow';
 import { defineSource } from './source.js';
-import { fetchError } from './source-errors.js';
+import { configError, fetchError, parseError } from './source-errors.js';
 
 /**
  * @typedef {Required<AirtableOptions>} AirtableOptionsAssembled
@@ -29,54 +29,48 @@ const AIRTABLE_OPTION_DEFAULTS = {
 	appendLocalAttachmentPaths: true
 };
 
-async function getAirtable() {
-	// async import because it's an optional dependency
-	try {
-		const Airtable = await import('airtable');
-		return ok(Airtable.default);
-	} catch (error) {
-		return err('Could not find module "airtable". Make sure you have installed it.');
-	}
-}
-
 /**
  * Fetch data from Airtable.
  * @param {import("airtable").Base} base 
  * @param {string} tableId 
  * @param {string} [defaultView]
+ * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], import('./source-errors.js').SourceError>}
  */
-async function fetchData(base, tableId, defaultView) {
-	return new Promise((resolve) => {
-		/**
-     * @type {import("airtable").Record<import("airtable").FieldSet>[]}
-     */
-		const rows = [];
-    
-		base(tableId)
-			.select({
-				view: defaultView
-			})
-			.eachPage(
-				(records, fetchNextPage) => {
-					// This function (`page`) will get called for each page of records.
-					records.forEach((record) => {
-						rows.push(record);
-					});
+function fetchData(base, tableId, defaultView) {
+	return ResultAsync.fromPromise(
+		new Promise((resolve, reject) => {
+			/**
+			 * @type {import("airtable").Record<import("airtable").FieldSet>[]}
+			 */
+			const rows = [];
+			
+			base(tableId)
+				.select({
+					view: defaultView
+				})
+				.eachPage(
+					(records, fetchNextPage) => {
+						// This function (`page`) will get called for each page of records.
+						records.forEach((record) => {
+							rows.push(record);
+						});
 
-					// To fetch the next page of records, call `fetchNextPage`.
-					// If there are more records, `page` will get called again.
-					// If there are no more records, `done` will get called.
-					fetchNextPage();
-				},
-				(error) => {
-					if (error) {
-						resolve(err(error));
-					} else {
-						resolve(ok(rows));
+						// To fetch the next page of records, call `fetchNextPage`.
+						// If there are more records, `page` will get called again.
+						// If there are no more records, `done` will get called.
+						fetchNextPage();
+					},
+					(error) => {
+						if (error) {
+							reject(error);
+						} else {
+							resolve(rows);
+						}
 					}
-				}
-			);
-	});
+				);
+		}),
+		(error) => fetchError(`Failed to fetch data from Airtable: ${error instanceof Error ? error.message : error}`)
+	);
 }
 
 /**
@@ -107,7 +101,7 @@ function processTableToSimplified(tableData, isKeyValueTable) {
 		const fields = { ...row._rawJson.fields };
 		if (isKeyValueTable) {
 			if (Object.keys(row).length < 2) {
-				return err('At least 2 columns required to map table to a key-value pair');
+				return err(parseError('At least 2 columns required to map table to a key-value pair'));
 			}
 
 			const regex = /(.*)\[([0-9]*)\]$/g;
@@ -141,104 +135,96 @@ function processTableToSimplified(tableData, isKeyValueTable) {
 /**
  * @type {import("./source.js").ContentSourceBuilder<AirtableOptionsAssembled>}
  */
-export default async function airtableSource(options) {
+export default function airtableSource(options) {
 	const assembledOptions = {
 		...AIRTABLE_OPTION_DEFAULTS,
 		...options
 	};
 
-	const airtableResult = await getAirtable();
+	return ResultAsync.fromPromise(import('airtable'), () => configError('Could not find module "airtable". Make sure you have installed it.'))
+		.andThen(({ default: Airtable }) => {
+			Airtable.configure({
+				endpointUrl: assembledOptions.endpointUrl,
+				apiKey: assembledOptions.apiKey
+			});
 
-	if (airtableResult.isErr()) {
-		return err(fetchError(airtableResult.error));
-	}
+			const base = Airtable.base(assembledOptions.baseId);
+			base.makeRequest();
 
-	const Airtable = airtableResult.value;
+			/**
+			 * @type {Record<string, import("airtable").Record<import("airtable").FieldSet>[]>}
+			 */
+			const rawAirtableDataCache = {};
 
-	Airtable.configure({
-		endpointUrl: assembledOptions.endpointUrl,
-		apiKey: assembledOptions.apiKey
-	});
+			/**
+			 * @param {string} tableId 
+			 * @param {boolean} force
+			 * @param {import("@bluecadet/launchpad-utils").Logger} logger
+			 * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], import('./source-errors.js').SourceError>}
+			 */
+			function getDataCached(tableId, force = false, logger) {
+				logger.debug(`Fetching ${tableId} from Airtable`);
 
-	const base = Airtable.base(assembledOptions.baseId);
-	base.makeRequest();
-
-	/**
-   * @type {Record<string, import("airtable").Record<import("airtable").FieldSet>[]>}
-   */
-	const rawAirtableDataCache = {};
-
-	/**
-   * @param {string} tableId 
-   * @param {boolean} force
-   * @param {import("@bluecadet/launchpad-utils").Logger} logger
-   */
-	async function getDataCached(tableId, force = false, logger) {
-		logger.debug(`Fetching ${tableId} from Airtable`);
-
-		if (force) {
-			rawAirtableDataCache[tableId] = [];
-		}
-
-		if (rawAirtableDataCache[tableId] && rawAirtableDataCache[tableId].length > 0) {
-			logger.debug(`${tableId} found in cache`);
-			return ok(rawAirtableDataCache[tableId]);
-		}
-
-		const data = await fetchData(base, tableId, assembledOptions.defaultView);
-
-		if (data.isErr()) {
-			logger.error(`Error fetching ${tableId} from Airtable: ${data.error}`);
-			return err(data.error);
-		}
-
-		rawAirtableDataCache[tableId] = data.value;
-
-		logger.debug(`${tableId} fetched from Airtable`);
-		return ok(data.value);
-	}
-
-	return ok(defineSource({
-		id: assembledOptions.id,
-		fetch: async (ctx) => {
-			const result = new Map();
-
-			const tablePromises = [];
-			const tableIds = [];
-
-			for (const tableId of assembledOptions.tables) {
-				tablePromises.push(getDataCached(tableId, false, ctx.logger));
-				tableIds.push(tableId);
-			}
-
-			for (const tableId of assembledOptions.keyValueTables) {
-				tablePromises.push(getDataCached(tableId, false, ctx.logger));
-				tableIds.push(tableId);
-			}
-
-			const tables = await Promise.all(tablePromises);
-
-			const results = Result.combine(tables);
-
-			if (results.isErr()) {
-				ctx.logger.error(`Error fetching tables from Airtable: ${results.error}`);
-				return err(results.error);
-			}
-
-			for (let i = 0; i < tables.length; i++) {
-				const table = results.value[i];
-				const tableId = tableIds[i];
-				result.set(`${tableId}.raw`, table);
-				const simplifiedTable = await processTableToSimplified(table, assembledOptions.keyValueTables.includes(tableId));
-				if (simplifiedTable.isErr()) {
-					ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
-					return err(simplifiedTable.error);
+				if (force) {
+					rawAirtableDataCache[tableId] = [];
 				}
 
-				result.set(tableId, simplifiedTable.value);
+				if (rawAirtableDataCache[tableId] && rawAirtableDataCache[tableId].length > 0) {
+					logger.debug(`${tableId} found in cache`);
+					return okAsync(rawAirtableDataCache[tableId]);
+				}
+
+				return fetchData(base, tableId, assembledOptions.defaultView).andTee(value => {
+					rawAirtableDataCache[tableId] = value;
+					logger.debug(`${tableId} fetched from Airtable`);
+				});
 			}
 
-			return ok(result);
-		}
-	}));
+			return ok(defineSource({
+				id: assembledOptions.id,
+				fetch: (ctx) => {
+					/**
+					 * @type {ReturnType<typeof getDataCached>[]}
+					 */
+					const tablePromises = [];
+					/**
+					 * @type {string[]}
+					 */
+					const tableIds = [];
+
+					for (const tableId of assembledOptions.tables) {
+						tablePromises.push(getDataCached(tableId, false, ctx.logger));
+						tableIds.push(tableId);
+					}
+
+					for (const tableId of assembledOptions.keyValueTables) {
+						tablePromises.push(getDataCached(tableId, false, ctx.logger));
+						tableIds.push(tableId);
+					}
+
+					return ResultAsync.combine(tablePromises)
+						.andThen((tables) => {
+							/**
+							 * @type {import('./source.js').FetchResultMap}
+							 */
+							const result = new Map();
+							
+							for (let i = 0; i < tables.length; i++) {
+								const table = tables[i];
+								const tableId = tableIds[i];
+								result.set(`${tableId}.raw`, table);
+								const simplifiedTable = processTableToSimplified(table, assembledOptions.keyValueTables.includes(tableId));
+								if (simplifiedTable.isErr()) {
+									ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
+									return err(simplifiedTable.error);
+								}
+
+								result.set(tableId, simplifiedTable.value);
+							}
+
+							return ok(result);
+						});
+				}
+			}));
+		});
 }

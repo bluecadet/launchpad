@@ -68,7 +68,8 @@ export class LaunchpadContent {
 		this._pluginDriver = new ContentPluginDriver(
 			basePluginDriver,
 			{
-				dataStore: new DataStore()
+				dataStore: new DataStore(),
+				options: this._config
 			}
 		);
 	}
@@ -87,21 +88,23 @@ export class LaunchpadContent {
 		this._startDatetime = new Date();
 
 		return this._createSourcesFromConfig(rawSources)
-			.andTee(() => this._pluginDriver.runHookSequential('onContentFetchSetup'))
-			.andThen(sources => this.backup(sources)
-				.andThen(() => this._fetchSources(sources))
-				.andTee(() => this._pluginDriver.runHookSequential('onContentFetchDone'))
-				.andThen(() => this._writeDataStoreToDisk(this._dataStore))
-				.andThen(() => this.clear(sources, {
-					temp: true,
-					backups: true,
-					downloads: false
-				})).orElse(e => {
-					this._pluginDriver.runHookSequential('onContentFetchError', e);
-					this._logger.error('Error in content fetch process:', e);
-					this._logger.info('Restoring from backup...');
-					return this.restore(sources);
-				})
+			.andThrough(() => this._pluginDriver.runHookSequential('onContentFetchSetup'))
+			.andThen(
+				sources => this.backup(sources)
+					.andThen(() => this._fetchSources(sources))
+					.andThrough(() => this._pluginDriver.runHookSequential('onContentFetchDone'))
+					.andThen(() => this._writeDataStoreToDisk(this._dataStore))
+					.orElse(e => {
+						this._pluginDriver.runHookSequential('onContentFetchError', e);
+						this._logger.error('Error in content fetch process:', e);
+						this._logger.info('Restoring from backup...');
+						return this.restore(sources);
+					})
+					.andThen(() => this.clear(sources, {
+						temp: true,
+						backups: true,
+						downloads: false
+					}))
 			);
 	}
 

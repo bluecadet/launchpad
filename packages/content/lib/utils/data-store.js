@@ -1,5 +1,9 @@
-import jsonpath from 'jsonpath';
+import { JSONPath } from 'jsonpath-plus';
 import { ok, err, Result } from 'neverthrow';
+
+/**
+ * @typedef {Array<string | [string] | [string, string]>} DataKeys A list containing a combination of namespace ids, and namespace/document id tuples.
+ */
 
 /**
  * A document represents a single file or resource.
@@ -66,9 +70,28 @@ export class Document {
    * Apply a function to each element matching the given jsonpath.
    * @param {string} pathExpression
    * @param {(x: unknown) => unknown} fn
+   * @returns {Result<void, Error>}
    */
 	apply(pathExpression, fn) {
-		return jsonpath.apply(this.#originalData, pathExpression, fn);
+		// catch errrors thrown from JSONPath OR the fn callback
+		try {
+			JSONPath({
+				json: /** @type {object} */ (this.#originalData),
+				path: pathExpression,
+				resultType: 'all',
+				callback: (value, _, { parent, parentProperty }) => {
+					parent[parentProperty] = fn(value);
+				}
+			});
+
+			return ok(undefined);
+		} catch (e) {
+			if (e instanceof Error) {
+				return err(e);
+			}
+
+			return err(new Error(String(e)));
+		}
 	}
 }
 
@@ -176,7 +199,7 @@ export class DataStore {
    * @param {string} namespaceId
    * @returns {Result<Iterable<Document>, string>}
    */
-	documents(namespaceId) {
+	namespace(namespaceId) {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
 			return err(`Namespace ${namespaceId} not found in data store`);
@@ -260,5 +283,66 @@ export class DataStore {
 		}
 
 		return namespace.delete(documentId);
+	}
+
+	/**
+	 * Get lists of documents matching the passed DataKeys grouped by namespace.
+	 * @param {DataKeys} [ids] A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
+	 * @returns {Result<Array<{namespaceId: string; documents: Array<Document> }>, string>}
+	 */
+	filter(ids) {
+		if (!ids) {
+			return ok(
+				Array.from(this.namespaces())
+					.map(ns => ({ namespaceId: ns.id, documents: Array.from(ns.documents()) }))
+			);
+		}
+
+		/** @type {Map<string, Set<string>>} */
+		const consolidatedIds = new Map();
+
+		for (const id of ids) {
+			if (Array.isArray(id) && id.length === 2) {
+				const [namespaceId, documentId] = id;
+
+				const set = consolidatedIds.get(namespaceId);
+
+				if (!set) {
+					consolidatedIds.set(namespaceId, new Set([documentId]));
+				} else {
+					set.add(documentId);
+				}
+			} else {
+				const idStr = Array.isArray(id) ? id[0] : id;
+
+				const set = consolidatedIds.get(idStr);
+
+				if (!set) {
+					consolidatedIds.set(idStr, new Set(['*']));
+				} else {
+					set.add('*');
+				}
+			}
+		}
+
+		const consolidatedIdsArray = Array.from(consolidatedIds.entries());
+
+		return Result.combine(consolidatedIdsArray.map(([namespaceId, documentIds]) => {
+			return this.namespace(namespaceId).map(docs => {
+				const documents = Array.from(docs);
+
+				if (documentIds.has('*')) {
+					return {
+						namespaceId,
+						documents
+					};
+				} else {
+					return {
+						namespaceId,
+						documents: documents.filter(doc => documentIds.has(doc.id))
+					};
+				}
+			});
+		}));
 	}
 }

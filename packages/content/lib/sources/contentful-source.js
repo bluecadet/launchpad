@@ -86,14 +86,14 @@ export default function contentfulSource(options) {
 		assembled.accessToken = assembled.deliveryToken;
 	}
 
-	return ResultAsync.fromPromise(import('contentful'), () => configError('Could not find module "contentful". Make sure you have installed it.'))
-		.andThen(({ createClient }) => {
+	return ResultAsync
+		.fromPromise(import('contentful'), () => configError('Could not find module "contentful". Make sure you have installed it.'))
+		.map(({ createClient }) => {
 			const client = createClient(assembled);
 
-			return ok(defineSource({
+			return defineSource({
 				id: options.id,
 				fetch: (ctx) => {
-					// const fetchResult = await fetchPage(client, assembled.searchParams);
 
 					// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
 					/** @type {ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>} */
@@ -123,29 +123,31 @@ export default function contentfulSource(options) {
 						logger: ctx.logger
 					});
 
-					return fetchResult.andThen((fetchResult) => {
-						const result = new Map();
+					return ok([{
+						id: assembled.filename,
+						dataPromise: fetchResult.map(({ pages }) => {
+							// combine page results
+							const combined = pages.reduce((acc, page) => {
+								return {
+									entries: [...acc.entries, ...page.entries],
+									assets: [...acc.assets, ...page.assets]
+								};
+							}, /** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */({ entries: [], assets: [] }));
 
-						// combine page results
-						const combined = fetchResult.pages.reduce((acc, page) => {
-							return {
-								entries: [...acc.entries, ...page.entries],
-								assets: [...acc.assets, ...page.assets]
-							};
-						}, /** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */({ entries: [], assets: [] }));
-
-						result.set(assembled.filename, combined);
-
-						return ok(result);
-					});
+							return [{
+								id: assembled.filename,
+								data: combined
+							}];
+						})
+					}])
 				}
-			}));
+			});
 		});
 }
 
 /**
-	 * Returns all entries from a sync() or getEntries() response object.
-	 * @param {*} responseObj 
+ * Returns all entries from a sync() or getEntries() response object.
+ * @param {*} responseObj 
  * @returns {Array<import('contentful').Entry<unknown>>} Array of entry objects.
  */
 function parseEntries(responseObj) {

@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs-extra';
 import rimraf from 'rimraf';
-import { Result, ResultAsync } from 'neverthrow';
+import { errAsync, ok, okAsync, Result, ResultAsync } from 'neverthrow';
 
 export class FileUtils {
 	/**
@@ -86,15 +86,17 @@ export class FileUtils {
      * @param {unknown} json 
      * @param {string} filePath 
      * @param {boolean} appendJsonExtension
-     * @returns {Promise<import('neverthrow').Result<void, string>>}
+     * @returns {ResultAsync<void, string>}
      */
-	static async saveJson(json, filePath, appendJsonExtension = true) {
+	static saveJson(json, filePath, appendJsonExtension = true) {
 		if (appendJsonExtension && !(filePath + '').endsWith('.json')) {
 			filePath += '.json';
 		}
 		const jsonStr = (typeof json === 'string') ? json : JSON.stringify(json, null, 0);
-		await ResultAsync.fromPromise(fs.ensureFile(filePath), (_) => `Could not ensure file ${filePath}`);
-		return ResultAsync.fromPromise(fs.writeFile(filePath, jsonStr), (_) => `Could not write file ${filePath}`);
+
+		return ResultAsync.fromPromise(fs.ensureFile(filePath), (_) => `Could not ensure file ${filePath}`).andThen(() =>
+			ResultAsync.fromPromise(fs.writeFile(filePath, jsonStr), (_) => `Could not write file ${filePath}`)
+		);
 	}
     
 	/**
@@ -130,30 +132,28 @@ export class FileUtils {
     
 	/**
 	 * @param {string} dirPath
+	 * @returns {ResultAsync<void, string>}
 	 */
-	static async removeDirIfEmpty(dirPath) {
+	static removeDirIfEmpty(dirPath) {
 		if (!this.isDir(dirPath)) {
-			return;
+			return okAsync(undefined);
 		}
-		const isEmpty = await this.isDirEmpty(dirPath);
-		if (isEmpty) {
-			return fs.remove(dirPath);
-		}
+		return this.isDirEmpty(dirPath).andThen(isEmpty => {
+			if (isEmpty) {
+				return ResultAsync.fromPromise(fs.remove(dirPath), (_) => `Could not remove dir ${dirPath}`);
+			}
+			return okAsync(undefined);
+		});
 	}
 	
 	/**
 	 * @param {string} dirPath
+	 * @returns {ResultAsync<boolean, string>}
 	 */
-	static async isDirEmpty(dirPath) {
+	static isDirEmpty(dirPath) {
 		// @see https://stackoverflow.com/a/39218759/782899
-		try {
-			return await fs.promises.readdir(dirPath).then(files => {
-				return files.length === 0;
-			});
-		} catch (err) {
-			console.error(`Could check if dir is empty: '${dirPath}'`);
-			return false;
-		}
+		return ResultAsync.fromPromise(fs.promises.readdir(dirPath), (_) => `Could not read dir ${dirPath}`)
+			.andThen(files => okAsync(files.length === 0));
 	}
     
 	/**

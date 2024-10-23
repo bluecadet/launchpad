@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ky from 'ky';
-import { err, ok, ResultAsync } from 'neverthrow';
+import { err, ok, okAsync, ResultAsync } from 'neverthrow';
 import { defineSource } from './source.js';
 import { fetchError, parseError } from './source-errors.js';
 
@@ -15,32 +15,41 @@ import { fetchError, parseError } from './source-errors.js';
  * @type {import("./source.js").ContentSourceBuilder<JsonSourceOptions>}
  */
 export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
-	return ok(defineSource({
+	return okAsync(defineSource({
 		id,
-		fetch: async (ctx) => {
-			const resultMap = new Map();
-			for (const [key, url] of Object.entries(files)) {
-				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-				const response = await ResultAsync.fromPromise(
-					ky(url, {
-						timeout: maxTimeout
-					}),
-					() => fetchError(`Could not fetch json from ${url}`)
-				);
-
-				if (!response.isOk() || !response.value.ok) {
-					return err(fetchError(`Could not fetch json from ${url}`));
+		fetch: (ctx) => {
+			const promises = Object.entries(files).map(
+				([key, url]) => {
+					ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
+					return ResultAsync.fromPromise(
+						ky(url, {
+							timeout: maxTimeout
+						}),
+						() => fetchError(`Could not fetch json from ${url}`)
+					).andThen(
+						res => {
+							if (!res.ok) {
+								return err(fetchError(`Could not fetch json from ${url}`));
+							}
+						
+							return ResultAsync.fromThrowable(res.json, e => parseError(`Could not parse json from ${url}`))();
+						}
+					).andThen(json => ok({
+						key,
+						json
+					}));
 				}
+			);
 
-				try {
-					const json = await response.value.json();
+			return ResultAsync.combine(promises).andThen(data => {
+				const resultMap = new Map();
+
+				data.forEach(({ key, json }) => {
 					resultMap.set(key, json);
-				} catch (error) {
-					return err(parseError(`Could not parse json from ${url}`));
-				}
-			}
+				});
 
-			return ok(resultMap);
+				return ok(resultMap);
+			});
 		}
 	}));
 }

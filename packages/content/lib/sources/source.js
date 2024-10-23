@@ -1,5 +1,10 @@
 /**
- * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<Map<string, unknown> | undefined, import('./source-errors.js').SourceError>>} FetchResult
+ * @typedef {Map<string, unknown> | undefined} FetchResultMap
+ */
+
+/**
+ * Either a Promise of a Map or a ResultAsync of a Map.
+ * @typedef {Promise<FetchResultMap> | import('neverthrow').ResultAsync<FetchResultMap, import('./source-errors.js').SourceError>} FetchResult
  */
 
 /**
@@ -16,7 +21,7 @@
 
 /**
  * @template T
- * @typedef {(options: T) => import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<import('neverthrow').Result<ContentSource, import('./source-errors.js').SourceError>>} ContentSourceBuilder
+ * @typedef {(options: T) => import('neverthrow').ResultAsync<ContentSource, import('./source-errors.js').SourceError>} ContentSourceBuilder
  */
 
 /**

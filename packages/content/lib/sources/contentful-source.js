@@ -1,13 +1,13 @@
+import { err, errAsync, ok, ResultAsync } from 'neverthrow';
+import { defineSource } from './source.js';
+import { configError, fetchError } from './source-errors.js';
+import { fetchPaginated } from '../utils/fetch-paginated.js';
+
 /**
  * @typedef ContentfulCredentialsDeliveryToken
  * @property {string} deliveryToken Content delivery token (all published content).
  * @property {string} [previewToken] Content preview token (only unpublished/draft content).
  */
-
-import { err, ok } from 'neverthrow';
-import { defineSource } from './source.js';
-import { configError, fetchError } from './source-errors.js';
-import { fetchPaginated } from '../utils/fetch-paginated.js';
 
 /**
  * @typedef ContentfulCredentialsPreviewToken
@@ -63,14 +63,84 @@ const CONTENTFUL_OPTIONS_DEFAULTS = {
 	imageParams: {}
 };
 
-async function getContentful() {
-	// async import because it's an optional dependency
-	try {
-		const contentful = await import('contentful');
-		return ok(contentful.default);
-	} catch (error) {
-		return err(configError('Could not find module "contentful". Make sure you have installed it.'));
+/**
+ * @type {import("./source.js").ContentSourceBuilder<ContentfulOptions>}
+ */
+export default function contentfulSource(options) {
+	const assembled = {
+		accessToken: '',
+		...CONTENTFUL_OPTIONS_DEFAULTS,
+		...options
+	};
+
+	if (assembled.usePreviewApi) {
+		if (!assembled.previewToken) {
+			return errAsync(configError('usePreviewApi is set to true, but no previewToken is provided'));
+		}
+		assembled.accessToken = assembled.previewToken;
+	} else {
+		if (!('deliveryToken' in assembled) || !assembled.deliveryToken) {
+			return errAsync(configError('usePreviewApi is set to false, but no deliveryToken is provided'));
+		}
+
+		assembled.accessToken = assembled.deliveryToken;
 	}
+
+	return ResultAsync.fromPromise(import('contentful'), () => configError('Could not find module "contentful". Make sure you have installed it.'))
+		.andThen(({ createClient }) => {
+			const client = createClient(assembled);
+
+			return ok(defineSource({
+				id: options.id,
+				fetch: (ctx) => {
+					// const fetchResult = await fetchPage(client, assembled.searchParams);
+					
+					// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
+					/** @type {ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>} */
+					const fetchResult = fetchPaginated({
+						fetchPageFn: (params) => {
+							return ResultAsync.fromPromise(client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit }), (error) => fetchError(`Error fetching page: ${error instanceof Error ? error.message : error}`))
+								.andThen((rawPage) => {
+									if (rawPage.errors) {
+										return err(fetchError(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`));
+									}
+
+									const page = rawPage.toPlainObject();
+									const entries = parseEntries(page);
+									const assets = parseAssets(page);
+		
+									if (!entries.length) {
+										return ok(null); // No more pages left
+									}
+		
+									return ok({
+										entries,
+										assets
+									});
+								});
+						},
+						limit: options.searchParams.limit,
+						logger: ctx.logger
+					});
+
+					return fetchResult.andThen((fetchResult) => {
+						const result = new Map();
+		
+						// combine page results
+						const combined = fetchResult.pages.reduce((acc, page) => {
+							return {
+								entries: [...acc.entries, ...page.entries],
+								assets: [...acc.assets, ...page.assets]
+							};
+						}, /** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */ ({ entries: [], assets: [] }));
+		
+						result.set(assembled.filename, combined);
+		
+						return ok(result);
+					});
+				}
+			}));
+		});
 }
 
 /**
@@ -106,90 +176,4 @@ function parseAssets(responseObj) {
 		}
 	}
 	return assets;
-}
-
-/**
- * @type {import("./source.js").ContentSourceBuilder<ContentfulOptions>}
- */
-export default async function contentfulSource(options) {
-	const assembled = {
-		accessToken: '',
-		...CONTENTFUL_OPTIONS_DEFAULTS,
-		...options
-	};
-
-	if (assembled.usePreviewApi) {
-		if (!assembled.previewToken) {
-			return err(configError('usePreviewApi is set to true, but no previewToken is provided'));
-		}
-		assembled.accessToken = assembled.previewToken;
-	} else {
-		if (!('deliveryToken' in assembled) || !assembled.deliveryToken) {
-			return err(configError('usePreviewApi is set to false, but no deliveryToken is provided'));
-		}
-
-		assembled.accessToken = assembled.deliveryToken;
-	}
-
-	const contentful = await getContentful();
-
-	if (contentful.isErr()) {
-		return contentful;
-	}
-
-	const client = contentful.value.createClient(assembled);
-
-	return ok(defineSource({
-		id: options.id,
-		fetch: async (ctx) => {
-			// const fetchResult = await fetchPage(client, assembled.searchParams);
-			
-			// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
-			/** @type {Awaited<ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>>} */
-			const fetchResult = await fetchPaginated({
-				fetchPageFn: async (params) => {
-					const rawPage = await client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit });
-
-					if (rawPage.errors) {
-						return err(fetchError(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`));
-					}
-
-					const page = rawPage.toPlainObject();
-
-					const entries = parseEntries(page);
-					const assets = parseAssets(page);
-
-					if (!entries.length) {
-						return ok(null); // No more pages left
-					}
-
-					return ok({
-						entries,
-						assets
-					});
-				},
-				limit: options.searchParams.limit,
-				logger: ctx.logger
-			});
-			
-			if (fetchResult.isErr()) {
-				return err(fetchResult.error);
-			}
-
-			const result = new Map();
-
-			// combine page results
-
-			const combined = fetchResult.value.pages.reduce((acc, page) => {
-				return {
-					entries: [...acc.entries, ...page.entries],
-					assets: [...acc.assets, ...page.assets]
-				};
-			}, /** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */ ({ entries: [], assets: [] }));
-
-			result.set(assembled.filename, combined);
-
-			return ok(result);
-		}
-	}));
 }

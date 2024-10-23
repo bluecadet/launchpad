@@ -124,11 +124,8 @@ class Namespace {
 		return ok(document);
 	}
 
-	/**
-   * @returns {Iterable<Document>}
-   */
-	* documents() {
-		yield * this.#documents.values();
+	documents() {
+		return this.#documents.values();
 	}
 
 	/**
@@ -197,11 +194,8 @@ export class DataStore {
 		}
 	}
 
-	/**
-   * @returns {Iterable<Namespace>}
-   */
-	* namespaces() {
-		yield * this.#namespaces.values();
+	namespaces() {
+		return this.#namespaces.values();
 	}
 
 	/**

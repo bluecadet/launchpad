@@ -9,7 +9,7 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 /**
  * @typedef {import('./sources/source.js').ContentSource
  * | Promise<import('./sources/source.js').ContentSource>
- * | import('neverthrow').Result<import('./sources/source.js').ContentSource, import('./sources/source-errors.js').SourceError>
+ * | import('neverthrow').ResultAsync<import('./sources/source.js').ContentSource, import('./sources/source-errors.js').SourceError>
  * } ConfigContentSource
  */
 

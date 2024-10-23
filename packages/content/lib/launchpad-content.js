@@ -6,12 +6,11 @@ import { DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './c
 
 import FileUtils from './utils/file-utils.js';
 
-import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
+import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
 import { DataStore } from './utils/data-store.js';
-import { err, ok, Result, ResultAsync } from 'neverthrow';
-import { configError } from './sources/source-errors.js';
+import { ok, err, ResultAsync, okAsync } from 'neverthrow';
 
 export class LaunchpadContent {
 	/**
@@ -76,116 +75,38 @@ export class LaunchpadContent {
 
 	/**
 	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
-	 * @returns {Promise<import('neverthrow').Result<void, string | undefined>>}
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async start(rawSources = null) {
+	start(rawSources = null) {
 		rawSources = rawSources || this._rawSources;
 		if (!rawSources || rawSources.length <= 0) {
 			this._logger.warn(chalk.yellow('No sources found to download'));
-			return ok(undefined);
+			return okAsync(undefined);
 		}
-
-		const sourcesResult = await this._createSourcesFromConfig(rawSources);
-		if (sourcesResult.isErr()) {
-			this._logger.error('Error constructing sources. Cancelling content fetch.');
-			await this._pluginDriver.runHookSequential('onSetupError', new ContentError(sourcesResult.error.message));
-			return err(sourcesResult.error.message);
-		}
-
-		const sources = sourcesResult.value;
 
 		this._startDatetime = new Date();
 
-		await this._pluginDriver.runHookSequential('onContentFetchSetup');
-
-		this._logger.info(`Downloading ${chalk.cyan(sources.length)} sources`);
-
-		if (this._config.backupAndRestore) {
-			this._logger.info(`Backing up ${chalk.cyan(sources.length)} sources`);
-
-			await this.backup(sources);
-		}
-
-		/**
-		 * Restore sources and return an error
-		 * @param {string} [errorMessage] 
-		 * @returns {Promise<import('neverthrow').Err<never, string | undefined>>}
-		 */
-		const restoreAndErr = async (errorMessage) => {
-			if (this._config.backupAndRestore && sources && sources.length > 0) {
-				this._logger.info(`Restoring ${chalk.cyan(sources.length)} sources`);
-				await this.restore(sources);
-			}
-			return err(errorMessage);
-		};
-
-		let sourcesComplete = 0;
-		
-		for (const source of sources) {
-			const progress = (sourcesComplete + 1) + '/' + sources.length;
-			this._logger.info(`Downloading source ${chalk.cyan(progress)}: ${chalk.yellow(source)}`);
-
-			const sourceLogger = LogManager.getInstance().getLogger(`source:${source.id}`);
-			
-			const result = await source.fetch({
-				logger: sourceLogger,
-				dataStore: this._dataStore
+		return this._createSourcesFromConfig(rawSources)
+			.andTee(() => this._pluginDriver.runHookSequential('onContentFetchSetup'))
+			.andThen(sources => this.backup(sources)
+				.andThen(() => this._fetchSources(sources))
+				.andTee(() => this._pluginDriver.runHookSequential('onContentFetchDone'))
+				.andThen(() => this._writeDataStoreToDisk(this._dataStore))
+				.andThen(() => this.clear(sources, {
+					temp: true,
+					backups: true,
+					downloads: false
+				}))
+			)
+			.mapErr(error => {
+				this._logger.error('Error in content fetch process:', error);
+				return error instanceof Error ? error : new Error(String(error));
 			});
-
-			if (result.isErr()) {
-				this._logger.error(`Error fetching source ${source.id}. Cancelling content fetch.`);
-				await this._pluginDriver.runHookSequential('onContentFetchError', new ContentError(result.error.message));
-				return restoreAndErr(result.error.message);
-			}
-
-			if (!result.value) {
-				this._logger.warn(`No data returned for source ${source.id}`);
-				continue;
-			}
-
-			const dataNamespace = this._dataStore.createNamespaceFromMap(source.id, result.value);
-
-			if (dataNamespace.isErr()) {
-				this._logger.error(`Error creating data namespace for source ${source.id}. Cancelling content fetch.`);
-				this._logger.error(dataNamespace.error);
-				await this._pluginDriver.runHookSequential('onContentFetchError', new ContentError(dataNamespace.error));
-				return restoreAndErr(dataNamespace.error);
-			}
-	
-			sourcesComplete++;
-		}
-
-		this._logger.info(
-			chalk.green(`Finished downloading ${sources.length} sources`)
-		);
-
-		await this._pluginDriver.runHookSequential('onContentFetchDone');
-
-		const writeResult = await this._writeDataStoreToDisk(this._dataStore);
-
-		if (writeResult.isErr()) {
-			this._logger.error('Error writing data store to disk', writeResult.error);
-			return restoreAndErr(writeResult.error);
-		}
-
-		try {
-			this._logger.debug('Cleaning up temp and backup files');
-			await this.clear(sources, {
-				temp: true,
-				backups: true,
-				downloads: false
-			});
-		} catch (err) {
-			this._logger.error('Could not clean up temp and backup files', err);
-		}
-
-		return ok(undefined);
 	}
 
 	/**
 	 * Alias for start(source)
 	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
-	 * @returns {Promise<import('neverthrow').Result<void, string | undefined>>}
 	 */
 	async download(rawSources = null) {
 		return this.start(rawSources);
@@ -200,86 +121,92 @@ export class LaunchpadContent {
 	 * @param {boolean} [options.backups] Clear the backup dir
 	 * @param {boolean} [options.downloads] Clear the download dir
 	 * @param {boolean} [options.removeIfEmpty] Remove each dir if it's empty after clearing
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async clear(sources = [], {
+	clear(sources = [], {
 		temp = true,
 		backups = true,
 		downloads = true,
 		removeIfEmpty = true
 	} = {}) {
-		sources = sources || [null];
-		for (const source of sources) {
-			const sourceLabel = source ? `source ${source}` : 'all sources';
+		return ResultAsync.combine(sources.map(source => {
+			/** @type {ResultAsync<void, ContentError>[]} */
+			const tasks = [];
 			if (temp) {
-				this._logger.debug(`Clearing temp files of ${chalk.yellow(sourceLabel)}`);
-				await this._clearDir(this.getTempPath(source), { removeIfEmpty, ignoreKeep: true });
+				tasks.push(this._clearDir(this.getTempPath(source), { removeIfEmpty, ignoreKeep: true }));
 			}
 			if (backups) {
-				this._logger.debug(`Clearing backup of ${chalk.yellow(sourceLabel)}`);
-				await this._clearDir(this.getBackupPath(source), { removeIfEmpty, ignoreKeep: true });
+				tasks.push(this._clearDir(this.getBackupPath(source), { removeIfEmpty, ignoreKeep: true }));
 			}
 			if (downloads) {
-				this._logger.debug(`Clearing downloads of ${chalk.yellow(sourceLabel)}`);
-				await this._clearDir(this.getDownloadPath(source), { removeIfEmpty });
+				tasks.push(this._clearDir(this.getDownloadPath(source), { removeIfEmpty }));
 			}
-		}
-
-		if (removeIfEmpty && temp) {
-			await FileUtils.removeDirIfEmpty(this.getTempPath());
-		}
-		if (removeIfEmpty && backups) {
-			await FileUtils.removeDirIfEmpty(this.getBackupPath());
-		}
-		if (removeIfEmpty && downloads) {
-			await FileUtils.removeDirIfEmpty(this.getDownloadPath());
-		}
-
-		return Promise.resolve();
+			return ResultAsync.combine(tasks);
+		})).andThen(() => {
+			/** @type {ResultAsync<void, string>[]} */
+			const tasks = [];
+			if (removeIfEmpty) {
+				if (temp) tasks.push(FileUtils.removeDirIfEmpty(this.getTempPath()));
+				if (backups) tasks.push(FileUtils.removeDirIfEmpty(this.getBackupPath()));
+				if (downloads) tasks.push(FileUtils.removeDirIfEmpty(this.getDownloadPath()));
+			}
+			return ResultAsync.combine(tasks);
+		})
+			.map(() => undefined) // return void instead of void[]
+			.mapErr(error => new ContentError(`Failed to clear directories: ${error instanceof Error ? error.message : String(error)}`));
 	}
 
 	/**
 	 * Backs up all downloads of source to a separate backup dir.
 	 * @param {Array<import('./sources/source.js').ContentSource>} sources
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async backup(sources = []) {
-		for (const source of sources) {
-			try {
-				const downloadPath = this.getDownloadPath(source);
-				const backupPath = this.getBackupPath(source);
-				if (!fs.existsSync(downloadPath)) {
-					throw new Error(`No downloads found at ${downloadPath}`);
-				}
-				this._logger.debug(`Backing up ${source}`);
-				await fs.copy(downloadPath, backupPath, { preserveTimestamps: true });
-			} catch (err) {
-				this._logger.warn(`Couldn't back up ${source}:`, err);
-			}
-		}
+	backup(sources = []) {
+		return ResultAsync.combine(sources.map(source => {
+			const downloadPath = this.getDownloadPath(source);
+			const backupPath = this.getBackupPath(source);
+			return ResultAsync.fromPromise(
+				fs.pathExists(downloadPath)
+					.then(exists => {
+						if (!exists) {
+							throw new Error(`No downloads found at ${downloadPath}`);
+						}
+						this._logger.debug(`Backing up ${source}`);
+						return fs.copy(downloadPath, backupPath, { preserveTimestamps: true });
+					}),
+				error => new ContentError(`Failed to backup source ${source.id}: ${error instanceof Error ? error.message : String(error)}`)
+			);
+		})).map(() => undefined);
 	}
 
 	/**
 	 * Restores all downloads of source from its backup dir if it exists.
 	 * @param {Array<import('./sources/source.js').ContentSource>} sources 
 	 * @param {boolean} removeBackups
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async restore(sources = [], removeBackups = true) {
-		for (const source of sources) {
-			try {
-				const downloadPath = this.getDownloadPath(source);
-				const backupPath = this.getBackupPath(source);
-				if (!fs.existsSync(backupPath)) {
-					throw new Error(`No backups found at ${backupPath}`);
-				}
-				this._logger.info(`Restoring ${source} from backup`);
-				await fs.copy(backupPath, downloadPath, { preserveTimestamps: true });
-				if (removeBackups) {
-					this._logger.debug(`Removing backup for ${source}`);
-					await fs.remove(backupPath);
-				}
-			} catch (err) {
-				this._logger.error(`Couldn't restore ${source}:`, err);
-			}
-		}
+	restore(sources = [], removeBackups = true) {
+		return ResultAsync.combine(sources.map(source => {
+			const downloadPath = this.getDownloadPath(source);
+			const backupPath = this.getBackupPath(source);
+			return ResultAsync.fromPromise(
+				fs.pathExists(backupPath)
+					.then(exists => {
+						if (!exists) {
+							throw new Error(`No backups found at ${backupPath}`);
+						}
+						this._logger.info(`Restoring ${source} from backup`);
+						return fs.copy(backupPath, downloadPath, { preserveTimestamps: true })
+							.then(() => {
+								if (removeBackups) {
+									this._logger.debug(`Removing backup for ${source}`);
+									return fs.remove(backupPath);
+								}
+							});
+					}),
+				error => new ContentError(`Failed to restore source ${source.id}: ${error instanceof Error ? error.message : String(error)}`)
+			);
+		})).map(() => undefined);
 	}
 
 	/**
@@ -326,85 +253,98 @@ export class LaunchpadContent {
 
 	/**
 	 * @param {import('./content-options.js').ConfigContentSource[]} rawSources
-	 * @returns {Promise<Result<Array<import('./sources/source.js').ContentSource>, import('./sources/source-errors.js').SourceError>>}
 	 */
-	async _createSourcesFromConfig(rawSources) {
-		const allSourcesAsResults = rawSources.map(async (source) => {
-			// need to wrap in try/catch for user sources that don't use the neverthrow api
-			try {
-				// await any promises
-				const awaited = await source;
-
-				if ('value' in awaited || 'error' in awaited) {
-					// this is already a result, just return it
-					return awaited;
-				}
-
-				return ok(awaited);
-			} catch (e) {
-				this._logger.error('Error creating source', e);
-
-				if (e instanceof Error) {
-					return err(configError(e.message));
-				} else {
-					return err(configError('Unknown error'));
-				}
+	_createSourcesFromConfig(rawSources) {
+		return ResultAsync.combine(rawSources.map(source =>
+			ResultAsync.fromPromise(
+				Promise.resolve(source).then(awaited => {
+					if ('value' in awaited || 'error' in awaited) {
+						return awaited;
+					}
+					return ok(awaited);
+				}),
+				error => new ContentError(error instanceof Error ? error.message : String(error))
+			)
+		)).andThen(results => {
+			const errors = results.filter(r => r.isErr()).map(r => r.error);
+			if (errors.length > 0) {
+				return err(errors[0]);
 			}
+			return ok(results.filter(r => r.isOk()).map(r => r.value));
 		});
-
-		const createdSources = await Result.combine(await Promise.all(allSourcesAsResults));
-
-		if (createdSources.isErr()) {
-			this._logger.error('Error creating sources', createdSources.error);
-			return err(createdSources.error);
-		}
-
-		return ok(createdSources.value);
 	}
 
 	/**
-	 * Writes the data store to the configured download path.
-	 * @param {import('./utils/data-store.js').DataStore} dataStore
-	 * @returns {Promise<Result<void, string>>}
+	 * @param {Array<import('./sources/source.js').ContentSource>} sources
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async _writeDataStoreToDisk(dataStore) {
-		for (const namespace of dataStore.namespaces()) {
-			for (const document of namespace.documents()) {
-				const encodeRegex = new RegExp(`[${this._config.encodeChars}]`, 'g');
-				const filePath = path.join(
-					this._config.downloadPath,
-					namespace.id,
-					document.id
-				).replace(encodeRegex, encodeURIComponent);
-				const saveResult = await FileUtils.saveJson(document.data, filePath);
+	_fetchSources(sources) {
+		return ResultAsync.combine(
+			sources.map((source) => {
+				const sourceLogger = LogManager.getInstance().getLogger(`source:${source.id}`);
 
-				if (saveResult.isErr()) {
-					return err(saveResult.error);
-				}
-			}
-		}
+				const fetchCall = source.fetch({
+					logger: sourceLogger,
+					dataStore: this._dataStore
+				});
 
-		return ok(undefined);
+				const fetchResult = fetchCall instanceof Promise
+					? ResultAsync.fromPromise(fetchCall, error => new ContentError(`Failed to fetch source ${source.id}: ${error instanceof Error ? error.message : String(error)}`))
+					: fetchCall.mapErr(error => new ContentError(`Failed to fetch source ${source.id}: ${error instanceof Error ? error.message : String(error)}`));
+
+				return fetchResult.andThen(result => {
+					if (!result) {
+						this._logger.warn(`No data returned for source ${source.id}`);
+						return ok(undefined);
+					}
+					return this._dataStore.createNamespaceFromMap(source.id, result).mapErr(e => new ContentError(`Unable to create namespace for source ${source.id}: ${e}`));
+				});
+			})).map(() => undefined); // return void instead of void[]
+	}
+
+	/**
+	 * @param {import('./utils/data-store.js').DataStore} dataStore
+	 * @returns {ResultAsync<void, ContentError>}
+	 */
+	_writeDataStoreToDisk(dataStore) {
+		return ResultAsync.combine(
+			Array.from(dataStore.namespaces()).flatMap(namespace =>
+				Array.from(namespace.documents()).map(document => {
+					const encodeRegex = new RegExp(`[${this._config.encodeChars}]`, 'g');
+					const filePath = path.join(
+						this._config.downloadPath,
+						namespace.id,
+						document.id
+					).replace(encodeRegex, encodeURIComponent);
+					return FileUtils.saveJson(document.data, filePath);
+				})
+			))
+			.mapErr(e => new ContentError(`Failed to write data store to disk: ${e}`))
+			.map(() => undefined); // return void instead of void[]
 	}
 
 	/**
 	 * @param {string} dirPath
+	 * @param {object} options
+	 * @param {boolean} [options.removeIfEmpty]
+	 * @param {boolean} [options.ignoreKeep]
+	 * @returns {ResultAsync<void, ContentError>}
 	 */
-	async _clearDir(dirPath, {
-		removeIfEmpty = true,
-		ignoreKeep = false
-	} = {}) {
-		try {
-			if (!fs.existsSync(dirPath)) {
-				return;
-			}
+	_clearDir(dirPath, { removeIfEmpty = true, ignoreKeep = false } = {}) {
+		return ResultAsync.fromPromise(
+			fs.pathExists(dirPath),
+			error => new ContentError(`Could not check if dir exists: ${error instanceof Error ? error.message : String(error)}`)
+		).andThen(exists => {
+			if (!exists) return okAsync(undefined);
 			FileUtils.removeFilesFromDir(dirPath, ignoreKeep ? undefined : this._config.keep);
 			if (removeIfEmpty) {
-				await FileUtils.removeDirIfEmpty(dirPath);
+				return FileUtils.removeDirIfEmpty(dirPath).mapErr(
+					e => new ContentError(e)
+				);
 			}
-		} catch (err) {
-			this._logger.error(chalk.red(`Could not clear ${chalk.yellow(dirPath)} (make sure dir is not in use):`), err);
-		}
+
+			return okAsync(undefined);
+		});
 	}
 
 	/**

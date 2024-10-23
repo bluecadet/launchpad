@@ -10,7 +10,7 @@ import { LogManager, Logger } from '@bluecadet/launchpad-utils';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
 import { DataStore } from './utils/data-store.js';
-import { ok, err, ResultAsync, okAsync, Result } from 'neverthrow';
+import { ok, err, ResultAsync, okAsync } from 'neverthrow';
 
 export class LaunchpadContent {
 	/**
@@ -96,12 +96,13 @@ export class LaunchpadContent {
 					temp: true,
 					backups: true,
 					downloads: false
-				}))
-			)
-			.mapErr(error => {
-				this._logger.error('Error in content fetch process:', error);
-				return error instanceof Error ? error : new Error(String(error));
-			});
+				})).orElse(e => {
+					this._pluginDriver.runHookSequential('onContentFetchError', e);
+					this._logger.error('Error in content fetch process:', e);
+					this._logger.info('Restoring from backup...');
+					return this.restore(sources);
+				})
+			);
 	}
 
 	/**
@@ -176,7 +177,7 @@ export class LaunchpadContent {
 					}),
 				error => new ContentError(`Failed to backup source ${source.id}: ${error instanceof Error ? error.message : String(error)}`)
 			);
-		})).map(() => undefined);
+		})).map(() => undefined); // return void instead of void[]
 	}
 
 	/**
@@ -257,20 +258,18 @@ export class LaunchpadContent {
 	_createSourcesFromConfig(rawSources) {
 		return ResultAsync.combine(rawSources.map(source =>
 			ResultAsync.fromPromise(
-				Promise.resolve(source).then(awaited => {
-					if ('value' in awaited || 'error' in awaited) {
-						return awaited;
-					}
-					return ok(awaited);
-				}),
+				// wrap source in promise to ensure it's awaited
+				Promise.resolve(source),
 				error => new ContentError(error instanceof Error ? error.message : String(error))
-			)
-		)).andThen(results => {
-			const errors = results.filter(r => r.isErr()).map(r => r.error);
-			if (errors.length > 0) {
-				return err(errors[0]);
-			}
-			return ok(results.filter(r => r.isOk()).map(r => r.value));
+			).andThen(awaited => {
+				if ('value' in awaited || 'error' in awaited) {
+					return awaited.mapErr(e => new ContentError(e instanceof Error ? e.message : String(e)));
+				}
+				return ok(awaited);
+			})
+		)).orElse(e => {
+			this._pluginDriver.runHookSequential('onSetupError', e);
+			return err(e);
 		});
 	}
 

@@ -9,10 +9,10 @@ export * from './lib/monitor-options.js';
 export default LaunchpadMonitor;
 
 /**
- * @param {import('./lib/monitor-options.js').MonitorOptions | {monitor: import('./lib/monitor-options.js').MonitorOptions}} config
+ * @param {import('./lib/monitor-options.js').ConfigWithMonitor} config
  */
 export const launch = async (config) => {
-	const monitor = new LaunchpadMonitor('monitor' in config ? config.monitor : config);
+	const monitor = new LaunchpadMonitor(config);
 	await monitor.connect();
 	await monitor.start();
 

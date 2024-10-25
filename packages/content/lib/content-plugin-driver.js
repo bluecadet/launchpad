@@ -15,6 +15,10 @@ export class ContentError extends Error {
  * @typedef ContentHookContext
  * @prop {import('./utils/data-store.js').DataStore} data
  * @prop {import('./content-options.js').ResolvedContentOptions} contentOptions
+ * @prop {object} paths
+ * @prop {(source?: string) => string} paths.getDownloadPath
+ * @prop {(source?: string, pluginName?: string) => string} paths.getTempPath
+ * @prop {(source?: string) => string} paths.getBackupPath
  */
 
 /**
@@ -62,24 +66,43 @@ export class ContentPluginDriver extends HookContextProvider {
 	#options;
 
 	/**
+	 * @prop {(source?: string) => string} getDownloadPath
+	 * @prop {(source?: string, pluginName?: string) => string} getTempPath
+	 * @prop {(source?: string) => string} getBackupPath
+	 */
+	#pathGetters;
+
+	/**
 	 * @param {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').default<ContentHooks>} wrappee
 	 * @param {object} options
 	 * @param {import('./utils/data-store.js').DataStore} options.dataStore
 	 * @param {import('./content-options.js').ResolvedContentOptions} options.options
+	 * @param {object} options.paths
+	 * @param {(source?: string) => string} options.paths.getDownloadPath
+	 * @param {(source?: string, pluginName?: string) => string} options.paths.getTempPath
+	 * @param {(source?: string) => string} options.paths.getBackupPath
 	 */
-	constructor(wrappee, { dataStore, options }) {
+	constructor(wrappee, { dataStore, options, paths }) {
 		super(wrappee);
 		this.#dataStore = dataStore;
 		this.#options = options;
+		this.#pathGetters = paths;
 	}
 
 	/**
+	 * @param {ContentPlugin} plugin
 	 * @override
 	 */
-	_getPluginContext() {
+	_getPluginContext(plugin) {
 		return {
 			data: this.#dataStore,
-			contentOptions: this.#options
+			contentOptions: this.#options,
+			paths: {
+				getDownloadPath: this.#pathGetters.getDownloadPath,
+				getBackupPath: this.#pathGetters.getBackupPath,
+				// temp path is plugin-specific
+				getTempPath: (/** @type {string | undefined} */ source) => this.#pathGetters.getTempPath(source, plugin.name)
+			}
 		};
 	}
 }

@@ -65,6 +65,9 @@
     "chalk": "^5.0.0",
     "fs-extra": "^10.0.0"
   },
+  "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0"
+  },
   "keywords": [
     "bluecadet",
     "cli",

@@ -1,5 +1,5 @@
 {
-	"extends": "../../tsconfig.base.json",
+	"extends": "@bluecadet/launchpad-tsconfig/base.json",
 	"compilerOptions": {
 		"outDir": "types"
 	},

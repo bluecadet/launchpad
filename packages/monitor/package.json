@@ -47,6 +47,7 @@
     "tail": "^2.2.4"
   },
   "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
     "@types/cross-spawn": "^6.0.2",
     "@types/semver": "^7.5.8",

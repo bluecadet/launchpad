@@ -59,12 +59,14 @@
     "strip-json-comments": "^4.0.0"
   },
   "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/cli-progress": "^3.11.0",
     "@types/markdown-it": "^12.2.0",
     "@types/progress-stream": "^2.0.2",
     "@types/qs": "^6.9.7",
     "@types/rimraf": "^4.0.5",
     "@types/sanitize-html": "^2.9.0",
-    "@types/sharp": "^0.30.5"
+    "@types/sharp": "^0.30.5",
+    "vitest": "^2.1.3"
   }
 }

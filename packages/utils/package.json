@@ -45,6 +45,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/async": "^3.2.20",
     "@types/fs-extra": "^11.0.1",
     "@types/yargs": "^17.0.24"

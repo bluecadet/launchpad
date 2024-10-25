@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
 	"compilerOptions": {
 		"lib": ["es2022"],
 		"module": "NodeNext",
@@ -16,5 +17,7 @@
 		"allowSyntheticDefaultImports": true,
 		"composite": true,
     "skipLibCheck": true,
-	}
+    "outDir": "types"
+	},
+  "exclude": ["node_modules", "build"]
 }

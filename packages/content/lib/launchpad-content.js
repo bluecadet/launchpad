@@ -69,7 +69,12 @@ export class LaunchpadContent {
 			basePluginDriver,
 			{
 				dataStore: new DataStore(),
-				options: this._config
+				options: this._config,
+				paths: {
+					getDownloadPath: this.getDownloadPath,
+					getTempPath: this.getTempPath,
+					getBackupPath: this.getBackupPath
+				}
 			}
 		);
 	}
@@ -137,13 +142,13 @@ export class LaunchpadContent {
 			/** @type {ResultAsync<void, ContentError>[]} */
 			const tasks = [];
 			if (temp) {
-				tasks.push(this._clearDir(this.getTempPath(source), { removeIfEmpty, ignoreKeep: true }));
+				tasks.push(this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }));
 			}
 			if (backups) {
-				tasks.push(this._clearDir(this.getBackupPath(source), { removeIfEmpty, ignoreKeep: true }));
+				tasks.push(this._clearDir(this.getBackupPath(source.id), { removeIfEmpty, ignoreKeep: true }));
 			}
 			if (downloads) {
-				tasks.push(this._clearDir(this.getDownloadPath(source), { removeIfEmpty }));
+				tasks.push(this._clearDir(this.getDownloadPath(source.id), { removeIfEmpty }));
 			}
 			return ResultAsync.combine(tasks);
 		})).andThen(() => {
@@ -167,8 +172,8 @@ export class LaunchpadContent {
 	 */
 	backup(sources = []) {
 		return ResultAsync.combine(sources.map(source => {
-			const downloadPath = this.getDownloadPath(source);
-			const backupPath = this.getBackupPath(source);
+			const downloadPath = this.getDownloadPath(source.id);
+			const backupPath = this.getBackupPath(source.id);
 			return ResultAsync.fromPromise(
 				fs.pathExists(downloadPath)
 					.then(exists => {
@@ -191,8 +196,8 @@ export class LaunchpadContent {
 	 */
 	restore(sources = [], removeBackups = true) {
 		return ResultAsync.combine(sources.map(source => {
-			const downloadPath = this.getDownloadPath(source);
-			const backupPath = this.getBackupPath(source);
+			const downloadPath = this.getDownloadPath(source.id);
+			const backupPath = this.getBackupPath(source.id);
 			return ResultAsync.fromPromise(
 				fs.pathExists(backupPath)
 					.then(exists => {
@@ -214,42 +219,48 @@ export class LaunchpadContent {
 	}
 
 	/**
-	 * @param {import('./sources/source.js').ContentSource} [source] 
+	 * @param {string} [sourceId]
 	 * @returns {string}
 	 */
-	getDownloadPath(source) {
-		if (source) {
-			return path.resolve(path.join(this._config.downloadPath, source.id));
+	getDownloadPath(sourceId) {
+		if (sourceId) {
+			return path.resolve(path.join(this._config.downloadPath, sourceId));
 		} else {
 			return path.resolve(this._config.downloadPath);
 		}
 	}
 
 	/**
-	 * @param {import('./sources/source.js').ContentSource} [source] 
+	 * @param {string} [sourceId]
+	 * @param {string} [pluginName]
 	 * @returns {string}
 	 */
-	getTempPath(source) {
+	getTempPath(sourceId, pluginName) {
 		const downloadPath = this._config.downloadPath;
 		const tokenizedPath = this._config.tempPath;
-		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
-		if (source) {
-			return path.join(detokenizedPath, source.id);
-		} else {
-			return detokenizedPath;
+		let detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
+
+		if (pluginName) {
+			detokenizedPath = path.join(detokenizedPath, pluginName);
 		}
+		
+		if (sourceId) {
+			detokenizedPath = path.join(detokenizedPath, sourceId);
+		}
+
+		return detokenizedPath;
 	}
 
 	/**
-	 * @param {import('./sources/source.js').ContentSource} [source] 
+	 * @param {string} [sourceId]
 	 * @returns {string}
 	 */
-	getBackupPath(source) {
+	getBackupPath(sourceId) {
 		const downloadPath = this._config.downloadPath;
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
-		if (source) {
-			return path.join(detokenizedPath, source.id);
+		if (sourceId) {
+			return path.join(detokenizedPath, sourceId);
 		} else {
 			return detokenizedPath;
 		}

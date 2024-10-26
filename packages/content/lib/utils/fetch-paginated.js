@@ -4,6 +4,7 @@ import { ResultAsync, err, ok, okAsync } from 'neverthrow';
  * @template {unknown} T
  * @typedef FetchPaginatedOptions
  * @property {number} limit The number of items to fetch per page
+ * @property {number} [maxFetchCount] The maximum number of pages to fetch. If this is reached, the fetch will be terminated early.
  * @property {(params: {limit: number, offset: number}) => ResultAsync<T | null, import('../sources/source-errors.js').SourceError>} fetchPageFn A function that takes a params object and returns a ResultAsync of an array of T. To indicate the end of pagination, return an empty array, or null.
  * @property {import('@bluecadet/launchpad-utils').Logger} logger A logger instance
  */
@@ -21,7 +22,7 @@ import { ResultAsync, err, ok, okAsync } from 'neverthrow';
  * @param {M extends undefined ? FetchPaginatedOptions<T> : FetchPaginatedOptions<T> & {meta: M}} options
  * @returns {FetchPaginatedResult<T, M>}
  */
-export function fetchPaginated({ fetchPageFn, limit, logger, ...rest }) {
+export function fetchPaginated({ fetchPageFn, limit, logger, maxFetchCount = 1000, ...rest }) {
 	/** @type {Array<T>} */
 	const pages = [];
 	let page = 0;
@@ -33,7 +34,7 @@ export function fetchPaginated({ fetchPageFn, limit, logger, ...rest }) {
 		logger.debug(`Fetching page ${page}`);
 		return fetchPageFn({ limit, offset: page * limit })
 			.andThen((data) => {
-				if (data === null || (Array.isArray(data) && data.length === 0)) {
+				if (data === null || (Array.isArray(data) && data.length === 0 || page >= maxFetchCount)) {
 					return okAsync(null);
 				} else {
 					pages.push(data);

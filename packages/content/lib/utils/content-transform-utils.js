@@ -3,7 +3,7 @@ import { err, ok, Result } from 'neverthrow';
 
 /**
  * @param {import('./data-store.js').DataStore} dataStore
- * @param {import('./data-store.js').DataKeys | undefined } ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
+ * @param {import('./data-store.js').DataKeys } [ids] A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
  * @returns {import('neverthrow').Result<Iterable<import('./data-store.js').Document>, string>}
  */
 export function getMatchingDocuments(dataStore, ids) {

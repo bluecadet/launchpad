@@ -34,7 +34,6 @@
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "dotenv": "^16.3.1",
-    "fs-extra": "^10.0.0",
     "logform": "^2.3.2",
     "moment": "^2.29.1",
     "neverthrow": "^8.1.0",
@@ -47,7 +46,6 @@
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/async": "^3.2.20",
-    "@types/fs-extra": "^11.0.1",
     "@types/yargs": "^17.0.24"
   }
 }

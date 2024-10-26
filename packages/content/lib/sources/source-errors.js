@@ -2,7 +2,7 @@
  * @param {string} [message]
  */
 export const fetchError = (message) => ({
-	type: 'fetch',
+	type: /** @type {const} */ ('fetch'),
 	message
 });
 
@@ -10,7 +10,7 @@ export const fetchError = (message) => ({
  * @param {string} [message]
  */
 export const parseError = (message) => ({
-	type: 'parse',
+	type: /** @type {const} */ ('parse'),
 	message
 });
 
@@ -18,7 +18,7 @@ export const parseError = (message) => ({
  * @param {string} [message]
  */
 export const configError = (message) => ({
-	type: 'config',
+	type: /** @type {const} */ ('config'),
 	message
 });
 

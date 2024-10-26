@@ -1,0 +1,13 @@
+{
+  "name": "@bluecadet/launchpad-testing",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@bluecadet/launchpad-utils": "*"
+  },
+  "dependencies": {
+    "memfs": "^4.14.0"
+  }
+}

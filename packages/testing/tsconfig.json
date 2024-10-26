@@ -4,12 +4,10 @@
 		"outDir": "types"
 	},
 	"include": ["**/*.js"],
+	"exclude": ["test"],
 	"references": [
 		{
 			"path": "../utils"
-		},
-		{
-			"path": "../testing"
 		}
 	]
 }

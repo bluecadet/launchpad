@@ -21,28 +21,12 @@ export class Document {
 	#originalData;
 
 	/**
-   * @type {T}
-   */
-	#readonlyCopy;
-
-	/**
    * @param {string} id
    * @param {T} data
    */
 	constructor(id, data) {
 		this.#id = id;
 		this.#originalData = data;
-
-		if (typeof data === 'object' && data !== null) {
-			const proxy = new Proxy(/** @type {object} */(this.#originalData), {
-				get: (target, prop) => {
-					return /** @type {any} */ (target)[prop];
-				}
-			});
-			this.#readonlyCopy = /** @type {Readonly<T>} */ (proxy);
-		} else {
-			this.#readonlyCopy = /** @type {Readonly<T>} */ (data); // not necessarily readonly, but still a copy
-		}
 	}
 
 	/**
@@ -53,10 +37,10 @@ export class Document {
 	}
 
 	/**
-   * Read-only copy of the document's data.
+   * Returns a copy of the document's data.
    */
 	get data() {
-		return this.#readonlyCopy;
+		return this.#originalData;
 	}
 
 	/**
@@ -79,7 +63,7 @@ export class Document {
 				json: /** @type {object} */ (this.#originalData),
 				path: pathExpression,
 				resultType: 'all',
-				callback: (value, _, { parent, parentProperty }) => {
+				callback: ({ value }, _, { parent, parentProperty }) => {
 					parent[parentProperty] = fn(value);
 				}
 			});

@@ -1,8 +1,15 @@
-import { defineProject } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
-export default defineProject({
+export default defineConfig({
 	test: {
 		globals: true,
-		environment: 'node'
+		environment: 'node',
+		setupFiles: './test/setup-tests.js',
+		server: {
+			deps: {
+				// inline these deps so that they use the fs mocks
+				inline: ['glob', 'path-scurry']
+			}
+		}
 	}
 });

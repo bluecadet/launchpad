@@ -3,7 +3,7 @@ import path from 'path';
 import { Tail } from 'tail';
 import autoBind from 'auto-bind';
 import { SubEmitterSocket } from 'axon'; // used by PM2
-import { Logger, LogManager } from '@bluecadet/launchpad-utils';
+import { LogManager } from '@bluecadet/launchpad-utils';
 import { LogModes } from './monitor-options.js';
 
 class LogRelay {
@@ -21,13 +21,13 @@ class LogRelay {
 
 	/**
 	 * @protected
-	 * @type {Logger}
+	 * @type {import('@bluecadet/launchpad-utils').Logger}
 	 */
 	_logger;
 
 	/**
 	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
-	 * @param {Logger} logger
+	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
 		logger.debug(`Saving output logs to ${appOptions.pm2.output}`);
@@ -78,7 +78,7 @@ class FileLogRelay extends LogRelay {
 
 	/**
 	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
-	 * @param {Logger} logger
+	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
 		const appName = appOptions.pm2.name;
@@ -194,7 +194,7 @@ class FileLogRelay extends LogRelay {
 class BusLogRelay extends LogRelay {
 	/**
 	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
-	 * @param {Logger} logger
+	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
 		// default log outputs to '/dev/null' if not defined
@@ -260,7 +260,7 @@ class BusLogRelay extends LogRelay {
 export default class AppLogRouter {
 	/**
 	 * @private
-	 * @type {Logger}
+	 * @type {import('@bluecadet/launchpad-utils').Logger}
 	 */
 	_logger;
 
@@ -271,7 +271,7 @@ export default class AppLogRouter {
 	_logRelays = new Map();
 
 	/**
-	 * @param {Logger} logger
+	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(logger) {
 		autoBind(this);

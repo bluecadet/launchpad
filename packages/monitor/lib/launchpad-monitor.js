@@ -9,7 +9,7 @@ import pm2 from 'pm2';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
 
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import { LogManager } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import sortWindows from './utils/sort-windows.js';
 import { resolveMonitorConfig } from './monitor-options.js';
@@ -21,7 +21,7 @@ export class LaunchpadMonitor {
 	_config;
 	
 	/**
-	 * @type {Logger}
+	 * @type {import('@bluecadet/launchpad-utils').Logger}
 	 */
 	_logger;
 	
@@ -85,7 +85,7 @@ export class LaunchpadMonitor {
 	/**
 	 * 
 	 * @param {import('./monitor-options.js').ConfigWithMonitor} [config] 
-   * @param {Logger} [parentLogger]
+   * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
    * @param {PluginDriver<import('./monitor-plugin-driver.js').MonitorHooks>} [pluginDriver]
 	 */
 	constructor(config, parentLogger, pluginDriver) {

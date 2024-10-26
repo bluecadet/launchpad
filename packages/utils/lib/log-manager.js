@@ -3,13 +3,15 @@
  */
 
 import path from 'path';
-import winston, { Logger } from 'winston';
+import winston, { Logger as WinstonLogger } from 'winston';
 import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
 import moment from 'moment';
 import chalk from 'chalk';
 
-export { Logger };
+/**
+ * @typedef {Pick<WinstonLogger, 'info' | 'warn' | 'error' | 'debug' | 'child' | 'once' | 'close'>} Logger
+ */
 
 const DATE_KEY = '%DATE%';
 const LOG_TYPE_KEY = '%LOG_TYPE%';
@@ -117,7 +119,7 @@ export class LogManager {
 	_config;
 	
 	/**
-	 * @type {Logger}
+	 * @type {WinstonLogger}
 	 */
 	_logger;
 	

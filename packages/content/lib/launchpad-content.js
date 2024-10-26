@@ -1,12 +1,10 @@
 import path from 'path';
 import chalk from 'chalk';
-import fs from 'fs-extra';
 
 import { DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
 
-import FileUtils from './utils/file-utils.js';
-
-import { LogManager, Logger } from '@bluecadet/launchpad-utils';
+import * as FileUtils from './utils/file-utils.js';
+import { LogManager } from '@bluecadet/launchpad-utils';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
 import { DataStore } from './utils/data-store.js';
@@ -35,7 +33,7 @@ export class LaunchpadContent {
 	/** @type {import('./content-options.js').ResolvedContentOptions} */
 	_config;
 
-	/** @type {Logger} */
+	/** @type {import('@bluecadet/launchpad-utils').Logger} */
 	_logger;
 
 	/** @type {ContentPluginDriver} */
@@ -52,7 +50,7 @@ export class LaunchpadContent {
 
 	/**
 	 * @param {import('./content-options.js').ConfigWithContent} [config]
-	 * @param {Logger} [parentLogger]
+	 * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
 	 * @param {PluginDriver<import('./content-plugin-driver.js').ContentHooks>} [pluginDriver]
 	 */
 	constructor(config, parentLogger, pluginDriver) {
@@ -174,18 +172,21 @@ export class LaunchpadContent {
 		return ResultAsync.combine(sources.map(source => {
 			const downloadPath = this.getDownloadPath(source.id);
 			const backupPath = this.getBackupPath(source.id);
-			return ResultAsync.fromPromise(
-				fs.pathExists(downloadPath)
-					.then(exists => {
-						if (!exists) {
-							throw new Error(`No downloads found at ${downloadPath}`);
-						}
-						this._logger.debug(`Backing up ${source}`);
-						return fs.copy(downloadPath, backupPath, { preserveTimestamps: true });
-					}),
-				error => new ContentError(`Failed to backup source ${source.id}: ${error instanceof Error ? error.message : String(error)}`)
-			);
-		})).map(() => undefined); // return void instead of void[]
+
+			return FileUtils.pathExists(downloadPath)
+				.andThen((exists) => {
+					if (!exists) {
+						return err(`Failed to backup source ${source.id}: No downloads found at ${downloadPath}`);
+					}
+					return ok(undefined);
+				}).andTee(() => {
+					this._logger.debug(`Backing up ${source}`);
+				}).andThen(() => {
+					return FileUtils.copy(downloadPath, backupPath);
+				});
+		}))
+			.mapErr(e => new ContentError(`Failed to backup sources: ${e}`))
+			.map(() => undefined); // return void instead of void[]
 	}
 
 	/**
@@ -198,24 +199,25 @@ export class LaunchpadContent {
 		return ResultAsync.combine(sources.map(source => {
 			const downloadPath = this.getDownloadPath(source.id);
 			const backupPath = this.getBackupPath(source.id);
-			return ResultAsync.fromPromise(
-				fs.pathExists(backupPath)
-					.then(exists => {
-						if (!exists) {
-							throw new Error(`No backups found at ${backupPath}`);
-						}
-						this._logger.info(`Restoring ${source} from backup`);
-						return fs.copy(backupPath, downloadPath, { preserveTimestamps: true })
-							.then(() => {
-								if (removeBackups) {
-									this._logger.debug(`Removing backup for ${source}`);
-									return fs.remove(backupPath);
-								}
-							});
-					}),
-				error => new ContentError(`Failed to restore source ${source.id}: ${error instanceof Error ? error.message : String(error)}`)
-			);
-		})).map(() => undefined);
+
+			return FileUtils.pathExists(backupPath).andThrough((exists) => {
+				if (!exists) {
+					return err(`No backups found at ${backupPath}`);
+				}
+				return ok(undefined);
+			}).andTee(() => {
+				this._logger.info(`Restoring ${source} from backup`);
+			}).andThen(() => {
+				return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true });
+			}).andThen(() => {
+				if (removeBackups) {
+					this._logger.debug(`Removing backup for ${source}`);
+					return FileUtils.remove(backupPath);
+				}
+
+				return okAsync(undefined);
+			}).mapErr(e => new ContentError(`Failed to restore source ${source.id}: ${e}`));
+		})).map(() => undefined); // return void instead of void[]
 	}
 
 	/**
@@ -347,20 +349,21 @@ export class LaunchpadContent {
 	 * @returns {ResultAsync<void, ContentError>}
 	 */
 	_clearDir(dirPath, { removeIfEmpty = true, ignoreKeep = false } = {}) {
-		return ResultAsync.fromPromise(
-			fs.pathExists(dirPath),
-			error => new ContentError(`Could not check if dir exists: ${error instanceof Error ? error.message : String(error)}`)
-		).andThen(exists => {
-			if (!exists) return okAsync(undefined);
-			FileUtils.removeFilesFromDir(dirPath, ignoreKeep ? undefined : this._config.keep);
-			if (removeIfEmpty) {
-				return FileUtils.removeDirIfEmpty(dirPath).mapErr(
-					e => new ContentError(e)
-				);
-			}
-
-			return okAsync(undefined);
-		});
+		return FileUtils.pathExists(dirPath)
+			.mapErr(e => new ContentError(e))
+			.andThen(exists => {
+				if (!exists) return okAsync(undefined);
+				return FileUtils.removeFilesFromDir(dirPath, ignoreKeep ? undefined : this._config.keep)
+					.andThen(result => {
+						if (removeIfEmpty) {
+							return FileUtils.removeDirIfEmpty(dirPath);
+						}
+	
+						return okAsync(undefined);
+					}).mapErr(
+						e => new ContentError(e)
+					);
+			});
 	}
 
 	/**

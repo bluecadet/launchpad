@@ -1,6 +1,5 @@
-import fs from 'fs-extra';
+import fs from 'fs';
 import { defineContentPlugin } from '../content-plugin-driver.js';
-import PQueue from 'p-queue';
 import { setMaxListeners } from 'events';
 import path from 'path';
 import { JSONPath } from 'jsonpath-plus';
@@ -9,7 +8,7 @@ import { errAsync, okAsync, ResultAsync } from 'neverthrow';
 import { safeKy } from '../utils/safe-ky.js';
 import { pipeline } from 'node:stream/promises';
 import ResultAsyncQueue from '../utils/result-async-queue.js';
-import FileUtils from '../utils/file-utils.js';
+import * as FileUtils from '../utils/file-utils.js';
 
 const DEFAULT_MEDIA_PATTERN = /https?:\/\/[^ ]+\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
@@ -96,11 +95,19 @@ export default function mediaDownloader(options = {}) {
 
 				if (optionsWithDefaults.forceClearTempFiles && fs.existsSync(ctx.paths.getTempPath())) {
 					ctx.logger.debug(chalk.gray(`Clearing temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-					await fs.remove(ctx.paths.getTempPath());
+					const removeResult = await FileUtils.remove(ctx.paths.getTempPath());
+
+					if (removeResult.isErr()) {
+						throw removeResult.error;
+					}
 				}
 
 				ctx.logger.debug(chalk.gray(`Creating temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-				await fs.ensureDir(ctx.paths.getTempPath());
+				const ensureDirResult = await FileUtils.ensureDir(ctx.paths.getTempPath());
+
+				if (ensureDirResult.isErr()) {
+					throw ensureDirResult.error;
+				}
 
 				/** @type {Array<(options: { signal?: AbortSignal }) => ReturnType<typeof downloadMedia>>} */
 				const tasks = [];
@@ -157,7 +164,7 @@ export default function mediaDownloader(options = {}) {
 					if (optionsWithDefaults.abortOnError) {
 						// clear temp dir
 						ctx.logger.warn(`Removing temp dir at ${chalk.yellow(ctx.paths.getTempPath())} due to sync error`);
-						fs.removeSync(ctx.paths.getTempPath());
+						await FileUtils.remove(ctx.paths.getTempPath());
 
 						throw result.error;
 					}
@@ -165,14 +172,26 @@ export default function mediaDownloader(options = {}) {
 
 				if (optionsWithDefaults.clearOldFilesOnSuccess) {
 					ctx.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(ctx.paths.getDownloadPath())}`));
-					FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), keepFilter);
+					const removeResult = await FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), keepFilter);
+
+					if (removeResult.isErr()) {
+						throw removeResult.error;
+					}
 				}
 
 				ctx.logger.debug(chalk.gray(`Copying new files to: ${chalk.green(ctx.paths.getDownloadPath())}`));
-				fs.copySync(ctx.paths.getTempPath(), ctx.paths.getDownloadPath());
+				const copyResult = await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath());
+
+				if (copyResult.isErr()) {
+					throw copyResult.error;
+				}
 
 				ctx.logger.debug(chalk.gray(`Removing temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-				fs.removeSync(ctx.paths.getTempPath());
+				const removeResult = await FileUtils.remove(ctx.paths.getTempPath());
+
+				if (removeResult.isErr()) {
+					throw removeResult.error;
+				}
 			}
 		}
 	});
@@ -193,11 +212,10 @@ function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, options)
 	const tempFilePath = path.join(tempDir, localPath);
 	const tempFilePathDir = path.dirname(tempFilePath);
 
-	fs.ensureDirSync(tempFilePathDir);
-
-	return ResultAsync.fromPromise(fs.exists(destPath), (err) => new Error(`Error checking if file exists at ${destPath}: ${err}`))
+	return FileUtils.ensureDir(tempFilePathDir)
+		.andThen(() => FileUtils.pathExists(destPath))
 		.andThen((exists) => exists
-			? ResultAsync.fromPromise(fs.lstat(destPath), (err) => new Error(`Error getting file stats for ${destPath}: ${err}`))
+			? ResultAsync.fromPromise(fs.promises.lstat(destPath), (err) => new Error(`Error getting file stats for ${destPath}: ${err}`))
 			: okAsync(null)
 		).andThen(stats => {
 			if (options.ignoreCache || !stats || !stats.isFile()) {
@@ -235,8 +253,7 @@ function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, options)
 
 				if (!isRemoteNew) {
 					// copy existing, cached file from dest dir
-					fs.copyFileSync(destPath, tempFilePath);
-					return ResultAsync.fromPromise(fs.copyFile(destPath, tempFilePath), (err) => new Error(`Error copying file from ${destPath} to ${tempFilePath}: ${err}`))
+					return ResultAsync.fromPromise(fs.promises.copyFile(destPath, tempFilePath), (err) => new Error(`Error copying file from ${destPath} to ${tempFilePath}: ${err}`))
 						.map(() => true);
 				}
 

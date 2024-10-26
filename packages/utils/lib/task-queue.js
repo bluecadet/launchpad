@@ -1,7 +1,7 @@
 import * as async from 'async';
 import autoBind from 'auto-bind';
 import chalk from 'chalk';
-import { LogManager, Logger } from './log-manager.js';
+import { LogManager } from './log-manager.js';
 
 /**
  * @typedef TaskQueueOptions
@@ -25,13 +25,13 @@ class TaskQueue {
 	/** @type {async.QueueObject<Task>} */
 	_queue;
 	
-	/** @type {Logger} */
+	/** @type {import('./log-manager.js').Logger} */
 	_logger;
 	
 	/**
 	 * 
 	 * @param {TaskQueueOptions | undefined} config 
-	 * @param {Logger} logger 
+	 * @param {import('./log-manager.js').Logger} logger 
 	 */
 	constructor(config, logger) {
 		autoBind(this);

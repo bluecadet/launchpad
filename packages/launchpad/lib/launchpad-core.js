@@ -4,7 +4,7 @@
 
 import autoBind from 'auto-bind';
 
-import { LogManager, Logger, onExit } from '@bluecadet/launchpad-utils';
+import { LogManager, onExit } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
 import CommandCenter, { Command } from './command-center.js';
@@ -19,7 +19,7 @@ export class LaunchpadCore {
 	/** @type {import('./launchpad-options.js').ResolvedLaunchpadOptions} */
 	_config;
 	
-	/** @type {Logger} */
+	/** @type {import('@bluecadet/launchpad-utils').Logger} */
 	_logger;
 	
 	/** @type {LaunchpadContent} */

@@ -18,7 +18,7 @@ import PQueue from 'p-queue';
  */
 export default class ResultAsyncQueue {
 	/**
-	 * @param {ConstructorParameters<typeof PQueue>[0]} options
+	 * @param {ConstructorParameters<typeof PQueue>[0]} [options]
 	 */
 	constructor(options) {
 		this.queue = new PQueue(options);

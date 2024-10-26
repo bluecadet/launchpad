@@ -1,5 +1,5 @@
 import jsdoc2md from 'jsdoc-to-markdown';
-import fs from 'fs-extra';
+import fse from 'fs-extra/esm';
 import path from 'path';
 import chalk from 'chalk';
 import { loadConfigFromFile, LogManager } from '@bluecadet/launchpad-utils';
@@ -17,12 +17,12 @@ const logger = LogManager.getInstance(config).getLogger('docs');
  */
 const renderDocs = async (options) => {
 	if (options.templatePath) {
-		options.template = fs.readFileSync(options.templatePath).toString();
+		options.template = fse.readFileSync(options.templatePath).toString();
 	}
 	logger.info(`Rendering ${chalk.yellow(options.outputPath)}`);
 	return await jsdoc2md.render(options).then((result) => {
-		fs.ensureDirSync(path.dirname(options.outputPath));
-		fs.writeFileSync(options.outputPath, result);
+		fse.ensureDirSync(path.dirname(options.outputPath));
+		fse.writeFileSync(options.outputPath, result);
 	});
 }
 

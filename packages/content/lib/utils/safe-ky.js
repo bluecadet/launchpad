@@ -1,5 +1,5 @@
 import ky from 'ky';
-import { err, ok, ResultAsync } from 'neverthrow';
+import { Err, err, Ok, ok, ResultAsync } from 'neverthrow';
 
 class BaseSafeKyError extends Error {
 	/**
@@ -29,28 +29,64 @@ export const SafeKyError = {
  */
 export function safeKy(input, options) {
 	const req = ky(input, options);
+	return SafeKyResultAsync.fromRequest(req);
+}
 
-	const baseResultAsync = ResultAsync.fromPromise(req, (error) => new SafeKyError.FetchError('Error during request', error)).andThen((res) => {
-		if (!res.ok) {
-			return err(new SafeKyError.FetchError(`Request failed with status ${res.status}`));
-		}
-		return ok(res);
-	});
+/**
+ * @template [T=unknown]
+ * @typedef { Omit<import('ky').KyResponse<T>, 'json' | 'text' | 'arrayBuffer' | 'blob'>
+ *  & {
+ *    json: () => import('neverthrow').ResultAsync<any, BaseSafeKyError>,
+ *    text: () => import('neverthrow').ResultAsync<string, BaseSafeKyError>,
+ *    arrayBuffer: () => import('neverthrow').ResultAsync<ArrayBuffer, BaseSafeKyError>,
+ *    blob: () => import('neverthrow').ResultAsync<Blob, BaseSafeKyError>
+ *  }
+ * } SafeKyResponseResult
+ */
 
-	return {
-		json: () => baseResultAsync.andThen((res) => ResultAsync.fromPromise(res.json(), (error) => new SafeKyError.ParseError('Error parsing JSON', error))),
-		text: () => baseResultAsync.andThen((res) => ResultAsync.fromPromise(res.text(), (error) => new SafeKyError.ParseError('Error parsing text', error))),
-		arrayBuffer: () => baseResultAsync.andThen((res) => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyError.ParseError('Error parsing array buffer', error))),
-		blob: () => baseResultAsync.andThen((res) => ResultAsync.fromPromise(res.blob(), (error) => new SafeKyError.ParseError('Error parsing blob', error))),
-		body: baseResultAsync.andThen((res) => ok(res.body)),
+/**
+ * @template T
+ * @extends {ResultAsync<SafeKyResponseResult<T>, BaseSafeKyError>}
+ */
+class SafeKyResultAsync extends ResultAsync {
+	/**
+	 * @template T
+	 * @param {import('ky').ResponsePromise<T>} promise 
+	 * @returns {SafeKyResultAsync<T>}
+	 */
+	static fromRequest(promise) {
+		const newPromise = promise
+			.then((res) => {
+				const remapped = {
+					...res,
+					json: () => ResultAsync.fromPromise(res.json(), (error) => new SafeKyError.ParseError('Error parsing JSON', error)),
+					text: () => ResultAsync.fromPromise(res.text(), (error) => new SafeKyError.ParseError('Error parsing text', error)),
+					arrayBuffer: () => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyError.ParseError('Error parsing array buffer', error)),
+					blob: () => ResultAsync.fromPromise(res.blob(), (error) => new SafeKyError.ParseError('Error parsing blob', error))
+				};
+				
+				return /** @type {Ok<SafeKyResponseResult, BaseSafeKyError>} */ (new Ok(remapped));
+			})
+			.catch((error) => {
+				return /** @type {Err<SafeKyResponseResult, BaseSafeKyError>} */(new Err(new SafeKyError.FetchError('Error during request', error)));
+			});
 
-		// also forward ResultAsync methods
-		andThen: baseResultAsync.andThen,
-		orElse: baseResultAsync.orElse,
-		andTee: baseResultAsync.andTee,
-		andThrough: baseResultAsync.andThrough,
-		map: baseResultAsync.map,
-		mapErr: baseResultAsync.mapErr,
-		match: baseResultAsync.match
-	};
+		return new SafeKyResultAsync(newPromise);
+	}
+
+	json() {
+		return this.andThen((res) => res.json());
+	}
+
+	text() {
+		return this.andThen((res) => res.text());
+	}
+
+	arrayBuffer() {
+		return this.andThen((res) => res.arrayBuffer());
+	}
+
+	blob() {
+		return this.andThen((res) => res.blob());
+	}
 }

@@ -94,7 +94,6 @@ export default function contentfulSource(options) {
 			return defineSource({
 				id: options.id,
 				fetch: (ctx) => {
-
 					// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
 					/** @type {ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>} */
 					const fetchResult = fetchPaginated({
@@ -139,7 +138,7 @@ export default function contentfulSource(options) {
 								data: combined
 							}];
 						})
-					}])
+					}]);
 				}
 			});
 		});

@@ -19,10 +19,7 @@
     "!**/*.test.js"
   ],
   "scripts": {
-    "start": "node index.js",
-    "download": "node index.js",
-    "link": "npm link launchpad-utils && npm link",
-    "test": "cd test && node test.js"
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
@@ -38,13 +35,8 @@
     "@bluecadet/launchpad-utils": "~1.5.0",
     "@portabletext/to-html": "2.0.0",
     "@sanity/block-content-to-markdown": "^0.0.5",
-    "@sanity/client": "^6.4.9",
-    "@sanity/image-url": "^1.0.1",
-    "airtable": "^0.11.1",
     "chalk": "^5.0.0",
     "cli-progress": "^3.9.1",
-    "contentful": "^9.0.0",
-    "filenamify": "^5.1.1",
     "glob": "^11.0.0",
     "jsonpath-plus": "^10.1.0",
     "ky": "^1.7.2",
@@ -52,10 +44,12 @@
     "neverthrow": "^8.0.0",
     "p-queue": "^7.1.0",
     "qs": "^6.11.1",
-    "sanitize-filename": "^1.6.3",
-    "sanitize-html": "^2.5.1",
-    "sharp": "^0.32.6",
-    "strip-json-comments": "^4.0.0"
+    "sanitize-html": "^2.5.1"
+  },
+  "optionalDependencies": {
+    "@sanity/client": "^6.4.9",
+    "airtable": "^0.11.1",
+    "contentful": "^9.0.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",

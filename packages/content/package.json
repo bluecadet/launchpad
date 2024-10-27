@@ -36,7 +36,6 @@
     "@portabletext/to-html": "2.0.0",
     "@sanity/block-content-to-markdown": "^0.0.5",
     "chalk": "^5.0.0",
-    "cli-progress": "^3.9.1",
     "glob": "^11.0.0",
     "jsonpath-plus": "^10.1.0",
     "ky": "^1.7.2",
@@ -54,7 +53,6 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "@types/cli-progress": "^3.11.0",
     "@types/markdown-it": "^12.2.0",
     "@types/progress-stream": "^2.0.2",
     "@types/qs": "^6.9.7",

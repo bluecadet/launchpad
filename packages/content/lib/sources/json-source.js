@@ -34,11 +34,11 @@ export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
 								return [{
 									id: key,
 									data
-								}]
+								}];
 							})
-					}
+					};
 				}
-			)
+			);
 			return ok(jsonFetchPromises);
 		}
 	}));

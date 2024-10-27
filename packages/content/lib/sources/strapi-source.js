@@ -1,8 +1,7 @@
-
 import qs from 'qs';
 import { defineSource } from './source.js';
-import { errAsync, ok, okAsync, ResultAsync } from 'neverthrow';
-import { configError, fetchError, parseError } from './source-errors.js';
+import { errAsync, ok, okAsync } from 'neverthrow';
+import { configError, fetchError } from './source-errors.js';
 import { fetchPaginated } from '../utils/fetch-paginated.js';
 import { safeKy } from '../utils/safe-ky.js';
 
@@ -352,7 +351,7 @@ export default function strapiSource(options) {
 								};
 							});
 						})
-					}
+					};
 				});
 
 				return ok(fetchPromises);

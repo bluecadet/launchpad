@@ -15,7 +15,8 @@
   "files": [
     "types",
     "index.js",
-    "lib"
+    "lib",
+    "!**/*.test.js"
   ],
   "scripts": {
     "start": "node index.js",

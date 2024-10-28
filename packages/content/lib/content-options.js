@@ -21,7 +21,7 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
  * @property {string} [downloadPath] The path at which to store all downloaded files. Defaults to '.downloads/'.
  * @property {string} [tempPath] Temp file directory path. Defaults to '%DOWNLOAD_PATH%/.tmp/'.
  * @property {string} [backupPath] Temp directory path where all downloaded content will be backed up before removal. Defaults to '%TIMESTAMP%/.tmp-backup/'.
- * @property {string} [keep] Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `'*.json|*.csv|*.xml|*.git*'`
+ * @property {Array<string>} [keep] Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']`
  * @property {string} [strip] Strips this string from all media file paths when saving them locally
  * @property {boolean} [backupAndRestore] Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true.
  * @property {number} [maxTimeout] Max request timeout in ms. Defaults to 30000.
@@ -38,7 +38,7 @@ export const CONTENT_OPTION_DEFAULTS = {
 	downloadPath: '.downloads/',
 	tempPath: '%DOWNLOAD_PATH%/.tmp/',
 	backupPath: '.tmp-backup/%TIMESTAMP%/',
-	keep: '',
+	keep: [],
 	strip: '',
 	backupAndRestore: true,
 	maxTimeout: 30000,

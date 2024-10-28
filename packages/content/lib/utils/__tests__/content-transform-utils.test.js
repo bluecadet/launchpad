@@ -39,7 +39,7 @@ describe('content-transform-utils', () => {
 			const logger = createMockLogger();
 			const transformFn = (/** @type {unknown} */ content) => (typeof content === 'string' ? content.toUpperCase() : content);
 
-			const result = applyTransformToFiles({
+			applyTransformToFiles({
 				dataStore,
 				path: '$.content',
 				transformFn,
@@ -47,7 +47,6 @@ describe('content-transform-utils', () => {
 				keys: ['test']
 			});
 
-			expect(result.isOk()).toBe(true);
 			expect(dataStore.get('test', 'doc1')._unsafeUnwrap().data.content).toBe('TEST');
 			expect(logger.debug).toHaveBeenCalled();
 		});
@@ -60,16 +59,13 @@ describe('content-transform-utils', () => {
 			const logger = createMockLogger();
 			const transformFn = () => { throw new Error('Transform error'); };
 
-			const result = applyTransformToFiles({
+			expect(() => applyTransformToFiles({
 				dataStore,
 				path: '$.content',
 				transformFn,
 				logger,
 				keys: ['test']
-			});
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain('Transform error');
+			})).toThrow(/Transform error/);
 		});
 	});
 

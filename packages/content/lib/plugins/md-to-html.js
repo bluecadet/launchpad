@@ -3,7 +3,7 @@ import MarkdownIt from 'markdown-it';
 
 import markdownItItalicBold from '../utils/markdown-it-italic-bold.js';
 import { applyTransformToFiles } from '../utils/content-transform-utils.js';
-import { defineContentPlugin } from '../content-plugin-driver.js';
+import { defineContentPlugin, defineContentPluginHooks } from '../content-plugin-driver.js';
 
 /**
  * @param {object} options
@@ -14,7 +14,7 @@ import { defineContentPlugin } from '../content-plugin-driver.js';
 export default function mdToHtml({ path, simplified = false, keys }) {
 	return defineContentPlugin({
 		name: 'md-to-html',
-		hooks: {
+		hooks: defineContentPluginHooks({
 			onContentFetchDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
@@ -38,6 +38,6 @@ export default function mdToHtml({ path, simplified = false, keys }) {
 					}
 				});
 			}
-		}
+		})
 	});
 }

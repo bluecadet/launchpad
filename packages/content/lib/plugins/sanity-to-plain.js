@@ -1,4 +1,4 @@
-import { defineContentPlugin } from '../content-plugin-driver.js';
+import { defineContentPlugin, defineContentPluginHooks } from '../content-plugin-driver.js';
 import { applyTransformToFiles, isBlockContent } from '../utils/content-transform-utils.js';
 
 /**
@@ -9,7 +9,7 @@ import { applyTransformToFiles, isBlockContent } from '../utils/content-transfor
 export default function sanityToPlain({ path, keys }) {
 	return defineContentPlugin({
 		name: 'sanity-to-plain',
-		hooks: {
+		hooks: defineContentPluginHooks({
 			onContentFetchDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
@@ -25,7 +25,7 @@ export default function sanityToPlain({ path, keys }) {
 					}
 				});
 			}
-		}
+		})
 	});
 }
 

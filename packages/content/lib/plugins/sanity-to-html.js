@@ -1,7 +1,7 @@
 import { toHTML } from '@portabletext/to-html';
 
 import { applyTransformToFiles, isBlockContent } from '../utils/content-transform-utils.js';
-import { defineContentPlugin } from '../content-plugin-driver.js';
+import { defineContentPlugin, defineContentPluginHooks } from '../content-plugin-driver.js';
 
 /**
  * @param {object} options
@@ -11,7 +11,7 @@ import { defineContentPlugin } from '../content-plugin-driver.js';
 export default function sanityToHtml({ path, keys }) {
 	return defineContentPlugin({
 		name: 'sanity-to-html',
-		hooks: {
+		hooks: defineContentPluginHooks({
 			onContentFetchDone(ctx) {
 				applyTransformToFiles({
 					dataStore: ctx.data,
@@ -27,6 +27,6 @@ export default function sanityToHtml({ path, keys }) {
 					}
 				});
 			}
-		}
+		})
 	});
 }

@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { defineContentPlugin } from '../content-plugin-driver.js';
+import { defineContentPlugin, defineContentPluginHooks } from '../content-plugin-driver.js';
 import { setMaxListeners } from 'events';
 import path from 'path';
 import { JSONPath } from 'jsonpath-plus';
@@ -70,7 +70,7 @@ export default function mediaDownloader(options = {}) {
 
 	return defineContentPlugin({
 		name: 'media-downloader',
-		hooks: {
+		hooks: defineContentPluginHooks({
 			async onContentFetchDone(ctx) {
 				if (!optionsWithDefaults.ignoreCache && !optionsWithDefaults.enableIfModifiedSinceCheck && !optionsWithDefaults.enableContentLengthCheck) {
 					ctx.logger.warn(chalk.yellow('Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.'));
@@ -193,7 +193,7 @@ export default function mediaDownloader(options = {}) {
 					throw removeResult.error;
 				}
 			}
-		}
+		})
 	});
 }
 

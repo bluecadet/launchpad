@@ -1,4 +1,4 @@
-import { err, ok, okAsync, Result, ResultAsync } from 'neverthrow';
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from 'neverthrow';
 import { defineSource } from './source.js';
 import { configError, fetchError, parseError } from './source-errors.js';
 
@@ -44,7 +44,8 @@ function fetchData(base, tableId, defaultView) {
 			 */
 			const rows = [];
 
-			base(tableId)
+			base
+				.table(tableId)
 				.select({
 					view: defaultView
 				})
@@ -90,17 +91,19 @@ function isBoolStr(value) {
 /**
  * @param {import("airtable").Record<import("airtable").FieldSet>[]} tableData 
  * @param {boolean} isKeyValueTable
+ * @returns {Result<unknown, import('./source-errors.js').SourceError>}
  */
 function processTableToSimplified(tableData, isKeyValueTable) {
-	/**
-	 * @type {Record<string | number, any>}
-	 */
-	const simpData = isKeyValueTable ? {} : [];
+	if (isKeyValueTable) {
+		/**
+		 * @type {Record<string, any>}
+		 */
+		const simplifiedData = {};
 
-	for (const row of tableData) {
-		const fields = { ...row._rawJson.fields };
-		if (isKeyValueTable) {
-			if (Object.keys(row).length < 2) {
+		for (const row of tableData) {
+			const fields = row._rawJson.fields;
+
+			if (Object.keys(fields).length < 2) {
 				return err(parseError('At least 2 columns required to map table to a key-value pair'));
 			}
 
@@ -113,33 +116,44 @@ function processTableToSimplified(tableData, isKeyValueTable) {
 
 			const matches = key ? [...key.matchAll(regex)] : [];
 			if (matches.length > 0) {
-				if (!simpData[matches[0][1]]) {
-					simpData[matches[0][1]] = [];
+				if (!simplifiedData[matches[0][1]]) {
+					simplifiedData[matches[0][1]] = [];
 				}
-				simpData[matches[0][1]][matches[0][2]] = value;
+				simplifiedData[matches[0][1]][matches[0][2]] = value;
 			} else if (isNumericStr(value)) {
-				simpData[key] = parseFloat(value);
+				simplifiedData[key] = parseFloat(value);
 			} else if (isBoolStr(value)) {
-				simpData[key] = value === 'true';
+				simplifiedData[key] = value === 'true';
 			} else {
-				simpData[key] = value;
+				simplifiedData[key] = value;
 			}
-		} else {
-			simpData.push({ id: row.id, ...fields });
 		}
+
+		return ok(simplifiedData);
 	}
 
-	return simpData;
+	return ok(tableData.map(row => ({
+		id: row.id,
+		...row._rawJson.fields
+	})));
 }
 
 /**
- * @type {import("./source.js").ContentSourceBuilder<AirtableOptionsAssembled>}
+ * @type {import("./source.js").ContentSourceBuilder<AirtableOptions>}
  */
 export default function airtableSource(options) {
 	const assembledOptions = {
 		...AIRTABLE_OPTION_DEFAULTS,
 		...options
 	};
+
+	if (!assembledOptions.apiKey) {
+		return errAsync(configError('apiKey is required'));
+	}
+
+	if (!assembledOptions.baseId) {
+		return errAsync(configError('baseId is required'));
+	}
 
 	return ResultAsync.fromPromise(import('airtable'), () => configError('Could not find module "airtable". Make sure you have installed it.'))
 		.map(({ default: Airtable }) => {
@@ -149,7 +163,6 @@ export default function airtableSource(options) {
 			});
 
 			const base = Airtable.base(assembledOptions.baseId);
-			base.makeRequest();
 
 			/**
 			 * @type {Record<string, import("airtable").Record<import("airtable").FieldSet>[]>}
@@ -201,13 +214,13 @@ export default function airtableSource(options) {
 
 								return ok([{
 									id: `${tableId}.raw`,
-									data: data
+									data
 								}, {
 									id: tableId,
-									data: simplifiedTable
+									data: simplifiedTable.value
 								}]);
 							})
-						})
+						});
 					}
 
 					for (const tableId of assembledOptions.keyValueTables) {
@@ -223,13 +236,13 @@ export default function airtableSource(options) {
 
 								return ok([{
 									id: `${tableId}.raw`,
-									data: data
+									data
 								}, {
 									id: tableId,
-									data: simplifiedTable
+									data: simplifiedTable.value
 								}]);
 							})
-						})
+						});
 					}
 
 					return ok(tablePromises);

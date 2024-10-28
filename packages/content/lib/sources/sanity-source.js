@@ -11,7 +11,6 @@ import { configError, fetchError } from './source-errors.js';
  * @property {string} apiToken API Token defined in your sanity project.
  * @property {string} [dataset] Dataset. Defaults to 'production'
  * @property {boolean} [useCdn] `false` if you want to ensure fresh data
- * @property {string} baseUrl The base url of your Sanity CMS (with or without trailing slash).
  * @property {Array<string | {query: string, id: string}>} queries An array of queries to fetch. Each query can be a string or an object with a query and an id.
  * @property {number} [limit] Max number of entries per page. Defaults to 100.
  * @property {number} [maxNumPages] Max number of pages. Use `-1` for all pages. Defaults to -1.
@@ -20,113 +19,109 @@ import { configError, fetchError } from './source-errors.js';
  */
 
 const SANITY_OPTION_DEFAULTS = {
-  apiVersion: 'v2021-10-21',
-  dataset: 'production',
-  useCdn: false,
-  limit: 100,
-  maxNumPages: -1,
-  mergePages: true,
-  pageNumZeroPad: 0,
-  appendCroppedFilenames: true
+	apiVersion: 'v2021-10-21',
+	dataset: 'production',
+	useCdn: false,
+	limit: 100,
+	maxNumPages: -1,
+	mergePages: true,
+	pageNumZeroPad: 0,
+	appendCroppedFilenames: true
 };
 
 /**
  * @type {import("./source.js").ContentSourceBuilder<BaseSanityOptions>}
  */
 export default function sanitySource(options) {
-  if (!options.projectId || !options.apiToken) {
-    return errAsync(configError('Missing projectId and/or apiToken'));
-  }
+	if (!options.projectId || !options.apiToken) {
+		return errAsync(configError('Missing projectId and/or apiToken'));
+	}
 
-  const assembledOptions = {
-    ...SANITY_OPTION_DEFAULTS,
-    ...options
-  };
+	const assembledOptions = {
+		...SANITY_OPTION_DEFAULTS,
+		...options
+	};
 
-  return ResultAsync.fromPromise(import('@sanity/client'), () => configError('Could not find "@sanity/client". Make sure you have installed it.'))
-    .map(({ createClient }) => {
-      const sanityClient = createClient({
-        projectId: assembledOptions.projectId,
-        dataset: assembledOptions.dataset,
-        apiVersion: assembledOptions.apiVersion, // use current UTC date - see "specifying API version"!
-        token: assembledOptions.apiToken, // or leave blank for unauthenticated usage
-        useCdn: assembledOptions.useCdn // `false` if you want to ensure fresh data);
-      });
+	return ResultAsync.fromPromise(import('@sanity/client'), () => configError('Could not find "@sanity/client". Make sure you have installed it.'))
+		.map(({ createClient }) => {
+			const sanityClient = createClient({
+				projectId: assembledOptions.projectId,
+				dataset: assembledOptions.dataset,
+				apiVersion: assembledOptions.apiVersion, // use current UTC date - see "specifying API version"!
+				token: assembledOptions.apiToken, // or leave blank for unauthenticated usage
+				useCdn: assembledOptions.useCdn // `false` if you want to ensure fresh data);
+			});
 
-      return defineSource({
-        id: options.id,
-        fetch: (ctx) => {
-
-          /**
+			return defineSource({
+				id: options.id,
+				fetch: (ctx) => {
+					/**
            * @param {Array<unknown>} pages
            * @param {string} id
            */
-          function combinePages(pages, id) {
-            if (assembledOptions.mergePages) {
-              const combinedResult = pages.flat(1);
+					function combinePages(pages, id) {
+						if (assembledOptions.mergePages) {
+							const combinedResult = pages.flat(1);
 
-              return [{
-                id,
-                data: combinedResult
-              }]
+							return [{
+								id,
+								data: combinedResult
+							}];
+						} else {
+							return pages.map((page, i) => {
+								const pageNum = i + 1;
+								const keyWithPageNum = `${id}-${pageNum
+									.toString()
+									.padStart(assembledOptions.pageNumZeroPad, '0')}`;
 
-            } else {
-              return pages.map((page, i) => {
-                const pageNum = i + 1;
-                const keyWithPageNum = `${id}-${pageNum
-                  .toString()
-                  .padStart(assembledOptions.pageNumZeroPad, '0')}`;
+								return {
+									id: keyWithPageNum,
+									data: page
+								};
+							});
+						}
+					}
 
-                return {
-                  id: keyWithPageNum,
-                  data: page
-                }
-
-              });
-            }
-          }
-
-          /**
+					/**
            * @type {Array<import('./source.js').SourceFetchPromise>}
            */
-          const documentFetchPromises = [];
+					const documentFetchPromises = [];
 
-          for (const query of assembledOptions.queries) {
-            if (typeof query === 'string') {
-              const queryFull = '*[_type == "' + query + '" ]';
+					for (const query of assembledOptions.queries) {
+						if (typeof query === 'string') {
+							const queryFull = '*[_type == "' + query + '" ]';
 
-              documentFetchPromises.push({
-                id: query,
-                dataPromise: fetchPaginated({
-                  fetchPageFn: (params) => {
-                    const q = `${queryFull}[${params.offset}..${params.offset + params.limit - 1}]`;
-                    return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
-                  },
-                  limit: assembledOptions.limit,
-                  logger: ctx.logger
-                }).map(data => combinePages(data.pages, query))
-              })
-            } else if (typeof query === 'object' && query.query && query.id) {
+							documentFetchPromises.push({
+								id: query,
+								dataPromise: fetchPaginated({
+									fetchPageFn: (params) => {
+										const q = `${queryFull}[${params.offset}..${params.offset + params.limit - 1}]`;
+										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+									},
+									limit: assembledOptions.limit,
+									logger: ctx.logger
+								}).map(data => combinePages(data.pages, query))
+							});
+						} else if (typeof query === 'object' && query.query && query.id) {
+							documentFetchPromises.push({
+								id: query.id,
+								dataPromise: fetchPaginated({
+									fetchPageFn: (params) => {
+										const q = `${query.query}[${params.offset}..${params.offset + params.limit - 1}]`;
+										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+									},
+									limit: assembledOptions.limit,
+									logger: ctx.logger
+								}).map(data => combinePages(data.pages, query.id))
+							});
+						} else {
+							ctx.logger.error(`Invalid query: ${query}`);
+							return err(configError(`Invalid query: ${query}`));
+						}
+					}
 
-              documentFetchPromises.push({
-                id: query.id,
-                dataPromise: fetchPaginated({
-                  fetchPageFn: (params) => {
-                    const q = `${query.query}[${params.offset}..${params.offset + params.limit - 1}]`;
-                    return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
-                  },
-                  limit: assembledOptions.limit,
-                  logger: ctx.logger
-                }).map(data => combinePages(data.pages, query.id))
-              })
-            } else {
-              ctx.logger.error(`Invalid query: ${query}`);
-              return err(configError(`Invalid query: ${query}`));
-            }
-          }
-
-          return ok(documentFetchPromises);
-        }
-      });
-    });
+					return ok(documentFetchPromises);
+				}
+			});
+		});
 }

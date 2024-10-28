@@ -10,7 +10,7 @@ import moment from 'moment';
 import chalk from 'chalk';
 
 /**
- * @typedef {Pick<WinstonLogger, 'info' | 'warn' | 'error' | 'debug' | 'child' | 'once'>} Logger
+ * @typedef {Pick<WinstonLogger, 'info' | 'warn' | 'error' | 'debug' | 'child' | 'once' | 'close'>} Logger
  */
 
 const DATE_KEY = '%DATE%';

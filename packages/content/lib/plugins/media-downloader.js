@@ -4,13 +4,13 @@ import { setMaxListeners } from 'events';
 import path from 'path';
 import { JSONPath } from 'jsonpath-plus';
 import chalk from 'chalk';
-import { errAsync, okAsync, ResultAsync } from 'neverthrow';
+import { errAsync, ok, okAsync, ResultAsync } from 'neverthrow';
 import { safeKy } from '../utils/safe-ky.js';
 import { pipeline } from 'node:stream/promises';
 import ResultAsyncQueue from '../utils/result-async-queue.js';
 import * as FileUtils from '../utils/file-utils.js';
 
-const DEFAULT_MEDIA_PATTERN = /https?:\/\/[^ ]+\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
+const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
 /** 
  * @typedef MediaDownloaderOptions
@@ -36,6 +36,200 @@ const DEFAULT_MEDIA_PATTERN = /https?:\/\/[^ ]+\.(jpg|jpeg|png|webp|avi|mov|mp4|
  */
 
 /**
+ * @param {string} url
+ * @returns {string}
+ */
+export function localFilePathFromUrl(url) {
+	let urlPath = url.replace(/^[^:]+:\/\/[^/]+/, '');
+	if (urlPath.startsWith('/')) {
+		urlPath = urlPath.slice(1);
+	}
+	return urlPath.replace(/\//g, path.sep);
+}
+
+/**
+ * @param {string} url
+ * @param {string} destPath
+ * @param {AbortSignal} abortSignal
+ * @param {Pick<MediaDownloaderOptionsWithDefaults, 'ignoreCache' | 'enableIfModifiedSinceCheck' | 'enableContentLengthCheck' | 'maxTimeout'>} options
+ * @returns {ResultAsync<{ shouldDownload: boolean, existingFile?: string, stats?: fs.Stats }, FileSystemError | NetworkError | CacheError>}
+ */
+export function checkCacheStatus(url, destPath, abortSignal, options) {
+	return FileUtils.pathExists(destPath)
+		.mapErr(err => new FileSystemError('Failed to check if file exists', err))
+		.andThen(exists => exists
+			? ResultAsync.fromPromise(
+				fs.promises.lstat(destPath),
+				err => new FileSystemError(`Failed to get file stats for ${destPath}`, err)
+			)
+			: okAsync(null)
+		)
+		.map(stats => {
+			if (options.ignoreCache || !stats || !stats.isFile()) {
+				return { shouldDownload: true };
+			}
+
+			if (!options.enableIfModifiedSinceCheck && !options.enableContentLengthCheck) {
+				return { shouldDownload: true };
+			}
+
+			return { shouldDownload: false, existingFile: destPath, stats };
+		})
+		.andThen(result => {
+			if (result.shouldDownload || !result.stats) {
+				return okAsync(result);
+			}
+
+			return safeKy(url, {
+				method: 'HEAD',
+				signal: abortSignal,
+				timeout: options.maxTimeout,
+				throwHttpErrors: false,
+				headers: {
+					'If-Modified-Since': result.stats.mtime.toUTCString()
+				}
+			})
+				.mapErr(err => new NetworkError(`Failed to check cache status for ${url}`, err))
+				.map(res => {
+					let isRemoteNew = false;
+
+					if (options.enableIfModifiedSinceCheck) {
+						isRemoteNew = res.status !== 304;
+					}
+
+					if (options.enableContentLengthCheck) {
+						const remoteSize = parseInt(res.headers.get('content-length') ?? '');
+						const localSize = result.stats.size;
+						isRemoteNew = isRemoteNew || (remoteSize !== localSize);
+					}
+
+					return {
+						shouldDownload: isRemoteNew,
+						existingFile: result.existingFile,
+						stats: result.stats
+					};
+				});
+		});
+}
+
+/**
+ * @param {string} url
+ * @param {string} filePath
+ * @param {AbortSignal} abortSignal
+ * @param {MediaDownloaderOptionsWithDefaults} options
+ * @returns {ResultAsync<void, FileSystemError | NetworkError>}
+ */
+export function downloadFile(url, filePath, abortSignal, options) {
+	return safeKy(url, {
+		signal: abortSignal,
+		timeout: options.maxTimeout
+	})
+		.mapErr(err => new NetworkError(`Failed to download ${url}`, err))
+		.andThen(res => {
+			if (!res.body) {
+				return errAsync(new Error('No response body'));
+			}
+
+			const writer = fs.createWriteStream(filePath);
+			return ResultAsync.fromPromise(
+				pipeline(res.body, writer),
+				err => new FileSystemError(`Failed to write file: ${err}`, err)
+			);
+		});
+}
+
+/**
+ * @param {string} url
+ * @param {string} tempDir
+ * @param {string} destDir
+ * @param {RegExp} encodeRegex
+ * @param {AbortSignal} abortSignal
+ * @param {MediaDownloaderOptionsWithDefaults} options
+ * @returns {ResultAsync<string, FileSystemError | NetworkError | CacheError>}
+ */
+export function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, options) {
+	const localPath = options.transformLocalPath(localFilePathFromUrl(url))
+		.replace(encodeRegex, encodeURIComponent);
+
+	const destPath = path.join(destDir, localPath);
+	const tempFilePath = path.join(tempDir, localPath);
+	const tempFilePathDir = path.dirname(tempFilePath);
+
+	return FileUtils.ensureDir(tempFilePathDir)
+		.mapErr(err => new FileSystemError('Failed to create temp dir', err))
+		.andThen(() => checkCacheStatus(url, destPath, abortSignal, options))
+		.andThen(cacheStatus => {
+			if (!cacheStatus.shouldDownload && cacheStatus.existingFile) {
+				return FileUtils.copy(cacheStatus.existingFile, tempFilePath)
+					.mapErr(e => new FileSystemError('Failed to copy existing file to temp dir', e));
+			}
+			return downloadFile(url, tempFilePath, abortSignal, options);
+		})
+		.map(() => tempFilePath);
+}
+
+/**
+ * @param {import('../utils/data-store.js').DataStore} dataStore
+ * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {string} queryJsonPath
+ * @returns {Array<{ url: string, sourceId: string }>}
+ */
+export function findMediaUrls(dataStore, options, queryJsonPath) {
+	/** @type {Array<{ url: string, sourceId: string }>} */
+	const returnUrls = [];
+	const filteredResult = dataStore.filter(options.keys);
+
+	if (filteredResult.isErr()) {
+		throw filteredResult.error;
+	}
+
+	for (const source of filteredResult.value) {
+		const uniqueUrlSet = new Set();
+		
+		for (const document of source.documents) {
+			const foundUrls = /** @type {Array<string>} */ (JSONPath({
+				json: document.data,
+				path: queryJsonPath,
+				ignoreEvalErrors: true
+			}));
+
+			foundUrls.forEach(url => uniqueUrlSet.add(url));
+		}
+
+		uniqueUrlSet.forEach(url => returnUrls.push({ url, sourceId: source.namespaceId }));
+	}
+
+	return returnUrls;
+}
+
+/**
+ * @param {import('../content-plugin-driver.js').ContentHookContext} ctx
+ * @param {MediaDownloaderOptionsWithDefaults} options
+ * @returns {ResultAsync<void, FileSystemError>}
+ */
+export function setupDownloadDirectories(ctx, options) {
+	return (options.forceClearTempFiles
+		? FileUtils.remove(ctx.paths.getTempPath())
+			.andThen(() => FileUtils.ensureDir(ctx.paths.getTempPath()))
+		: FileUtils.ensureDir(ctx.paths.getTempPath()))
+		.mapErr(err => new FileSystemError('Failed to setup download directories', err));
+}
+
+/**
+ * @param {import('../content-plugin-driver.js').ContentHookContext} ctx
+ * @param {MediaDownloaderOptionsWithDefaults} options
+ * @returns {ResultAsync<void, FileSystemError>}
+ */
+export function cleanupAfterDownload(ctx, options) {
+	return (options.clearOldFilesOnSuccess
+		? FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), ctx.contentOptions.keep)
+		: okAsync(undefined))
+		.andThen(() => FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath()))
+		.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
+		.mapErr(err => new FileSystemError('Failed to cleanup after download', err));
+}
+
+/**
  * @satisfies {MediaDownloaderOptions}
  */
 const DEFAULT_MEDIA_DOWNLOADER_OPTIONS = {
@@ -54,13 +248,11 @@ const DEFAULT_MEDIA_DOWNLOADER_OPTIONS = {
 /**
  * @param {MediaDownloaderOptions} options
  */
-function getMediaDownloaderOptions(options) {
+export function getMediaDownloaderOptions(options) {
 	return { ...DEFAULT_MEDIA_DOWNLOADER_OPTIONS, ...options };
 }
 
-/**
- * @typedef {ReturnType<typeof getMediaDownloaderOptions>} MediaDownloaderOptionsWithDefaults
- */
+/** @typedef {ReturnType<typeof getMediaDownloaderOptions>} MediaDownloaderOptionsWithDefaults */
 
 /**
  * @param {MediaDownloaderOptions} options
@@ -71,230 +263,143 @@ export default function mediaDownloader(options = {}) {
 	return defineContentPlugin({
 		name: 'media-downloader',
 		hooks: defineContentPluginHooks({
-			async onContentFetchDone(ctx) {
-				if (!optionsWithDefaults.ignoreCache && !optionsWithDefaults.enableIfModifiedSinceCheck && !optionsWithDefaults.enableContentLengthCheck) {
-					ctx.logger.warn(chalk.yellow('Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.'));
+			onContentFetchDone(ctx) {
+				if (!optionsWithDefaults.ignoreCache &&
+						!optionsWithDefaults.enableIfModifiedSinceCheck &&
+						!optionsWithDefaults.enableContentLengthCheck) {
+					ctx.logger.warn(chalk.yellow(
+						'Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.'
+					));
 				}
 
-				const filteredData = ctx.data.filter(optionsWithDefaults.keys);
-
-				if (filteredData.isErr()) {
-					throw new Error(filteredData.error);
-				}
-
-				const queryJsonPath = optionsWithDefaults.matchPath ?? `$..*[?(@.match(${optionsWithDefaults.mediaPattern.source}))]`;
-
-				const queue = new ResultAsyncQueue({ concurrency: optionsWithDefaults.maxConcurrent });
-
-				// Note, this should be 1 per concurrent request, plus 1 for the PQueue, 
-				// but there's a bug in node where it doesn't cleanup the fetch listeners.
-				// for now we'll just set it to no limit
 				setMaxListeners(0, ctx.abortSignal);
 
-				const keepFilter = ctx.contentOptions.keep;
+				const queryJsonPath = optionsWithDefaults.matchPath ??
+					`$..*[?(@.match(${optionsWithDefaults.mediaPattern}))]`;
 
-				if (optionsWithDefaults.forceClearTempFiles && fs.existsSync(ctx.paths.getTempPath())) {
-					ctx.logger.debug(chalk.gray(`Clearing temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-					const removeResult = await FileUtils.remove(ctx.paths.getTempPath());
-
-					if (removeResult.isErr()) {
-						throw removeResult.error;
-					}
-				}
-
-				ctx.logger.debug(chalk.gray(`Creating temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-				const ensureDirResult = await FileUtils.ensureDir(ctx.paths.getTempPath());
-
-				if (ensureDirResult.isErr()) {
-					throw ensureDirResult.error;
-				}
-
-				/** @type {Array<(options: { signal?: AbortSignal }) => ReturnType<typeof downloadMedia>>} */
-				const tasks = [];
-
-				const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, 'g');
-
-				for (const source of filteredData.value) {
-					/** @type {Set<string>} */
-					const uniqueUrlSet = new Set();
-
-					const sourceTempDir = path.join(ctx.paths.getTempPath(), source.namespaceId);
-					const sourceDestDir = path.join(ctx.paths.getDownloadPath(), source.namespaceId);
-
-					for (const document of source.documents) {
-						// search each document for matching urls
-						const urls = JSONPath({
-							json: document.data,
-							path: queryJsonPath
+				return setupDownloadDirectories(ctx, optionsWithDefaults)
+					.map(() => findMediaUrls(ctx.data, optionsWithDefaults, queryJsonPath))
+					.andThen(urls => {
+						const queue = new ResultAsyncQueue({
+							concurrency: optionsWithDefaults.maxConcurrent
 						});
 
-						for (const url of urls) {
-							// skip duplicates
-							if (uniqueUrlSet.has(url)) {
-								continue;
+						const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, 'g');
+
+						const tasks = urls.map(url => {
+							/**
+							 * @param {{ signal?: AbortSignal }} args
+							 */
+							const task = ({ signal }) => downloadMedia(
+								url.url,
+								path.join(ctx.paths.getTempPath(), url.sourceId),
+								path.join(ctx.paths.getDownloadPath(), url.sourceId),
+								encodeRegex,
+								signal ?? ctx.abortSignal,
+								optionsWithDefaults
+							);
+							return task;
+						});
+
+						ctx.logger.info(`Syncing ${chalk.cyan(tasks.length)} files`);
+
+						return queue.addAll(tasks, {
+							abortOnError: optionsWithDefaults.abortOnError,
+							logger: ctx.logger
+						}).orElse((queueErrors) => {
+							ctx.logger.error(
+								`Encountered ${chalk.red(queueErrors.length + ' error(s)')} while downloading ${chalk.cyan(tasks.length)} files`
+							);
+	
+							for (const error of queueErrors) {
+								ctx.logger.error(chalk.red(error));
+							}
+	
+							if (optionsWithDefaults.abortOnError) {
+								return FileUtils.remove(ctx.paths.getTempPath())
+									.mapErr(err => new FileSystemError('Failed to remove temp dir', err))
+									.andThen(() => errAsync(new QueueError(queueErrors)));
 							}
 
-							uniqueUrlSet.add(url);
-
-							tasks.push(
-								({ signal }) => downloadMedia(
-									url,
-									sourceTempDir,
-									sourceDestDir,
-									encodeRegex,
-									signal ?? ctx.abortSignal,
-									optionsWithDefaults
-								)
-							);
-						}
-					}
-				}
-
-				ctx.logger.info(`Syncing ${chalk.cyan(tasks.length)} files`);
-
-				const result = await queue.addAll(tasks, { abortOnError: optionsWithDefaults.abortOnError, logger: ctx.logger });
-
-				if (result.isErr()) {
-					ctx.logger.error(`Encountered ${chalk.red(result.error.length + ' error(s)')} while downloading ${chalk.cyan(tasks.length)} files`);
-
-					for (const error of result.error) {
-						ctx.logger.error(chalk.red(error));
-					}
-
-					if (optionsWithDefaults.abortOnError) {
-						// clear temp dir
-						ctx.logger.warn(`Removing temp dir at ${chalk.yellow(ctx.paths.getTempPath())} due to sync error`);
-						await FileUtils.remove(ctx.paths.getTempPath());
-
-						throw result.error;
-					}
-				}
-
-				if (optionsWithDefaults.clearOldFilesOnSuccess) {
-					ctx.logger.debug(chalk.gray(`Removing old files from: ${chalk.yellow(ctx.paths.getDownloadPath())}`));
-					const removeResult = await FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), keepFilter);
-
-					if (removeResult.isErr()) {
-						throw removeResult.error;
-					}
-				}
-
-				ctx.logger.debug(chalk.gray(`Copying new files to: ${chalk.green(ctx.paths.getDownloadPath())}`));
-				const copyResult = await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath());
-
-				if (copyResult.isErr()) {
-					throw copyResult.error;
-				}
-
-				ctx.logger.debug(chalk.gray(`Removing temp dir: ${chalk.yellow(ctx.paths.getTempPath())}`));
-				const removeResult = await FileUtils.remove(ctx.paths.getTempPath());
-
-				if (removeResult.isErr()) {
-					throw removeResult.error;
-				}
+							return ok(undefined);
+						});
+					})
+					.andThen(() => {
+						return cleanupAfterDownload(ctx, optionsWithDefaults);
+					})
+					.orElse(e => {
+						throw e;
+					}).then(() => {
+						// return void
+					});
 			}
 		})
 	});
 }
 
 /**
- * @param {string} url URL to download
- * @param {string} tempDir Directory path for temporary files. Where downloaded files are stored before being moved to `destDir`.
- * @param {string} destDir Directory path for final downloaded files. Contains cached files.
- * @param {RegExp} encodeRegex Regex to encode the local path of the downloaded file.
- * @param {AbortSignal} abortSignal Abort signal to cancel the request
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * Base error class for MediaDownloader errors
  */
-function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, options) {
-	const localPath = options.transformLocalPath(localFilePathFromUrl(url)).replace(encodeRegex, encodeURIComponent); ;
-
-	const destPath = path.join(destDir, localPath);
-	const tempFilePath = path.join(tempDir, localPath);
-	const tempFilePathDir = path.dirname(tempFilePath);
-
-	return FileUtils.ensureDir(tempFilePathDir)
-		.andThen(() => FileUtils.pathExists(destPath))
-		.andThen((exists) => exists
-			? ResultAsync.fromPromise(fs.promises.lstat(destPath), (err) => new Error(`Error getting file stats for ${destPath}: ${err}`))
-			: okAsync(null)
-		).andThen(stats => {
-			if (options.ignoreCache || !stats || !stats.isFile()) {
-				// skip cache check
-				return okAsync(false);
-			}
-
-			if (!options.enableIfModifiedSinceCheck && !options.enableContentLengthCheck) {
-				// skip cache check
-				return okAsync(false);
-			}
-
-			const modifiedDate = stats.mtime;
-
-			return safeKy(url, {
-				method: 'HEAD',
-				signal: abortSignal,
-				timeout: options.maxTimeout,
-				throwHttpErrors: false,
-				headers: {
-					'If-Modified-Since': modifiedDate.toUTCString()
-				}
-			}).andThen(res => {
-				let isRemoteNew = false;
-
-				if (options.enableIfModifiedSinceCheck) {
-					isRemoteNew = res.status !== 304;
-				}
-
-				if (options.enableContentLengthCheck) {
-					const remoteSize = parseInt(res.headers.get('content-length') ?? '');
-					const localSize = stats.size;
-					isRemoteNew = isRemoteNew || (remoteSize !== localSize);
-				}
-
-				if (!isRemoteNew) {
-					// copy existing, cached file from dest dir
-					return ResultAsync.fromPromise(fs.promises.copyFile(destPath, tempFilePath), (err) => new Error(`Error copying file from ${destPath} to ${tempFilePath}: ${err}`))
-						.map(() => true);
-				}
-
-				return okAsync(false);
-			}).andThen(cached => {
-				if (cached) {
-					return okAsync(undefined);
-				}
-
-				return safeKy(url, {
-					signal: abortSignal,
-					timeout: options.maxTimeout
-				}).andThen(res => {
-					if (!res.body) {
-						return errAsync(new Error('No response body'));
-					}
-
-					const writer = fs.createWriteStream(tempFilePath);
-
-					return ResultAsync.fromPromise(pipeline(res.body, writer), (err) => new Error(`Error writing file to ${tempFilePath}: ${err}`));
-				});
-			});
-		}).map(() => tempFilePath); // always return the path to the temp file
+class MediaDownloaderError extends Error {
+	/**
+	 * @param {string} message 
+	 * @param {unknown} [cause] 
+	 */
+	constructor(message, cause) {
+		if (cause === undefined) {
+			super(message);
+		} else if (cause instanceof Error) {
+			super(`${message}: ${cause.message}`, { cause });
+		} else {
+			super(`${message}: ${cause}`);
+		}
+		this.name = 'MediaDownloaderError';
+	}
 }
 
-/**
- * Given a full URL, build a unique path to save the file
- * @param {string} url
- * @returns {string}
- */
-function localFilePathFromUrl(url) {
-	// Remove protocol and domain
-	let urlPath = url.replace(/^[^:]+:\/\/[^/]+/, '');
-	
-	// Remove leading slash if present
-	if (urlPath.startsWith('/')) {
-		urlPath = urlPath.slice(1);
+class FileSystemError extends MediaDownloaderError {
+	/**
+	 * @param {string} message 
+	 * @param {unknown} [cause] 
+	 */
+	constructor(message, cause) {
+		super(message, cause);
+		this.name = 'FileSystemError';
 	}
+}
 
-	// Use the OS path separator
-	const localPath = urlPath.replace(/\//g, path.sep);
-	
-	return localPath;
+class NetworkError extends MediaDownloaderError {
+	/**
+	 * @param {string} message 
+	 * @param {unknown} [cause] 
+	 */
+	constructor(message, cause) {
+		super(message, cause);
+		this.name = 'NetworkError';
+	}
+}
+
+class CacheError extends MediaDownloaderError {
+	/**
+	 * @param {string} message 
+	 * @param {unknown} [cause] 
+	 */
+	constructor(message, cause) {
+		super(message, cause);
+		this.name = 'CacheError';
+	}
+}
+
+class QueueError extends MediaDownloaderError {
+	/** @type {Error[]} */
+	errors;
+
+	/**
+	 * @param {Error[]} errors
+	 */
+	constructor(errors) {
+		super(`Queue encountered ${errors.length} errors`);
+		this.name = 'QueueError';
+		this.errors = errors;
+	}
 }

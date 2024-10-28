@@ -25,7 +25,7 @@ import { fetchPaginated } from '../utils/fetch-paginated.js';
  * @property {string} [locale] Optional. Used to pull localized images.
  * @property {string} [filename] Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json'
  * @property {string} [protocol] Optional. Defaults to 'https'
- * @property {string} [host] Optional. Defaults to 'cdn.contentful.com'
+ * @property {string} [host] Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true
  * @property {boolean} [usePreviewApi] Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false
  * @property {Array<string>} [contentTypes] Optionally limit queries to these content types. This will also apply to linked assets. Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images. Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
  * @property {any} [searchParams] Optional. Supports anything from https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters
@@ -64,7 +64,7 @@ const CONTENTFUL_OPTIONS_DEFAULTS = {
 };
 
 /**
- * @type {import("./source.js").ContentSourceBuilder<ContentfulOptions>}
+ * @type {import("./source.js").ContentSourceBuilder<ContentfulOptions, {entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>}
  */
 export default function contentfulSource(options) {
 	const assembled = {
@@ -77,6 +77,7 @@ export default function contentfulSource(options) {
 		if (!assembled.previewToken) {
 			return errAsync(configError('usePreviewApi is set to true, but no previewToken is provided'));
 		}
+		assembled.host = 'preview.contentful.com';
 		assembled.accessToken = assembled.previewToken;
 	} else {
 		if (!('deliveryToken' in assembled) || !assembled.deliveryToken) {
@@ -86,12 +87,17 @@ export default function contentfulSource(options) {
 		assembled.accessToken = assembled.deliveryToken;
 	}
 
+	if (assembled.contentTypes && assembled.contentTypes.length > 0) {
+		assembled.searchParams['sys.contentType.sys.id[in]'] = assembled.contentTypes.join(',');
+	}
+
 	return ResultAsync
 		.fromPromise(import('contentful'), () => configError('Could not find module "contentful". Make sure you have installed it.'))
 		.map(({ createClient }) => {
 			const client = createClient(assembled);
 
-			return defineSource({
+			/** @type {import('./source.js').ContentSource<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>} */
+			const source = defineSource({
 				id: options.id,
 				fetch: (ctx) => {
 					// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
@@ -118,7 +124,7 @@ export default function contentfulSource(options) {
 									});
 								});
 						},
-						limit: options.searchParams.limit,
+						limit: assembled.searchParams.limit,
 						logger: ctx.logger
 					});
 
@@ -141,6 +147,8 @@ export default function contentfulSource(options) {
 					}]);
 				}
 			});
+
+			return source;
 		});
 }
 

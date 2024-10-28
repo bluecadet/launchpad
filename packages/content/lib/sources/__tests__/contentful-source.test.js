@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import contentfulSource from './contentful-source.js';
+import contentfulSource from '../contentful-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
-import { DataStore } from '../utils/data-store.js';
+import { DataStore } from '../../utils/data-store.js';
 
 const server = setupServer();
 
@@ -335,8 +335,6 @@ describe('contentfulSource', () => {
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-
-		console.log(data);
 
 		expect(data.isOk()).toBe(true);
 

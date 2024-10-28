@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { vol } from 'memfs';
-import * as FileUtils from './file-utils.js';
+import * as FileUtils from '../file-utils.js';
 
 describe('FileUtils', () => {
 	beforeEach(() => {

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import airtableSource from './airtable-source.js';
+import airtableSource from '../airtable-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
-import { DataStore } from '../utils/data-store.js';
+import { DataStore } from '../../utils/data-store.js';
 
 const server = setupServer();
 

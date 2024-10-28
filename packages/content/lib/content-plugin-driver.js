@@ -26,11 +26,6 @@ export class ContentError extends Error {
  */
 
 /**
- * @template T
- * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Awaitable<T>} Awaitable
- */
-
-/**
  * @typedef ContentHooks
  * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | Promise<void>} onSetupError Called when a content source fails to setup
  * @prop {(ctx: CombinedContentHookContext) => void | Promise<void>} onContentFetchSetup Called before any content is fetched
@@ -39,16 +34,29 @@ export class ContentError extends Error {
  */
 
 /**
- * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Plugin<ContentHooks>} ContentPlugin
+ * @template {Partial<ContentHooks>} [T=Partial<ContentHooks>]
+ * @typedef {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').Plugin<ContentHooks, T>} ContentPlugin
  */
 
 /**
  * Utility function for defining a content plugin
- * @param {ContentPlugin} plugin 
- * @returns {ContentPlugin}
+ * @template {Partial<ContentHooks>} T
+ * @param {ContentPlugin<T>} plugin 
+ * @returns {ContentPlugin<T>}
  */
 export function defineContentPlugin(plugin) {
 	return plugin;
+}
+
+/**
+ * Due to a limitation of TS in jsdoc, to get the specific hook types when defining plugins,
+ * we need this helper function to wrap the hooks object.
+ * @template {Partial<ContentHooks>} T
+ * @param {T} hooks
+ * @returns {T}
+ */
+export function defineContentPluginHooks(hooks) {
+	return hooks;
 }
 
 /**
@@ -90,7 +98,7 @@ export class ContentPluginDriver extends HookContextProvider {
 	}
 
 	/**
-	 * @param {ContentPlugin} plugin
+	 * @param {ContentPlugin<Partial<ContentHooks>>} plugin
 	 * @override
 	 */
 	_getPluginContext(plugin) {

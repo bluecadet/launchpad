@@ -29,7 +29,7 @@ export function applyTransformToFiles({ dataStore, path, transformFn, logger, ke
 	const matchingDocuments = getMatchingDocuments(dataStore, keys);
 
 	if (matchingDocuments.isErr()) {
-		return err(new Error(matchingDocuments.error));
+		throw new Error(matchingDocuments.error);
 	}
 
 	for (const document of matchingDocuments.value) {
@@ -39,11 +39,9 @@ export function applyTransformToFiles({ dataStore, path, transformFn, logger, ke
 		const result = document.apply(path, transformFn);
 
 		if (result.isErr()) {
-			return err(result.error);
+			throw result.error;
 		}
 	}
-
-	return ok(undefined);
 }
 
 /**

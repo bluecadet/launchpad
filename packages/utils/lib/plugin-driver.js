@@ -25,7 +25,7 @@ class PluginError extends Error {
  * Plugin and PluginDriver types are generic so that hook
  * signatures can be colocated with the relevant package.
  */
-
+ 
 /**
  * @typedef BaseHookContext
  * @property {import('./log-manager.js').Logger} logger a logger instance specific to the plugin
@@ -37,10 +37,11 @@ class PluginError extends Error {
  */
 
 /**
- * @template {HookSet} T
+ * @template {HookSet} AllowedHooks
+ * @template {Partial<AllowedHooks>} [ActualHooks=Partial<AllowedHooks>]
  * @typedef Plugin
  * @property {string} name
- * @property {Partial<T>} hooks
+ * @property {{ [K in keyof ActualHooks]: K extends keyof AllowedHooks ? ActualHooks[K] : never }} hooks
  */
 
 /**

@@ -59,6 +59,7 @@ class SafeKyResultAsync extends ResultAsync {
 			.then((res) => {
 				const remapped = {
 					...res,
+					body: res.body,
 					json: () => ResultAsync.fromPromise(res.json(), (error) => new SafeKyError.ParseError('Error parsing JSON', error)),
 					text: () => ResultAsync.fromPromise(res.text(), (error) => new SafeKyError.ParseError('Error parsing text', error)),
 					arrayBuffer: () => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyError.ParseError('Error parsing array buffer', error)),

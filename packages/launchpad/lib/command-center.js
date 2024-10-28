@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import autoBind from 'auto-bind';
-import { LogManager, Logger, TaskQueue, execScript } from '@bluecadet/launchpad-utils';
+import { LogManager, TaskQueue, execScript } from '@bluecadet/launchpad-utils';
 import CommandHooks from './command-hooks.js';
 
 /**
@@ -12,7 +12,7 @@ export class CommandCenter {
 	/** @type {CommandOptions} */
 	_config;
 	
-	/** @type {Logger} */
+	/** @type {import('@bluecadet/launchpad-utils').Logger} */
 	_logger;
 	
 	/** @type {Map<string, Command>} */
@@ -24,7 +24,7 @@ export class CommandCenter {
 	/**
 	 * 
 	 * @param {CommandOptions} [config] 
-	 * @param {Logger} [logger]
+	 * @param {import('@bluecadet/launchpad-utils').Logger} [logger]
 	 */
 	constructor(config, logger) {
 		autoBind(this);
@@ -130,7 +130,7 @@ export class Command {
 	 * @param {F} options.callback
 	 * @param {string} [options.help]
 	 * @param {boolean} [options.queued]
-	 * @param {Logger | null} [options.logger]
+	 * @param {import('@bluecadet/launchpad-utils').Logger | null} [options.logger]
 	 */
 	constructor({
 		name,
@@ -171,7 +171,7 @@ export class Command {
 		*/
 		this.postHooks = [];
 		/**
-		 * @type {Logger | null}
+		 * @type {import('@bluecadet/launchpad-utils').Logger | null}
 		 */
 		this.logger = logger;
 	}

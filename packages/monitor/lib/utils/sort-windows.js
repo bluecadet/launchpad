@@ -1,7 +1,6 @@
 import semver from 'semver';
 import chalk from 'chalk';
 import { windowManager } from 'node-window-manager';
-import { Logger } from '@bluecadet/launchpad-utils';
 
 /**
  * @typedef SortApp
@@ -12,7 +11,7 @@ import { Logger } from '@bluecadet/launchpad-utils';
 /**
  * 
  * @param {Array<SortApp>} apps 
- * @param {Logger | Console} [logger]
+ * @param {import('@bluecadet/launchpad-utils').Logger | Console} [logger]
  * @param {string} [minNodeVersion]
  * @returns {Promise<void>}
  */

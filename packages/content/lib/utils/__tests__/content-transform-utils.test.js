@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getMatchingDocuments, applyTransformToFiles, isBlockContent } from './content-transform-utils.js';
-import { DataStore } from './data-store.js';
+import { getMatchingDocuments, applyTransformToFiles, isBlockContent } from '../content-transform-utils.js';
+import { DataStore } from '../data-store.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 
 describe('content-transform-utils', () => {

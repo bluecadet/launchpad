@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import MarkdownIt from 'markdown-it'
-import italicBoldPlugin from './markdown-it-italic-bold.js'
+import italicBoldPlugin from '../markdown-it-italic-bold.js'
 
 describe('markdown-it-italic-bold plugin', () => {
   it('should convert * to <i> for italics', () => {

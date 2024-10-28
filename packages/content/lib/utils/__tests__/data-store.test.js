@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DataStore, Document } from './data-store.js';
+import { DataStore, Document } from '../data-store.js';
 
 describe('Document', () => {
 	it('should create a document with id and data', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ResultAsync } from 'neverthrow';
-import ResultAsyncQueue from './result-async-queue.js';
+import ResultAsyncQueue from '../result-async-queue.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 
 describe('ResultAsyncQueue', () => {

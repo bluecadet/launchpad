@@ -16,7 +16,8 @@
     "types",
     "index.js",
     "lib",
-    "!**/*.test.js"
+    "!**/*.test.js",
+    "!**/__tests__"
   ],
   "scripts": {
     "test": "vitest"

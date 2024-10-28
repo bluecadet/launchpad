@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { safeKy, SafeKyError } from './safe-ky.js';
+import { safeKy, SafeKyError } from '../safe-ky.js';
 import { ok } from 'neverthrow';
 
 const server = setupServer();

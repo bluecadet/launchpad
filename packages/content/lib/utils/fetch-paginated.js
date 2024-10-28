@@ -1,4 +1,5 @@
-import { ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
+import { fetchError } from '../sources/source-errors.js';
 
 /**
  * @template {unknown} T
@@ -34,11 +35,16 @@ export function fetchPaginated({ fetchPageFn, limit, logger, maxFetchCount = 100
 		logger.debug(`Fetching page ${page}`);
 		return fetchPageFn({ limit, offset: page * limit })
 			.andThen((data) => {
-				if (data === null || (Array.isArray(data) && data.length === 0 || page >= maxFetchCount)) {
+				if (data === null || (Array.isArray(data) && data.length === 0)) {
 					return okAsync(null);
 				} else {
 					pages.push(data);
 					page++;
+
+					if (page >= maxFetchCount) {
+						return errAsync(fetchError('Maximum fetch count reached. This is likely a bug.'));
+					}
+
 					return fetchNextPage();
 				}
 			});

@@ -56,7 +56,7 @@ const STRAPI_OPTION_DEFAULTS = {
 	version: '3',
 	limit: 100,
 	maxNumPages: -1,
-	pageNumZeroPad: 0
+	pageNumZeroPad: 2
 };
 
 class StrapiVersionUtils {
@@ -142,7 +142,7 @@ class StrapiV4 extends StrapiVersionUtils {
 	 * @returns {string}
 	 */
 	buildUrl(query, pagination) {
-		const url = new URL(query.contentType, this.config.baseUrl);
+		const url = new URL(`/api/${query.contentType}`, this.config.baseUrl);
 
 		let params = query.params;
 
@@ -205,7 +205,7 @@ class StrapiV3 extends StrapiVersionUtils {
 	 * @returns {string}
 	 */
 	buildUrl(query, pagination) {
-		const url = new URL(query.contentType, this.config.baseUrl);
+		const url = new URL(`/api/${query.contentType}`, this.config.baseUrl);
 
 		let params = query.params;
 
@@ -258,6 +258,7 @@ function getJwt(baseUrl, identifier, password) {
 	const url = new URL('/auth/local', baseUrl);
 
 	return safeKy(url.toString(), {
+		method: 'POST',
 		json: { identifier, password }
 	}).json()
 		.map(response => response.jwt)
@@ -315,7 +316,7 @@ export default function strapiSource(options) {
 							fetchPageFn: (params) => {
 								const pageNum = params.offset / params.limit;
 
-								if (pageNum > assembledOptions.maxNumPages) {
+								if (pageNum > assembledOptions.maxNumPages && assembledOptions.maxNumPages !== -1) {
 									return okAsync(null);
 								}
 
@@ -344,7 +345,7 @@ export default function strapiSource(options) {
 							logger: ctx.logger
 						}).map(data => {
 							return data.pages.map((page, i) => {
-								const fileName = `${parsedQuery.contentType}-${i.toString().padStart(assembledOptions.pageNumZeroPad, '0')}.json`;
+								const fileName = `${parsedQuery.contentType}-${(i + 1).toString().padStart(assembledOptions.pageNumZeroPad, '0')}.json`;
 								return {
 									id: fileName,
 									data: page

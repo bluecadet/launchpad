@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, expect } from 'vitest';
 
 /**
  * Creates a mock logger for testing purposes

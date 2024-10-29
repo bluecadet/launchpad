@@ -12,7 +12,7 @@ describe('ResultAsyncQueue', () => {
 		);
 
 		const result = await queue.add(task);
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		expect(result._unsafeUnwrap()).toBe(42);
 	});
 
@@ -24,7 +24,7 @@ describe('ResultAsyncQueue', () => {
 		);
 
 		const result = await queue.add(task);
-		expect(result.isErr()).toBe(true);
+		expect(result).toBeErr();
 		expect(result._unsafeUnwrapErr().message).toBe('Task failed');
 	});
 
@@ -54,7 +54,7 @@ describe('ResultAsyncQueue', () => {
 		];
 
 		const result = await queue.addAll(tasks, { logger });
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		expect(result._unsafeUnwrap()).toEqual([1, 2]);
 	});
 
@@ -68,7 +68,7 @@ describe('ResultAsyncQueue', () => {
 		];
 
 		const result = await queue.addAll(tasks, { logger, abortOnError: true });
-		expect(result.isErr()).toBe(true);
+		expect(result).toBeErr();
 		expect(result._unsafeUnwrapErr()).toHaveLength(1);
 		expect(result._unsafeUnwrapErr()[0].message).toBe('Task 2 failed');
 	});
@@ -96,7 +96,7 @@ describe('ResultAsyncQueue', () => {
 		abortController.abort();
 		const result = await resultPromise;
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		expect(result._unsafeUnwrap()).toBe(undefined);
 	});
 });

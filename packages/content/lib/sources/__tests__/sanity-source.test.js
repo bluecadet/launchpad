@@ -34,7 +34,7 @@ describe('sanitySource', () => {
 			// missing projectId and apiToken
 		});
 
-		expect(result.isErr()).toBe(true);
+		expect(result).toBeErr();
 		expect(result._unsafeUnwrapErr().type).toBe('config');
 		expect(result._unsafeUnwrapErr().message).toContain('Missing projectId and/or apiToken');
 	});
@@ -98,18 +98,18 @@ describe('sanitySource', () => {
 			queries: ['test', 'article']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(2);
 
 		// Check 'test' type results
 		const testData = await fetchPromises[0].dataPromise;
-		expect(testData.isOk()).toBe(true);
+		expect(testData).toBeOk();
 		expect(testData._unsafeUnwrap()).toEqual([{
 			id: 'test',
 			data: [
@@ -120,7 +120,7 @@ describe('sanitySource', () => {
 
 		// Check 'article' type results
 		const articleData = await fetchPromises[1].dataPromise;
-		expect(articleData.isOk()).toBe(true);
+		expect(articleData).toBeOk();
 		expect(articleData._unsafeUnwrap()).toEqual([{
 			id: 'article',
 			data: [
@@ -162,15 +162,15 @@ describe('sanitySource', () => {
 			}]
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeErr();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isOk()).toBe(true);
+		expect(data).toBeOk();
 		expect(data._unsafeUnwrap()).toEqual([{
 			id: 'custom',
 			data: [
@@ -194,15 +194,15 @@ describe('sanitySource', () => {
 			queries: ['test']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toBe('fetch');
 		expect(data._unsafeUnwrapErr().message).toContain('Could not fetch page');
 	});
@@ -240,15 +240,15 @@ describe('sanitySource', () => {
 			pageNumZeroPad: 2
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isOk()).toBe(true);
+		expect(data).toBeOk();
 
 		// Check that pagination formatting is correct
 		const pages = data._unsafeUnwrap();

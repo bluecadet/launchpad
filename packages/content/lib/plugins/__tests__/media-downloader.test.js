@@ -46,7 +46,7 @@ describe('mediaDownloader', () => {
 				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: true })
 			);
 
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap().shouldDownload).toBe(true);
 		});
 
@@ -71,7 +71,7 @@ describe('mediaDownloader', () => {
 				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: false })
 			);
 
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap().shouldDownload).toBe(false);
 		});
 
@@ -97,7 +97,7 @@ describe('mediaDownloader', () => {
 				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: false, enableContentLengthCheck: true })
 			);
 
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap().shouldDownload).toBe(true);
 		});
 	});
@@ -121,7 +121,7 @@ describe('mediaDownloader', () => {
 				getMediaDownloaderOptions({ maxTimeout: 1000 })
 			);
 
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readFileSync('/downloads/test.jpg', 'utf8')).toBe('image data');
 		});
 
@@ -139,7 +139,7 @@ describe('mediaDownloader', () => {
 				getMediaDownloaderOptions({ maxTimeout: 1000 })
 			);
 
-			expect(result.isErr()).toBe(true);
+			expect(result).toBeErr();
 			const error = result._unsafeUnwrapErr();
 			expect(error.name).toBe('NetworkError');
 		});

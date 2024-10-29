@@ -32,19 +32,19 @@ describe('FileUtils', () => {
 	describe('saveJson', () => {
 		it('should save JSON to a file', async () => {
 			const result = await FileUtils.saveJson({ test: 'data' }, '/test.json');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readFileSync('/test.json', 'utf8')).toBe('{"test":"data"}');
 		});
 
 		it('should append .json extension if not provided', async () => {
 			const result = await FileUtils.saveJson({ test: 'data' }, '/test');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readFileSync('/test.json', 'utf8')).toBe('{"test":"data"}');
 		});
 
 		it('should create directories if they don\'t exist', async () => {
 			const result = await FileUtils.saveJson({ test: 'data' }, '/nested/dir/test.json');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readFileSync('/nested/dir/test.json', 'utf8')).toBe('{"test":"data"}');
 		});
 	});
@@ -64,13 +64,13 @@ describe('FileUtils', () => {
 
 		it('should remove all files and subdirectories', async () => {
 			const result = await FileUtils.removeFilesFromDir('/test-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readdirSync('/test-dir')).toHaveLength(0);
 		});
 
 		it('should exclude specified files', async () => {
 			const result = await FileUtils.removeFilesFromDir('/test-dir', ['*.json', '**/*.csv']);
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
       expect(vol.readdirSync('/test-dir', {recursive: true})).toEqual(expect.arrayContaining(['file2.json', 'subdir/file3.csv', 'subdir']));
 		});
 	});
@@ -78,20 +78,20 @@ describe('FileUtils', () => {
 	describe('ensureDir', () => {
 		it('should create a directory if it doesn\'t exist', async () => {
 			const result = await FileUtils.ensureDir('/new-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/new-dir')).toBe(true);
 		});
 
 		it('should create nested directories', async () => {
 			const result = await FileUtils.ensureDir('/nested/dir/structure');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/nested/dir/structure')).toBe(true);
 		});
 
 		it('should not fail if the directory already exists', async () => {
 			vol.mkdirSync('/existing-dir');
 			const result = await FileUtils.ensureDir('/existing-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 		});
 	});
 
@@ -120,7 +120,7 @@ describe('FileUtils', () => {
 		it('should remove an empty directory', async () => {
 			vol.mkdirSync('/empty-dir');
 			const result = await FileUtils.removeDirIfEmpty('/empty-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/empty-dir')).toBe(false);
 		});
 
@@ -128,7 +128,7 @@ describe('FileUtils', () => {
 			vol.mkdirSync('/non-empty-dir');
 			vol.writeFileSync('/non-empty-dir/file.txt', 'content');
 			const result = await FileUtils.removeDirIfEmpty('/non-empty-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/non-empty-dir')).toBe(true);
 		});
 	});
@@ -137,7 +137,7 @@ describe('FileUtils', () => {
 		it('should return true for an empty directory', async () => {
 			vol.mkdirSync('/empty-dir');
 			const result = await FileUtils.isDirEmpty('/empty-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(true);
 		});
 
@@ -145,7 +145,7 @@ describe('FileUtils', () => {
 			vol.mkdirSync('/non-empty-dir');
 			vol.writeFileSync('/non-empty-dir/file.txt', 'content');
 			const result = await FileUtils.isDirEmpty('/non-empty-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(false);
 		});
 	});
@@ -154,7 +154,7 @@ describe('FileUtils', () => {
 		it('should remove a file', async () => {
 			vol.writeFileSync('/test-file.txt', 'content');
 			const result = await FileUtils.remove('/test-file.txt');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/test-file.txt')).toBe(false);
 		});
 
@@ -162,13 +162,13 @@ describe('FileUtils', () => {
 			vol.mkdirSync('/test-dir');
 			vol.writeFileSync('/test-dir/file.txt', 'content');
 			const result = await FileUtils.remove('/test-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/test-dir')).toBe(false);
 		});
 
 		it('should not fail if the path does not exist', async () => {
 			const result = await FileUtils.remove('/non-existing');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 		});
 	});
 
@@ -176,20 +176,20 @@ describe('FileUtils', () => {
 		it('should return true for existing files', async () => {
 			vol.writeFileSync('/test-file.txt', 'content');
 			const result = await FileUtils.pathExists('/test-file.txt');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(true);
 		});
 
 		it('should return true for existing directories', async () => {
 			vol.mkdirSync('/test-dir');
 			const result = await FileUtils.pathExists('/test-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(true);
 		});
 
 		it('should return false for non-existing paths', async () => {
 			const result = await FileUtils.pathExists('/non-existing');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(false);
 		});
 	});
@@ -198,7 +198,7 @@ describe('FileUtils', () => {
 		it('should copy a file', async () => {
 			vol.writeFileSync('/source-file.txt', 'content');
 			const result = await FileUtils.copy('/source-file.txt', '/dest-file.txt');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.readFileSync('/dest-file.txt', 'utf8')).toBe('content');
 		});
 
@@ -207,7 +207,7 @@ describe('FileUtils', () => {
 			vol.writeFileSync('/source-dir/file1.txt', 'content1');
 			vol.writeFileSync('/source-dir/file2.txt', 'content2');
 			const result = await FileUtils.copy('/source-dir', '/dest-dir');
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(vol.existsSync('/dest-dir')).toBe(true);
 			expect(vol.readFileSync('/dest-dir/file1.txt', 'utf8')).toBe('content1');
 			expect(vol.readFileSync('/dest-dir/file2.txt', 'utf8')).toBe('content2');
@@ -220,7 +220,7 @@ describe('FileUtils', () => {
 			const sourceStats = vol.statSync('/source-file.txt');
 			vi.setSystemTime(date.getTime() + 1000);
 			const result = await FileUtils.copy('/source-file.txt', '/dest-file.txt', { preserveTimestamps: true });
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			const destStats = vol.statSync('/dest-file.txt');
 			expect(destStats.mtime).toEqual(sourceStats.mtime);
 			expect(destStats.atime).toEqual(sourceStats.atime);

@@ -1,5 +1,6 @@
 import { vi, expect } from 'vitest';
 import { fs } from 'memfs';
+import { err, ok } from 'neverthrow';
 
 vi.mock('fs', () => ({
 	...fs,

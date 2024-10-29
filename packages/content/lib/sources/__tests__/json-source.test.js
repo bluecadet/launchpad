@@ -45,20 +45,20 @@ describe('jsonSource', () => {
 			}
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
     
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(2);
 
 		const data1 = await fetchPromises[0].dataPromise;
 		const data2 = await fetchPromises[1].dataPromise;
 
-		expect(data1.isOk()).toBe(true);
-		expect(data2.isOk()).toBe(true);
+		expect(data1).toBeOk();
+		expect(data2).toBeOk();
 
 		expect(data1._unsafeUnwrap()).toEqual([{ id: 'data1.json', data: { key: 'value1' } }]);
 		expect(data2._unsafeUnwrap()).toEqual([{ id: 'data2.json', data: { key: 'value2' } }]);
@@ -78,17 +78,17 @@ describe('jsonSource', () => {
 			}
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
     
 		const result = await sourceValue.fetch(createFetchContext());
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(1);
 
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toMatch('fetch');
 	});
 
@@ -108,17 +108,17 @@ describe('jsonSource', () => {
 			}
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(1);
 
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toMatch('parse');
 	});
 
@@ -138,19 +138,19 @@ describe('jsonSource', () => {
 			maxTimeout: 1000
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
     
 		vi.advanceTimersByTime(1000);
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(1);
     
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toMatch('fetch');
 		expect(data._unsafeUnwrapErr().message).toContain('Request timed out');
 	});

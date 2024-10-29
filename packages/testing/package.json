@@ -8,6 +8,7 @@
     "@bluecadet/launchpad-utils": "*"
   },
   "dependencies": {
-    "memfs": "^4.14.0"
+    "memfs": "^4.14.0",
+    "neverthrow": "^8.1.1"
   }
 }

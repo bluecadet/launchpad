@@ -10,7 +10,13 @@ import moment from 'moment';
 import chalk from 'chalk';
 
 /**
- * @typedef {Pick<WinstonLogger, 'info' | 'warn' | 'error' | 'debug' | 'child' | 'once' | 'close'>} Logger
+ * @callback createChildLogger
+ * @param {Parameters<WinstonLogger['child']>[0]} options
+ * @returns {Logger}
+ */
+
+/**
+ * @typedef {Pick<WinstonLogger, 'info' | 'warn' | 'error' | 'debug' | 'once' | 'close'> & {child: createChildLogger}} Logger
  */
 
 const DATE_KEY = '%DATE%';
@@ -75,7 +81,7 @@ const LOG_OPTIONS_DEFAULTS = {
 	fileOptions: LOG_FILE_OPTIONS_DEFAULTS,
 	level: 'info',
 	format: DEFAULT_LOG_FORMAT,
-	overrideConsole: true
+	overrideConsole: false
 };
 
 /**

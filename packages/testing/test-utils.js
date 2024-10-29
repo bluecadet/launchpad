@@ -1,4 +1,4 @@
-import { vi, expect } from 'vitest';
+import { vi } from 'vitest';
 
 /**
  * Creates a mock logger for testing purposes
@@ -6,7 +6,7 @@ import { vi, expect } from 'vitest';
  */
 export function createMockLogger() {
 	return {
-		child: vi.fn(),
+		child: () => createMockLogger(),
 		once: vi.fn(),
 		debug: vi.fn(),
 		info: vi.fn(),

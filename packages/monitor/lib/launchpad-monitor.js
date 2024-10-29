@@ -104,7 +104,7 @@ export class LaunchpadMonitor {
 			this._config.apps.forEach(this._initAppOptions);
 		}
 
-		const basePluginDriver = pluginDriver || new PluginDriver(config?.plugins ?? []);
+		const basePluginDriver = pluginDriver || new PluginDriver(this._logger, config?.plugins ?? []);
 		
 		this._pluginDriver = new MonitorPluginDriver(
 			basePluginDriver

@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import LogManager from './log-manager.js';
 import onExit from './on-exit.js';
 import { err, ok, okAsync, ResultAsync } from 'neverthrow';
 
@@ -83,13 +82,23 @@ export default class PluginDriver {
 	 */
 	#baseHookContexts = new Map();
 
+	/**
+	 * @type {import('./log-manager.js').Logger}
+	 */
+	#baseLogger;
+
 	#abortController = new AbortController();
 
 	/**
-	 * @param {Plugin<T>[]} plugins
+	 * @param {import('./log-manager.js').Logger} baseLogger
+	 * @param {Plugin<T>[]} [plugins]
 	 */
-	constructor(plugins) {
-		this.add(plugins);
+	constructor(baseLogger, plugins) {
+		this.#baseLogger = baseLogger;
+
+		if (plugins) {
+			this.add(plugins);
+		}
 
 		onExit(() => {
 			this.#abortController.abort();
@@ -106,7 +115,7 @@ export default class PluginDriver {
 		for (const plugin of pluginArray) {
 			this.#plugins.push(plugin);
 			this.#baseHookContexts.set(plugin, {
-				logger: LogManager.getInstance().getLogger(`plugin:${plugin.name}`),
+				logger: this.#baseLogger.child({ module: `plugin:${plugin.name}` }),
 				abortSignal: this.#abortController.signal
 			});
 		}
@@ -146,17 +155,20 @@ export default class PluginDriver {
 					...contextGetter(plugin)
 				};
 
-				const thisPluginResult = ResultAsync.fromPromise(
-					// wrap in Promise.resolve to make all hook calls promises, and therefor compatible with ResultAsync
-					Promise.resolve(hook(context, ...additionalArgs)), (e) => {
-						this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
-						this.#getBaseContext(plugin).logger.error(chalk.red(e));
-						return new PluginError(String(e), { pluginId: plugin.name });
-					});
+				/**
+				 * @returns {Promise<void>}
+				 */
+				const wrappedHookCall = async () => {
+					await hook(context, ...additionalArgs);
+				};
 
 				// build chain
 				result = result.andThen(
-					() => thisPluginResult
+					() => ResultAsync.fromPromise(wrappedHookCall(), (e) => {
+						this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
+						this.#getBaseContext(plugin).logger.error(chalk.red(e));
+						return new PluginError(String(e), { pluginId: plugin.name });
+					})
 				);
 			}
 		}
@@ -196,6 +208,7 @@ export class HookContextProvider {
 	constructor(innerDriver) {
 		this._initialize(innerDriver.plugins);
 		this.#innerDriver = innerDriver;
+		this._getPluginContext = this._getPluginContext.bind(this);
 	}
 
 	get plugins() {

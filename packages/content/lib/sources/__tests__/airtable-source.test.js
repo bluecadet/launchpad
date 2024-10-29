@@ -68,19 +68,19 @@ describe('airtableSource', () => {
 			tables: ['table1']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
     
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		expect(fetchPromises).toHaveLength(1);
 
 		const data = await fetchPromises[0].dataPromise;
 
-		expect(data.isOk()).toBe(true);
+		expect(data).toBeOk();
 
 		const tableData = data._unsafeUnwrap();
 		expect(tableData).toHaveLength(2); // raw and simplified data
@@ -160,15 +160,15 @@ describe('airtableSource', () => {
 			keyValueTables: ['settings']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isOk()).toBe(true);
+		expect(data).toBeOk();
 
 		const tableData = data._unsafeUnwrap();
 		expect(tableData).toHaveLength(2); // raw and simplified data
@@ -197,15 +197,15 @@ describe('airtableSource', () => {
 			tables: ['error-table']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toBe('fetch');
 		expect(data._unsafeUnwrapErr().message).toContain('Failed to fetch data from Airtable');
 	});
@@ -232,16 +232,16 @@ describe('airtableSource', () => {
 			keyValueTables: ['invalid-table']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toBe('parse');
 		expect(data._unsafeUnwrapErr().message).toContain('At least 2 columns required');
 	});
@@ -260,15 +260,15 @@ describe('airtableSource', () => {
 			tables: ['table']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toBe('fetch');
 		expect(data._unsafeUnwrapErr().message).toContain('Failed to fetch data from Airtable');
 	});

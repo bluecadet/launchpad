@@ -1,3 +1,5 @@
+/// <reference types="@bluecadet/launchpad-testing/vitest.d.ts" />
+
 import { defineConfig, defineProject } from 'vitest/config';
 
 export default defineConfig({

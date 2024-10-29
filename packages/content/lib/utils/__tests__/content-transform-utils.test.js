@@ -12,7 +12,7 @@ describe('content-transform-utils', () => {
 			dataStore.insert('test', 'doc2', { content: 'test2' });
 
 			const result = getMatchingDocuments(dataStore);
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(Array.from(result._unsafeUnwrap()).length).toBe(2);
 		});
 
@@ -24,7 +24,7 @@ describe('content-transform-utils', () => {
 			dataStore.insert('test2', 'doc2', { content: 'test2' });
 
 			const result = getMatchingDocuments(dataStore, ['test1']);
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 			expect(Array.from(result._unsafeUnwrap()).length).toBe(1);
 			expect(Array.from(result._unsafeUnwrap())[0].id).toBe('doc1');
 		});

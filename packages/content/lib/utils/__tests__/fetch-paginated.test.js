@@ -49,7 +49,7 @@ describe('fetchPaginated', () => {
 				)
 		});
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const data = result._unsafeUnwrap();
 		expect(data.pages).toHaveLength(3);
 		expect(data.pages.flat()).toHaveLength(30);
@@ -78,7 +78,7 @@ describe('fetchPaginated', () => {
 				)
 		});
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const data = result._unsafeUnwrap();
 		expect(data.pages).toHaveLength(1);
 		expect(callCount).toBe(2);
@@ -104,7 +104,7 @@ describe('fetchPaginated', () => {
 				)
 		});
 
-		expect(result.isErr()).toBe(true);
+		expect(result).toBeErr();
 		const error = result._unsafeUnwrapErr();
 		expect(error.type).toBe('fetch');
 		expect(error.message).toBe('Failed to fetch');
@@ -133,7 +133,7 @@ describe('fetchPaginated', () => {
 				)
 		});
 
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 		const data = result._unsafeUnwrap();
 		expect(data.pages).toHaveLength(1);
 		expect(data.meta).toEqual({ totalCount: 1 });

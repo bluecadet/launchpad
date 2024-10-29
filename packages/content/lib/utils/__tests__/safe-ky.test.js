@@ -52,7 +52,7 @@ describe('safeKy', () => {
 		});
 
 		const jsonResult = await result.json();
-		expect(jsonResult.isErr()).toBe(true);
+		expect(jsonResult).toBeErr();
 		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyError.FetchError);
 		expect(jsonResult._unsafeUnwrapErr().message).toContain('Error during request');
 	});
@@ -69,7 +69,7 @@ describe('safeKy', () => {
 		const result = safeKy('https://api.example.com');
 
 		const jsonResult = await result.json();
-		expect(jsonResult.isErr()).toBe(true);
+		expect(jsonResult).toBeErr();
 		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyError.ParseError);
 		expect(jsonResult._unsafeUnwrapErr().message).toContain('Error parsing JSON');
 	});

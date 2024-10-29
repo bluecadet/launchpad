@@ -50,7 +50,7 @@ describe('strapiSource', () => {
 			queries: ['test-content']
 		});
 
-		expect(result.isErr()).toBe(true);
+		expect(result).toBeErr();
 		expect(result._unsafeUnwrapErr().type).toBe('config');
 		expect(result._unsafeUnwrapErr().message).toContain('Unsupported strapi version');
 	});
@@ -124,15 +124,15 @@ describe('strapiSource', () => {
 				queries: ['test-content']
 			});
 
-			expect(source.isOk()).toBe(true);
+			expect(source).toBeOk();
 			const sourceValue = source._unsafeUnwrap();
 
 			const result = await sourceValue.fetch(createFetchContext());
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 
 			const fetchPromises = result._unsafeUnwrap();
 			const data = await fetchPromises[0].dataPromise;
-			expect(data.isOk()).toBe(true);
+			expect(data).toBeOk();
 
 			const content = data._unsafeUnwrap();
 			expect(content).toMatchInlineSnapshot(`
@@ -209,16 +209,16 @@ describe('strapiSource', () => {
 				}]
 			});
 
-			expect(source.isOk()).toBe(true);
+			expect(source).toBeOk();
 			const sourceValue = source._unsafeUnwrap();
 
 			const result = await sourceValue.fetch(createFetchContext());
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 
 			const fetchPromises = result._unsafeUnwrap();
 			const data = await fetchPromises[0].dataPromise;
 
-			expect(data.isOk()).toBe(true);
+			expect(data).toBeOk();
 
 			const content = data._unsafeUnwrap();
 			expect(content[0].data).toMatchInlineSnapshot(`
@@ -280,15 +280,15 @@ describe('strapiSource', () => {
 				queries: ['test-content']
 			});
 
-			expect(source.isOk()).toBe(true);
+			expect(source).toBeOk();
 			const sourceValue = source._unsafeUnwrap();
 
 			const result = await sourceValue.fetch(createFetchContext());
-			expect(result.isOk()).toBe(true);
+			expect(result).toBeOk();
 
 			const fetchPromises = result._unsafeUnwrap();
 			const data = await fetchPromises[0].dataPromise;
-			expect(data.isOk()).toBe(true);
+			expect(data).toBeOk();
 
 			const content = data._unsafeUnwrap();
 			expect(content).toMatchInlineSnapshot(`
@@ -324,7 +324,7 @@ describe('strapiSource', () => {
 			queries: ['test-content']
 		});
 
-		expect(source.isOk()).toBe(false);
+		expect(source).toBeErr();
 		const sourceValue = source._unsafeUnwrapErr();
 		expect(sourceValue.type).toBe('fetch');
 		expect(sourceValue.message).toContain('401');
@@ -349,16 +349,16 @@ describe('strapiSource', () => {
 			queries: ['test-content']
 		});
 
-		expect(source.isOk()).toBe(true);
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());
-		expect(result.isOk()).toBe(true);
+		expect(result).toBeOk();
 
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 
-		expect(data.isErr()).toBe(true);
+		expect(data).toBeErr();
 		expect(data._unsafeUnwrapErr().type).toBe('fetch');
 		expect(data._unsafeUnwrapErr().message).toContain('Could not fetch page');
 	});

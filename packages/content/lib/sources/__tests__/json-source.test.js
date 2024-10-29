@@ -7,18 +7,6 @@ import { DataStore } from '../../utils/data-store.js';
 
 const server = setupServer();
 
-vi.mock('ky', async (importOriginal) => {
-	/** @type {import('ky')} */
-	const ky = await importOriginal();
-	return {
-		default: ky.default.extend({
-			retry: {
-				limit: 0
-			}
-		})
-	};
-});
-
 beforeAll(() => {
 	server.listen({ onUnhandledRequest: 'error' });
 	vi.useFakeTimers();

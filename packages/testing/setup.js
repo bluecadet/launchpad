@@ -22,6 +22,18 @@ vi.mock('node:fs/promises', () => ({
 	default: fs.promises
 }));
 
+vi.mock('ky', async (importOriginal) => {
+	/** @type {import('ky')} */
+	const ky = await importOriginal();
+	return {
+		default: ky.default.extend({
+			retry: {
+				limit: 0
+			}
+		})
+	};
+});
+
 // neverthrow expect helpers
 expect.extend({
 	/**

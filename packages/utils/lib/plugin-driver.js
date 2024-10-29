@@ -33,7 +33,7 @@ class PluginError extends Error {
  */
 
 /**
- * @typedef {Record<string, (ctx: any, ...args: never[]) => void | Promise<void>>} HookSet
+ * @typedef {Record<string, (ctx: any, ...args: never[]) => void | PromiseLike<void>>} HookSet
  */
 
 /**

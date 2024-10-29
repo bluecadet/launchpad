@@ -27,10 +27,10 @@ export class ContentError extends Error {
 
 /**
  * @typedef ContentHooks
- * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | Promise<void>} onSetupError Called when a content source fails to setup
- * @prop {(ctx: CombinedContentHookContext) => void | Promise<void>} onContentFetchSetup Called before any content is fetched
- * @prop {(ctx: CombinedContentHookContext) => void | Promise<void>} onContentFetchDone Called when all content has been fetched
- * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | Promise<void>} onContentFetchError Called when a content source fails to fetch
+ * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | PromiseLike<void>} onSetupError Called when a content source fails to setup
+ * @prop {(ctx: CombinedContentHookContext) => void | PromiseLike<void>} onContentFetchSetup Called before any content is fetched
+ * @prop {(ctx: CombinedContentHookContext) => void | PromiseLike<void>} onContentFetchDone Called when all content has been fetched
+ * @prop {(ctx: CombinedContentHookContext, error: ContentError) => void | PromiseLike<void>} onContentFetchError Called when a content source fails to fetch
  */
 
 /**

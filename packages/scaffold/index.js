@@ -1,55 +1,28 @@
 #!/usr/bin/env node
 
 import * as sudo from 'sudo-prompt';
-import { launchFromCli, LogManager } from '@bluecadet/launchpad-utils';
+import { LogManager } from '@bluecadet/launchpad-utils';
 import * as path from 'path';
 import * as url from 'url';
+import assert from 'assert';
 
-export class LaunchpadScaffold {
-	constructor({
-		filepath = './setup.bat'
-	} = {}) {
-		this.filepath = filepath;
-		this._logger = LogManager.getInstance().getLogger('scaffold');
+export function launchScaffold() {
+	const logger = LogManager.getInstance().getLogger('scaffold');
+
+	// assert(process.platform === 'win32', 'Launchpad Scaffold currently only supports Windows');
+	if (process.platform !== 'win32') {
+		logger.error('Launchpad Scaffold currently only supports Windows');
+		logger.error('Exiting...');
+		process.exit(1);
 	}
 
-	/**
-	 * @returns {Promise<void>}
-	 */
-	async start() {
-		return new Promise((resolve, reject) => {
-			// @see https://stackoverflow.com/a/50052194/782899
-			const dir = path.dirname(url.fileURLToPath(import.meta.url));
-			this._logger.info('Starting Launchpad Scaffold script...');
-			sudo.exec(`start ${path.resolve(dir, this.filepath)}`, {
-				name: 'Launchpad Scaffold'
-			}, (error, stdout) => {
-				if (error) {
-					reject(error);
-				} else {
-					console.log(stdout);
-					resolve();
-				}
-			});
-		});
-	}
-}
+	logger.info('Starting Launchpad Scaffold script...');
 
-/**
- * @param {{filepath?:string} | {scaffold: {filepath?:string}}} config 
- */
-export const launch = async (config) => {
-	const scaffold = new LaunchpadScaffold('scaffold' in config ? config.scaffold : config);
-	await scaffold.start();
-};
-
-launchFromCli(import.meta, {
-	relativePaths: ['launchpad-scaffold/index.js', '.bin/launchpad-scaffold']
-})
-	.then(launch)
-	.catch((err) => {
-		if (err) {
-			console.error('Launch error', err);
-			process.exit(1);
-		}
+	return sudo.exec(`start ${path.resolve(import.meta.dirname, './setup.bat')}`, {
+		name: 'Launchpad Scaffold'
+	},
+	function(error, stdout, stderr) {
+		if (error) throw error;
+		console.log(stdout);
 	});
+}

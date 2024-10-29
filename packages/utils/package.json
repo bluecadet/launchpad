@@ -3,7 +3,7 @@
   "version": "1.5.2",
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
-  "main": "index.js",
+  "main": "lib/index.js",
   "typesVersions": {
     "*": {
       "*": [
@@ -13,7 +13,6 @@
   },
   "files": [
     "types",
-    "index.js",
     "lib"
   ],
   "scripts": {
@@ -33,14 +32,12 @@
     "async": "^3.2.3",
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
-    "dotenv": "^16.3.1",
     "logform": "^2.3.2",
     "moment": "^2.29.1",
     "neverthrow": "^8.1.0",
     "strip-json-comments": "^4.0.0",
     "winston": "^3.4.0",
-    "winston-daily-rotate-file": "^4.5.5",
-    "yargs": "^17.3.1"
+    "winston-daily-rotate-file": "^4.5.5"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {

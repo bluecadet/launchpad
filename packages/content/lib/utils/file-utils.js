@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import {glob} from 'glob';
+import { glob } from 'glob';
 import { okAsync, ResultAsync } from 'neverthrow';
 
 /**
@@ -34,47 +34,47 @@ export function saveJson(json, filePath, appendJsonExtension = true) {
  * @returns {ResultAsync<void, string>}
  */
 export function removeFilesFromDir(dirPath, exclude = []) {
-  return ResultAsync.fromPromise(
-    glob(path.join(dirPath, '**/*'), { 
-      ignore: exclude.map(pattern => path.join(dirPath, pattern)), 
-      dot: true,
-      nodir: true // Only match files, not directories
-    }),
-    (error) => `Failed to glob directory ${dirPath}: ${error}`
-  )
-  .andThen((files) => {
-    const deletePromises = files.map((file) => 
-      ResultAsync.fromPromise(
-        fs.promises.unlink(file), // Use unlink instead of rm to only remove files
-        (error) => `Failed to remove ${file}: ${error}`
-      )
-    );
-    return ResultAsync.combine(deletePromises);
-  })
-  .andThen(() => {
-    // Remove empty directories after deleting files
-    return ResultAsync.fromPromise(
-      glob(path.join(dirPath, '**/*'), { 
-        ignore: exclude, 
-        dot: true,
-        nodir: false // Match directories this time
-      }),
-      (error) => `Failed to glob directories in ${dirPath}: ${error}`
-    )
-    .andThen((dirs) => {
-      // Sort directories by depth (deepest first)
-      dirs.sort((a, b) => b.split(path.sep).length - a.split(path.sep).length);
+	return ResultAsync.fromPromise(
+		glob(path.join(dirPath, '**/*'), {
+			ignore: exclude.map(pattern => path.join(dirPath, pattern)),
+			dot: true,
+			nodir: true // Only match files, not directories
+		}),
+		(error) => `Failed to glob directory ${dirPath}: ${error}`
+	)
+		.andThen((files) => {
+			const deletePromises = files.map((file) =>
+				ResultAsync.fromPromise(
+					fs.promises.unlink(file), // Use unlink instead of rm to only remove files
+					(error) => `Failed to remove ${file}: ${error}`
+				)
+			);
+			return ResultAsync.combine(deletePromises);
+		})
+		.andThen(() => {
+			// Remove empty directories after deleting files
+			return ResultAsync.fromPromise(
+				glob(path.join(dirPath, '**/*'), {
+					ignore: exclude,
+					dot: true,
+					nodir: false // Match directories this time
+				}),
+				(error) => `Failed to glob directories in ${dirPath}: ${error}`
+			)
+				.andThen((dirs) => {
+					// Sort directories by depth (deepest first)
+					dirs.sort((a, b) => b.split(path.sep).length - a.split(path.sep).length);
       
-      const removeDirPromises = dirs.map((dir) =>
-        ResultAsync.fromPromise(
-          fs.promises.rmdir(dir),
-          (error) => `Failed to remove directory ${dir}: ${error}`
-        ).orElse(() => okAsync(undefined)) // Ignore errors if directory is not empty
-      );
-      return ResultAsync.combine(removeDirPromises);
-    });
-  })
-  .map(() => undefined);
+					const removeDirPromises = dirs.map((dir) =>
+						ResultAsync.fromPromise(
+							fs.promises.rmdir(dir),
+							(error) => `Failed to remove directory ${dir}: ${error}`
+						).orElse(() => okAsync(undefined)) // Ignore errors if directory is not empty
+					);
+					return ResultAsync.combine(removeDirPromises);
+				});
+		})
+		.map(() => undefined);
 }
     
 export function getDateString(d = new Date()) {

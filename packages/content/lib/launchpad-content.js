@@ -11,25 +11,6 @@ import { DataStore } from './utils/data-store.js';
 import { ok, err, ResultAsync, okAsync } from 'neverthrow';
 
 export class LaunchpadContent {
-	/**
-	 * Creates a new LaunchpadContent and downloads content using an optional user config object.
-	 * @param {import('./content-options.js').ConfigWithContent} config
-	 * @returns {Promise.<LaunchpadContent>} Promise that resolves with the new LaunchpadContent instance.
-	 */
-	static async createAndDownload(config) {
-		try {
-			const content = new LaunchpadContent(config);
-			await content.download();
-			return content;
-		} catch (error) {
-			LogManager.getInstance().getLogger().error(
-				chalk.red('Could not download data:'),
-				error
-			);
-			return Promise.reject(error);
-		}
-	}
-
 	/** @type {import('./content-options.js').ResolvedContentOptions} */
 	_config;
 
@@ -61,17 +42,17 @@ export class LaunchpadContent {
 		// create all sources
 		this._rawSources = this._config.sources;
 
-		const basePluginDriver = pluginDriver || new PluginDriver(config?.plugins ?? []);
+		const basePluginDriver = pluginDriver || new PluginDriver(this._logger, config?.plugins ?? []);
 
 		this._pluginDriver = new ContentPluginDriver(
 			basePluginDriver,
 			{
-				dataStore: new DataStore(),
+				dataStore: this._dataStore,
 				options: this._config,
 				paths: {
-					getDownloadPath: this.getDownloadPath,
-					getTempPath: this.getTempPath,
-					getBackupPath: this.getBackupPath
+					getDownloadPath: this.getDownloadPath.bind(this),
+					getTempPath: this.getTempPath.bind(this),
+					getBackupPath: this.getBackupPath.bind(this)
 				}
 			}
 		);
@@ -94,6 +75,11 @@ export class LaunchpadContent {
 			.andThrough(() => this._pluginDriver.runHookSequential('onContentFetchSetup'))
 			.andThen(
 				sources => this.backup(sources)
+					.andThen(() => this.clear(sources, {
+						temp: false,
+						backups: false,
+						downloads: true
+					}))
 					.andThen(() => this._fetchSources(sources))
 					.andThrough(() => this._pluginDriver.runHookSequential('onContentFetchDone'))
 					.andThen(() => this._writeDataStoreToDisk(this._dataStore))
@@ -101,7 +87,9 @@ export class LaunchpadContent {
 						this._pluginDriver.runHookSequential('onContentFetchError', e);
 						this._logger.error('Error in content fetch process:', e);
 						this._logger.info('Restoring from backup...');
-						return this.restore(sources);
+						return this.restore(sources).andThen(() => {
+							return err(new ContentError('Failed to download content. Restored from backup.'));
+						});
 					})
 					.andThen(() => this.clear(sources, {
 						temp: true,
@@ -176,12 +164,10 @@ export class LaunchpadContent {
 			return FileUtils.pathExists(downloadPath)
 				.andThen((exists) => {
 					if (!exists) {
-						return err(`Failed to backup source ${source.id}: No downloads found at ${downloadPath}`);
+						this._logger.warn(`Skipping backup for ${source.id}: No downloads found at ${downloadPath}`);
+						return ok(undefined);
 					}
-					return ok(undefined);
-				}).andTee(() => {
 					this._logger.debug(`Backing up ${source}`);
-				}).andThen(() => {
 					return FileUtils.copy(downloadPath, backupPath);
 				});
 		}))
@@ -350,20 +336,17 @@ export class LaunchpadContent {
 	 */
 	_clearDir(dirPath, { removeIfEmpty = true, ignoreKeep = false } = {}) {
 		return FileUtils.pathExists(dirPath)
-			.mapErr(e => new ContentError(e))
 			.andThen(exists => {
 				if (!exists) return okAsync(undefined);
 				return FileUtils.removeFilesFromDir(dirPath, ignoreKeep ? undefined : this._config.keep)
-					.andThen(result => {
+					.andThen(() => {
 						if (removeIfEmpty) {
 							return FileUtils.removeDirIfEmpty(dirPath);
 						}
 	
 						return okAsync(undefined);
-					}).mapErr(
-						e => new ContentError(e)
-					);
-			});
+					});
+			}).mapErr(e => new ContentError(e));
 	}
 
 	/**

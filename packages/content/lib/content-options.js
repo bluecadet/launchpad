@@ -16,8 +16,6 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 /**
  * @typedef ContentOptions
  * @property {ConfigContentSource[]} [sources] A list of content source options. This defines which content is downloaded from where.
- * @property {Array<Object<string, number>>} [imageTransforms] A list of image transforms to apply to a copy of each downloaded image.
- * @property {Object<string, string>} [contentTransforms] A list of content transforms to apply to all donwloaded content.
  * @property {string} [downloadPath] The path at which to store all downloaded files. Defaults to '.downloads/'.
  * @property {string} [tempPath] Temp file directory path. Defaults to '%DOWNLOAD_PATH%/.tmp/'.
  * @property {string} [backupPath] Temp directory path where all downloaded content will be backed up before removal. Defaults to '%TIMESTAMP%/.tmp-backup/'.
@@ -33,8 +31,6 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
  */
 export const CONTENT_OPTION_DEFAULTS = {
 	sources: [],
-	imageTransforms: [],
-	contentTransforms: {},
 	downloadPath: '.downloads/',
 	tempPath: '%DOWNLOAD_PATH%/.tmp/',
 	backupPath: '.tmp-backup/%TIMESTAMP%/',
@@ -61,7 +57,7 @@ export function resolveContentOptions(config) {
  */
 
 /**
- * @typedef {import('@bluecadet/launchpad-utils').BaseConfig & {content?: ContentOptions, plugins?: import('./content-plugin-driver.js').ContentPlugin[]}} ConfigWithContent
+ * @typedef {{content?: ContentOptions, plugins?: import('./content-plugin-driver.js').ContentPlugin[]}} ConfigWithContent
  */
 
 /**

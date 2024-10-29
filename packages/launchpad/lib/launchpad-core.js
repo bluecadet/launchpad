@@ -49,7 +49,7 @@ export class LaunchpadCore {
 		
 		this._config = resolveLaunchpadOptions(config);
 		this._logger = LogManager.getInstance(this._config.logging).getLogger();
-		this._pluginDriver = new PluginDriver(this._config.plugins ?? []);
+		this._pluginDriver = new PluginDriver(this._logger, this._config.plugins ?? []);
 		this._commands = new CommandCenter(this._config.commands, this._logger);
 		this._content = new LaunchpadContent(this._config, this._logger);
 		this._monitor = new LaunchpadMonitor(this._config, this._logger);

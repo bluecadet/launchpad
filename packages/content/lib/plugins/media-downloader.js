@@ -275,7 +275,7 @@ export default function mediaDownloader(options = {}) {
 				setMaxListeners(0, ctx.abortSignal);
 
 				const queryJsonPath = optionsWithDefaults.matchPath ??
-					`$..*[?(@.match(${optionsWithDefaults.mediaPattern}))]`;
+					`$..[?(@.match(${optionsWithDefaults.mediaPattern}))]`;
 
 				return setupDownloadDirectories(ctx, optionsWithDefaults)
 					.map(() => findMediaUrls(ctx.data, optionsWithDefaults, queryJsonPath))

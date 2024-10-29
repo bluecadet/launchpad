@@ -7,9 +7,7 @@ import autoBind from 'auto-bind';
 import { LogManager, onExit } from '@bluecadet/launchpad-utils';
 import LaunchpadContent from '@bluecadet/launchpad-content';
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
-import CommandCenter, { Command } from './command-center.js';
 import { resolveLaunchpadOptions } from './launchpad-options.js';
-import CommandHooks from './command-hooks.js';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 
 /**
@@ -27,9 +25,6 @@ export class LaunchpadCore {
 	
 	/** @type {LaunchpadMonitor} */
 	_monitor;
-	
-	/** @type {CommandCenter} */
-	_commands;
 	
 	/** @type {boolean} */
 	_isShuttingDown = false;
@@ -50,17 +45,8 @@ export class LaunchpadCore {
 		this._config = resolveLaunchpadOptions(config);
 		this._logger = LogManager.getInstance(this._config.logging).getLogger();
 		this._pluginDriver = new PluginDriver(this._logger, this._config.plugins ?? []);
-		this._commands = new CommandCenter(this._config.commands, this._logger);
 		this._content = new LaunchpadContent(this._config, this._logger);
 		this._monitor = new LaunchpadMonitor(this._config, this._logger);
-		
-		this._commands.add(new Command({ name: 'startup', callback: this._runStartup }));
-		this._commands.add(new Command({ name: 'shutdown', callback: this._runShutdown }));
-		this._commands.add(new Command({ name: 'start-apps', callback: this._runStartApps }));
-		this._commands.add(new Command({ name: 'stop-apps', callback: this._runStopApps }));
-		this._commands.add(new Command({ name: 'update-content', callback: this._runUpdateContent }));
-		
-		this._commands.addCommandHooks(new CommandHooks(this._config.hooks));
 		
 		if (this._config.shutdownOnExit) {
 			onExit(this.shutdown);
@@ -72,7 +58,8 @@ export class LaunchpadCore {
 	 * This function is queued and waits until the queue is empty before it executes.
 	 */
 	async startup() {
-		return this._commands.run('startup');
+		await this.updateContent();
+		await this.startApps();
 	}
 	
 	/**
@@ -82,47 +69,6 @@ export class LaunchpadCore {
 	 * @param {number|string|Error} [eventOrExitCode] 
 	 */
 	async shutdown(eventOrExitCode = undefined) {
-		await this._commands.run('shutdown', eventOrExitCode);
-	}
-	
-	/**
-	 * Starts all apps.
-	 * This function is queued and waits until the queue is empty before it executes.
-	 */
-	async startApps() {
-		return this._commands.run('start-apps');
-	}
-	
-	/**
-	 * Stops all apps.
-	 * This function is queued and waits until the queue is empty before it executes.
-	 */
-	async stopApps() {
-		return this._commands.run('stop-apps');
-	}
-	
-	/**
-	 * Updates all content and optionally first stops and then re-starts all apps after.
-	 * This function is queued and waits until the queue is empty before it executes.
-	 * 
-	 * @param {boolean} stopApps Stop all apps while content is updating and restart them after (whether update was successful or not). Defaults to true.
-	 */
-	async updateContent(stopApps = true) {
-		return this._commands.run('update-content', stopApps);
-	}
-	
-	/**
-	 * @private
-	 */
-	async _runStartup() {
-		await this.updateContent();
-		await this.startApps();
-	}
-	
-	/**
-	 * @private
-	 */
-	async _runShutdown(eventOrExitCode = 0) {
 		try {
 			this._logger.info('Launchpad exiting... 👋');
 			
@@ -133,12 +79,12 @@ export class LaunchpadCore {
 			
 			this._isShuttingDown = true;
 			
-			await this._runStopApps();
+			await this.stopApps();
 			
 			this._logger.info('...launchpad shut down');
 			this._logger.close();
 			
-			process.exit(isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode);
+			process.exit(eventOrExitCode === undefined || isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode);
 		} catch (err) {
 			this._logger.error('Unhandled exit exception:');
 			this._logger.error(err);
@@ -146,9 +92,10 @@ export class LaunchpadCore {
 	}
 	
 	/**
-	 * @private
+	 * Starts all apps.
+	 * This function is queued and waits until the queue is empty before it executes.
 	 */
-	async _runStartApps() {
+	async startApps() {
 		this._logger.info('Starting apps...');
 		if (this._areAppsRunning) {
 			this._logger.warn('Aborting apps start since apps are already running');
@@ -161,9 +108,10 @@ export class LaunchpadCore {
 	}
 	
 	/**
-	 * @private
+	 * Stops all apps.
+	 * This function is queued and waits until the queue is empty before it executes.
 	 */
-	async _runStopApps() {
+	async stopApps() {
 		this._logger.info('Stopping apps...');
 		if (!this._areAppsRunning) {
 			this._logger.warn('All apps are already stopped');
@@ -176,15 +124,17 @@ export class LaunchpadCore {
 	}
 	
 	/**
-	 * @private
-	 * @param {boolean} stopApps
+	 * Updates all content and optionally first stops and then re-starts all apps after.
+	 * This function is queued and waits until the queue is empty before it executes.
+	 * 
+	 * @param {boolean} stopApps Stop all apps while content is updating and restart them after (whether update was successful or not). Defaults to true.
 	 */
-	async _runUpdateContent(stopApps = true) {
+	async updateContent(stopApps = true) {
 		const appsWereRunning = await this._monitor.isRunning();
 		
 		if (stopApps && appsWereRunning) {
 			this._logger.debug('Stopping apps before updating content');
-			await this._runStopApps();
+			await this.stopApps();
 		}
 		try {
 			await this._content.start();
@@ -193,7 +143,7 @@ export class LaunchpadCore {
 		}
 		if (stopApps && appsWereRunning) {
 			this._logger.debug('Restarting apps after updating content');
-			await this._runStartApps();
+			await this.startApps();
 		}
 	}
 }

@@ -151,6 +151,7 @@ describe('mediaDownloader', () => {
 			ctx.data.insert('test', 'doc1', {
 				images: [
 					'https://example.com/1.jpg',
+					'https://example.com/1.jpg',
 					'https://example.com/2.png',
 					'not-a-url.txt',
 					'https://example.com/doc.pdf'
@@ -163,16 +164,17 @@ describe('mediaDownloader', () => {
 				'$..*[?(@.match(/\\.(jpg|png)$/i))]'
 			);
 
-			expect(urls).toHaveLength(2);
-			expect(urls).toContain('https://example.com/1.jpg');
-			expect(urls).toContain('https://example.com/2.png');
+			expect(urls).toMatchObject([
+				{ url: 'https://example.com/1.jpg', sourceId: 'test' },
+				{ url: 'https://example.com/2.png', sourceId: 'test' }
+			]);
 		});
 
 		it('should find URLs using matchPath', () => {
 			const ctx = createTestPluginContext();
 			ctx.data.insert('test', 'doc1', {
 				media: {
-					hero: { url: 'https://example.com/hero.jpg' },
+					hero: 'https://example.com/hero.jpg',
 					gallery: [
 						{ url: 'https://example.com/1.jpg' },
 						{ url: 'https://example.com/2.jpg' }
@@ -186,8 +188,10 @@ describe('mediaDownloader', () => {
 				'$..*[?(@.url)].url'
 			);
 
-			expect(urls).toHaveLength(3);
-			expect(urls).toContain('https://example.com/hero.jpg');
+			expect(urls).toMatchObject([
+				{ url: 'https://example.com/1.jpg', sourceId: 'test' },
+				{ url: 'https://example.com/2.jpg', sourceId: 'test' }
+			]);
 		});
 	});
 

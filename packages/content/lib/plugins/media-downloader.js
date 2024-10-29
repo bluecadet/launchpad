@@ -172,10 +172,11 @@ export function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, o
  * @param {import('../utils/data-store.js').DataStore} dataStore
  * @param {MediaDownloaderOptionsWithDefaults} options
  * @param {string} queryJsonPath
- * @returns {Array<string>}
+ * @returns {Array<{ url: string, sourceId: string }>}
  */
 export function findMediaUrls(dataStore, options, queryJsonPath) {
-	const urls = new Set();
+	/** @type {Array<{ url: string, sourceId: string }>} */
+	const returnUrls = [];
 	const filteredResult = dataStore.filter(options.keys);
 
 	if (filteredResult.isErr()) {
@@ -183,6 +184,8 @@ export function findMediaUrls(dataStore, options, queryJsonPath) {
 	}
 
 	for (const source of filteredResult.value) {
+		const uniqueUrlSet = new Set();
+		
 		for (const document of source.documents) {
 			const foundUrls = /** @type {Array<string>} */ (JSONPath({
 				json: document.data,
@@ -190,11 +193,13 @@ export function findMediaUrls(dataStore, options, queryJsonPath) {
 				ignoreEvalErrors: true
 			}));
 
-			foundUrls.forEach(url => urls.add(url));
+			foundUrls.forEach(url => uniqueUrlSet.add(url));
 		}
+
+		uniqueUrlSet.forEach(url => returnUrls.push({ url, sourceId: source.namespaceId }));
 	}
 
-	return Array.from(urls);
+	return returnUrls;
 }
 
 /**
@@ -272,26 +277,27 @@ export default function mediaDownloader(options = {}) {
 				const queryJsonPath = optionsWithDefaults.matchPath ??
 					`$..*[?(@.match(${optionsWithDefaults.mediaPattern}))]`;
 
-				setupDownloadDirectories(ctx, optionsWithDefaults)
+				return setupDownloadDirectories(ctx, optionsWithDefaults)
 					.map(() => findMediaUrls(ctx.data, optionsWithDefaults, queryJsonPath))
 					.andThen(urls => {
 						const queue = new ResultAsyncQueue({
 							concurrency: optionsWithDefaults.maxConcurrent
 						});
 
+						const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, 'g');
+
 						const tasks = urls.map(url => {
 							/**
 							 * @param {{ signal?: AbortSignal }} args
 							 */
 							const task = ({ signal }) => downloadMedia(
-								url,
-								ctx.paths.getTempPath(),
-								ctx.paths.getDownloadPath(),
-								new RegExp(`[${ctx.contentOptions.encodeChars}]`, 'g'),
+								url.url,
+								path.join(ctx.paths.getTempPath(), url.sourceId),
+								path.join(ctx.paths.getDownloadPath(), url.sourceId),
+								encodeRegex,
 								signal ?? ctx.abortSignal,
 								optionsWithDefaults
 							);
-
 							return task;
 						});
 
@@ -323,6 +329,8 @@ export default function mediaDownloader(options = {}) {
 					})
 					.orElse(e => {
 						throw e;
+					}).then(() => {
+						// return void
 					});
 			}
 		})

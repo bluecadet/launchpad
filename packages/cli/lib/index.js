@@ -1,3 +1,2 @@
-import LaunchpadCore from './launchpad-core.js';
-
-export default LaunchpadCore;
+export { defineConfig } from './launchpad-options.js';
+export { LaunchpadCore } from './launchpad-core.js';

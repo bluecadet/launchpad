@@ -7,7 +7,6 @@
     "node": ">=17.5.0"
   },
   "type": "module",
-  "main": "./lib/index.js",
   "typesVersions": {
     "*": {
       "*": [
@@ -58,11 +57,12 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~1.5.0",
     "auto-bind": "^5.0.1",
-    "chalk": "^5.0.0"
+    "chalk": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "yargs": "^17.7.2"
   },
   "optionalDependencies": {
     "@bluecadet/launchpad-content": "~1.14.0",
-    "@bluecadet/launchpad-dashboard": "~1.5.0",
     "@bluecadet/launchpad-monitor": "~1.8.0",
     "@bluecadet/launchpad-scaffold": "~1.8.0"
   },

@@ -1,81 +1,48 @@
 #!/usr/bin/env node
 
-import { LaunchpadCore } from './launchpad-core.js';
-import { launchFromCli } from '@bluecadet/launchpad-utils';
-import { launch as launchScaffold } from '@bluecadet/launchpad-scaffold';
-import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 export { defineConfig } from './launchpad-options.js';
 
-export class StartupCommands {
-	/** @type {string} */
-	static START = 'start';
-	/** @type {string} */
-	static STOP = 'stop';
-	/** @type {string} */
-	static CONTENT = 'content';
-	/** @type {string} */
-	static MONITOR = 'monitor';
-	/** @type {string} */
-	static SCAFFOLD = 'scaffold';
-}
-
 /**
- * @param {import('yargs').Argv} argv
- * @param {string|string[]} commands
- * @param {string} description
+ * @typedef LaunchpadArgv
+ * @property {string} [config]
+ * @property {(string | number)[]} [env]
+ * @property {string} [envCascade]
  */
-const addCommand = (argv, commands, description) => {
-	if (!Array.isArray(commands)) {
-		commands = [commands];
-	}
-	argv.command(commands, description, () => {}, args => {
-		args.startupCommand = commands[0];
-	});
-	return argv;
-};
 
-// Launched as standalone module
-launchFromCli(import.meta, {
-	relativePaths: ['launchpad/index.js', '.bin/launchpad'],
-	yargsCallback: argv => {
-		argv = addCommand(argv, [StartupCommands.START, '$0'], 'Starts launchpad by updating content and starting apps.');
-		argv = addCommand(argv, [StartupCommands.CONTENT, 'update-content'], 'Only download content. Parses your config as `config.content || config`.');
-		argv = addCommand(argv, [StartupCommands.MONITOR, 'start-apps'], 'Only start apps. Parses your config as `config.monitor || config`.');
-		argv = addCommand(argv, [StartupCommands.SCAFFOLD], 'Configures the current PC for exhibit environments (with admin prompt).');
-		argv = addCommand(argv, [StartupCommands.STOP, 'stop-apps'], 'Stops and kills any existing PM2 instance.');
-		return argv;
-	}
-}).then(async config => {
-	const launchpad = new LaunchpadCore(config);
-	
-	switch (config.startupCommand) {
-		case StartupCommands.SCAFFOLD: {
-			await launchScaffold(config);
-			break;
-		}
-		case StartupCommands.CONTENT: {
-			await launchpad.updateContent();
-			await launchpad.shutdown();
-			break;
-		}
-		case StartupCommands.MONITOR: {
-			await launchpad.startApps();
-			break;
-		}
-		case StartupCommands.STOP: {
-			await launchpad.stopApps();
-			await LaunchpadMonitor.kill();
-			break;
-		}
-		case StartupCommands.START:
-		default: {
-			await launchpad.startup();
-			break;
-		}
-	}
-}).catch(err => {
-	if (err) {
-		console.error('Launch error', err);
-		process.exit(1);
-	}
-});
+yargs(hideBin(process.argv))
+	.parserConfiguration({
+		// See https://github.com/yargs/yargs-parser#camel-case-expansion
+		'camel-case-expansion': false
+	})
+	.option('config', { alias: 'c', describe: 'Path to your JS config file', type: 'string' })
+	.option('env', { alias: 'e', describe: 'Path(s) to your .env file(s)', type: 'array' })
+	.option('env-cascade', { alias: 'E', describe: 'cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir', type: 'string' })
+	.command(['start', '$0'], 'Starts launchpad by updating content and starting apps.', async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { start } = await import('./commands/start.js');
+		await start(resolvedArgv);
+	})
+	.command('stop', 'Stops launchpad by stopping apps and killing any existing PM2 instance.', async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { stop } = await import('./commands/stop.js');
+		await stop(resolvedArgv);
+	})
+	.command('content', 'Only download content.', async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { content } = await import('./commands/content.js');
+		await content(resolvedArgv);
+	})
+	.command('monitor', 'Only start apps.', async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { monitor } = await import('./commands/monitor.js');
+		await monitor(resolvedArgv);
+	})
+	.command('scaffold', 'Configures the current PC for exhibit environments (with admin prompt).', async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { scaffold } = await import('./commands/scaffold.js');
+		await scaffold(resolvedArgv);
+	})
+	.help()
+	.parse();

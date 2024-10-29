@@ -3,7 +3,7 @@
   "version": "1.8.0",
   "description": "",
   "type": "module",
-  "main": "index.js",
+  "main": "./lib/index.js",
   "typesVersions": {
     "*": {
       "*": [
@@ -11,10 +11,8 @@
       ]
     }
   },
-  "bin": "index.js",
   "files": [
     "types",
-    "index.js",
     "lib"
   ],
   "scripts": {

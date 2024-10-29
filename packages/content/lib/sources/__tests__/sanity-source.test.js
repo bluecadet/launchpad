@@ -162,7 +162,7 @@ describe('sanitySource', () => {
 			}]
 		});
 
-		expect(source).toBeErr();
+		expect(source).toBeOk();
 		const sourceValue = source._unsafeUnwrap();
 
 		const result = await sourceValue.fetch(createFetchContext());

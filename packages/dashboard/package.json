@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-dashboard",
-  "version": "1.5.0",
+  "version": "2.0.0-next.0",
   "description": "",
   "type": "module",
   "main": "index.js",
@@ -30,7 +30,7 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.5.0"
+    "@bluecadet/launchpad-utils": "~2.0.0-next.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

@@ -1,5 +1,35 @@
 # @bluecadet/launchpad
 
+## 2.0.0-next.0
+
+### Major Changes
+
+- [#164](https://github.com/bluecadet/launchpad/pull/164) [`3d40d3c3f47afe080f642b3188f5e62a529a891b`](https://github.com/bluecadet/launchpad/commit/3d40d3c3f47afe080f642b3188f5e62a529a891b) Thanks [@github-actions](https://github.com/apps/github-actions)! - **Plugin API and Content Package Updates:**
+
+  - Add basic support for Plugin API across `content`, `monitor`, and `core` packages.
+  - Implement full support for plugins in `content` package.
+  - Refactor `content` sources to be functions.
+  - Refactor `content` transforms and media-downloader to be plugins.
+  - Implement `neverthrow` for error handling in `content` package.
+  - Add unit tests for `content` package.
+  - Fully remove credentials API (superseded by dotenv config)
+
+- [#165](https://github.com/bluecadet/launchpad/pull/165) [`205157ef8a2dddf2eda14c41730604f5e80d87de`](https://github.com/bluecadet/launchpad/commit/205157ef8a2dddf2eda14c41730604f5e80d87de) Thanks [@claytercek](https://github.com/claytercek)! - **New CLI Package**:
+  - Move CLI to separate package
+  - Lazy import CLI commands to improve startup time
+  - Move config and dotenv loading and parsing to CLI package
+  - convert core package to have no code, just a shorthand for installing all sub-packages
+
+### Patch Changes
+
+- Updated dependencies [[`3d40d3c3f47afe080f642b3188f5e62a529a891b`](https://github.com/bluecadet/launchpad/commit/3d40d3c3f47afe080f642b3188f5e62a529a891b), [`205157ef8a2dddf2eda14c41730604f5e80d87de`](https://github.com/bluecadet/launchpad/commit/205157ef8a2dddf2eda14c41730604f5e80d87de)]:
+  - @bluecadet/launchpad-dashboard@2.0.0-next.0
+  - @bluecadet/launchpad-scaffold@2.0.0-next.0
+  - @bluecadet/launchpad-content@2.0.0-next.0
+  - @bluecadet/launchpad-monitor@2.0.0-next.0
+  - @bluecadet/launchpad-utils@2.0.0-next.0
+  - @bluecadet/launchpad-cli@2.0.0-next.0
+
 ## 1.5.2
 
 ### Patch Changes

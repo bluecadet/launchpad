@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-cli",
-  "version": "1.0.0",
+  "version": "2.0.0-next.0",
   "description": "CLI for @bluecadet/launchpad utilities",
   "engines": {
     "npm": ">=8.5.1",
@@ -55,7 +55,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/cli",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.5.0",
+    "@bluecadet/launchpad-utils": "~2.0.0-next.0",
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "dotenv": "^16.4.5",
@@ -63,9 +63,9 @@
     "yargs": "^17.7.2"
   },
   "optionalDependencies": {
-    "@bluecadet/launchpad-content": "~1.14.0",
-    "@bluecadet/launchpad-monitor": "~1.8.0",
-    "@bluecadet/launchpad-scaffold": "~1.8.0"
+    "@bluecadet/launchpad-content": "~2.0.0-next.0",
+    "@bluecadet/launchpad-monitor": "~2.0.0-next.0",
+    "@bluecadet/launchpad-scaffold": "~2.0.0-next.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

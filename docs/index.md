@@ -1,25 +1,14 @@
----
-# https://vitepress.dev/reference/default-theme-home-page
-layout: home
+# Launchpad
 
-hero:
-  name: "Launchpad"
-  text: "TODO: site description"
-  tagline: My great project tagline
-  actions:
-    - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
-    - theme: alt
-      text: API Examples
-      link: /api-examples
+Launchpad is a highly configurable suite of tools to manage media installations. It can:
 
-features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
----
+- Launch, control and monitor multiple processes (via [PM2](https://pm2.keymetrics.io/))
+- Download and locally cache content from various common web APIs
+- Bootstrap Windows PCs with common exhibit settings
+- Consolidate and route application logs
+
+
+[ADD DIAGRAM / VIDEO HERE]
+
+## Why Launchpad?
 

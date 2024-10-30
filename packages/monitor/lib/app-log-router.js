@@ -287,7 +287,7 @@ export default class AppLogRouter {
 		const logOptions = appOptions.logging;
 		const appName = pm2Options.name ?? pm2Options.script ?? '[unnamed app]';
 
-		const appLogger = LogManager.getInstance().getLogger(appName, this._logger);
+		const appLogger = LogManager.getLogger(appName, this._logger);
 
 		if (logOptions.mode === LogModes.TailLogFile) {
 			const fileRelay = new FileLogRelay(appOptions, appLogger);

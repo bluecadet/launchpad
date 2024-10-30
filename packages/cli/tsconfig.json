@@ -10,9 +10,6 @@
 			"path": "../utils"
 		},
 		{
-			"path": "../dashboard"
-		},
-		{
 			"path": "../monitor"
 		},
 		{
@@ -20,9 +17,6 @@
 		},
 		{
 			"path": "../content"
-		},
-		{
-			"path": "../cli"
 		}
 	]
 }

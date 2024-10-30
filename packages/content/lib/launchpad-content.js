@@ -8,7 +8,7 @@ import { LogManager } from '@bluecadet/launchpad-utils';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { ContentError, ContentPluginDriver } from './content-plugin-driver.js';
 import { DataStore } from './utils/data-store.js';
-import { ok, err, ResultAsync, okAsync } from 'neverthrow';
+import { ok, err, ResultAsync, okAsync, errAsync } from 'neverthrow';
 
 export class LaunchpadContent {
 	/** @type {import('./content-options.js').ResolvedContentOptions} */
@@ -30,19 +30,24 @@ export class LaunchpadContent {
 	_dataStore;
 
 	/**
-	 * @param {import('./content-options.js').ConfigWithContent} [config]
+	 * @param {import('./content-options.js').ContentOptions} [config]
 	 * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
-	 * @param {PluginDriver<import('./content-plugin-driver.js').ContentHooks>} [pluginDriver]
 	 */
-	constructor(config, parentLogger, pluginDriver) {
-		this._config = resolveContentOptions(config?.content);
-		this._logger = LogManager.getInstance().getLogger('content', parentLogger);
+	constructor(config, parentLogger) {
+		this._config = resolveContentOptions(config);
+
+		if (!parentLogger) {
+			LogManager.configureRootLogger();
+		}
+
+		this._logger = LogManager.getLogger('content', parentLogger);
+
 		this._dataStore = new DataStore();
 
 		// create all sources
 		this._rawSources = this._config.sources;
 
-		const basePluginDriver = pluginDriver || new PluginDriver(this._logger, config?.plugins ?? []);
+		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
 
 		this._pluginDriver = new ContentPluginDriver(
 			basePluginDriver,
@@ -282,7 +287,7 @@ export class LaunchpadContent {
 	_fetchSources(sources) {
 		return ResultAsync.combine(
 			sources.map((source) => {
-				const sourceLogger = LogManager.getInstance().getLogger(`source:${source.id}`);
+				const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
 
 				return source.fetch({
 					logger: sourceLogger,

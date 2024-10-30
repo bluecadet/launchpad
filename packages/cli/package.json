@@ -59,6 +59,7 @@
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "dotenv": "^16.4.5",
+    "neverthrow": "^8.1.1",
     "yargs": "^17.7.2"
   },
   "optionalDependencies": {

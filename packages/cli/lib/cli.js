@@ -19,7 +19,7 @@ yargs(hideBin(process.argv))
 	.option('config', { alias: 'c', describe: 'Path to your JS config file', type: 'string' })
 	.option('env', { alias: 'e', describe: 'Path(s) to your .env file(s)', type: 'array' })
 	.option('env-cascade', { alias: 'E', describe: 'cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir', type: 'string' })
-	.command(['start', '$0'], 'Starts launchpad by updating content and starting apps.', async ({ argv }) => {
+	.command('start', 'Starts launchpad by updating content and starting apps.', async ({ argv }) => {
 		const resolvedArgv = await argv;
 		const { start } = await import('./commands/start.js');
 		await start(resolvedArgv);

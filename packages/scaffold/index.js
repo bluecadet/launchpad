@@ -3,13 +3,17 @@
 import * as sudo from 'sudo-prompt';
 import { LogManager } from '@bluecadet/launchpad-utils';
 import * as path from 'path';
-import * as url from 'url';
-import assert from 'assert';
 
-export function launchScaffold() {
-	const logger = LogManager.getInstance().getLogger('scaffold');
+/**
+ * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
+ */
+export function launchScaffold(parentLogger) {
+	if (!parentLogger) {
+		LogManager.configureRootLogger();
+	}
 
-	// assert(process.platform === 'win32', 'Launchpad Scaffold currently only supports Windows');
+	const logger = LogManager.getLogger('scaffold', parentLogger);
+
 	if (process.platform !== 'win32') {
 		logger.error('Launchpad Scaffold currently only supports Windows');
 		logger.error('Exiting...');

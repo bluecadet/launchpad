@@ -9,7 +9,7 @@ import pm2 from 'pm2';
 import { spawn } from 'cross-spawn';
 import { SubEmitterSocket } from 'axon'; // used by PM2
 
-import { LogManager } from '@bluecadet/launchpad-utils';
+import { onExit, LogManager } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import sortWindows from './utils/sort-windows.js';
 import { resolveMonitorConfig } from './monitor-options.js';
@@ -44,25 +44,13 @@ export class LaunchpadMonitor {
 	 */
 	_pluginDriver;
 	
-	/**
-	 * Creates a new instance, starts it with the
-	 * config and resolves with the monitor instance.
-	 * @param {import('./monitor-options.js').ConfigWithMonitor} config 
-	 * @returns {Promise<LaunchpadMonitor>} Promise that resolves with the new LaunchpadMonitor instance.
-	 */
-	static async createAndStart(config) {
-		const monitor = new LaunchpadMonitor(config);
-		await monitor.connect();
-		await monitor.start();
-		return monitor;
-	}
-	
 	/** 
 	 * Force kills all PM2 instances 
 	 * @returns {Promise<void>}
 	 */
 	static async kill() {
-		const logger = LogManager.getInstance().getLogger('monitor');
+		const logger = LogManager.getLogger('monitor');
+
 		logger.info('Killing PM2...');
 
 		return new Promise((resolve, reject) => {
@@ -84,14 +72,19 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {import('./monitor-options.js').ConfigWithMonitor} [config] 
+	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
    * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
-   * @param {PluginDriver<import('./monitor-plugin-driver.js').MonitorHooks>} [pluginDriver]
 	 */
-	constructor(config, parentLogger, pluginDriver) {
+	constructor(config, parentLogger) {
 		autoBind(this);
-		this._logger = LogManager.getInstance().getLogger('monitor', parentLogger);
-		this._config = resolveMonitorConfig(config?.monitor);
+
+		if (!parentLogger) {
+			LogManager.configureRootLogger();
+		}
+
+		this._logger = LogManager.getLogger('monitor', parentLogger);
+		
+		this._config = resolveMonitorConfig(config);
 		this._appLogRouter = new AppLogRouter(this._logger);
 		this._applyWindowSettings = pDebounce(
 			this._applyWindowSettings,
@@ -104,11 +97,15 @@ export class LaunchpadMonitor {
 			this._config.apps.forEach(this._initAppOptions);
 		}
 
-		const basePluginDriver = pluginDriver || new PluginDriver(this._logger, config?.plugins ?? []);
+		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
 		
 		this._pluginDriver = new MonitorPluginDriver(
 			basePluginDriver
 		);
+
+		if (this._config.shutdownOnExit) {
+			onExit(this.shutdown);
+		}
 	}
 	
 	/**
@@ -212,7 +209,7 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * Checks if any of these apps is currently running.
+	 * Checks if any of these apps are currently running.
 	 * Checks against all apps if no argument is passed.
 	 * @param {string|string[]|null} appNames Single app name, array of app names or null/undefined to default to all apps.
 	 * @returns {Promise<boolean>}
@@ -336,6 +333,38 @@ export class LaunchpadMonitor {
 				this._logger.error(`Could not stop app '${appName}':`, err);
 				throw err;
 			});
+	}
+
+	/**
+	 * Stops launchpad and exits this process.
+	 * This function is queued and waits until the queue is empty before it executes.
+	 * 
+	 * @param {number|string|Error} [eventOrExitCode] 
+	 */
+	async shutdown(eventOrExitCode = undefined) {
+		try {
+			this._logger.info('Monitor exiting... 👋');
+			
+			if (this._isShuttingDown) {
+				this._logger.warn('Aborting exit since launchpad is already exiting');
+				return Promise.resolve();
+			}
+			
+			this._isShuttingDown = true;
+			
+			this._logger.info('Stopping apps...');
+			await this.stop();
+			await this.disconnect();
+			this._logger.info('...apps stopped ✋');
+			
+			this._logger.info('...monitor shut down');
+			this._logger.close();
+			
+			process.exit(eventOrExitCode === undefined || isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode);
+		} catch (err) {
+			this._logger.error('Unhandled exit exception:');
+			this._logger.error(err);
+		}
 	}
 	
 	/**

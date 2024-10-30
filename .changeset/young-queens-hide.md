@@ -7,4 +7,8 @@
 "@bluecadet/launchpad-cli": major
 ---
 
-Move CLI to separate package
+
+- Move CLI to separate package
+- Lazy import CLI commands to improve startup time
+- Move config and dotenv loading and parsing to CLI package
+- convert core package to have no code, just a shorthand for installing all sub-packages

@@ -5,7 +5,7 @@ import pkg from '../../packages/launchpad/package.json'
 export default defineConfig({
   lang: 'en-US',
   title: "Launchpad",
-  description: "TODO: site description",
+  description: "A suite of tools to manage media installations",
   lastUpdated: true,
   themeConfig: {
     search: {
@@ -18,7 +18,7 @@ export default defineConfig({
         items: [
           {
             text: 'Changelog',
-            link: 'https://github.com/bluecadet/launchpad/blob/develop/packages/launchpad/CHANGELOG.md'
+            link: 'https://github.com/bluecadet/launchpad/releases'
           },
           {
             text: 'Contributing',
@@ -33,7 +33,20 @@ export default defineConfig({
         text: 'Guides',
         items: [
           { text: 'Introduction', link: '/' },
-          { text: 'Getting Started', link: '/guides/getting-started' }
+          { text: 'Getting Started', link: '/guides/getting-started' },
+        ]
+      },
+      {
+        text: 'Content',
+        items: [
+          { text: 'Overview', link: '/content/overview' },
+          { text: 'Caching & Updates', link: '/content/caching' }
+        ]
+      },
+      {
+        text: 'CLI',
+        items: [
+          { text: 'Commands', link: '/cli/commands' }
         ]
       }
     ],

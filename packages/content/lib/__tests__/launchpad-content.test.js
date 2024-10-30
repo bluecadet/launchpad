@@ -79,10 +79,8 @@ describe('LaunchpadContent', () => {
 			vol.writeFileSync('/downloads/test/old.json', '{}');
 
 			const config = {
-				content: {
-					...createBasicConfig().content,
-					keep: ['.keep']
-				}
+				...createBasicConfig().content,
+				keep: ['.keep']
 			};
 
 			const content = new LaunchpadContent(config, createMockLogger());

@@ -22,7 +22,8 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad#readme",
   "workspaces": [
-    "./packages/*"
+    "./packages/*",
+    "./docs"
   ],
   "devDependencies": {
     "@changesets/changelog-github": "^0.4.6",

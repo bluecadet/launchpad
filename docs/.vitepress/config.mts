@@ -7,6 +7,7 @@ export default defineConfig({
   title: "Launchpad",
   description: "A suite of tools to manage media installations",
   lastUpdated: true,
+  ignoreDeadLinks: true, // TODO: disable after writing all docs
   themeConfig: {
     search: {
       provider: 'local'

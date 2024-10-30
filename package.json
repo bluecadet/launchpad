@@ -7,8 +7,8 @@
     "changeset": "changeset",
     "lint": "npx eslint ./packages/**/*.js",
     "lint:fix": "npx eslint ./packages/**/*.js --fix",
-    "lint:fix-dry": "npx eslint ./packages/**/*.js --fix-dry-run",
     "build": "npm run build -w @bluecadet/launchpad",
+    "docs:build": "npm run build -w @bluecadet/launchpad-docs",
     "release": "npm run build && changeset publish"
   },
   "repository": {

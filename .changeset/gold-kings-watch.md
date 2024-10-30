@@ -7,7 +7,7 @@
 "@bluecadet/launchpad-utils": major
 ---
 
-
+**Plugin API and Content Package Updates:**
 - Add basic support for Plugin API across `content`, `monitor`, and `core` packages.
 - Implement full support for plugins in `content` package.
 - Refactor `content` sources to be functions.

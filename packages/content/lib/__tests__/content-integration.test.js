@@ -42,18 +42,16 @@ describe('Content Integration', () => {
 			);
 
 			const content = new LaunchpadContent({
-				content: {
-					downloadPath: '/downloads',
-					tempPath: '/temp',
-					sources: [
-						jsonSource({
-							id: 'blog',
-							files: {
-								'article.json': 'https://api.example.com/content'
-							}
-						})
-					]
-				},
+				downloadPath: '/downloads',
+				tempPath: '/temp',
+				sources: [
+					jsonSource({
+						id: 'blog',
+						files: {
+							'article.json': 'https://api.example.com/content'
+						}
+					})
+				],
 				plugins: [
 					mdToHtml({ path: '$.content' }),
 					mediaDownloader({
@@ -120,18 +118,16 @@ describe('Content Integration', () => {
 			);
 
 			const content = new LaunchpadContent({
-				content: {
-					downloadPath: '/downloads',
-					tempPath: '/temp',
-					sources: [
-						sanitySource({
-							id: 'cms',
-							projectId: 'test-project',
-							apiToken: 'test-token',
-							queries: ['article']
-						})
-					]
-				},
+				downloadPath: '/downloads',
+				tempPath: '/temp',
+				sources: [
+					sanitySource({
+						id: 'cms',
+						projectId: 'test-project',
+						apiToken: 'test-token',
+						queries: ['article']
+					})
+				],
 				plugins: [
 					sanityToHtml({ path: '$..content' })
 				]
@@ -176,24 +172,22 @@ describe('Content Integration', () => {
 			);
 
 			const content = new LaunchpadContent({
-				content: {
-					downloadPath: '/downloads',
-					tempPath: '/temp',
-					sources: [
-						jsonSource({
-							id: 'source1',
-							files: {
-								'content.json': 'https://api1.example.com/content'
-							}
-						}),
-						jsonSource({
-							id: 'source2',
-							files: {
-								'content.json': 'https://api2.example.com/content'
-							}
-						})
-					]
-				},
+				downloadPath: '/downloads',
+				tempPath: '/temp',
+				sources: [
+					jsonSource({
+						id: 'source1',
+						files: {
+							'content.json': 'https://api1.example.com/content'
+						}
+					}),
+					jsonSource({
+						id: 'source2',
+						files: {
+							'content.json': 'https://api2.example.com/content'
+						}
+					})
+				],
 				plugins: [
 					mediaDownloader({
 						mediaPattern: /\.jpg$/,
@@ -230,19 +224,17 @@ describe('Content Integration', () => {
 			);
 
 			const content = new LaunchpadContent({
-				content: {
-					downloadPath: '/downloads',
-					tempPath: '/temp',
-					backupPath: '/backups',
-					sources: [
-						jsonSource({
-							id: 'test',
-							files: {
-								'content.json': 'https://api.example.com/content'
-							}
-						})
-					]
-				}
+				downloadPath: '/downloads',
+				tempPath: '/temp',
+				backupPath: '/backups',
+				sources: [
+					jsonSource({
+						id: 'test',
+						files: {
+							'content.json': 'https://api.example.com/content'
+						}
+					})
+				]
 			}, createMockLogger());
 
 			const result = await content.download();
@@ -269,19 +261,17 @@ describe('Content Integration', () => {
 			);
 
 			const content = new LaunchpadContent({
-				content: {
-					downloadPath: '/downloads',
-					tempPath: '/temp',
-					backupPath: '/backups',
-					sources: [
-						jsonSource({
-							id: 'test',
-							files: {
-								'content.json': 'https://api.example.com/content'
-							}
-						})
-					]
-				},
+				downloadPath: '/downloads',
+				tempPath: '/temp',
+				backupPath: '/backups',
+				sources: [
+					jsonSource({
+						id: 'test',
+						files: {
+							'content.json': 'https://api.example.com/content'
+						}
+					})
+				],
 				plugins: [
 					sanityToHtml({ path: '$..content' }) // This should fail on invalid content
 				]

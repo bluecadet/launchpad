@@ -8,6 +8,7 @@ import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
 import moment from 'moment';
 import chalk from 'chalk';
+import { text } from 'stream/consumers';
 
 /**
  * @callback createChildLogger
@@ -81,7 +82,7 @@ const LOG_OPTIONS_DEFAULTS = {
 	fileOptions: LOG_FILE_OPTIONS_DEFAULTS,
 	level: 'info',
 	format: DEFAULT_LOG_FORMAT,
-	overrideConsole: false
+	overrideConsole: process.env.NODE_ENV !== 'test'
 };
 
 /**
@@ -109,17 +110,6 @@ export class LogManager {
 	static _instance = null;
 	
 	/**
-	 * @param {LogOptions} [config] 
-	 * @returns {LogManager}
-	 */
-	static getInstance(config) {
-		if (this._instance === null) {
-			this._instance = new LogManager(config);
-		}
-		return this._instance;
-	}
-	
-	/**
 	 * @type {ResolvedLogOptions}
 	 */
 	_config;
@@ -127,14 +117,14 @@ export class LogManager {
 	/**
 	 * @type {WinstonLogger}
 	 */
-	_logger;
+	_rootLogger;
 	
 	/**
 	 * @param {LogOptions} [config] 
 	 */
 	constructor(config) {
 		this._config = resolveLogOptions(config);
-		this._logger = winston.createLogger({
+		this._rootLogger = winston.createLogger({
 			...this._config,
 			transports: [
 				new winston.transports.Console({ level: this._config.level }),
@@ -145,24 +135,58 @@ export class LogManager {
 		});
 		
 		if (this._config.overrideConsole) {
-			this.overrideConsoleMethods();
+			this.#overrideConsoleMethods();
 		}
 	}
-	
+
+	/**
+	 * Get the singleton instance of the LogManager
+	 * @returns {LogManager}
+	 */
+	static getInstance() {
+		if (this._instance === null) {
+			throw new Error('Root logger not configured');
+		}
+		return this._instance;
+	}
+
+	/**
+	 * @param {LogOptions} [config]
+	 */
+	static configureRootLogger(config) {
+		if (this._instance === null) {
+			this._instance = new LogManager(config);
+		} else {
+			this._instance._rootLogger.warn('Root logger already configured. Ignoring.');
+		}
+
+		return this._instance;
+	}
+
 	/**
 	 * @param {string} [moduleName] If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
 	 * @param {Logger} [parent] The parent logger to create this logger from (if a moduleName is specified). Will default to the main logger instance if left empty.
 	 * @returns {Logger}
 	 */
-	getLogger(moduleName, parent) {
+	static getLogger(moduleName, parent) {
+		if (parent === undefined) {
+			parent = this.getInstance()._rootLogger;
+		}
 		if (moduleName) {
-			parent = parent || this._logger;
 			const child = parent.child({ module: moduleName });
 			parent.once('close', () => child.close());
 			return child;
 		} else {
-			return this._logger;
+			return parent;
 		}
+	}
+	
+	/**
+	 * @param {string} [moduleName] If defined, will create a child logger with the specified module name. The child logger is automatically ended when the parent logger ends.
+	 * @returns {Logger}
+	 */
+	getChildLogger(moduleName) {
+		return LogManager.getLogger(moduleName, this._rootLogger);
 	}
 	
 	/**
@@ -183,11 +207,10 @@ export class LogManager {
 
 	/**
 	 * Overrides console methods to use the parent logger instead
-	 * @private
 	 */
-	overrideConsoleMethods() {
+	#overrideConsoleMethods() {
 		// Override console methods
-		const logger = this.getLogger('console');
+		const logger = this.getChildLogger('console');
 		console.log = logger.info.bind(logger);
 		console.info = logger.info.bind(logger);
 		console.warn = logger.warn.bind(logger);

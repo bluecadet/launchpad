@@ -8,26 +8,6 @@ Launchpad is a highly configurable suite of tools to manage media installations.
 - Consolidate and route application logs
 - [...and much more](#documentation)
 
-```mermaid
-%%{ init: { 'flowchart': { 'curve': 'bumpX' } } }%%
-graph LR
-    Launchpad:::package
-
-    Launchpad --> Scaffold:::package -.-> PCs([PCs])
-    Launchpad --> Content:::package -.-> APIs([APIs])
-    Launchpad --> Monitor:::package -.-> Apps([Apps])
-
-    APIs -.-> Cache[(Cache)]
-    Apps -.-> Cache
-
-    click Launchpad "/packages/launchpad" "Core package for logging, events, hooks"
-    click Scaffold "/packages/scaffold" "Windows config, automation, app installs"
-    click Content "/packages/content" "Download, cache and process content"
-    click Monitor "/packages/monitor" "Launch and monitor apps via PM2"
-
-    classDef package fill:#69f,stroke:#000,color:#fff
-```
-
 ## Getting Started
 
 1. Install launchpad: `npm i @bluecadet/launchpad`
@@ -35,46 +15,7 @@ graph LR
 3. _Optional: [Bootstrap](/packages/scaffold) your PC with `npx launchpad scaffold`_
 4. Run `npx launchpad`
 
-![Screen Recording of Launchpad on Windows 11](https://user-images.githubusercontent.com/295789/197365153-d62d9218-2ffa-4611-ac61-fa5bf786766a.gif)
-
-Run `npx launchpad --help` to see all available commands.
-
 _Note: Launchpad is typically triggered run by a startup task (e.g. Windows Task Scheduler) using `npx launchpad`. When installed globally (`npm i -g @bluecadet/launchpad`), you can use the `launchpad` command instead. See [config loading](#config-loading) for more info._
-
-## Configuration
-
-Each [launchpad package](#packages) is configured via its own section in `launchpad.config.js`. Below is a simple example that uses the [`content`](/packages/content) package to download JSON and images from Flickr and [`monitor`](/packages/monitor) to launch a single app:
-
-```js
-import { defineConfig } from "@bluecadet/launchpad";
-
-export default defineConfig({
-	content: {
-		sources: [
-			{
-				id: "flickr-images",
-				files: {
-					"spaceships.json":
-						"https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
-					"rockets.json":
-						"https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket",
-				},
-			},
-		],
-	},
-	monitor: {
-		apps: [
-			{
-				pm2: {
-					name: "my-app",
-					script: "my-app.exe",
-					cwd: "./builds/",
-				},
-			},
-		],
-	},
-});
-```
 
 _Note: [Scaffold](/packages/scaffold) is configured separately in a PowerShell file. This is a guided process when you run `npx launchpad scaffold`._
 

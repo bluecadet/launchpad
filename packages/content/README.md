@@ -6,23 +6,6 @@ To download content, all you need to do is define content sources and provide cr
 
 The following `launchpad.json` would download jsons and images from the Flickr API to `.downloads/flickr-images` (a combination of the default `.downloads/` directory and the `id` field of the content source):
 
-```json
-{
-  "content": {
-    "sources": [
-      {
-        "id": "flickr-images",
-        "type": "json",
-        "files": {
-            "spaceships.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
-            "rockets.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket"
-        }
-      }
-    ]
-  }
-}
-```
-
 See [ContentOptions Parameters](#contentoptions-parameters) for a full list of content settings.
 
 ## Source Settings

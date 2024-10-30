@@ -8,6 +8,7 @@ export default defineConfig({
   description: "A suite of tools to manage media installations",
   lastUpdated: true,
   ignoreDeadLinks: true, // TODO: disable after writing all docs
+  base: '/launchpad/',
   themeConfig: {
     search: {
       provider: 'local'

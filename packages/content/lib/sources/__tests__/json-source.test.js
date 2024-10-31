@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import jsonSource from '../json-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { DataStore } from '../../utils/data-store.js';
+import { SourceFetchError, SourceParseError } from '../source.js';
 
 const server = setupServer();
 
@@ -89,7 +90,7 @@ describe('jsonSource', () => {
 
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toMatch('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 	});
 
 	it('should handle parse errors', async () => {
@@ -119,7 +120,7 @@ describe('jsonSource', () => {
 
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toMatch('parse');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceParseError);
 	});
 
 	it('should respect the maxTimeout option', async () => {
@@ -151,7 +152,11 @@ describe('jsonSource', () => {
     
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toMatch('fetch');
-		expect(data._unsafeUnwrapErr().message).toContain('Request timed out');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
+		expect(data._unsafeUnwrapErr().message).toContain('Could not fetch json from https://api.example.com/slow');
+		// @ts-expect-error cause is unknown
+		expect(data._unsafeUnwrapErr().cause.message).toContain('Error during request');
+		// @ts-expect-error cause is unknown
+		expect(data._unsafeUnwrapErr().cause.cause.message).toContain('Request timed out');
 	});
 });

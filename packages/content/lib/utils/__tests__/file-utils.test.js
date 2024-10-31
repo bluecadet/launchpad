@@ -55,7 +55,7 @@ describe('FileUtils', () => {
 				'/test-dir': {
 					'file1.txt': 'content',
 					'file2.json': '{}',
-					'subdir': {
+					subdir: {
 						'file3.csv': 'data'
 					}
 				}
@@ -71,7 +71,7 @@ describe('FileUtils', () => {
 		it('should exclude specified files', async () => {
 			const result = await FileUtils.removeFilesFromDir('/test-dir', ['*.json', '**/*.csv']);
 			expect(result).toBeOk();
-      expect(vol.readdirSync('/test-dir', {recursive: true})).toEqual(expect.arrayContaining(['file2.json', 'subdir/file3.csv', 'subdir']));
+			expect(vol.readdirSync('/test-dir', { recursive: true })).toEqual(expect.arrayContaining(['file2.json', 'subdir/file3.csv', 'subdir']));
 		});
 	});
 

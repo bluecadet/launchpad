@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DataStore, Document } from '../data-store.js';
+import { DataStore, DataStoreError, Document } from '../data-store.js';
 
 describe('Document', () => {
 	it('should create a document with id and data', () => {
@@ -27,7 +27,11 @@ describe('Document', () => {
 			throw new Error('Test error');
 		});
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr().message).toBe('Test error');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
+		expect(result._unsafeUnwrapErr().message).toBe('Error applying content transform');
+		expect(result._unsafeUnwrapErr().cause).toBeInstanceOf(Error);
+		// @ts-expect-error cause is unknown
+		expect(result._unsafeUnwrapErr().cause.message).toBe('Test error');
 	});
 });
 
@@ -43,7 +47,8 @@ describe('DataStore', () => {
 		store.createNamespace('test-namespace');
 		const result = store.createNamespace('test-namespace');
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBe('Namespace test-namespace already exists in data store');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
+		expect(result._unsafeUnwrapErr().message).toBe('Namespace test-namespace already exists in data store');
 	});
 
 	it('should insert a document into a namespace', () => {
@@ -59,7 +64,8 @@ describe('DataStore', () => {
 		store.insert('test-namespace', 'test-doc', { content: 'test content' });
 		const result = store.insert('test-namespace', 'test-doc', { content: 'duplicate content' });
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBe('Document test-doc already exists in namespace test-namespace');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
+		expect(result._unsafeUnwrapErr().message).toBe('Document test-doc already exists in namespace test-namespace');
 	});
 
 	it('should get a document from a namespace', () => {
@@ -76,7 +82,8 @@ describe('DataStore', () => {
 		store.createNamespace('test-namespace');
 		const result = store.get('test-namespace', 'non-existent-doc');
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBe('Document non-existent-doc not found in namespace test-namespace');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
+		expect(result._unsafeUnwrapErr().message).toBe('Document non-existent-doc not found in namespace test-namespace');
 	});
 
 	it('should delete a document from a namespace', () => {

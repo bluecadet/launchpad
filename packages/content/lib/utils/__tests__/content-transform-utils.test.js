@@ -65,7 +65,7 @@ describe('content-transform-utils', () => {
 				transformFn,
 				logger,
 				keys: ['test']
-			})).toThrow(/Transform error/);
+			})).toThrow(/Error applying content transform/);
 		});
 	});
 

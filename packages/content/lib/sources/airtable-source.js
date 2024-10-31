@@ -1,6 +1,5 @@
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from 'neverthrow';
-import { defineSource } from './source.js';
-import { configError, fetchError, parseError } from './source-errors.js';
+import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError, SourceParseError } from './source.js';
 
 /**
  * @typedef AirtableOptions
@@ -34,7 +33,7 @@ const AIRTABLE_OPTION_DEFAULTS = {
  * @param {import("airtable").Base} base 
  * @param {string} tableId 
  * @param {string} [defaultView]
- * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], import('./source-errors.js').SourceError>}
+ * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], SourceFetchError>}
  */
 function fetchData(base, tableId, defaultView) {
 	return ResultAsync.fromPromise(
@@ -70,7 +69,7 @@ function fetchData(base, tableId, defaultView) {
 					}
 				);
 		}),
-		(error) => fetchError(`Failed to fetch data from Airtable: ${error instanceof Error ? error.message : error}`)
+		(error) => new SourceFetchError('Failed to fetch data from Airtable', { cause: error })
 	);
 }
 
@@ -91,7 +90,7 @@ function isBoolStr(value) {
 /**
  * @param {import("airtable").Record<import("airtable").FieldSet>[]} tableData 
  * @param {boolean} isKeyValueTable
- * @returns {Result<unknown, import('./source-errors.js').SourceError>}
+ * @returns {Result<unknown, SourceParseError>}
  */
 function processTableToSimplified(tableData, isKeyValueTable) {
 	if (isKeyValueTable) {
@@ -104,7 +103,7 @@ function processTableToSimplified(tableData, isKeyValueTable) {
 			const fields = row._rawJson.fields;
 
 			if (Object.keys(fields).length < 2) {
-				return err(parseError('At least 2 columns required to map table to a key-value pair'));
+				return err(new SourceParseError('At least 2 columns required to map table to a key-value pair'));
 			}
 
 			const regex = /(.*)\[([0-9]*)\]$/g;
@@ -148,14 +147,14 @@ export default function airtableSource(options) {
 	};
 
 	if (!assembledOptions.apiKey) {
-		return errAsync(configError('apiKey is required'));
+		return errAsync(new SourceConfigError('apiKey is required'));
 	}
 
 	if (!assembledOptions.baseId) {
-		return errAsync(configError('baseId is required'));
+		return errAsync(new SourceConfigError('baseId is required'));
 	}
 
-	return ResultAsync.fromPromise(import('airtable'), () => configError('Could not find module "airtable". Make sure you have installed it.'))
+	return ResultAsync.fromPromise(import('airtable'), () => new SourceMissingDependencyError('Could not find module "airtable". Make sure you have installed it.'))
 		.map(({ default: Airtable }) => {
 			Airtable.configure({
 				endpointUrl: assembledOptions.endpointUrl,
@@ -173,7 +172,7 @@ export default function airtableSource(options) {
 			 * @param {string} tableId 
 			 * @param {boolean} force
 			 * @param {import("@bluecadet/launchpad-utils").Logger} logger
-			 * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], import('./source-errors.js').SourceError>}
+			 * @returns {ResultAsync<import("airtable").Record<import("airtable").FieldSet>[], SourceFetchError>}
 			 */
 			function getDataCached(tableId, force = false, logger) {
 				logger.debug(`Fetching ${tableId} from Airtable`);
@@ -208,8 +207,8 @@ export default function airtableSource(options) {
 								const simplifiedTable = processTableToSimplified(data, false);
 
 								if (simplifiedTable.isErr()) {
-									ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
-									return err(simplifiedTable.error);
+									ctx.logger.error(`Error processing ${tableId} from Airtable`);
+									return err(new SourceParseError(`Error processing table ${tableId} from Airtable`, { cause: simplifiedTable.error }));
 								}
 
 								return ok([{
@@ -230,8 +229,8 @@ export default function airtableSource(options) {
 								const simplifiedTable = processTableToSimplified(data, true);
 
 								if (simplifiedTable.isErr()) {
-									ctx.logger.error(`Error processing ${tableId} from Airtable: ${simplifiedTable.error}`);
-									return err(simplifiedTable.error);
+									ctx.logger.error(`Error processing ${tableId} from Airtable`);
+									return err(new SourceParseError(`Error processing table ${tableId} from Airtable`, { cause: simplifiedTable.error }));
 								}
 
 								return ok([{

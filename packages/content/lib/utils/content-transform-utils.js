@@ -1,10 +1,10 @@
 import chalk from 'chalk';
-import { err, ok, Result } from 'neverthrow';
+import { ok } from 'neverthrow';
 
 /**
  * @param {import('./data-store.js').DataStore} dataStore
  * @param {import('./data-store.js').DataKeys } [ids] A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
- * @returns {import('neverthrow').Result<Iterable<import('./data-store.js').Document>, string>}
+ * @returns {import('neverthrow').Result<Iterable<import('./data-store.js').Document>, Error>}
  */
 export function getMatchingDocuments(dataStore, ids) {
 	if (!ids) {
@@ -29,7 +29,7 @@ export function applyTransformToFiles({ dataStore, path, transformFn, logger, ke
 	const matchingDocuments = getMatchingDocuments(dataStore, keys);
 
 	if (matchingDocuments.isErr()) {
-		throw new Error(matchingDocuments.error);
+		throw matchingDocuments.error;
 	}
 
 	for (const document of matchingDocuments.value) {

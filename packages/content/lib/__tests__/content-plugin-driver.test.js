@@ -113,16 +113,13 @@ describe('ContentPluginDriver', () => {
 				})
 			});
 
+			const contentErr = new ContentError('Plugin setup failed', error);
 			contentDriver.add(plugin);
-			await contentDriver.runHookSequential('onSetupError', new ContentError('Plugin setup failed', error));
+			await contentDriver.runHookSequential('onSetupError', contentErr);
 
 			expect(onSetupError).toHaveBeenCalledWith(
-				expect.any(Object),
-				expect.objectContaining({
-					name: 'ContentError',
-					message: 'Plugin setup failed',
-					cause: error
-				})
+				expect.anything(),
+				contentErr
 			);
 		});
 
@@ -146,16 +143,13 @@ describe('ContentPluginDriver', () => {
 				})
 			});
 
+			const contentErr = new ContentError('Content fetch failed', error);
 			contentDriver.add(plugin);
-			await contentDriver.runHookSequential('onContentFetchError', new ContentError('Content fetch failed', error));
+			await contentDriver.runHookSequential('onContentFetchError', contentErr);
 
 			expect(onContentFetchError).toHaveBeenCalledWith(
-				expect.any(Object),
-				expect.objectContaining({
-					name: 'ContentError',
-					message: 'Content fetch failed',
-					cause: error
-				})
+				expect.anything(),
+				expect.any(ContentError)
 			);
 		});
 	});

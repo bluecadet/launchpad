@@ -11,7 +11,7 @@
  * @template [T=unknown]
  * @typedef {object} SourceFetchPromise
  * @prop {string} id Id of the fetch request, used for logging and debugging
- * @prop {import('neverthrow').ResultAsync<Array<SourceFetchResultDocument<T>>, import('./source-errors.js').SourceError>} dataPromise Promise that resolves to an array of documents
+ * @prop {import('neverthrow').ResultAsync<Array<SourceFetchResultDocument<T>>, SourceFetchError | SourceParseError>} dataPromise Promise that resolves to an array of documents
  */
 
 /**
@@ -24,13 +24,13 @@
  * @template [T=unknown]
  * @typedef {object} ContentSource
  * @prop {string} id Id of the source. This will be the 'namespace' for the documents fetched from this source.
- * @prop {(ctx: FetchContext) => import('neverthrow').Result<Array<SourceFetchPromise<T>>, import('./source-errors.js').SourceError>} fetch
+ * @prop {(ctx: FetchContext) => import('neverthrow').Result<Array<SourceFetchPromise<T>>, SourceFetchError | SourceParseError>} fetch
  */
 
 /**
  * @template O
  * @template [T=unknown]
- * @typedef {(options: O) => import('neverthrow').ResultAsync<ContentSource<T>, import('./source-errors.js').SourceError>} ContentSourceBuilder
+ * @typedef {(options: O) => import('neverthrow').ResultAsync<ContentSource<T>, SourceConfigError | SourceMissingDependencyError>} ContentSourceBuilder
  */
 
 /**
@@ -41,4 +41,52 @@
  */
 export function defineSource(src) {
 	return src;
+}
+
+export class SourceFetchError extends Error {
+	/**
+	 * @param {string} message
+	 * @param {object} [options]
+	 * @param {unknown} [options.cause]
+	 */
+	constructor(message, { cause } = {}) {
+		super(message, { cause });
+		this.name = 'SourceFetchError';
+	}
+}
+
+export class SourceConfigError extends Error {
+	/**
+	 * @param {string} message
+	 * @param {object} [options]
+	 * @param {unknown} [options.cause]
+	 */
+	constructor(message, { cause } = {}) {
+		super(message, { cause });
+		this.name = 'SourceConfigError';
+	}
+}
+
+export class SourceParseError extends Error {
+	/**
+	 * @param {string} message
+	 * @param {object} [options]
+	 * @param {unknown} [options.cause]
+	 */
+	constructor(message, { cause } = {}) {
+		super(message, { cause });
+		this.name = 'SourceParseError';
+	}
+}
+
+export class SourceMissingDependencyError extends Error {
+	/**
+	 * @param {string} message
+	 * @param {object} [options]
+	 * @param {unknown} [options.cause]
+	 */
+	constructor(message, { cause } = {}) {
+		super(message, { cause });
+		this.name = 'SourceMissingDependencyError';
+	}
 }

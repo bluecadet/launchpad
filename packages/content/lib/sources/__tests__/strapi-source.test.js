@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import strapiSource from '../strapi-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { DataStore } from '../../utils/data-store.js';
+import { SourceConfigError, SourceFetchError } from '../source.js';
 
 const server = setupServer();
 
@@ -39,7 +40,7 @@ describe('strapiSource', () => {
 		});
 
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr().type).toBe('config');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
 		expect(result._unsafeUnwrapErr().message).toContain('Unsupported strapi version');
 	});
 
@@ -314,8 +315,8 @@ describe('strapiSource', () => {
 
 		expect(source).toBeErr();
 		const sourceValue = source._unsafeUnwrapErr();
-		expect(sourceValue.type).toBe('fetch');
-		expect(sourceValue.message).toContain('401');
+		expect(sourceValue).toBeInstanceOf(SourceFetchError);
+		expect(sourceValue.message).toContain('Could not complete request to get JWT for test@example.com');
 	});
 
 	it('should handle API errors', async () => {
@@ -347,7 +348,7 @@ describe('strapiSource', () => {
 		const data = await fetchPromises[0].dataPromise;
 
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 		expect(data._unsafeUnwrapErr().message).toContain('Could not fetch page');
 	});
 });

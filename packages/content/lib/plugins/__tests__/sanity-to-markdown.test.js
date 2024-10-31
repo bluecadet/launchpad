@@ -45,6 +45,6 @@ describe('sanityToMd plugin', () => {
 		ctx.data.insert('test', 'doc1', { content: 'not a block' });
 
 		const plugin = sanityToMd({ path: '$.content' });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Content is not a valid Sanity text block');
+		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Error applying content transform');
 	});
 });

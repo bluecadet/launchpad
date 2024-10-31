@@ -1,19 +1,19 @@
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
-import { fetchError } from '../sources/source-errors.js';
+import { SourceFetchError } from '../sources/source.js';
 
 /**
  * @template {unknown} T
  * @typedef FetchPaginatedOptions
  * @property {number} limit The number of items to fetch per page
  * @property {number} [maxFetchCount] The maximum number of pages to fetch. If this is reached, the fetch will be terminated early.
- * @property {(params: {limit: number, offset: number}) => ResultAsync<T | null, import('../sources/source-errors.js').SourceError>} fetchPageFn A function that takes a params object and returns a ResultAsync of an array of T. To indicate the end of pagination, return an empty array, or null.
+ * @property {(params: {limit: number, offset: number}) => ResultAsync<T | null, SourceFetchError>} fetchPageFn A function that takes a params object and returns a ResultAsync of an array of T. To indicate the end of pagination, return an empty array, or null.
  * @property {import('@bluecadet/launchpad-utils').Logger} logger A logger instance
  */
 
 /**
  * @template {unknown} T
  * @template {unknown} M
- * @typedef {ResultAsync<M extends undefined ? {pages: Array<T>} : {pages: Array<T>, meta: M}, import('../sources/source-errors.js').SourceError>} FetchPaginatedResult
+ * @typedef {ResultAsync<M extends undefined ? {pages: Array<T>} : {pages: Array<T>, meta: M}, SourceFetchError>} FetchPaginatedResult
  */
 
 /**
@@ -29,7 +29,7 @@ export function fetchPaginated({ fetchPageFn, limit, logger, maxFetchCount = 100
 	let page = 0;
 
 	/**
-	 * @returns {ResultAsync<T | null, import('../sources/source-errors.js').SourceError>}
+	 * @returns {ResultAsync<T | null, SourceFetchError>}
 	 */
 	const fetchNextPage = () => {
 		logger.debug(`Fetching page ${page}`);
@@ -42,7 +42,7 @@ export function fetchPaginated({ fetchPageFn, limit, logger, maxFetchCount = 100
 					page++;
 
 					if (page >= maxFetchCount) {
-						return errAsync(fetchError('Maximum fetch count reached. This is likely a bug.'));
+						return errAsync(new SourceFetchError('Maximum fetch count reached. This is likely a bug. Make sure your fetchPageFn ret'));
 					}
 
 					return fetchNextPage();

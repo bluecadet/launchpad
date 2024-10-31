@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { fetchPaginated } from '../fetch-paginated.js';
 import { ResultAsync } from 'neverthrow';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
-import { fetchError } from '../../sources/source-errors.js';
+import { SourceFetchError } from '../../sources/source.js';
 
 const server = setupServer();
 
@@ -45,7 +45,7 @@ describe('fetchPaginated', () => {
 			fetchPageFn: ({ limit, offset }) =>
 				ResultAsync.fromPromise(
 					fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then(res => res.json()),
-					() => fetchError('Failed to fetch')
+					(e) => new SourceFetchError('Failed to fetch', { cause: e })
 				)
 		});
 
@@ -74,7 +74,7 @@ describe('fetchPaginated', () => {
 			fetchPageFn: ({ limit, offset }) =>
 				ResultAsync.fromPromise(
 					fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then(res => res.json()),
-					() => fetchError('Failed to fetch')
+					(e) => new SourceFetchError('Failed to fetch', { cause: e })
 				)
 		});
 
@@ -100,13 +100,13 @@ describe('fetchPaginated', () => {
 						if (!res.ok) throw new Error('API error');
 						return res.json();
 					}),
-					() => fetchError('Failed to fetch')
+					(e) => new SourceFetchError('Failed to fetch', { cause: e })
 				)
 		});
 
 		expect(result).toBeErr();
 		const error = result._unsafeUnwrapErr();
-		expect(error.type).toBe('fetch');
+		expect(error).toBeInstanceOf(SourceFetchError);
 		expect(error.message).toBe('Failed to fetch');
 	});
 
@@ -129,7 +129,7 @@ describe('fetchPaginated', () => {
 			fetchPageFn: ({ limit, offset }) =>
 				ResultAsync.fromPromise(
 					fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then(res => res.json()),
-					() => fetchError('Failed to fetch')
+					(e) => new SourceFetchError('Failed to fetch', { cause: e })
 				)
 		});
 

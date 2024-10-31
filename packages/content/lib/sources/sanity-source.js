@@ -1,7 +1,6 @@
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from 'neverthrow';
-import { defineSource } from './source.js';
+import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError } from './source.js';
 import { fetchPaginated } from '../utils/fetch-paginated.js';
-import { configError, fetchError } from './source-errors.js';
 
 /**
  * @typedef BaseSanityOptions
@@ -34,7 +33,7 @@ const SANITY_OPTION_DEFAULTS = {
  */
 export default function sanitySource(options) {
 	if (!options.projectId || !options.apiToken) {
-		return errAsync(configError('Missing projectId and/or apiToken'));
+		return errAsync(new SourceConfigError('Missing projectId and/or apiToken'));
 	}
 
 	const assembledOptions = {
@@ -42,7 +41,7 @@ export default function sanitySource(options) {
 		...options
 	};
 
-	return ResultAsync.fromPromise(import('@sanity/client'), () => configError('Could not find "@sanity/client". Make sure you have installed it.'))
+	return ResultAsync.fromPromise(import('@sanity/client'), () => new SourceMissingDependencyError('Could not find "@sanity/client". Make sure you have installed it.'))
 		.map(({ createClient }) => {
 			const sanityClient = createClient({
 				projectId: assembledOptions.projectId,
@@ -96,7 +95,7 @@ export default function sanitySource(options) {
 								dataPromise: fetchPaginated({
 									fetchPageFn: (params) => {
 										const q = `${queryFull}[${params.offset}..${params.offset + params.limit - 1}]`;
-										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => new SourceFetchError(`Could not fetch page with query: '${q}'`, { cause: e }));
 									},
 									limit: assembledOptions.limit,
 									logger: ctx.logger
@@ -108,7 +107,7 @@ export default function sanitySource(options) {
 								dataPromise: fetchPaginated({
 									fetchPageFn: (params) => {
 										const q = `${query.query}[${params.offset}..${params.offset + params.limit - 1}]`;
-										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => fetchError(`Could not fetch page with query: '${q}'`));
+										return ResultAsync.fromPromise(sanityClient.fetch(q), (e) => new SourceFetchError(`Could not fetch page with query: '${q}'`, { cause: e }));
 									},
 									limit: assembledOptions.limit,
 									logger: ctx.logger
@@ -116,7 +115,7 @@ export default function sanitySource(options) {
 							});
 						} else {
 							ctx.logger.error(`Invalid query: ${query}`);
-							return err(configError(`Invalid query: ${query}`));
+							return err(new SourceFetchError(`Invalid query: ${query}`));
 						}
 					}
 

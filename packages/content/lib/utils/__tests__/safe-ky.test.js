@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { safeKy, SafeKyError } from '../safe-ky.js';
+import { safeKy, SafeKyFetchError, SafeKyParseError } from '../safe-ky.js';
 import { ok } from 'neverthrow';
 
 const server = setupServer();
@@ -53,7 +53,7 @@ describe('safeKy', () => {
 
 		const jsonResult = await result.json();
 		expect(jsonResult).toBeErr();
-		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyError.FetchError);
+		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyFetchError);
 		expect(jsonResult._unsafeUnwrapErr().message).toContain('Error during request');
 	});
 
@@ -70,7 +70,7 @@ describe('safeKy', () => {
 
 		const jsonResult = await result.json();
 		expect(jsonResult).toBeErr();
-		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyError.ParseError);
+		expect(jsonResult._unsafeUnwrapErr()).toBeInstanceOf(SafeKyParseError);
 		expect(jsonResult._unsafeUnwrapErr().message).toContain('Error parsing JSON');
 	});
 });

@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import airtableSource from '../airtable-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { DataStore } from '../../utils/data-store.js';
+import { SourceFetchError, SourceParseError } from '../source.js';
 
 const server = setupServer();
 
@@ -206,7 +207,7 @@ describe('airtableSource', () => {
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 		expect(data._unsafeUnwrapErr().message).toContain('Failed to fetch data from Airtable');
 	});
 
@@ -242,8 +243,10 @@ describe('airtableSource', () => {
 		const data = await fetchPromises[0].dataPromise;
 
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('parse');
-		expect(data._unsafeUnwrapErr().message).toContain('At least 2 columns required');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceParseError);
+		expect(data._unsafeUnwrapErr().message).toContain('Error processing table invalid-table from Airtable');
+		// @ts-expect-error cause is unknown
+		expect(data._unsafeUnwrapErr().cause.message).toContain('At least 2 columns required');
 	});
 
 	it('should handle unauthorized access', async () => {
@@ -269,7 +272,7 @@ describe('airtableSource', () => {
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 		expect(data._unsafeUnwrapErr().message).toContain('Failed to fetch data from Airtable');
 	});
 });

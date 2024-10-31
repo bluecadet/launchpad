@@ -17,6 +17,7 @@
   "bin": {
     "launchpad": "./lib/cli.js"
   },
+  "main": "./lib/index.js",
   "files": [
     "types",
     "index.js",

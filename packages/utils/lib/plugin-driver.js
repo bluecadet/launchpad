@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import onExit from './on-exit.js';
 import { err, ok, okAsync, ResultAsync } from 'neverthrow';
+import { AssertionError } from 'assert';
 
 class PluginError extends Error {
 	/**

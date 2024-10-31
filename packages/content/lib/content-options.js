@@ -1,10 +1,12 @@
+import { SourceConfigError } from './sources/source.js';
+
 export const DOWNLOAD_PATH_TOKEN = '%DOWNLOAD_PATH%';
 export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 
 /**
  * @typedef {import('./sources/source.js').ContentSource
  * | Promise<import('./sources/source.js').ContentSource>
- * | import('neverthrow').ResultAsync<import('./sources/source.js').ContentSource, import('./sources/source-errors.js').SourceError>
+ * | ReturnType<import('./sources/source.js').ContentSourceBuilder<unknown>>
  * } ConfigContentSource
  */
 

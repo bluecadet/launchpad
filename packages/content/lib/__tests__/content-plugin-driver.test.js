@@ -15,14 +15,14 @@ describe('ContentPluginDriver', () => {
 		});
 
 		const paths = {
-			/** @param {string | undefined} source */
+			/** @param {string} [source] */
 			getDownloadPath: (source) => source ? `/downloads/${source}` : '/downloads',
 			/**
-			 * @param {string | undefined} source
-			 * @param {string | undefined} plugin
+			 * @param {string} [source]
+			 * @param {string} [plugin]
 			 */
 			getTempPath: (source, plugin) => source ? `/temp/${plugin}/${source}` : `/temp/${plugin}`,
-			/** @param {string | undefined} source */
+			/** @param {string} [source] */
 			getBackupPath: (source) => source ? `/backups/${source}` : '/backups'
 		};
 
@@ -46,8 +46,8 @@ describe('ContentPluginDriver', () => {
 					onContentFetchDone(ctx) {
 						expect(ctx.data).toBe(dataStore);
 						expect(ctx.contentOptions).toBe(options);
-						expect(ctx.paths.getDownloadPath).toBe(paths.getDownloadPath);
-						expect(ctx.paths.getBackupPath).toBe(paths.getBackupPath);
+						expect(ctx.paths.getDownloadPath()).toBe(paths.getDownloadPath());
+						expect(ctx.paths.getBackupPath()).toBe(paths.getBackupPath());
 						// Test plugin-specific temp path
 						expect(ctx.paths.getTempPath('source')).toBe('/temp/test-plugin/source');
 					}
@@ -55,7 +55,8 @@ describe('ContentPluginDriver', () => {
 			});
 
 			contentDriver.add(plugin);
-			await contentDriver.runHookSequential('onContentFetchDone');
+			const result = await contentDriver.runHookSequential('onContentFetchDone');
+			expect(result).toBeOk();
 		});
 
 		it('should handle plugin-specific temp paths correctly', async () => {
@@ -88,7 +89,8 @@ describe('ContentPluginDriver', () => {
 
 			contentDriver.add(plugin1);
 			contentDriver.add(plugin2);
-			await contentDriver.runHookSequential('onContentFetchDone');
+			const result = await contentDriver.runHookSequential('onContentFetchDone');
+			expect(result).toBeOk();
 		});
 	});
 

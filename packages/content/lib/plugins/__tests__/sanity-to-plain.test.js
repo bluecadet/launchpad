@@ -49,7 +49,7 @@ describe('sanityToPlain plugin', () => {
 		ctx.data.insert('test', 'doc1', { content: 'not a block' });
 
 		const plugin = sanityToPlain({ path: '$.content' });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Content is not a valid Sanity text block');
+		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Error applying content transform');
 	});
 
 	it('should throw error for block without children', () => {
@@ -60,7 +60,7 @@ describe('sanityToPlain plugin', () => {
 		ctx.data.insert('test', 'doc1', { content: invalidBlock });
 
 		const plugin = sanityToPlain({ path: '$.content' });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Content is not a valid Sanity text block');
+		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Error applying content transform');
 	});
 
 	it('should throw error for block with invalid children', () => {
@@ -77,7 +77,7 @@ describe('sanityToPlain plugin', () => {
 		ctx.data.insert('test', 'doc1', { content: invalidBlock });
 
 		const plugin = sanityToPlain({ path: '$.content' });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Content is not a valid Sanity text block');
+		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Error applying content transform');
 	});
 
 	it('should concatenate multiple text spans', () => {

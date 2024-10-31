@@ -22,25 +22,23 @@ describe('LaunchpadContent', () => {
 	 */
 	const createBasicConfig = (plugins = []) => {
 		return {
-			content: {
-				downloadPath: '/downloads',
-				tempPath: '/temp',
-				backupPath: '/backups',
-				sources: [
-					defineSource({
-						id: 'test',
-						fetch: () => {
-							return ok([{
+			downloadPath: '/downloads',
+			tempPath: '/temp',
+			backupPath: '/backups',
+			sources: [
+				defineSource({
+					id: 'test',
+					fetch: () => {
+						return ok([{
+							id: 'doc1',
+							dataPromise: okAsync([{
 								id: 'doc1',
-								dataPromise: okAsync([{
-									id: 'doc1',
-									data: 'doc1'
-								}])
-							}]);
-						}
-					})
-				]
-			},
+								data: 'doc1'
+							}])
+						}]);
+					}
+				})
+			],
 			plugins
 		};
 	};
@@ -56,7 +54,7 @@ describe('LaunchpadContent', () => {
 			const config = createBasicConfig();
 			const content = new LaunchpadContent(config, createMockLogger());
 			expect(content).toBeInstanceOf(LaunchpadContent);
-			expect(content._config).toEqual(resolveContentOptions(config.content));
+			expect(content._config).toEqual(resolveContentOptions(config));
 		});
 	});
 
@@ -79,7 +77,7 @@ describe('LaunchpadContent', () => {
 			vol.writeFileSync('/downloads/test/old.json', '{}');
 
 			const config = {
-				...createBasicConfig().content,
+				...createBasicConfig(),
 				keep: ['.keep']
 			};
 

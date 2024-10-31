@@ -2,11 +2,10 @@ import { HookContextProvider } from '@bluecadet/launchpad-utils/lib/plugin-drive
 
 export class ContentError extends Error {
 	/**
-	 * @param {string} [message]
-	 * @param {Error} [cause]
+	 * @param {ConstructorParameters<typeof Error>} args
 	 */
-	constructor(message, cause) {
-		super(message, { cause });
+	constructor(...args) {
+		super(...args);
 		this.name = 'ContentError';
 	}
 }

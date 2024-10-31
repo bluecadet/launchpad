@@ -1,26 +1,25 @@
 import ky from 'ky';
 import { Err, err, Ok, ok, ResultAsync } from 'neverthrow';
 
-class BaseSafeKyError extends Error {
+export class SafeKyFetchError extends Error {
 	/**
-   * @param {string} message 
-   * @param {unknown} [cause]  
-   */
-	constructor(message, cause) {
-		if (cause === undefined) {
-			super(message);
-		} else if (cause instanceof Error) {
-			super(`${message}: ${cause.message}`, { cause });
-		} else {
-			super(`${message}: ${cause}`);
-		}
+	 * @param {ConstructorParameters<typeof Error>} args
+	 */
+	constructor(...args) {
+		super(...args);
+		this.name = 'SafeKyFetchError';
 	}
 }
 
-export const SafeKyError = {
-	FetchError: class extends BaseSafeKyError { },
-	ParseError: class extends BaseSafeKyError { }
-};
+export class SafeKyParseError extends Error {
+	/**
+	 * @param {ConstructorParameters<typeof Error>} args
+	 */
+	constructor(...args) {
+		super(...args);
+		this.name = 'SafeKyParseError';
+	}
+}
 
 /**
  * Wraps a ky request in a ResultAsync
@@ -36,17 +35,17 @@ export function safeKy(input, options) {
  * @template [T=unknown]
  * @typedef { Omit<import('ky').KyResponse<T>, 'json' | 'text' | 'arrayBuffer' | 'blob'>
  *  & {
- *    json: () => import('neverthrow').ResultAsync<any, BaseSafeKyError>,
- *    text: () => import('neverthrow').ResultAsync<string, BaseSafeKyError>,
- *    arrayBuffer: () => import('neverthrow').ResultAsync<ArrayBuffer, BaseSafeKyError>,
- *    blob: () => import('neverthrow').ResultAsync<Blob, BaseSafeKyError>
+ *    json: () => import('neverthrow').ResultAsync<any, SafeKyParseError>,
+ *    text: () => import('neverthrow').ResultAsync<string, SafeKyParseError>,
+ *    arrayBuffer: () => import('neverthrow').ResultAsync<ArrayBuffer, SafeKyParseError>,
+ *    blob: () => import('neverthrow').ResultAsync<Blob, SafeKyParseError>
  *  }
  * } SafeKyResponseResult
  */
 
 /**
  * @template T
- * @extends {ResultAsync<SafeKyResponseResult<T>, BaseSafeKyError>}
+ * @extends {ResultAsync<SafeKyResponseResult<T>, SafeKyFetchError | SafeKyParseError>}
  */
 class SafeKyResultAsync extends ResultAsync {
 	/**
@@ -66,16 +65,16 @@ class SafeKyResultAsync extends ResultAsync {
 					url: res.url,
 					redirected: res.redirected,
 					body: res.body,
-					json: () => ResultAsync.fromPromise(res.json(), (error) => new SafeKyError.ParseError('Error parsing JSON', error)),
-					text: () => ResultAsync.fromPromise(res.text(), (error) => new SafeKyError.ParseError('Error parsing text', error)),
-					arrayBuffer: () => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyError.ParseError('Error parsing array buffer', error)),
-					blob: () => ResultAsync.fromPromise(res.blob(), (error) => new SafeKyError.ParseError('Error parsing blob', error))
+					json: () => ResultAsync.fromPromise(res.json(), (error) => new SafeKyParseError('Error parsing JSON', { cause: error })),
+					text: () => ResultAsync.fromPromise(res.text(), (error) => new SafeKyParseError('Error parsing text', { cause: error })),
+					arrayBuffer: () => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyParseError('Error parsing array buffer', { cause: error })),
+					blob: () => ResultAsync.fromPromise(res.blob(), (error) => new SafeKyParseError('Error parsing blob', { cause: error }))
 				};
 				
-				return /** @type {Ok<SafeKyResponseResult, BaseSafeKyError>} */ (new Ok(remapped));
+				return /** @type {Ok<SafeKyResponseResult, SafeKyFetchError | SafeKyParseError>} */ (new Ok(remapped));
 			})
 			.catch((error) => {
-				return /** @type {Err<SafeKyResponseResult, BaseSafeKyError>} */(new Err(new SafeKyError.FetchError('Error during request', error)));
+				return /** @type {Err<SafeKyResponseResult, SafeKyFetchError | SafeKyParseError>} */(new Err(new SafeKyFetchError('Error during request', { cause: error })));
 			});
 
 		return new SafeKyResultAsync(newPromise);

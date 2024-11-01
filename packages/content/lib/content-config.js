@@ -1,5 +1,3 @@
-import { SourceConfigError } from './sources/source.js';
-
 export const DOWNLOAD_PATH_TOKEN = '%DOWNLOAD_PATH%';
 export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
 
@@ -11,7 +9,7 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
  */
 
 /**
- * @typedef ContentOptions
+ * @typedef ContentConfig
  * @property {ConfigContentSource[]} [sources] A list of content source options. This defines which content is downloaded from where.
  * @property {import('./content-plugin-driver.js').ContentPlugin[]} [plugins] A list of content plugin.
  * @property {string} [downloadPath] The path at which to store all downloaded files. Defaults to '.downloads/'.
@@ -25,9 +23,9 @@ export const TIMESTAMP_TOKEN = '%TIMESTAMP%';
  */
 
 /**
- * @satisfies {ContentOptions}
+ * @satisfies {ContentConfig}
  */
-export const CONTENT_OPTION_DEFAULTS = {
+export const CONTENT_CONFIG_DEFAULTS = {
 	sources: [],
 	plugins: [],
 	downloadPath: '.downloads/',
@@ -42,22 +40,22 @@ export const CONTENT_OPTION_DEFAULTS = {
 
 /**
  * Apply defaults to passed content config
- * @param {ContentOptions} [config]
+ * @param {ContentConfig} [config]
  */
-export function resolveContentOptions(config) {
+export function resolveContentConfig(config) {
 	return {
-		...CONTENT_OPTION_DEFAULTS,
+		...CONTENT_CONFIG_DEFAULTS,
 		...config
 	};
 }
 
 /**
- * @typedef {ReturnType<typeof resolveContentOptions>} ResolvedContentOptions
+ * @typedef {ReturnType<typeof resolveContentConfig>} ResolvedContentConfig
  */
 
 /**
- * @param {ContentOptions} config 
- * @returns {ContentOptions}
+ * @param {ContentConfig} config 
+ * @returns {ContentConfig}
  */
 export function defineContentConfig(config) {
 	return config;

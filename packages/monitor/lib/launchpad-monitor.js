@@ -12,12 +12,12 @@ import { SubEmitterSocket } from 'axon'; // used by PM2
 import { onExit, LogManager } from '@bluecadet/launchpad-utils';
 import AppLogRouter from './app-log-router.js';
 import sortWindows from './utils/sort-windows.js';
-import { resolveMonitorConfig } from './monitor-options.js';
+import { resolveMonitorConfig } from './monitor-config.js';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { MonitorPluginDriver } from './monitor-plugin-driver.js';
 
 export class LaunchpadMonitor {
-	/** @type {import('./monitor-options.js').ResolvedMonitorOptions} */
+	/** @type {import('./monitor-config.js').ResolvedMonitorConfig} */
 	_config;
 	
 	/**
@@ -72,7 +72,7 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {import('./monitor-options.js').MonitorOptions} config
+	 * @param {import('./monitor-config.js').MonitorConfig} config
    * @param {import('@bluecadet/launchpad-utils').Logger} parentLogger
 	 */
 	constructor(config, parentLogger) {
@@ -261,7 +261,7 @@ export class LaunchpadMonitor {
 	/**
 	 * Get the startup options for appName
 	 * @param {string} appName 
-	 * @returns {import('./monitor-options.js').ResolvedAppOptions}
+	 * @returns {import('./monitor-config.js').ResolvedAppConfig}
 	 */
 	getAppOptions(appName) {
 		const options = this._config.apps.find(app => app.pm2.name === appName);
@@ -416,8 +416,8 @@ export class LaunchpadMonitor {
 	}
 	
 	/**
-	 * @param {import('./monitor-options.js').ResolvedAppOptions} options 
-	 * @returns {import('./monitor-options.js').ResolvedAppOptions} 
+	 * @param {import('./monitor-config.js').ResolvedAppConfig} options 
+	 * @returns {import('./monitor-config.js').ResolvedAppConfig} 
 	 */
 	_initAppOptions(options) {
 		if (!options.pm2 || !options.pm2.name) {

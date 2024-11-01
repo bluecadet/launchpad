@@ -1,1 +1,1 @@
-export { defineConfig } from './launchpad-options.js';
+export { defineConfig } from './launchpad-config.js';

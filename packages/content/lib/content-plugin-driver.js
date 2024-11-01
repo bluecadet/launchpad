@@ -13,7 +13,7 @@ export class ContentError extends Error {
 /**
  * @typedef ContentHookContext
  * @prop {import('./utils/data-store.js').DataStore} data
- * @prop {import('./content-options.js').ResolvedContentOptions} contentOptions
+ * @prop {import('./content-config.js').ResolvedContentConfig} contentOptions
  * @prop {object} paths
  * @prop {(source?: string) => string} paths.getDownloadPath
  * @prop {(source?: string, pluginName?: string) => string} paths.getTempPath
@@ -68,7 +68,7 @@ export class ContentPluginDriver extends HookContextProvider {
 	#dataStore;
 
 	/**
-	 * @type {import('./content-options.js').ResolvedContentOptions}
+	 * @type {import('./content-config.js').ResolvedContentConfig}
 	 */
 	#options;
 
@@ -83,7 +83,7 @@ export class ContentPluginDriver extends HookContextProvider {
 	 * @param {import('@bluecadet/launchpad-utils/lib/plugin-driver.js').default<ContentHooks>} wrappee
 	 * @param {object} options
 	 * @param {import('./utils/data-store.js').DataStore} options.dataStore
-	 * @param {import('./content-options.js').ResolvedContentOptions} options.options
+	 * @param {import('./content-config.js').ResolvedContentConfig} options.options
 	 * @param {object} options.paths
 	 * @param {(source?: string) => string} options.paths.getDownloadPath
 	 * @param {(source?: string, pluginName?: string) => string} options.paths.getTempPath

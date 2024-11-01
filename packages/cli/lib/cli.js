@@ -2,7 +2,7 @@
 
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-export { defineConfig } from './launchpad-options.js';
+export { defineConfig } from './launchpad-config.js';
 
 /**
  * @typedef LaunchpadArgv

@@ -4,18 +4,18 @@ import { Tail } from 'tail';
 import autoBind from 'auto-bind';
 import { SubEmitterSocket } from 'axon'; // used by PM2
 import { LogManager } from '@bluecadet/launchpad-utils';
-import { LogModes } from './monitor-options.js';
+import { LogModes } from './monitor-config.js';
 
 class LogRelay {
 	/**
 	 * @protected
-	 * @type {import('./monitor-options.js').ResolvedAppOptions}
+	 * @type {import('./monitor-config.js').ResolvedAppConfig}
 	 */
 	_appOptions;
 
 	/**
 	 * @protected
-	 * @type {import('./monitor-options.js').ResolvedAppOptions['logging']}
+	 * @type {import('./monitor-config.js').ResolvedAppConfig['logging']}
 	 */
 	_logOptions;
 
@@ -26,7 +26,7 @@ class LogRelay {
 	_logger;
 
 	/**
-	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
+	 * @param {import('./monitor-config.js').ResolvedAppConfig} appOptions
 	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
@@ -77,7 +77,7 @@ class FileLogRelay extends LogRelay {
 	_errTail = null;
 
 	/**
-	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
+	 * @param {import('./monitor-config.js').ResolvedAppConfig} appOptions
 	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
@@ -193,7 +193,7 @@ class FileLogRelay extends LogRelay {
 
 class BusLogRelay extends LogRelay {
 	/**
-	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
+	 * @param {import('./monitor-config.js').ResolvedAppConfig} appOptions
 	 * @param {import('@bluecadet/launchpad-utils').Logger} logger
 	 */
 	constructor(appOptions, logger) {
@@ -279,7 +279,7 @@ export default class AppLogRouter {
 	}
 
 	/**
-	 * @param {import('./monitor-options.js').ResolvedAppOptions} appOptions
+	 * @param {import('./monitor-config.js').ResolvedAppConfig} appOptions
 	 * @return {void}
 	 */
 	initAppOptions(appOptions) {

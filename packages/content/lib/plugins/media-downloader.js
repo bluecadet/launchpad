@@ -13,7 +13,7 @@ import * as FileUtils from '../utils/file-utils.js';
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
 /** 
- * @typedef MediaDownloaderOptions
+ * @typedef MediaDownloaderConfig
  * @property {import('../utils/data-store.js').DataKeys} [keys] Data keys to search for media urls. If not provided, all keys will be searched.
  * @property {RegExp} [mediaPattern] Regex to match urls to download.
  * @property {string} [matchPath] JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.
@@ -51,10 +51,10 @@ export function localFilePathFromUrl(url) {
  * @param {string} url
  * @param {string} destPath
  * @param {AbortSignal} abortSignal
- * @param {Pick<MediaDownloaderOptionsWithDefaults, 'ignoreCache' | 'enableIfModifiedSinceCheck' | 'enableContentLengthCheck' | 'maxTimeout'>} options
+ * @param {Pick<MediaDownloaderConfigWithDefaults, 'ignoreCache' | 'enableIfModifiedSinceCheck' | 'enableContentLengthCheck' | 'maxTimeout'>} config
  * @returns {ResultAsync<{ shouldDownload: boolean, existingFile?: string, stats?: fs.Stats }, FileSystemError | NetworkError | CacheError>}
  */
-export function checkCacheStatus(url, destPath, abortSignal, options) {
+export function checkCacheStatus(url, destPath, abortSignal, config) {
 	return FileUtils.pathExists(destPath)
 		.mapErr(err => new FileSystemError('Failed to check if file exists', err))
 		.andThen(exists => exists
@@ -65,11 +65,11 @@ export function checkCacheStatus(url, destPath, abortSignal, options) {
 			: okAsync(null)
 		)
 		.map(stats => {
-			if (options.ignoreCache || !stats || !stats.isFile()) {
+			if (config.ignoreCache || !stats || !stats.isFile()) {
 				return { shouldDownload: true };
 			}
 
-			if (!options.enableIfModifiedSinceCheck && !options.enableContentLengthCheck) {
+			if (!config.enableIfModifiedSinceCheck && !config.enableContentLengthCheck) {
 				return { shouldDownload: true };
 			}
 
@@ -83,7 +83,7 @@ export function checkCacheStatus(url, destPath, abortSignal, options) {
 			return safeKy(url, {
 				method: 'HEAD',
 				signal: abortSignal,
-				timeout: options.maxTimeout,
+				timeout: config.maxTimeout,
 				throwHttpErrors: false,
 				headers: {
 					'If-Modified-Since': result.stats.mtime.toUTCString()
@@ -93,11 +93,11 @@ export function checkCacheStatus(url, destPath, abortSignal, options) {
 				.map(res => {
 					let isRemoteNew = false;
 
-					if (options.enableIfModifiedSinceCheck) {
+					if (config.enableIfModifiedSinceCheck) {
 						isRemoteNew = res.status !== 304;
 					}
 
-					if (options.enableContentLengthCheck) {
+					if (config.enableContentLengthCheck) {
 						const remoteSize = parseInt(res.headers.get('content-length') ?? '');
 						const localSize = result.stats.size;
 						isRemoteNew = isRemoteNew || (remoteSize !== localSize);
@@ -116,13 +116,13 @@ export function checkCacheStatus(url, destPath, abortSignal, options) {
  * @param {string} url
  * @param {string} filePath
  * @param {AbortSignal} abortSignal
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {MediaDownloaderConfigWithDefaults} config
  * @returns {ResultAsync<void, FileSystemError | NetworkError>}
  */
-export function downloadFile(url, filePath, abortSignal, options) {
+export function downloadFile(url, filePath, abortSignal, config) {
 	return safeKy(url, {
 		signal: abortSignal,
-		timeout: options.maxTimeout
+		timeout: config.maxTimeout
 	})
 		.mapErr(err => new NetworkError(`Failed to download ${url}`, err))
 		.andThen(res => {
@@ -144,11 +144,11 @@ export function downloadFile(url, filePath, abortSignal, options) {
  * @param {string} destDir
  * @param {RegExp} encodeRegex
  * @param {AbortSignal} abortSignal
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {MediaDownloaderConfigWithDefaults} config
  * @returns {ResultAsync<string, FileSystemError | NetworkError | CacheError>}
  */
-export function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, options) {
-	const localPath = options.transformLocalPath(localFilePathFromUrl(url))
+export function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, config) {
+	const localPath = config.transformLocalPath(localFilePathFromUrl(url))
 		.replace(encodeRegex, encodeURIComponent);
 
 	const destPath = path.join(destDir, localPath);
@@ -157,20 +157,20 @@ export function downloadMedia(url, tempDir, destDir, encodeRegex, abortSignal, o
 
 	return FileUtils.ensureDir(tempFilePathDir)
 		.mapErr(err => new FileSystemError('Failed to create temp dir', err))
-		.andThen(() => checkCacheStatus(url, destPath, abortSignal, options))
+		.andThen(() => checkCacheStatus(url, destPath, abortSignal, config))
 		.andThen(cacheStatus => {
 			if (!cacheStatus.shouldDownload && cacheStatus.existingFile) {
 				return FileUtils.copy(cacheStatus.existingFile, tempFilePath)
 					.mapErr(e => new FileSystemError('Failed to copy existing file to temp dir', e));
 			}
-			return downloadFile(url, tempFilePath, abortSignal, options);
+			return downloadFile(url, tempFilePath, abortSignal, config);
 		})
 		.map(() => tempFilePath);
 }
 
 /**
  * @param {import('../utils/data-store.js').DataStore} dataStore
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {MediaDownloaderConfigWithDefaults} options
  * @param {string} queryJsonPath
  * @returns {Array<{ url: string, sourceId: string }>}
  */
@@ -204,11 +204,11 @@ export function findMediaUrls(dataStore, options, queryJsonPath) {
 
 /**
  * @param {import('../content-plugin-driver.js').ContentHookContext} ctx
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {MediaDownloaderConfigWithDefaults} config
  * @returns {ResultAsync<void, FileSystemError>}
  */
-export function setupDownloadDirectories(ctx, options) {
-	return (options.forceClearTempFiles
+export function setupDownloadDirectories(ctx, config) {
+	return (config.forceClearTempFiles
 		? FileUtils.remove(ctx.paths.getTempPath())
 			.andThen(() => FileUtils.ensureDir(ctx.paths.getTempPath()))
 		: FileUtils.ensureDir(ctx.paths.getTempPath()))
@@ -217,11 +217,11 @@ export function setupDownloadDirectories(ctx, options) {
 
 /**
  * @param {import('../content-plugin-driver.js').ContentHookContext} ctx
- * @param {MediaDownloaderOptionsWithDefaults} options
+ * @param {MediaDownloaderConfigWithDefaults} config
  * @returns {ResultAsync<void, FileSystemError>}
  */
-export function cleanupAfterDownload(ctx, options) {
-	return (options.clearOldFilesOnSuccess
+export function cleanupAfterDownload(ctx, config) {
+	return (config.clearOldFilesOnSuccess
 		? FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), ctx.contentOptions.keep)
 		: okAsync(undefined))
 		.andThen(() => FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath()))
@@ -230,9 +230,9 @@ export function cleanupAfterDownload(ctx, options) {
 }
 
 /**
- * @satisfies {MediaDownloaderOptions}
+ * @satisfies {MediaDownloaderConfig}
  */
-const DEFAULT_MEDIA_DOWNLOADER_OPTIONS = {
+const DEFAULT_MEDIA_DOWNLOADER_CONFIG = {
 	mediaPattern: DEFAULT_MEDIA_PATTERN,
 	maxConcurrent: 4,
 	clearOldFilesOnSuccess: true,
@@ -246,27 +246,27 @@ const DEFAULT_MEDIA_DOWNLOADER_OPTIONS = {
 };
 
 /**
- * @param {MediaDownloaderOptions} options
+ * @param {MediaDownloaderConfig} config
  */
-export function getMediaDownloaderOptions(options) {
-	return { ...DEFAULT_MEDIA_DOWNLOADER_OPTIONS, ...options };
+export function getMediaDownloaderConfig(config) {
+	return { ...DEFAULT_MEDIA_DOWNLOADER_CONFIG, ...config };
 }
 
-/** @typedef {ReturnType<typeof getMediaDownloaderOptions>} MediaDownloaderOptionsWithDefaults */
+/** @typedef {ReturnType<typeof getMediaDownloaderConfig>} MediaDownloaderConfigWithDefaults */
 
 /**
- * @param {MediaDownloaderOptions} options
+ * @param {MediaDownloaderConfig} config
  */
-export default function mediaDownloader(options = {}) {
-	const optionsWithDefaults = getMediaDownloaderOptions(options);
+export default function mediaDownloader(config = {}) {
+	const configWithDefaults = getMediaDownloaderConfig(config);
 
 	return defineContentPlugin({
 		name: 'media-downloader',
 		hooks: defineContentPluginHooks({
 			onContentFetchDone(ctx) {
-				if (!optionsWithDefaults.ignoreCache &&
-						!optionsWithDefaults.enableIfModifiedSinceCheck &&
-						!optionsWithDefaults.enableContentLengthCheck) {
+				if (!configWithDefaults.ignoreCache &&
+						!configWithDefaults.enableIfModifiedSinceCheck &&
+						!configWithDefaults.enableContentLengthCheck) {
 					ctx.logger.warn(chalk.yellow(
 						'Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.'
 					));
@@ -274,14 +274,14 @@ export default function mediaDownloader(options = {}) {
 
 				setMaxListeners(0, ctx.abortSignal);
 
-				const queryJsonPath = optionsWithDefaults.matchPath ??
-					`$..[?(@.match(${optionsWithDefaults.mediaPattern}))]`;
+				const queryJsonPath = configWithDefaults.matchPath ??
+					`$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
 
-				return setupDownloadDirectories(ctx, optionsWithDefaults)
-					.map(() => findMediaUrls(ctx.data, optionsWithDefaults, queryJsonPath))
+				return setupDownloadDirectories(ctx, configWithDefaults)
+					.map(() => findMediaUrls(ctx.data, configWithDefaults, queryJsonPath))
 					.andThen(urls => {
 						const queue = new ResultAsyncQueue({
-							concurrency: optionsWithDefaults.maxConcurrent
+							concurrency: configWithDefaults.maxConcurrent
 						});
 
 						const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, 'g');
@@ -296,7 +296,7 @@ export default function mediaDownloader(options = {}) {
 								path.join(ctx.paths.getDownloadPath(), url.sourceId),
 								encodeRegex,
 								signal ?? ctx.abortSignal,
-								optionsWithDefaults
+								configWithDefaults
 							);
 							return task;
 						});
@@ -304,7 +304,7 @@ export default function mediaDownloader(options = {}) {
 						ctx.logger.info(`Syncing ${chalk.cyan(tasks.length)} files`);
 
 						return queue.addAll(tasks, {
-							abortOnError: optionsWithDefaults.abortOnError,
+							abortOnError: configWithDefaults.abortOnError,
 							logger: ctx.logger
 						}).orElse((queueErrors) => {
 							ctx.logger.error(
@@ -315,7 +315,7 @@ export default function mediaDownloader(options = {}) {
 								ctx.logger.error(chalk.red(error));
 							}
 	
-							if (optionsWithDefaults.abortOnError) {
+							if (configWithDefaults.abortOnError) {
 								return FileUtils.remove(ctx.paths.getTempPath())
 									.mapErr(err => new FileSystemError('Failed to remove temp dir', err))
 									.andThen(() => errAsync(new QueueError(queueErrors)));
@@ -325,7 +325,7 @@ export default function mediaDownloader(options = {}) {
 						});
 					})
 					.andThen(() => {
-						return cleanupAfterDownload(ctx, optionsWithDefaults);
+						return cleanupAfterDownload(ctx, configWithDefaults);
 					})
 					.orElse(e => {
 						throw e;

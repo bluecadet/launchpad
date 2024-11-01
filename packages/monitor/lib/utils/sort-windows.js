@@ -4,7 +4,7 @@ import { windowManager } from 'node-window-manager';
 
 /**
  * @typedef SortApp
- * @property {import('../monitor-options.js').ResolvedAppOptions} options
+ * @property {import('../monitor-config.js').ResolvedAppConfig} options
  * @property {number?} pid
  */
 

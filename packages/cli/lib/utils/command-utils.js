@@ -3,13 +3,13 @@ import { findConfig, loadConfigFromFile } from './config.js';
 import { ConfigError } from '../errors.js';
 import path from 'path';
 import { resolveEnv } from './env.js';
-import { resolveLaunchpadOptions } from '../launchpad-options.js';
+import { resolveLaunchpadConfig } from '../launchpad-config.js';
 import chalk from 'chalk';
 import { LogManager } from '@bluecadet/launchpad-utils';
 
 /**
  * @param {import("../cli.js").LaunchpadArgv} argv
- * @returns {import('neverthrow').ResultAsync<import('../launchpad-options.js').ResolvedLaunchpadOptions, ConfigError>}
+ * @returns {import('neverthrow').ResultAsync<import('../launchpad-config.js').ResolvedLaunchpadOptions, ConfigError>}
  */
 export function loadConfigAndEnv(argv) {
 	const configPath = argv.config ?? findConfig();
@@ -45,12 +45,12 @@ export function loadConfigAndEnv(argv) {
 	}
 
 	return ResultAsync.fromPromise(loadConfigFromFile(configPath), (e) => new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`))
-		.map(config => resolveLaunchpadOptions(config));
+		.map(config => resolveLaunchpadConfig(config));
 }
 
 /**
  * 
- * @param {import('../launchpad-options.js').LaunchpadOptions} config 
+ * @param {import('../launchpad-config.js').LaunchpadConfig} config 
  */
 export function initializeLogger(config) {
 	const rootLogger = LogManager.configureRootLogger(config.logging);

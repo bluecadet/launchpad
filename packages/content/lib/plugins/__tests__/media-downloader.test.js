@@ -8,7 +8,7 @@ import mediaDownloader, {
 	checkCacheStatus,
 	downloadFile,
 	findMediaUrls,
-	getMediaDownloaderOptions
+	getMediaDownloaderConfig
 } from '../media-downloader.js';
 import { createTestPluginContext } from './plugins.test-utils.js';
 
@@ -43,7 +43,7 @@ describe('mediaDownloader', () => {
 				'https://example.com/new.jpg',
 				'/downloads/new.jpg',
 				new AbortController().signal,
-				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: true })
+				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: true })
 			);
 
 			expect(result).toBeOk();
@@ -68,7 +68,7 @@ describe('mediaDownloader', () => {
 				'https://example.com/cached.jpg',
 				'/downloads/cached.jpg',
 				new AbortController().signal,
-				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: false })
+				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: false })
 			);
 
 			expect(result).toBeOk();
@@ -94,7 +94,7 @@ describe('mediaDownloader', () => {
 				'https://example.com/size.jpg',
 				'/downloads/size.jpg',
 				new AbortController().signal,
-				getMediaDownloaderOptions({ enableIfModifiedSinceCheck: false, enableContentLengthCheck: true })
+				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: false, enableContentLengthCheck: true })
 			);
 
 			expect(result).toBeOk();
@@ -118,7 +118,7 @@ describe('mediaDownloader', () => {
 				'https://example.com/test.jpg',
 				'/downloads/test.jpg',
 				new AbortController().signal,
-				getMediaDownloaderOptions({ maxTimeout: 1000 })
+				getMediaDownloaderConfig({ maxTimeout: 1000 })
 			);
 
 			expect(result).toBeOk();
@@ -136,7 +136,7 @@ describe('mediaDownloader', () => {
 				'https://example.com/error.jpg',
 				'/downloads/error.jpg',
 				new AbortController().signal,
-				getMediaDownloaderOptions({ maxTimeout: 1000 })
+				getMediaDownloaderConfig({ maxTimeout: 1000 })
 			);
 
 			expect(result).toBeErr();
@@ -160,7 +160,7 @@ describe('mediaDownloader', () => {
 
 			const urls = findMediaUrls(
 				ctx.data,
-				getMediaDownloaderOptions({ mediaPattern: /\.(jpg|png)$/i }),
+				getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }),
 				'$..*[?(@.match(/\\.(jpg|png)$/i))]'
 			);
 
@@ -184,7 +184,7 @@ describe('mediaDownloader', () => {
 
 			const urls = findMediaUrls(
 				ctx.data,
-				getMediaDownloaderOptions({ matchPath: '$..*[?(@.url)].url' }),
+				getMediaDownloaderConfig({ matchPath: '$..*[?(@.url)].url' }),
 				'$..*[?(@.url)].url'
 			);
 

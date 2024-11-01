@@ -1,7 +1,7 @@
 import path from 'path';
 import chalk from 'chalk';
 
-import { DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentOptions } from './content-options.js';
+import { DOWNLOAD_PATH_TOKEN, TIMESTAMP_TOKEN, resolveContentConfig } from './content-config.js';
 
 import * as FileUtils from './utils/file-utils.js';
 import { LogManager } from '@bluecadet/launchpad-utils';
@@ -11,7 +11,7 @@ import { DataStore } from './utils/data-store.js';
 import { ok, err, ResultAsync, okAsync, errAsync } from 'neverthrow';
 
 export class LaunchpadContent {
-	/** @type {import('./content-options.js').ResolvedContentOptions} */
+	/** @type {import('./content-config.js').ResolvedContentConfig} */
 	_config;
 
 	/** @type {import('@bluecadet/launchpad-utils').Logger} */
@@ -20,7 +20,7 @@ export class LaunchpadContent {
 	/** @type {ContentPluginDriver} */
 	_pluginDriver;
 
-	/** @type {import('./content-options.js').ConfigContentSource[]} */
+	/** @type {import('./content-config.js').ConfigContentSource[]} */
 	_rawSources;
 
 	/** @type {Date} */
@@ -30,11 +30,11 @@ export class LaunchpadContent {
 	_dataStore;
 
 	/**
-	 * @param {import('./content-options.js').ContentOptions} config
+	 * @param {import('./content-config.js').ContentConfig} config
 	 * @param {import('@bluecadet/launchpad-utils').Logger} parentLogger
 	 */
 	constructor(config, parentLogger) {
-		this._config = resolveContentOptions(config);
+		this._config = resolveContentConfig(config);
 
 		this._logger = LogManager.getLogger('content', parentLogger);
 
@@ -60,7 +60,7 @@ export class LaunchpadContent {
 	}
 
 	/**
-	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
+	 * @param {import('./content-config.js').ConfigContentSource[]?} rawSources
 	 * @returns {ResultAsync<void, ContentError>}
 	 */
 	start(rawSources = null) {
@@ -103,7 +103,7 @@ export class LaunchpadContent {
 
 	/**
 	 * Alias for start(source)
-	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
+	 * @param {import('./content-config.js').ConfigContentSource[]?} rawSources
 	 */
 	download(rawSources = null) {
 		return this.start(rawSources);
@@ -257,7 +257,7 @@ export class LaunchpadContent {
 	}
 
 	/**
-	 * @param {import('./content-options.js').ConfigContentSource[]} rawSources
+	 * @param {import('./content-config.js').ConfigContentSource[]} rawSources
 	 */
 	_createSourcesFromConfig(rawSources) {
 		return ResultAsync.combine(rawSources.map(source =>

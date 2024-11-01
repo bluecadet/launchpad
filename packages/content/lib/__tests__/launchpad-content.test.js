@@ -5,7 +5,7 @@ import { LaunchpadContent } from '../launchpad-content.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { ok, okAsync } from 'neverthrow';
 import { ContentError } from '../content-plugin-driver.js';
-import { resolveContentOptions } from '../content-options.js';
+import { resolveContentConfig } from '../content-config.js';
 import { defineSource } from '../sources/source.js';
 
 describe('LaunchpadContent', () => {
@@ -47,14 +47,14 @@ describe('LaunchpadContent', () => {
 		it('should initialize with default options when no config provided', () => {
 			const content = new LaunchpadContent(undefined, createMockLogger());
 			expect(content).toBeInstanceOf(LaunchpadContent);
-			expect(content._config).toEqual(resolveContentOptions());
+			expect(content._config).toEqual(resolveContentConfig());
 		});
 
 		it('should initialize with provided config', () => {
 			const config = createBasicConfig();
 			const content = new LaunchpadContent(config, createMockLogger());
 			expect(content).toBeInstanceOf(LaunchpadContent);
-			expect(content._config).toEqual(resolveContentOptions(config));
+			expect(content._config).toEqual(resolveContentConfig(config));
 		});
 	});
 

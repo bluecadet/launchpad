@@ -35,7 +35,7 @@ const DEFAULT_LOG_FORMAT = winston.format.combine(
 );
 
 /**
- * @typedef LogFileOptions see https://github.com/winstonjs/winston-daily-rotate-file#options 
+ * @typedef LogFileConfig see https://github.com/winstonjs/winston-daily-rotate-file#options 
  * @property {winston.Logform.Format} [format] The format used for individual file logs. Defaults to `YYYY-MM-DD-HH:mm:ss (level):(module) message`.
  * @property {string} [extension] File extension. Defaults to '.log'.
  * @property {string} [dirname] The directory under which all logs are saved. Defaults to '.logs'.
@@ -45,9 +45,9 @@ const DEFAULT_LOG_FORMAT = winston.format.combine(
  */
 
 /**
- * @satisfies {LogFileOptions}
+ * @satisfies {LogFileConfig}
  */
-const LOG_FILE_OPTIONS_DEFAULTS = {
+const LOG_FILE_CONFIG_DEFAULTS = {
 	format: DEFAULT_LOG_FORMAT,
 	extension: '.log',
 	dirname: '.logs',
@@ -57,49 +57,49 @@ const LOG_FILE_OPTIONS_DEFAULTS = {
 };
 
 /**
- * @typedef {typeof LOG_FILE_OPTIONS_DEFAULTS & Omit<LogFileOptions, keyof typeof LOG_FILE_OPTIONS_DEFAULTS>} ResolvedLogFileOptions 
+ * @typedef {typeof LOG_FILE_CONFIG_DEFAULTS & Omit<LogFileConfig, keyof typeof LOG_FILE_CONFIG_DEFAULTS>} ResolvedLogFileConfig 
  */
 
 /**
- * @typedef LaunchpadLogOptions 
+ * @typedef LaunchpadLogConfig 
  * @property {string} [filename] Where to save logs to. Defaults to `%DATE%-%LOG_TYPE%`.
- * @property {LogFileOptions} [fileOptions] Options for individual files and streams.
+ * @property {LogFileConfig} [fileOptions] Options for individual files and streams.
  * @property {string} [level] The maximum log level to display in all default logs. Defaults to 'info'.
  * @property {winston.Logform.Format} [format] The format for how each line is logged. Defaults to a colorized version of `YYYY-MM-DD-HH:mm:ss (level):(module) message`.
  * @property {boolean} [overrideConsole] Route all console logs to the log manager. This helps ensure that logs are routed to files and rotated properly. This will also freeze the console object, so it can't be modified further during runtime. All console logs will be prefixed with `(console)`. Defaults to true.
  */
 
 /**
- * @typedef {LaunchpadLogOptions & Omit<winston.LoggerOptions, keyof LaunchpadLogOptions>} LogOptions Options object passed directly to Winston's constructor, with additional options for Launchpad logging. See https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
+ * @typedef {LaunchpadLogConfig & Omit<winston.LoggerOptions, keyof LaunchpadLogConfig>} LogConfig Options object passed directly to Winston's constructor, with additional options for Launchpad logging. See https://github.com/winstonjs/winston#creating-your-own-logger for all available settings supported by Winston.
  */
 
 /**
- * @satisfies {LogOptions}
+ * @satisfies {LogConfig}
  */
 const LOG_OPTIONS_DEFAULTS = {
 	filename: `${DATE_KEY}-${LOG_TYPE_KEY}`,
-	fileOptions: LOG_FILE_OPTIONS_DEFAULTS,
+	fileOptions: LOG_FILE_CONFIG_DEFAULTS,
 	level: 'info',
 	format: DEFAULT_LOG_FORMAT,
 	overrideConsole: process.env.NODE_ENV !== 'test'
 };
 
 /**
- * @param {LogOptions} [options] 
+ * @param {LogConfig} [config] 
  */
-function resolveLogOptions(options) {
+function resolveLogConfig(config) {
 	return {
 		...LOG_OPTIONS_DEFAULTS,
-		...options,
+		...config,
 		fileOptions: {
-			...LOG_FILE_OPTIONS_DEFAULTS,
-			...options?.fileOptions
+			...LOG_FILE_CONFIG_DEFAULTS,
+			...config?.fileOptions
 		}
 	};
 }
 
 /**
- * @typedef {ReturnType<typeof resolveLogOptions>} ResolvedLogOptions
+ * @typedef {ReturnType<typeof resolveLogConfig>} ResolvedLogConfig
  */
 
 export class LogManager {
@@ -109,7 +109,7 @@ export class LogManager {
 	static _instance = null;
 	
 	/**
-	 * @type {ResolvedLogOptions}
+	 * @type {ResolvedLogConfig}
 	 */
 	_config;
 	
@@ -119,10 +119,10 @@ export class LogManager {
 	_rootLogger;
 	
 	/**
-	 * @param {LogOptions} [config] 
+	 * @param {LogConfig} [config] 
 	 */
 	constructor(config) {
-		this._config = resolveLogOptions(config);
+		this._config = resolveLogConfig(config);
 		this._rootLogger = winston.createLogger({
 			...this._config,
 			transports: [
@@ -150,7 +150,7 @@ export class LogManager {
 	}
 
 	/**
-	 * @param {LogOptions} [config]
+	 * @param {LogConfig} [config]
 	 */
 	static configureRootLogger(config) {
 		if (this._instance === null) {

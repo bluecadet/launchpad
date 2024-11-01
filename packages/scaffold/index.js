@@ -8,10 +8,6 @@ import * as path from 'path';
  * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
  */
 export function launchScaffold(parentLogger) {
-	if (!parentLogger) {
-		LogManager.configureRootLogger();
-	}
-
 	const logger = LogManager.getLogger('scaffold', parentLogger);
 
 	if (process.platform !== 'win32') {

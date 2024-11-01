@@ -30,15 +30,11 @@ export class LaunchpadContent {
 	_dataStore;
 
 	/**
-	 * @param {import('./content-options.js').ContentOptions} [config]
-	 * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
+	 * @param {import('./content-options.js').ContentOptions} config
+	 * @param {import('@bluecadet/launchpad-utils').Logger} parentLogger
 	 */
 	constructor(config, parentLogger) {
 		this._config = resolveContentOptions(config);
-
-		if (!parentLogger) {
-			LogManager.configureRootLogger();
-		}
 
 		this._logger = LogManager.getLogger('content', parentLogger);
 
@@ -93,6 +89,7 @@ export class LaunchpadContent {
 						this._logger.error('Error in content fetch process:', e);
 						this._logger.info('Restoring from backup...');
 						return this.restore(sources).andThen(() => {
+							console.log('HERE');
 							return err(new ContentError('Failed to download content. Restored from backup.', { cause: e }));
 						});
 					})
@@ -108,7 +105,7 @@ export class LaunchpadContent {
 	 * Alias for start(source)
 	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
 	 */
-	async download(rawSources = null) {
+	download(rawSources = null) {
 		return this.start(rawSources);
 	}
 
@@ -197,17 +194,17 @@ export class LaunchpadContent {
 				}
 				return ok(undefined);
 			}).andTee(() => {
-				this._logger.info(`Restoring ${source} from backup`);
+				this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
 			}).andThen(() => {
 				return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true });
 			}).andThen(() => {
 				if (removeBackups) {
-					this._logger.debug(`Removing backup for ${source}`);
+					this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
 					return FileUtils.remove(backupPath);
 				}
 
 				return okAsync(undefined);
-			}).mapErr(e => new ContentError(`Failed to restore source ${source.id}: ${e}`));
+			}).mapErr(e => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`));
 		})).map(() => undefined); // return void instead of void[]
 	}
 

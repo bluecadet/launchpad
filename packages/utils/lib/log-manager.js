@@ -8,7 +8,6 @@ import 'winston-daily-rotate-file';
 import slugify from '@sindresorhus/slugify';
 import moment from 'moment';
 import chalk from 'chalk';
-import { text } from 'stream/consumers';
 
 /**
  * @callback createChildLogger
@@ -160,7 +159,7 @@ export class LogManager {
 			this._instance._rootLogger.warn('Root logger already configured. Ignoring.');
 		}
 
-		return this._instance;
+		return this._instance._rootLogger;
 	}
 
 	/**

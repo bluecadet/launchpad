@@ -79,7 +79,7 @@ const APP_CONFIG_DEFAULTS = {
  * @property {Array<AppConfig>} [apps] A list of `AppOptions` to configure which apps to launch and monitor.
  * @property {boolean} [deleteExistingBeforeConnect] Set this to true to delete existing PM2 processes before connecting. If you're running volatile apps or your node process might be quit unexpectedly, this can be helpful to start with a clean slate on startup.
  * @property {WindowsApiConfig} [windowsApi] Advanced configuration for the Windows API, e.g. for managing foreground/minimized/hidden windows.
- * @property {import('./monitor-plugin-driver.js').MonitorPlugin[]} [plugins] A list of plugins.
+ * @property {import('./core/monitor-plugin-driver.js').MonitorPlugin[]} [plugins] A list of plugins.
  * @property {boolean} [shutdownOnExit] Will listen for exit events. Defaults to 'true'.
  */
 

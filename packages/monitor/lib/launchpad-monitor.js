@@ -72,15 +72,11 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * 
-	 * @param {import('./monitor-options.js').MonitorOptions} [config] 
-   * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
+	 * @param {import('./monitor-options.js').MonitorOptions} config
+   * @param {import('@bluecadet/launchpad-utils').Logger} parentLogger
 	 */
 	constructor(config, parentLogger) {
 		autoBind(this);
-
-		if (!parentLogger) {
-			LogManager.configureRootLogger();
-		}
 
 		this._logger = LogManager.getLogger('monitor', parentLogger);
 		

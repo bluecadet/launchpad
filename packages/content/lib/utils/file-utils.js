@@ -3,6 +3,16 @@ import fs from 'fs';
 import { glob } from 'glob';
 import { okAsync, ResultAsync } from 'neverthrow';
 
+export class FileUtilsError extends Error {
+	/**
+	 * @param {ConstructorParameters<typeof Error>} args
+	 */
+	constructor(...args) {
+		super(...args);
+		this.name = 'FileUtilsError';
+	}
+}
+
 /**
  * @param {string} dirPath
  */
@@ -15,7 +25,7 @@ export function isDir(dirPath) {
  * @param {unknown} json 
  * @param {string} filePath 
  * @param {boolean} appendJsonExtension
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function saveJson(json, filePath, appendJsonExtension = true) {
 	if (appendJsonExtension && !(filePath + '').endsWith('.json')) {
@@ -24,14 +34,14 @@ export function saveJson(json, filePath, appendJsonExtension = true) {
 	const jsonStr = (typeof json === 'string') ? json : JSON.stringify(json, null, 0);
 
 	return ensureDir(path.dirname(filePath))
-		.andThen(() => ResultAsync.fromPromise(fs.promises.writeFile(filePath, jsonStr), (_) => `Could not write file ${filePath}`));
+		.andThen(() => ResultAsync.fromPromise(fs.promises.writeFile(filePath, jsonStr), (e) => new FileUtilsError(`Could not write file ${filePath}`, { cause: e })));
 }
     
 /**
  * Removes all files and subdirectories of `dirPath`, except for `exclude`.
  * @param {string} dirPath Any absolute directory path
  * @param {string[]} [exclude] Array of glob patterns to exclude (e.g. ['*.json', '** /*.csv', 'my-important-folder/**']). Glob patterns are relative to `dirPath`.
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function removeFilesFromDir(dirPath, exclude = []) {
 	return ResultAsync.fromPromise(
@@ -40,13 +50,13 @@ export function removeFilesFromDir(dirPath, exclude = []) {
 			dot: true,
 			nodir: true // Only match files, not directories
 		}),
-		(error) => `Failed to glob directory ${dirPath}: ${error}`
+		(error) => new FileUtilsError(`Failed to glob directory ${dirPath}`, { cause: error })
 	)
 		.andThen((files) => {
 			const deletePromises = files.map((file) =>
 				ResultAsync.fromPromise(
 					fs.promises.unlink(file), // Use unlink instead of rm to only remove files
-					(error) => `Failed to remove ${file}: ${error}`
+					(error) => new FileUtilsError(`Failed to remove ${file}`, { cause: error })
 				)
 			);
 			return ResultAsync.combine(deletePromises);
@@ -59,7 +69,7 @@ export function removeFilesFromDir(dirPath, exclude = []) {
 					dot: true,
 					nodir: false // Match directories this time
 				}),
-				(error) => `Failed to glob directories in ${dirPath}: ${error}`
+				(error) => new FileUtilsError(`Failed to glob directories in ${dirPath}`, { cause: error })
 			)
 				.andThen((dirs) => {
 					// Sort directories by depth (deepest first)
@@ -68,7 +78,7 @@ export function removeFilesFromDir(dirPath, exclude = []) {
 					const removeDirPromises = dirs.map((dir) =>
 						ResultAsync.fromPromise(
 							fs.promises.rmdir(dir),
-							(error) => `Failed to remove directory ${dir}: ${error}`
+							(error) => new FileUtilsError(`Failed to remove directory ${dir}`, { cause: error })
 						).orElse(() => okAsync(undefined)) // Ignore errors if directory is not empty
 					);
 					return ResultAsync.combine(removeDirPromises);
@@ -95,7 +105,7 @@ export function pad(num, size) {
     
 /**
  * @param {string} dirPath
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function removeDirIfEmpty(dirPath) {
 	if (!isDir(dirPath)) {
@@ -111,47 +121,47 @@ export function removeDirIfEmpty(dirPath) {
 	
 /**
  * @param {string} dirPath
- * @returns {ResultAsync<boolean, string>}
+ * @returns {ResultAsync<boolean, FileUtilsError>}
  */
 export function isDirEmpty(dirPath) {
 	// @see https://stackoverflow.com/a/39218759/782899
-	return ResultAsync.fromPromise(fs.promises.readdir(dirPath), (_) => `Could not read dir ${dirPath}`)
+	return ResultAsync.fromPromise(fs.promises.readdir(dirPath), (e) => new FileUtilsError(`Could not read dir ${dirPath}`, { cause: e }))
 		.andThen(files => okAsync(files.length === 0));
 }
 
 /**
  * Ensures that the directory exists. If the directory structure does not exist, it is created.
  * @param {string} dirPath 
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function ensureDir(dirPath) {
 	return ResultAsync.fromPromise(
 		fs.promises.mkdir(dirPath, { recursive: true }),
-		wrapError(`Failed to create directory ${dirPath}`)
+		(e) => new FileUtilsError(`Failed to create directory ${dirPath}`, { cause: e })
 	).map(() => undefined); // return void on success
 }
 
 /**
  * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
  * @param {string} dir 
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function remove(dir) {
 	return ResultAsync.fromPromise(
 		fs.promises.rm(dir, { recursive: true, force: true }),
-		wrapError(`Failed to remove ${dir}`)
+		(e) => new FileUtilsError(`Failed to remove ${dir}`, { cause: e })
 	);
 }
 
 /**
  * returns true if the path exists, false otherwise
  * @param {string} dir 
- * @returns {ResultAsync<boolean, string>}
+ * @returns {ResultAsync<boolean, FileUtilsError>}
  */
 export function pathExists(dir) {
 	return ResultAsync.fromPromise(
 		fs.promises.access(dir).then(() => true).catch(() => false),
-		wrapError(`Failed to check if path exists ${dir}`)
+		(e) => new FileUtilsError(`Failed to check if path exists ${dir}`, { cause: e })
 	);
 }
 
@@ -161,12 +171,12 @@ export function pathExists(dir) {
  * @param {string} dest
  * @param {object} [options]
  * @param {boolean} [options.preserveTimestamps]
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 export function copy(src, dest, options = { preserveTimestamps: true }) {
 	return ResultAsync.fromPromise(
 		fs.promises.stat(src),
-		wrapError(`Failed to get file stats for ${src}`)
+		(e) => new FileUtilsError(`Failed to get file stats for ${src}`, { cause: e })
 	).andThrough((stats) => {
 		if (stats.isDirectory()) {
 			return copyDir(src, dest, options);
@@ -175,7 +185,7 @@ export function copy(src, dest, options = { preserveTimestamps: true }) {
 		}
 	}).andThen((stats) => {
 		if (options.preserveTimestamps) {
-			return ResultAsync.fromPromise(fs.promises.utimes(dest, stats.atime, stats.mtime), wrapError(`Failed to set file timestamps for ${dest}`));
+			return ResultAsync.fromPromise(fs.promises.utimes(dest, stats.atime, stats.mtime), (e) => new FileUtilsError(`Failed to set file timestamps for ${dest}`, { cause: e }));
 		}
 		return okAsync(undefined);
 	});
@@ -187,11 +197,11 @@ export function copy(src, dest, options = { preserveTimestamps: true }) {
  * @param {string} dest
  * @param {object} [options]
  * @param {boolean} [options.preserveTimestamps]
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 function copyDir(src, dest, options = { preserveTimestamps: true }) {
 	return ensureDir(dest)
-		.andThen(() => ResultAsync.fromPromise(fs.promises.readdir(src), wrapError(`Failed to read dir ${src}`)))
+		.andThen(() => ResultAsync.fromPromise(fs.promises.readdir(src), (e) => new FileUtilsError(`Failed to read dir ${src}`, { cause: e })))
 		.andThen((entries) =>
 			ResultAsync.combine(entries.map((entry) =>
 				copy(path.join(src, entry), path.join(dest, entry), options)
@@ -203,15 +213,11 @@ function copyDir(src, dest, options = { preserveTimestamps: true }) {
  * Copies a file from `src` to `dest`.
  * @param {string} src
  * @param {string} dest
- * @returns {ResultAsync<void, string>}
+ * @returns {ResultAsync<void, FileUtilsError>}
  */
 function copyFile(src, dest) {
 	return ResultAsync.fromPromise(
 		fs.promises.copyFile(src, dest),
-		wrapError(`Failed to copy file ${src} to ${dest}`)
+		(e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e })
 	);
 }
-
-const wrapError = (/** @type string */ message) => (/** @type unknown */ error) => {
-	return (error instanceof Error) ? `${message}: ${error.message}` : `${message}: ${error}`;
-};

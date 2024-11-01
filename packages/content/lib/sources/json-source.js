@@ -1,8 +1,7 @@
 import chalk from 'chalk';
 import { ok, okAsync } from 'neverthrow';
-import { defineSource } from './source.js';
-import { fetchError, parseError } from './source-errors.js';
-import { safeKy, SafeKyError } from '../utils/safe-ky.js';
+import { defineSource, SourceFetchError, SourceParseError } from './source.js';
+import { safeKy, SafeKyParseError } from '../utils/safe-ky.js';
 
 /**
  * @typedef {object} JsonSourceOptions
@@ -25,10 +24,10 @@ export default function jsonSource({ id, files, maxTimeout = 30_000 }) {
 						id: key,
 						dataPromise: safeKy(url, { timeout: maxTimeout }).json()
 							.mapErr((e) => {
-								if (e instanceof SafeKyError.ParseError) {
-									return parseError(e.message);
+								if (e instanceof SafeKyParseError) {
+									return new SourceParseError(`Could not parse json from ${url}`, { cause: e });
 								}
-								return fetchError(e.message);
+								return new SourceFetchError(`Could not fetch json from ${url}`, { cause: e });
 							})
 							.map(data => {
 								return [{

@@ -1,6 +1,5 @@
 import { err, errAsync, ok, ResultAsync } from 'neverthrow';
-import { defineSource } from './source.js';
-import { configError, fetchError } from './source-errors.js';
+import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError } from './source.js';
 import { fetchPaginated } from '../utils/fetch-paginated.js';
 
 /**
@@ -75,13 +74,13 @@ export default function contentfulSource(options) {
 
 	if (assembled.usePreviewApi) {
 		if (!assembled.previewToken) {
-			return errAsync(configError('usePreviewApi is set to true, but no previewToken is provided'));
+			return errAsync(new SourceConfigError('usePreviewApi is set to true, but no previewToken is provided'));
 		}
 		assembled.host = 'preview.contentful.com';
 		assembled.accessToken = assembled.previewToken;
 	} else {
 		if (!('deliveryToken' in assembled) || !assembled.deliveryToken) {
-			return errAsync(configError('usePreviewApi is set to false, but no deliveryToken is provided'));
+			return errAsync(new SourceConfigError('usePreviewApi is set to false, but no deliveryToken is provided'));
 		}
 
 		assembled.accessToken = assembled.deliveryToken;
@@ -92,7 +91,7 @@ export default function contentfulSource(options) {
 	}
 
 	return ResultAsync
-		.fromPromise(import('contentful'), () => configError('Could not find module "contentful". Make sure you have installed it.'))
+		.fromPromise(import('contentful'), () => new SourceMissingDependencyError('Could not find module "contentful". Make sure you have installed it.'))
 		.map(({ createClient }) => {
 			const client = createClient(assembled);
 
@@ -104,10 +103,10 @@ export default function contentfulSource(options) {
 					/** @type {ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>} */
 					const fetchResult = fetchPaginated({
 						fetchPageFn: (params) => {
-							return ResultAsync.fromPromise(client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit }), (error) => fetchError(`Error fetching page: ${error instanceof Error ? error.message : error}`))
+							return ResultAsync.fromPromise(client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit }), (error) => new SourceFetchError(`Error fetching page: ${error instanceof Error ? error.message : error}`))
 								.andThen((rawPage) => {
 									if (rawPage.errors) {
-										return err(fetchError(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`));
+										return err(new SourceFetchError(`Error fetching page: ${rawPage.errors.map(e => e.message).join(', ')}`));
 									}
 
 									const page = rawPage.toPlainObject();

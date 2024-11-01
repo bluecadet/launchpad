@@ -1,6 +1,16 @@
 import { JSONPath } from 'jsonpath-plus';
 import { ok, err, Result } from 'neverthrow';
 
+export class DataStoreError extends Error {
+	/**
+	 * @param {ConstructorParameters<typeof Error>} args
+	 */
+	constructor(...args) {
+		super(...args);
+		this.name = 'DataStoreError';
+	}
+}
+
 /**
  * @typedef {Array<string | [string] | [string, string]>} DataKeys A list containing a combination of namespace ids, and namespace/document id tuples.
  */
@@ -54,7 +64,7 @@ export class Document {
    * Apply a function to each element matching the given jsonpath.
    * @param {string} pathExpression
    * @param {(x: unknown) => unknown} fn
-   * @returns {Result<void, Error>}
+   * @returns {Result<void, DataStoreError>}
    */
 	apply(pathExpression, fn) {
 		// catch errrors thrown from JSONPath OR the fn callback
@@ -70,11 +80,7 @@ export class Document {
 
 			return ok(undefined);
 		} catch (e) {
-			if (e instanceof Error) {
-				return err(e);
-			}
-
-			return err(new Error(String(e)));
+			return err(new DataStoreError('Error applying content transform', { cause: e }));
 		}
 	}
 }
@@ -107,11 +113,11 @@ class Namespace {
 	/**
    * @param {string} id
    * @param {unknown} data
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	insert(id, data) {
 		if (this.#documents.has(id)) {
-			return err(`Document ${id} already exists in namespace ${this.#id}`);
+			return err(new DataStoreError(`Document ${id} already exists in namespace ${this.#id}`));
 		}
 
 		this.#documents.set(id, new Document(id, data));
@@ -120,12 +126,12 @@ class Namespace {
 
 	/**
    * @param {string} id
-   * @returns {Result<Document, string>}
+   * @returns {Result<Document, DataStoreError>}
    */
 	get(id) {
 		const document = this.#documents.get(id);
 		if (!document) {
-			return err(`Document ${id} not found in namespace ${this.#id}`);
+			return err(new DataStoreError(`Document ${id} not found in namespace ${this.#id}`));
 		}
 
 		return ok(document);
@@ -137,7 +143,7 @@ class Namespace {
 
 	/**
    * @param {string} id
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	delete(id) {
 		this.#documents.delete(id);
@@ -147,7 +153,7 @@ class Namespace {
 	/**
    * @param {string} id
    * @param {unknown} data
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	update(id, data) {
 		this.#documents.set(id, new Document(id, data));
@@ -168,12 +174,12 @@ export class DataStore {
 	/**
    * @param {string} namespaceId
    * @param {string} documentId
-   * @returns {Result<Document, string>}
+   * @returns {Result<Document, DataStoreError>}
    */
 	get(namespaceId, documentId) {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
-			return err(`Namespace ${namespaceId} not found in data store`);
+			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
 		return namespace.get(documentId);
@@ -181,12 +187,12 @@ export class DataStore {
 
 	/**
    * @param {string} namespaceId
-   * @returns {Result<Iterable<Document>, string>}
+   * @returns {Result<Iterable<Document>, DataStoreError>}
    */
 	namespace(namespaceId) {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
-			return err(`Namespace ${namespaceId} not found in data store`);
+			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
 		return ok(namespace.documents());
@@ -207,11 +213,11 @@ export class DataStore {
 
 	/**
    * @param {string} namespaceId
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	createNamespace(namespaceId) {
 		if (this.#namespaces.has(namespaceId)) {
-			return err(`Namespace ${namespaceId} already exists in data store`);
+			return err(new DataStoreError(`Namespace ${namespaceId} already exists in data store`));
 		}
 
 		this.#namespaces.set(namespaceId, new Namespace(namespaceId));
@@ -221,7 +227,7 @@ export class DataStore {
 	/**
    * @param {string} namespaceId
    * @param {Map<string, unknown>} map
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	createNamespaceFromMap(namespaceId, map) {
 		const namespaceResult = this.createNamespace(namespaceId);
@@ -244,12 +250,12 @@ export class DataStore {
    * @param {string} namespaceId
    * @param {string} documentId
    * @param {unknown} data
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	insert(namespaceId, documentId, data) {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
-			return err(`Namespace ${namespaceId} not found in data store`);
+			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
 		return namespace.insert(documentId, data);
@@ -258,12 +264,12 @@ export class DataStore {
 	/**
    * @param {string} namespaceId
    * @param {string} documentId
-   * @returns {Result<void, string>}
+   * @returns {Result<void, DataStoreError>}
    */
 	delete(namespaceId, documentId) {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
-			return err(`Namespace ${namespaceId} not found in data store`);
+			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
 		return namespace.delete(documentId);
@@ -272,7 +278,7 @@ export class DataStore {
 	/**
 	 * Get lists of documents matching the passed DataKeys grouped by namespace.
 	 * @param {DataKeys} [ids] A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
-	 * @returns {Result<Array<{namespaceId: string; documents: Array<Document> }>, string>}
+	 * @returns {Result<Array<{namespaceId: string; documents: Array<Document> }>, DataStoreError>}
 	 */
 	filter(ids) {
 		if (!ids) {

@@ -30,15 +30,11 @@ export class LaunchpadContent {
 	_dataStore;
 
 	/**
-	 * @param {import('./content-options.js').ContentOptions} [config]
-	 * @param {import('@bluecadet/launchpad-utils').Logger} [parentLogger]
+	 * @param {import('./content-options.js').ContentOptions} config
+	 * @param {import('@bluecadet/launchpad-utils').Logger} parentLogger
 	 */
 	constructor(config, parentLogger) {
 		this._config = resolveContentOptions(config);
-
-		if (!parentLogger) {
-			LogManager.configureRootLogger();
-		}
 
 		this._logger = LogManager.getLogger('content', parentLogger);
 
@@ -93,7 +89,8 @@ export class LaunchpadContent {
 						this._logger.error('Error in content fetch process:', e);
 						this._logger.info('Restoring from backup...');
 						return this.restore(sources).andThen(() => {
-							return err(new ContentError('Failed to download content. Restored from backup.'));
+							console.log('HERE');
+							return err(new ContentError('Failed to download content. Restored from backup.', { cause: e }));
 						});
 					})
 					.andThen(() => this.clear(sources, {
@@ -108,7 +105,7 @@ export class LaunchpadContent {
 	 * Alias for start(source)
 	 * @param {import('./content-options.js').ConfigContentSource[]?} rawSources
 	 */
-	async download(rawSources = null) {
+	download(rawSources = null) {
 		return this.start(rawSources);
 	}
 
@@ -143,7 +140,7 @@ export class LaunchpadContent {
 			}
 			return ResultAsync.combine(tasks);
 		})).andThen(() => {
-			/** @type {ResultAsync<void, string>[]} */
+			/** @type {ResultAsync<void, FileUtils.FileUtilsError>[]} */
 			const tasks = [];
 			if (removeIfEmpty) {
 				if (temp) tasks.push(FileUtils.removeDirIfEmpty(this.getTempPath()));
@@ -153,7 +150,7 @@ export class LaunchpadContent {
 			return ResultAsync.combine(tasks);
 		})
 			.map(() => undefined) // return void instead of void[]
-			.mapErr(error => new ContentError(`Failed to clear directories: ${error instanceof Error ? error.message : String(error)}`));
+			.mapErr(error => new ContentError('Failed to clear directories', { cause: error }));
 	}
 
 	/**
@@ -176,7 +173,7 @@ export class LaunchpadContent {
 					return FileUtils.copy(downloadPath, backupPath);
 				});
 		}))
-			.mapErr(e => new ContentError(`Failed to backup sources: ${e}`))
+			.mapErr(e => new ContentError('Failed to backup sources', { cause: e }))
 			.map(() => undefined); // return void instead of void[]
 	}
 
@@ -197,17 +194,17 @@ export class LaunchpadContent {
 				}
 				return ok(undefined);
 			}).andTee(() => {
-				this._logger.info(`Restoring ${source} from backup`);
+				this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
 			}).andThen(() => {
 				return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true });
 			}).andThen(() => {
 				if (removeBackups) {
-					this._logger.debug(`Removing backup for ${source}`);
+					this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
 					return FileUtils.remove(backupPath);
 				}
 
 				return okAsync(undefined);
-			}).mapErr(e => new ContentError(`Failed to restore source ${source.id}: ${e}`));
+			}).mapErr(e => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`));
 		})).map(() => undefined); // return void instead of void[]
 	}
 
@@ -267,10 +264,10 @@ export class LaunchpadContent {
 			ResultAsync.fromPromise(
 				// wrap source in promise to ensure it's awaited
 				Promise.resolve(source),
-				error => new ContentError(error instanceof Error ? error.message : String(error))
+				error => new ContentError('Failed to build source', { cause: error })
 			).andThen(awaited => {
 				if ('value' in awaited || 'error' in awaited) {
-					return awaited.mapErr(e => new ContentError(e instanceof Error ? e.message : String(e)));
+					return awaited.mapErr(e => new ContentError('Failed to build source', { cause: e }));
 				}
 				return ok(awaited);
 			})
@@ -296,7 +293,7 @@ export class LaunchpadContent {
 					.asyncAndThen(calls => {
 						return ResultAsync.combine(calls.map(call => call.dataPromise));
 					})
-					.mapErr(e => new ContentError(`Failed to fetch source ${source.id}: ${e instanceof Error ? e.message : String(e)}`))
+					.mapErr(e => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }))
 					.andThrough(fetchResults => {
 						/** @type {Map<string, unknown>} */
 						const map = new Map();
@@ -305,7 +302,7 @@ export class LaunchpadContent {
 							map.set(result.id, result.data);
 						}
 
-						return this._dataStore.createNamespaceFromMap(source.id, map).mapErr(e => new ContentError(`Unable to create namespace for source ${source.id}: ${e}`));
+						return this._dataStore.createNamespaceFromMap(source.id, map).mapErr(e => new ContentError(`Unable to create namespace for source ${source.id}`, { cause: e }));
 					});
 			}))
 			.map(() => undefined); // return void instead of void[]
@@ -328,7 +325,7 @@ export class LaunchpadContent {
 					return FileUtils.saveJson(document.data, filePath);
 				})
 			))
-			.mapErr(e => new ContentError(`Failed to write data store to disk: ${e}`))
+			.mapErr(e => new ContentError('Failed to write data store to disk', { cause: e }))
 			.map(() => undefined); // return void instead of void[]
 	}
 
@@ -351,7 +348,7 @@ export class LaunchpadContent {
 	
 						return okAsync(undefined);
 					});
-			}).mapErr(e => new ContentError(e));
+			}).mapErr(e => new ContentError(`Failed to clear directory: ${dirPath}`, { cause: e }));
 	}
 
 	/**

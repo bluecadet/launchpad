@@ -57,6 +57,6 @@ describe('mdToHtml plugin', () => {
 		ctx.data.insert('test', 'doc1', { content: { foo: 'bar' } });
 
 		const plugin = mdToHtml({ path: '$.content' });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Can\'t convert non-string content to html.');
+		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow('Error applying content transform');
 	});
 });

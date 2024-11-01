@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import contentfulSource from '../contentful-source.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { DataStore } from '../../utils/data-store.js';
+import { SourceConfigError, SourceFetchError } from '../source.js';
 
 const server = setupServer();
 
@@ -37,7 +38,7 @@ describe('contentfulSource', () => {
 		});
 
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr().type).toBe('config');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
 		expect(result._unsafeUnwrapErr().message).toContain('no deliveryToken is provided');
 	});
 
@@ -51,7 +52,7 @@ describe('contentfulSource', () => {
 		});
 
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr().type).toBe('config');
+		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
 		expect(result._unsafeUnwrapErr().message).toContain('no previewToken is provided');
 	});
 
@@ -251,7 +252,7 @@ describe('contentfulSource', () => {
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 		expect(data._unsafeUnwrapErr().message).toContain('Error fetching page');
 	});
 
@@ -280,7 +281,7 @@ describe('contentfulSource', () => {
 		const fetchPromises = result._unsafeUnwrap();
 		const data = await fetchPromises[0].dataPromise;
 		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr().type).toBe('fetch');
+		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
 		expect(data._unsafeUnwrapErr().message).toContain('Invalid content type');
 	});
 

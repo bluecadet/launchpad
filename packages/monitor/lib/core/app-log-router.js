@@ -1,7 +1,6 @@
 import path from 'path';
 import { Tail } from 'tail';
 import autoBind from 'auto-bind';
-import { SubEmitterSocket } from 'axon'; // used by PM2
 import { LogManager } from '@bluecadet/launchpad-utils';
 import { LogModes } from '../monitor-config.js';
 
@@ -298,14 +297,14 @@ export default class AppLogRouter {
 	}
 
 	/**
-	 * @param {SubEmitterSocket} pm2Bus
+	 * @param {import('axon').SubEmitterSocket} pm2Bus
 	 */
 	connectToBus(pm2Bus) {
 		pm2Bus.on('*', this._handleEvent);
 	}
 
 	/**
-	 * @param {SubEmitterSocket} pm2Bus
+	 * @param {import('axon').SubEmitterSocket} pm2Bus
 	 */
 	disconnectFromBus(pm2Bus) {
 		pm2Bus.off('*');

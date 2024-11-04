@@ -3,7 +3,7 @@ import { onExit, LogManager } from '@bluecadet/launchpad-utils';
 import { MonitorPluginDriver } from './core/monitor-plugin-driver.js';
 import { ProcessManager } from './core/process-manager.js';
 import { BusManager } from './core/bus-manager.js';
-import { ResultAsync, okAsync, errAsync } from 'neverthrow';
+import { ResultAsync, okAsync, errAsync, ok } from 'neverthrow';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { resolveMonitorConfig } from './monitor-config.js';
 import { AppManager } from './core/app-manager.js';
@@ -75,7 +75,7 @@ export class LaunchpadMonitor {
 	 */
 	connect(ensureDaemonOwnership = true) {
 		return this._busManager.disconnect()
-			.andThen(() => this._processManager.isDaemonRunning())
+			.asyncAndThen(() => this._processManager.isDaemonRunning())
 			.andThen(isDaemonRunning => {
 				if (ensureDaemonOwnership && isDaemonRunning) {
 					return this._handleExistingDaemon();
@@ -86,7 +86,9 @@ export class LaunchpadMonitor {
 				this._logger.info('Connecting to PM2');
 				return this._processManager.connect();
 			})
-			.andThen(() => this._busManager.connect());
+			.andThen(() => {
+				return this._busManager.connect();
+			});
 	}
 
 	/**
@@ -113,7 +115,7 @@ export class LaunchpadMonitor {
 		this._logger.info('Disconnecting from PM2');
 		
 		return this._busManager.disconnect()
-			.andThen(() => this._processManager.isDaemonRunning())
+			.asyncAndThen(() => this._processManager.isDaemonRunning())
 			.andThen(isDaemonRunning => {
 				if (isDaemonRunning) {
 					this._logger.debug('Disconnecting from daemon');
@@ -136,9 +138,8 @@ export class LaunchpadMonitor {
 				}
 				return okAsync(undefined);
 			})
-			.andThen(() => {
-				const validatedNames = this._appManager.validateAppNames(appNames);
-				
+			.andThen(() => this._appManager.validateAppNames(appNames))
+			.andThen(validatedNames => {
 				if (!validatedNames || validatedNames.length === 0) {
 					this._logger.warn('No apps configured to start');
 					return okAsync(undefined);
@@ -158,17 +159,19 @@ export class LaunchpadMonitor {
 	 * @returns {ResultAsync<void, Error>}
 	 */
 	stop(appNames = null) {
-		const validatedNames = this._appManager.validateAppNames(appNames);
-		this._logger.info(`Stopping app(s): ${validatedNames}`);
-		
-		if (!validatedNames || validatedNames.length === 0) {
-			this._logger.warn('No apps configured to stop');
-			return okAsync(undefined);
-		}
-		
-		return ResultAsync.combine(
-			validatedNames.map(name => this._appManager.stopApp(name))
-		).map(() => undefined);
+		return this._appManager.validateAppNames(appNames)
+			.asyncAndThen(validatedNames => {
+				this._logger.info(`Stopping app(s): ${validatedNames}`);
+				
+				if (!validatedNames || validatedNames.length === 0) {
+					this._logger.warn('No apps configured to stop');
+					return okAsync(undefined);
+				}
+				
+				return ResultAsync.combine(
+					validatedNames.map(name => this._appManager.stopApp(name))
+				).map(() => undefined);
+			});
 	}
 	
 	/**
@@ -177,11 +180,13 @@ export class LaunchpadMonitor {
 	 * @returns {ResultAsync<boolean, Error>}
 	 */
 	isRunning(appNames = null) {
-		const validatedNames = this._appManager.validateAppNames(appNames);
-		
-		return ResultAsync.combine(
-			validatedNames.map(name => this._appManager.isAppRunning(name, true))
-		).map(results => results.some(isRunning => isRunning));
+		return this._appManager.validateAppNames(appNames)
+			.asyncAndThen(validatedNames => {
+				return ResultAsync.combine(
+					validatedNames.map(name => this._appManager.isAppRunning(name, true))
+				);
+			})
+			.map(results => results.some(isRunning => isRunning));
 	}
 	
 	/**
@@ -210,8 +215,8 @@ export class LaunchpadMonitor {
 		this._isShuttingDown = true;
 		
 		return this.stop()
-			.andThen(() => this.disconnect())
-			.andThen(() => {
+			.andThen(this.disconnect)
+			.andTee(() => {
 				this._logger.info('...apps stopped ✋');
 				this._logger.info('...monitor shut down');
 				this._logger.close();

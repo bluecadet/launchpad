@@ -1,4 +1,4 @@
-import { ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import sortWindows from '../utils/sort-windows.js';
 
 export class AppManager {
@@ -33,9 +33,8 @@ export class AppManager {
    */
 	startApp(appName) {
 		this._logger.info(`Starting app '${appName}'...`);
-		const options = this.getAppOptions(appName);
-
-		return this._processManager.startProcess(options.pm2)
+		return this.getAppOptions(appName)
+			.asyncAndThen(opts => this._processManager.startProcess(opts.pm2))
 			.andThen(() => this._processManager.getProcess(appName))
 			.map(process => {
 				this._logger.info(`...app '${appName}' was started.`);
@@ -70,19 +69,19 @@ export class AppManager {
 
 	/**
    * @param {string|string[]|null} appNames 
-   * @returns {string[]}
+   * @returns {import('neverthrow').Result<string[], Error>}
    */
 	validateAppNames(appNames = null) {
 		if (appNames === null || appNames === undefined) {
-			return this.getAllAppNames();
+			return ok(this.getAllAppNames());
 		}
 		if ((typeof appNames === 'string')) {
-			return [appNames];
+			return ok([appNames]);
 		}
 		if (Symbol.iterator in Object(appNames)) {
-			return [...appNames];
+			return ok([...appNames]);
 		}
-		throw new Error('appNames must be null, undefined, a string or an iterable array/set of strings');
+		return err(new Error('appNames must be null, undefined, a string or an iterable array/set of strings'));
 	}
 
 	/**
@@ -99,25 +98,35 @@ export class AppManager {
 
 	/**
    * @param {string} appName 
-   * @returns {import('../monitor-config.js').ResolvedAppConfig}
+   * @returns {import("neverthrow").Result<import('../monitor-config.js').ResolvedAppConfig, Error>}
    */
 	getAppOptions(appName) {
 		const options = this._config.apps.find(app => app.pm2.name === appName);
 		if (!options) {
-			throw new Error(`No app found with the name '${appName}'`);
+			return err(new Error(`No app found with the name '${appName}'`));
 		}
-		return options;
+		return ok(options);
 	}
 
 	/**
    * @param {Array<string>} appNames 
    */
 	applyWindowSettings(appNames = []) {
-		appNames = this.validateAppNames(appNames);
+		const validatedAppNames = this.validateAppNames(appNames);
 
-		const appResults = appNames.map((appName) => {
+		if (validatedAppNames.isErr()) {
+			return errAsync(validatedAppNames.error);
+		}
+
+		const appResults = validatedAppNames.value.map((appName) => {
+			const appOptions = this.getAppOptions(appName);
+
+			if (appOptions.isErr()) {
+				return errAsync(appOptions.error);
+			}
+
 			const sortApp = {
-				options: this.getAppOptions(appName),
+				options: appOptions.value,
 				pid: /** @type {number|null} */ (null)
 			};
 

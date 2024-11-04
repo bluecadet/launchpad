@@ -34,6 +34,54 @@ vi.mock('ky', async (importOriginal) => {
 	};
 });
 
+vi.mock('pm2', () => {
+	return {
+		default: {
+			list: vi.fn().mockImplementation(cb => cb(null, [])),
+			start: vi.fn().mockImplementation((options, cb) => cb(null, {})),
+			stop: vi.fn().mockImplementation((name, cb) => cb(null, {})),
+			connect: vi.fn().mockImplementation((force, cb) => cb(null)),
+			disconnect: vi.fn().mockImplementation(() => undefined),
+			delete: vi.fn().mockImplementation((name, cb) => {
+				console.log('HEREHEREHEREH');
+				cb(null, {});
+			}),
+			launchBus: vi.fn().mockImplementation((cb) => cb(null, {
+				on: vi.fn()
+			})),
+			Client: {
+				// eslint-disable-next-line n/no-callback-literal
+				pingDaemon: vi.fn().mockImplementation(cb => cb(false))
+			}
+		}
+	};
+});
+
+vi.mock('cross-spawn', () => {
+	return {
+		spawn: vi.fn().mockReturnValue({
+			stdout: {
+				on: vi.fn()
+			},
+			stderr: {
+				on: vi.fn()
+			},
+			on: vi.fn().mockImplementation((event, cb) => {
+				if (event === 'close') {
+					cb();
+				}
+			})
+		})
+	};
+});
+
+vi.mock('node-window-manager', () => ({
+	windowManager: {
+		requestAccessibility: vi.fn(),
+		getWindows: vi.fn().mockReturnValue([])
+	}
+}));
+
 // neverthrow expect helpers
 expect.extend({
 	/**

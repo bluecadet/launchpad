@@ -1,5 +1,4 @@
-import { ok, err, Result, ResultAsync } from 'neverthrow';
-import { SubEmitterSocket } from 'axon';
+import { err, ok, ResultAsync } from 'neverthrow';
 import pm2 from 'pm2';
 import { LogManager } from '@bluecadet/launchpad-utils';
 import { LogModes } from '../monitor-config.js';
@@ -14,7 +13,7 @@ export class BusManager {
 
 	/**
    * @private
-   * @type {SubEmitterSocket | null}
+   * @type {import('axon').SubEmitterSocket | null}
    */
 	_bus = null;
 
@@ -142,29 +141,29 @@ export class BusManager {
 	}
 
 	/**
-   * @returns {ResultAsync<void, Error>}
+   * @returns {import('neverthrow').Result<void, Error>}
    */
 	disconnect() {
-		return ResultAsync.fromPromise(
-			Promise.resolve().then(() => {
-				if (this._bus) {
-					this._logger.debug('Disconnecting from PM2 bus');
-					this._bus.off('*');
-					this._bus = null;
-				}
+		try {
+			if (this._bus) {
+				this._logger.debug('Disconnecting from PM2 bus');
+				this._bus.off('*');
+				this._bus = null;
+			}
 
-				// Clean up file tails
-				for (const [appName, tail] of this._outTails) {
-					tail.unwatch();
-					this._outTails.delete(appName);
-				}
-				for (const [appName, tail] of this._errTails) {
-					tail.unwatch();
-					this._errTails.delete(appName);
-				}
-			}),
-			(error) => error instanceof Error ? error : new Error('Unknown error disconnecting from PM2 bus')
-		);
+			// Clean up file tails
+			for (const [appName, tail] of this._outTails) {
+				tail.unwatch();
+				this._outTails.delete(appName);
+			}
+			for (const [appName, tail] of this._errTails) {
+				tail.unwatch();
+				this._errTails.delete(appName);
+			}
+			return ok(undefined);
+		} catch (error) {
+			return err(error instanceof Error ? error : new Error('Unknown error disconnecting from PM2 bus'));
+		}
 	}
 
 	/**

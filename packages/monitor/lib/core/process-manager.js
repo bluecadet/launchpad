@@ -66,7 +66,6 @@ export class ProcessManager {
    */
 	isDaemonRunning() {
 		this._logger.debug('Checking if daemon is running...');
-    
 		return pingDaemon();
 	}
 

@@ -1,5 +1,16 @@
 # @bluecadet/launchpad-content
 
+## 2.0.0-next.1
+
+### Minor Changes
+
+- [#166](https://github.com/bluecadet/launchpad/pull/166) [`a37a24093cedce25982a1245a78144b66c83e98a`](https://github.com/bluecadet/launchpad/commit/a37a24093cedce25982a1245a78144b66c83e98a) Thanks [@claytercek](https://github.com/claytercek)! - Fix content source/plugin exports
+
+### Patch Changes
+
+- Updated dependencies [[`a1b057ee1f19aa61541da91715a21753583828d5`](https://github.com/bluecadet/launchpad/commit/a1b057ee1f19aa61541da91715a21753583828d5)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.1
+
 ## 2.0.0-next.0
 
 ### Major Changes

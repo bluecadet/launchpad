@@ -39,10 +39,10 @@ describe("LogManager", () => {
 			const transports = logger.transports;
 
 			expect(transports).toHaveLength(4); // Console + 3 file transports
-			expect(transports[0].level).toBe("info"); // Console
-			expect(transports[1].level).toBe("info"); // Info file
-			expect(transports[2].level).toBe("debug"); // Debug file
-			expect(transports[3].level).toBe("error"); // Error file
+			expect(transports[0]!.level).toBe("info"); // Console
+			expect(transports[1]!.level).toBe("info"); // Info file
+			expect(transports[2]!.level).toBe("debug"); // Debug file
+			expect(transports[3]!.level).toBe("error"); // Error file
 		});
 	});
 

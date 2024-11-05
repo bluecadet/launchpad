@@ -38,6 +38,7 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@bluecadet/launchpad-testing": "0.1.0",
     "@types/node": "^20.3.1",
     "@types/winston": "^2.4.4",
     "typescript": "^5.1.3",

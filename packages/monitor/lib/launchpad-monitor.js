@@ -3,10 +3,11 @@ import { onExit, LogManager } from '@bluecadet/launchpad-utils';
 import { MonitorPluginDriver } from './core/monitor-plugin-driver.js';
 import { ProcessManager } from './core/process-manager.js';
 import { BusManager } from './core/bus-manager.js';
-import { ResultAsync, okAsync, errAsync, ok } from 'neverthrow';
+import { ResultAsync, okAsync } from 'neverthrow';
 import PluginDriver from '@bluecadet/launchpad-utils/lib/plugin-driver.js';
 import { resolveMonitorConfig } from './monitor-config.js';
 import { AppManager } from './core/app-manager.js';
+import { spawn } from 'cross-spawn';
 
 export class LaunchpadMonitor {
 	/** @type {import('./monitor-config.js').ResolvedMonitorConfig} */
@@ -55,7 +56,7 @@ export class LaunchpadMonitor {
 		}
 
 		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
-		this._pluginDriver = new MonitorPluginDriver(basePluginDriver);
+		this._pluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: this });
 	}
 	
 	/**
@@ -74,8 +75,9 @@ export class LaunchpadMonitor {
 	 * @returns {ResultAsync<void, Error>}
 	 */
 	connect(ensureDaemonOwnership = true) {
-		return this._busManager.disconnect()
-			.asyncAndThen(() => this._processManager.isDaemonRunning())
+		return this._pluginDriver.runHookSequential('beforeConnect')
+			.andThen(() => this._busManager.disconnect())
+			.andThen(() => this._processManager.isDaemonRunning())
 			.andThen(isDaemonRunning => {
 				if (ensureDaemonOwnership && isDaemonRunning) {
 					return this._handleExistingDaemon();
@@ -88,7 +90,8 @@ export class LaunchpadMonitor {
 			})
 			.andThen(() => {
 				return this._busManager.connect();
-			});
+			})
+			.andThrough(() => this._pluginDriver.runHookSequential('afterConnect'));
 	}
 
 	/**
@@ -101,7 +104,7 @@ export class LaunchpadMonitor {
 			return this._processManager.deleteAllProcesses()
 				.andThen(() => {
 					this._logger.debug('Killing existing PM2 daemon');
-					return this._processManager.killPm2();
+					return LaunchpadMonitor.kill(this._logger);
 				});
 		}
 		return okAsync(undefined);
@@ -114,15 +117,17 @@ export class LaunchpadMonitor {
 	disconnect() {
 		this._logger.info('Disconnecting from PM2');
 		
-		return this._busManager.disconnect()
-			.asyncAndThen(() => this._processManager.isDaemonRunning())
+		return this._pluginDriver.runHookSequential('beforeDisconnect')
+			.andThen(() => this._busManager.disconnect())
+			.andThen(() => this._processManager.isDaemonRunning())
 			.andThen(isDaemonRunning => {
 				if (isDaemonRunning) {
 					this._logger.debug('Disconnecting from daemon');
 					return this._processManager.disconnect();
 				}
 				return okAsync(undefined);
-			});
+			})
+			.andThrough(() => this._pluginDriver.runHookSequential('afterDisconnect'));
 	}
 	
 	/**
@@ -148,7 +153,11 @@ export class LaunchpadMonitor {
 				}
 				
 				return ResultAsync.combine(
-					validatedNames.map(name => this._appManager.startApp(name))
+					validatedNames.map(name =>
+						this._pluginDriver.runHookSequential('beforeAppStart', { appName: name })
+							.andThen(() => this._appManager.startApp(name))
+							.andThrough((process) => this._pluginDriver.runHookSequential('afterAppStart', { appName: name, process }))
+					)
 				).andThen(() => this._appManager.applyWindowSettings());
 			});
 	}
@@ -169,7 +178,11 @@ export class LaunchpadMonitor {
 				}
 				
 				return ResultAsync.combine(
-					validatedNames.map(name => this._appManager.stopApp(name))
+					validatedNames.map(name =>
+						this._pluginDriver.runHookSequential('beforeAppStop', { appName: name })
+							.andThen(() => this._appManager.stopApp(name))
+							.andThrough(() => this._pluginDriver.runHookSequential('afterAppStop', { appName: name }))
+					)
 				).map(() => undefined);
 			});
 	}
@@ -201,7 +214,7 @@ export class LaunchpadMonitor {
 	
 	/**
 	 * Stops launchpad and exits this process.
-	 * @param {number|string|Error} [eventOrExitCode] 
+	 * @param {number} [eventOrExitCode] 
 	 * @returns {ResultAsync<void, Error>}
 	 */
 	shutdown(eventOrExitCode = undefined) {
@@ -214,8 +227,9 @@ export class LaunchpadMonitor {
 		
 		this._isShuttingDown = true;
 		
-		return this.stop()
-			.andThen(this.disconnect)
+		return this._pluginDriver.runHookSequential('beforeShutdown', { code: eventOrExitCode })
+			.andThen(() => this.stop())
+			.andThen(() => this.disconnect())
 			.andTee(() => {
 				this._logger.info('...apps stopped ✋');
 				this._logger.info('...monitor shut down');
@@ -231,6 +245,33 @@ export class LaunchpadMonitor {
 				this._logger.error('Unhandled exit exception:', error);
 				return error;
 			});
+	}
+
+	/**
+	* Force kills all PM2 instances
+	* @param {import('@bluecadet/launchpad-utils').Logger} logger
+	* @returns {ResultAsync<void, Error>}
+	*/
+	static kill(logger) {
+		return ResultAsync.fromPromise(
+			new Promise((resolve, reject) => {
+				const child = spawn('npm', ['exec', 'pm2', 'kill'], { shell: true });
+			
+				child.stdout.on('data', data => logger.info(data));
+				child.stderr.on('data', data => logger.error(data));
+			
+				child.on('error', error => {
+					logger.error(`PM2 could not be killed: ${error}`);
+					reject(error);
+				});
+			
+				child.on('close', () => {
+					logger.info('PM2 has been killed');
+					resolve(undefined);
+				});
+			}),
+			(error) => new Error('Failed to kill PM2', { cause: error })
+		);
 	}
 }
 

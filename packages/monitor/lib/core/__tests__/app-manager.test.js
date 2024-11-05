@@ -19,7 +19,6 @@ function setupTestAppManager() {
 	}));
 	vi.spyOn(processManager, 'connect');
 	vi.spyOn(processManager, 'disconnect');
-	vi.spyOn(processManager, 'killPm2');
 	vi.spyOn(processManager, 'isDaemonRunning');
 	vi.spyOn(processManager, 'getProcesses');
 	vi.spyOn(processManager, 'deleteProcess');

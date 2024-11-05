@@ -5,6 +5,6 @@ import { LogManager } from '@bluecadet/launchpad-utils';
  * @param {import("../cli.js").LaunchpadArgv} argv
  */
 export async function stop(argv) {
-	LogManager.configureRootLogger();
-	await LaunchpadMonitor.kill();
+	const logger = LogManager.configureRootLogger();
+	await LaunchpadMonitor.kill(logger);
 }

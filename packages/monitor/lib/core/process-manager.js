@@ -1,6 +1,5 @@
 import { ok, err, ResultAsync, okAsync, Result } from 'neverthrow';
 import pm2 from 'pm2';
-import { spawn } from 'cross-spawn';
 
 export class ProcessManager {
 	/**
@@ -31,34 +30,6 @@ export class ProcessManager {
    */
 	disconnect() {
 		return safeDisconnect();
-	}
-
-	/**
-   * Force kills all PM2 instances
-   * @returns {ResultAsync<void, Error>}
-   */
-	killPm2() {
-		this._logger.info('Killing PM2...');
-
-		return ResultAsync.fromPromise(
-			new Promise((resolve, reject) => {
-				const child = spawn('npm', ['exec', 'pm2', 'kill'], { shell: true });
-        
-				child.stdout.on('data', data => this._logger.info(data));
-				child.stderr.on('data', data => this._logger.error(data));
-        
-				child.on('error', error => {
-					this._logger.error(`PM2 could not be killed: ${error}`);
-					reject(error);
-				});
-        
-				child.on('close', () => {
-					this._logger.info('PM2 has been killed');
-					resolve();
-				});
-			}),
-			(error) => new Error('Failed to kill PM2', { cause: error })
-		);
 	}
 
 	/**

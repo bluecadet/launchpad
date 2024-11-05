@@ -18,6 +18,5 @@
 		"composite": true,
     "skipLibCheck": true,
     "outDir": "types"
-	},
-  "exclude": ["node_modules", "build"]
+	}
 }

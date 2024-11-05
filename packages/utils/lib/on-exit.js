@@ -10,26 +10,21 @@ let didTrigger = false;
 /** @type {Callback[]} */
 const callbacks = [];
 
-const events = ['beforeExit', 'SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'];
+const events = ['beforeExit', 'SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM', 'uncaughtException', 'unhandledRejection'];
 
 events.forEach(event => process.on(event, async (event) => {
-	for (const callback of callbacks) {
-		if (callback.once && didTrigger) {
-			continue;
-		}
-		await callback.callback();
-	}
+	const thisIsFirstTrigger = !didTrigger;
 	didTrigger = true;
-}));
 
-const unhandledEvents = ['uncaughtException', 'unhandledRejection'];
-
-unhandledEvents.forEach(event => process.on(event, async (event) => {
-	const filteredCallbacks = callbacks.filter(callback => callback.includeUncaught);
-	for (const callback of filteredCallbacks) {
-		if (callback.once && didTrigger) {
+	for (const callback of callbacks) {
+		if (callback.once && !thisIsFirstTrigger) {
 			continue;
 		}
+
+		if (!callback.includeUncaught && (event === 'uncaughtException' || event === 'unhandledRejection')) {
+			continue;
+		}
+
 		await callback.callback();
 	}
 }));
@@ -46,3 +41,11 @@ export const onExit = (callback = async () => {}, once = true, includeUncaught =
 };
 
 export default onExit;
+
+/**
+ * @internal
+ */
+export function _reset() {
+	didTrigger = false;
+	callbacks.length = 0;
+}

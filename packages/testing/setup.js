@@ -43,7 +43,6 @@ vi.mock('pm2', () => {
 			connect: vi.fn().mockImplementation((force, cb) => cb(null)),
 			disconnect: vi.fn().mockImplementation(() => undefined),
 			delete: vi.fn().mockImplementation((name, cb) => {
-				console.log('HEREHEREHEREH');
 				cb(null, {});
 			}),
 			launchBus: vi.fn().mockImplementation((cb) => cb(null, {
@@ -81,6 +80,27 @@ vi.mock('node-window-manager', () => ({
 		getWindows: vi.fn().mockReturnValue([])
 	}
 }));
+
+vi.mock('winston-daily-rotate-file', async () => {
+	const { default: winston } = await import('winston');
+	const { default: Transport } = await import('winston-transport');
+
+	class DummyTransport extends Transport {
+		/**
+		 * @param {import('winston').LogEntry} info
+		 */
+		log(info) {
+			// do nothing
+		}
+	}
+
+	// @ts-expect-error
+	winston.transports.DailyRotateFile = DummyTransport;
+
+	return {
+		default: undefined
+	};
+});
 
 // neverthrow expect helpers
 expect.extend({

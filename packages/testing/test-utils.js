@@ -1,19 +1,26 @@
 import { vi } from 'vitest';
 
 /**
- * Creates a mock logger for testing purposes
- * @returns {import('@bluecadet/launchpad-utils').Logger & {children: Map<string, import('@bluecadet/launchpad-utils').Logger>}}
+ * @typedef MockLogger
+ * @prop {Map<string, MockLogger>} children
+ * @prop {(options: *) => MockLogger} child
+ * @prop {Function} once
+ * @prop {Function} debug
+ * @prop {Function} info
+ * @prop {Function} warn
+ * @prop {Function} error
+ * @prop {Function} close
  */
+
 export function createMockLogger() {
-	/** @type {Map<string, import('@bluecadet/launchpad-utils').Logger>} */
+	/** @type {Map<string, MockLogger>} */
 	const children = new Map();
 	return {
 		/**
-		 * @param {Parameters<import('@bluecadet/launchpad-utils').Logger['child']>[0]} options
+		 * @param {Parameters<MockLogger['child']>[0]} options
 		 */
 		child: (options) => {
 			const child = createMockLogger();
-			// @ts-expect-error
 			children.set(options.module, child);
 			return child;
 		},

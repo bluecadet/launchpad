@@ -89,7 +89,6 @@ export class LaunchpadContent {
 						this._logger.error('Error in content fetch process:', e);
 						this._logger.info('Restoring from backup...');
 						return this.restore(sources).andThen(() => {
-							console.log('HERE');
 							return err(new ContentError('Failed to download content. Restored from backup.', { cause: e }));
 						});
 					})

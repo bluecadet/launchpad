@@ -45,7 +45,7 @@ describe('LaunchpadContent', () => {
 
 	describe('constructor', () => {
 		it('should initialize with default options when no config provided', () => {
-			const content = new LaunchpadContent(undefined, createMockLogger());
+			const content = new LaunchpadContent({}, createMockLogger());
 			expect(content).toBeInstanceOf(LaunchpadContent);
 			expect(content._config).toEqual(resolveContentConfig());
 		});

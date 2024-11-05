@@ -13,13 +13,12 @@
   },
   "files": [
     "types",
-    "lib"
+    "lib",
+    "!**/*.test.js",
+    "!**/__tests__"
   ],
   "scripts": {
-    "start": "node index.js",
-    "link": "npm link launchpad-utils && npm link",
-    "test": "node test/test.js",
-    "pm2": "pm2"
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
@@ -34,9 +33,9 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.0.0-next.0",
     "auto-bind": "^5.0.1",
-    "axon": "^2.0.3",
     "chalk": "^5.0.0",
     "cross-spawn": "^7.0.3",
+    "neverthrow": "^8.1.1",
     "node-window-manager": "^2.2.4",
     "p-debounce": "^4.0.0",
     "pm2": "^5.1.2",
@@ -44,10 +43,13 @@
     "tail": "^2.2.4"
   },
   "devDependencies": {
+    "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
     "@types/cross-spawn": "^6.0.2",
     "@types/semver": "^7.5.8",
-    "@types/tail": "2.2"
+    "@types/tail": "2.2",
+    "axon": "^2.0.3",
+    "vitest": "^2.1.4"
   }
 }

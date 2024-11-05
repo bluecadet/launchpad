@@ -11,7 +11,6 @@
       ]
     }
   },
-  "bin": "index.js",
   "files": [
     "types",
     "index.js",
@@ -20,10 +19,6 @@
     "setup.bat",
     "setup.ps1"
   ],
-  "scripts": {
-    "start": "node index.js --",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"

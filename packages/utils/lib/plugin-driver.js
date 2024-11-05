@@ -1,22 +1,25 @@
 import chalk from 'chalk';
 import onExit from './on-exit.js';
-import { err, ok, okAsync, ResultAsync } from 'neverthrow';
-import { AssertionError } from 'assert';
+import { okAsync, ResultAsync } from 'neverthrow';
 
-class PluginError extends Error {
+export class PluginError extends Error {
 	/**
 	 * @type {string | undefined}
 	 */
 	pluginId;
 
 	/**
-	 * @param {string} message 
-	 * @param {object} [options]
-	 * @param {string} [options.pluginId]
-	 * @param {unknown} [options.cause]
+	 * @param {unknown} cause 
+	 * @param {object} options
+	 * @param {string} options.pluginId
 	 */
-	constructor(message, { pluginId, cause } = {}) {
-		super(message, { cause });
+	constructor(cause, { pluginId }) {
+		if (cause instanceof Error) {
+			super(cause.message, { cause });
+		} else {
+			super(String(cause), { cause });
+		}
+
 		this.pluginId = pluginId;
 	}
 }
@@ -140,15 +143,10 @@ export default class PluginDriver {
 	 * @param {K} hookName
 	 * @param {(plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>} contextGetter
 	 * @param {Tail<Parameters<T[K]>>} additionalArgs
-	 * @returns {ResultAsync<void, PluginError>}
+	 * @returns {(() => ResultAsync<void, PluginError>)[]}
 	 */
-	_runHookSequentialWithCtx(hookName, contextGetter, additionalArgs) {
-		/**
-		 * @type {ResultAsync<void, PluginError>}
-		 */
-		let result = okAsync(undefined);
-
-		for (const plugin of this.#plugins) {
+	#getHookCalls(hookName, contextGetter, additionalArgs) {
+		return this.#plugins.map(plugin => {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
 				const context = {
@@ -163,18 +161,50 @@ export default class PluginDriver {
 					await hook(context, ...additionalArgs);
 				};
 
-				// build chain
-				result = result.andThen(
-					() => ResultAsync.fromPromise(wrappedHookCall(), (e) => {
-						this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
-						this.#getBaseContext(plugin).logger.error(chalk.red(e));
-						return new PluginError(String(e), { pluginId: plugin.name });
-					})
-				);
+				return () => ResultAsync.fromPromise(wrappedHookCall(), (e) => {
+					this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
+					this.#getBaseContext(plugin).logger.error(chalk.red(e));
+					return new PluginError(e, { pluginId: plugin.name });
+				});
 			}
+
+			return () => okAsync(undefined);
+		});
+	}
+
+	/**
+	 * @template {keyof T} K
+	 * @param {K} hookName
+	 * @param {(plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>} contextGetter
+	 * @param {Tail<Parameters<T[K]>>} additionalArgs
+	 * @returns {ResultAsync<void, PluginError>}
+	 */
+	_runHookSequentialWithCtx(hookName, contextGetter, additionalArgs) {
+		/**
+		 * @type {ResultAsync<void, PluginError>}
+		 */
+		let result = okAsync(undefined);
+
+		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
+
+		// build chain
+		for (const hookCall of hookCalls) {
+			result = result.andThen(() => hookCall());
 		}
 
 		return result;
+	}
+
+	/**
+	 * @template {keyof T} K
+	 * @param {K} hookName
+	 * @param {(plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>} contextGetter
+	 * @param {Tail<Parameters<T[K]>>} additionalArgs
+	 * @returns {ResultAsync<void, PluginError[]>}
+	 */
+	_runHookParallelWithCtx(hookName, contextGetter, additionalArgs) {
+		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
+		return ResultAsync.combineWithAllErrors(hookCalls.map(call => call())).map(() => undefined);
 	}
 
 	/**
@@ -250,6 +280,19 @@ export class HookContextProvider {
 	 */
 	runHookSequential(hookName, ...additionalArgs) {
 		return this.#innerDriver._runHookSequentialWithCtx(
+			hookName,
+			this._getPluginContext,
+			additionalArgs
+		);
+	}
+
+	/**
+	 * @template {KeysWithFullContext<T, C & BaseHookContext>} K
+	 * @param {K} hookName
+	 * @param {Tail<Parameters<T[K]>>} additionalArgs
+	 */
+	runHookParallel(hookName, ...additionalArgs) {
+		return this.#innerDriver._runHookParallelWithCtx(
 			hookName,
 			this._getPluginContext,
 			additionalArgs

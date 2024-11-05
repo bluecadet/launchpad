@@ -1,0 +1,15 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"include": [
+		"src/**/*.test.ts",
+		"src/**/__tests__"
+	],
+	"references": [
+		{
+			"path": "./tsconfig.src.json"
+		}
+	]
+}

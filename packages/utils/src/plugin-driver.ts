@@ -142,10 +142,7 @@ export default class PluginDriver<T extends HookSet> {
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
 	}
 
-	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(
-		hookName: K,
-		...additionalArgs: Tail<Parameters<T[K]>>
-	): Promise<void> {
+	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(hookName: K, ...additionalArgs: Tail<Parameters<T[K]>>): Promise<void> {
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {

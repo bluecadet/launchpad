@@ -7,9 +7,6 @@
 	"references": [
 		{
 			"path": "../utils"
-		},
-		{
-			"path": "../testing"
 		}
 	]
 }

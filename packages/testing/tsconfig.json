@@ -1,8 +1,4 @@
 {
-	"extends": "@bluecadet/launchpad-tsconfig/base.json",
-	"compilerOptions": {
-		"outDir": "types"
-	},
-	"include": ["**/*.js"],
-	"exclude": ["types"]
+	"extends": "@bluecadet/launchpad-tsconfig/internal.json",
+	"include": ["src"],
 }

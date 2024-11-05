@@ -1,21 +1,22 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
 	"compilerOptions": {
-		"lib": ["es2022"],
-		"module": "NodeNext",
+		"esModuleInterop": true,
+		"skipLibCheck": true,
 		"target": "es2022",
-		"moduleResolution": "NodeNext",
-		"types": ["node"],
 		"allowJs": true,
-		"checkJs": true,
-		"declaration": true,
-		"declarationMap": true,
-		"strict": true,
-		"noImplicitAny": true,
 		"resolveJsonModule": true,
-		"allowSyntheticDefaultImports": true,
+		"moduleDetection": "force",
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"module": "NodeNext",
+		"outDir": "dist",
+		"sourceMap": true,
+		"declaration": true,
 		"composite": true,
-    "skipLibCheck": true,
-		"stripInternal": true
+		"declarationMap": true,
+		"lib": ["es2022"]
 	}
 }

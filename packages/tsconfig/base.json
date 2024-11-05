@@ -9,7 +9,6 @@
 		"allowJs": true,
 		"checkJs": true,
 		"declaration": true,
-		"emitDeclarationOnly": true,
 		"declarationMap": true,
 		"strict": true,
 		"noImplicitAny": true,
@@ -17,6 +16,6 @@
 		"allowSyntheticDefaultImports": true,
 		"composite": true,
     "skipLibCheck": true,
-    "outDir": "types"
+		"stripInternal": true
 	}
 }

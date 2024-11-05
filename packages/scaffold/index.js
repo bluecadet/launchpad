@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import * as sudo from 'sudo-prompt';
 import { LogManager } from '@bluecadet/launchpad-utils';
 import * as path from 'path';

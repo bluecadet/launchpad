@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LaunchpadMonitor } from '../launchpad-monitor.js';
 import { createMockLogger } from '@bluecadet/launchpad-testing/test-utils.js';
 import { okAsync } from 'neverthrow';
-import { LogManager } from '@bluecadet/launchpad-utils';
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined

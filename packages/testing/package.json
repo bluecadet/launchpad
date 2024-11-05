@@ -6,6 +6,11 @@
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"
   },
+  "exports": {
+    "./setup.js": "./src/setup.js",
+    "./test-utils.js": "./src/test-utils.js",
+    "./vitest.d.ts": "./src/vitest.d.ts"
+  },
   "dependencies": {
     "memfs": "^4.14.0",
     "neverthrow": "^8.1.1"

@@ -46,9 +46,6 @@
     "sanitize-html": "^2.5.1"
   },
   "optionalDependencies": {
-    "@bluecadet/launchpad-content": "~2.0.0-next.0",
-    "@bluecadet/launchpad-monitor": "~2.0.0-next.0",
-    "@bluecadet/launchpad-scaffold": "~2.0.0-next.0",
     "@sanity/client": "^6.4.9",
     "airtable": "^0.11.1",
     "contentful": "^9.0.0"

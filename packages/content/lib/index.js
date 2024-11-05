@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { LaunchpadContent } from './launchpad-content.js';
 
 export * from './content-config.js';

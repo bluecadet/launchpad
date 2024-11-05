@@ -10,10 +10,5 @@
 	"exclude": [
 		"**/*.test.ts",
 		"**/__tests__/*"
-	],
-	"references": [
-		{
-			"path": "../utils/tsconfig.src.json"
-		}
 	]
 }

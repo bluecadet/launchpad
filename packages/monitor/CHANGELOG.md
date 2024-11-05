@@ -1,5 +1,20 @@
 # @bluecadet/launchpad-monitor
 
+## 2.0.0-next.1
+
+### Major Changes
+
+- [#168](https://github.com/bluecadet/launchpad/pull/168) [`a1b057ee1f19aa61541da91715a21753583828d5`](https://github.com/bluecadet/launchpad/commit/a1b057ee1f19aa61541da91715a21753583828d5) Thanks [@claytercek](https://github.com/claytercek)! - **Plugin API and Monitor Package Updates:**
+  - Refactor `monitor` package to use `neverthrow` for error handling.
+  - Add tests for `monitor` package.
+  - Add hooks for `monitor` events.
+  - Add tests to `utils` package.
+
+### Patch Changes
+
+- Updated dependencies [[`a1b057ee1f19aa61541da91715a21753583828d5`](https://github.com/bluecadet/launchpad/commit/a1b057ee1f19aa61541da91715a21753583828d5)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.1
+
 ## 2.0.0-next.0
 
 ### Major Changes

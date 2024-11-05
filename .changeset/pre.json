@@ -10,10 +10,13 @@
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@bluecadet/launchpad-utils": "1.5.2",
-    "@bluecadet/launchpad-cli": "1.0.0"
+    "@bluecadet/launchpad-cli": "1.0.0",
+    "@bluecadet/launchpad-docs": "0.1.0"
   },
   "changesets": [
+    "beige-dogs-speak",
     "gold-kings-watch",
+    "thick-hotels-scream",
     "young-queens-hide"
   ]
 }

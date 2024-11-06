@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad",
-  "version": "2.0.0-next.0",
+  "version": "2.0.0-next.1",
   "description": "Suite of tools to manage media installations",
   "engines": {
     "npm": ">=8.5.1",
@@ -41,12 +41,12 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad#readme",
   "dependencies": {
-    "@bluecadet/launchpad-cli": "~2.0.0-next.0",
-    "@bluecadet/launchpad-content": "~2.0.0-next.0",
-    "@bluecadet/launchpad-dashboard": "~2.0.0-next.0",
-    "@bluecadet/launchpad-monitor": "~2.0.0-next.0",
-    "@bluecadet/launchpad-scaffold": "~2.0.0-next.0",
-    "@bluecadet/launchpad-utils": "~2.0.0-next.0",
+    "@bluecadet/launchpad-cli": "~2.0.0-next.1",
+    "@bluecadet/launchpad-content": "~2.0.0-next.2",
+    "@bluecadet/launchpad-dashboard": "~2.0.0-next.1",
+    "@bluecadet/launchpad-monitor": "~2.0.0-next.2",
+    "@bluecadet/launchpad-scaffold": "~2.0.0-next.1",
+    "@bluecadet/launchpad-utils": "~2.0.0-next.2",
     "auto-bind": "^5.0.1",
     "chalk": "^5.0.0"
   },

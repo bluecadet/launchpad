@@ -8,7 +8,7 @@
   },
   "type": "module",
   "bin": {
-    "launchpad": "./lib/cli.js"
+    "launchpad": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -21,8 +21,6 @@
     "dist/**/*.d.ts"
   ],
   "scripts": {
-    "start": "node index.js",
-    "test": "cd test && node test.js",
     "build": "tsc --build"
   },
   "repository": {

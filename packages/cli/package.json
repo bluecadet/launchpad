@@ -7,21 +7,18 @@
     "node": ">=17.5.0"
   },
   "type": "module",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
-    }
-  },
   "bin": {
     "launchpad": "./lib/cli.js"
   },
-  "main": "./lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
-    "types",
-    "index.js",
-    "lib"
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
   ],
   "scripts": {
     "start": "node index.js",
@@ -69,7 +66,8 @@
     "@bluecadet/launchpad-scaffold": "~2.0.0-next.0"
   },
   "devDependencies": {
-    "@bluecadet/launchpad-tsconfig": "0.1.0"
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@types/yargs": "^17.0.33"
   },
   "keywords": [
     "bluecadet",

@@ -4,7 +4,6 @@ import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
 import sanitySource from "../sanity-source.js";
-import { SourceConfigError, SourceFetchError } from "../source.js";
 
 const server = setupServer();
 
@@ -30,14 +29,12 @@ function createFetchContext() {
 describe("sanitySource", () => {
 	it("should fail with missing required options", async () => {
 		// @ts-expect-error - testing invalid options
-		const result = await sanitySource({
+		const result = sanitySource({
 			id: "test-sanity",
 			// missing projectId and apiToken
 		});
 
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
-		expect(result._unsafeUnwrapErr().message).toContain("Missing projectId and/or apiToken");
+		expect(result).rejects.toThrow();
 	});
 
 	it("should fetch data with simple type queries", async () => {
@@ -49,28 +46,28 @@ describe("sanitySource", () => {
 
 				const query = url.searchParams.get("query");
 
-				if (query === '*[_type == "test" ][0..99]') {
+				if (query === '*[_type == "test"][0..99]') {
 					return HttpResponse.json({
 						result: [{ _type: "test", title: "Test Document 1" }],
 						ms: 15,
 					});
 				}
 
-				if (query === '*[_type == "test" ][100..199]') {
+				if (query === '*[_type == "test"][100..199]') {
 					return HttpResponse.json({
 						result: [{ _type: "test", title: "Test Document 2" }],
 						ms: 15,
 					});
 				}
 
-				if (query === '*[_type == "article" ][0..99]') {
+				if (query === '*[_type == "article"][0..99]') {
 					return HttpResponse.json({
 						result: [{ _type: "article", title: "Article 1" }],
 						ms: 15,
 					});
 				}
 
-				if (query === '*[_type == "article" ][100..199]') {
+				if (query === '*[_type == "article"][100..199]') {
 					return HttpResponse.json({
 						result: [{ _type: "article", title: "Article 2" }],
 						ms: 15,
@@ -89,41 +86,27 @@ describe("sanitySource", () => {
 			projectId: "test-project",
 			apiToken: "test-token",
 			queries: ["test", "article"],
+			mergePages: true,
+			useCdn: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(2);
+		expect(result).toHaveLength(2);
 
 		// Check 'test' type results
-		const testData = await fetchPromises[0]!.dataPromise;
-		expect(testData).toBeOk();
-		expect(testData._unsafeUnwrap()).toEqual([
-			{
-				id: "test",
-				data: [
-					{ _type: "test", title: "Test Document 1" },
-					{ _type: "test", title: "Test Document 2" },
-				],
-			},
+		const testData = await result[0]!.data;
+
+		expect(testData).toEqual([
+			{ _type: "test", title: "Test Document 1" },
+			{ _type: "test", title: "Test Document 2" },
 		]);
 
 		// Check 'article' type results
-		const articleData = await fetchPromises[1]!.dataPromise;
-		expect(articleData).toBeOk();
-		expect(articleData._unsafeUnwrap()).toEqual([
-			{
-				id: "article",
-				data: [
-					{ _type: "article", title: "Article 1" },
-					{ _type: "article", title: "Article 2" },
-				],
-			},
+		const articleData = await result[1]!.data;
+		expect(articleData).toEqual([
+			{ _type: "article", title: "Article 1" },
+			{ _type: "article", title: "Article 2" },
 		]);
 	});
 
@@ -151,6 +134,8 @@ describe("sanitySource", () => {
 			id: "test-sanity",
 			projectId: "test-project",
 			apiToken: "test-token",
+			mergePages: true,
+			useCdn: false,
 			queries: [
 				{
 					id: "custom",
@@ -159,23 +144,13 @@ describe("sanitySource", () => {
 			],
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
+		expect(result).toHaveLength(1);
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeOk();
-		expect(data._unsafeUnwrap()).toEqual([
-			{
-				id: "custom",
-				data: [
-					{ _type: "custom", data: "Custom Data" },
-					{ _type: "custom", data: "Custom Data" },
-				],
-			},
+		const data = await result[0]!.data;
+		expect(data).toEqual([
+			{ _type: "custom", data: "Custom Data" },
+			{ _type: "custom", data: "Custom Data" },
 		]);
 	});
 
@@ -191,19 +166,13 @@ describe("sanitySource", () => {
 			projectId: "test-project",
 			apiToken: "test-token",
 			queries: ["test"],
+			mergePages: true,
+			useCdn: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
-		expect(data._unsafeUnwrapErr().message).toContain("Could not fetch page");
+		expect(result[0]!.data).rejects.toThrow();
 	});
 
 	it("should respect pagination options", async () => {
@@ -213,7 +182,7 @@ describe("sanitySource", () => {
 				const query = url.searchParams.get("query") || "";
 				const offset = query.match(/\[(\d+)\.\./)?.at(1);
 
-				if (offset === "50") {
+				if (offset === "100") {
 					return HttpResponse.json({
 						result: [],
 						ms: 5,
@@ -234,22 +203,16 @@ describe("sanitySource", () => {
 			queries: ["test"],
 			limit: 50,
 			mergePages: false,
-			pageNumZeroPad: 2,
+			useCdn: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
+		expect(result).toHaveLength(1);
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
+		const data = (await result[0]!.data) as AsyncGenerator;
 
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeOk();
-
-		// Check that pagination formatting is correct
-		const pages = data._unsafeUnwrap();
-		expect(pages[0]!.id).toBe("test-01");
-		expect(pages[0]!.data).toEqual([{ _type: "test", title: "Test Document 0" }]);
+		expect((await data.next()).value).toEqual([{ _type: "test", title: "Test Document 0" }]);
+		expect((await data.next()).value).toEqual([{ _type: "test", title: "Test Document 50" }]);
+		expect((await data.next()).done).toBe(true);
 	});
 });

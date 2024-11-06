@@ -3,20 +3,16 @@
   "version": "2.0.0-next.1",
   "description": "Content syncing pipeline for various sources",
   "type": "module",
-  "main": "./lib/index.js",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "types",
-    "lib",
-    "!**/*.test.js",
-    "!**/__tests__"
-  ],
   "scripts": {
     "test": "vitest"
   },
@@ -38,7 +34,7 @@
     "glob": "^11.0.0",
     "jsonpath-plus": "^10.1.0",
     "ky": "^1.7.2",
-    "markdown-it": "^12.2.0",
+    "markdown-it": "^12.3.2",
     "neverthrow": "^8.0.0",
     "p-queue": "^7.1.0",
     "path-scurry": "^2.0.0",

@@ -1,11 +1,14 @@
 {
-	"extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"extends": "@bluecadet/launchpad-tsconfig/test.json",
 	"compilerOptions": {
-		"noEmit": true
+		"types": [
+			"@bluecadet/launchpad-testing/vitest.d.ts"
+		]
 	},
 	"include": [
 		"src/**/*.test.ts",
-		"src/**/__tests__"
+		"src/**/__tests__",
+		"vitest.config.ts"
 	],
 	"references": [
 		{

@@ -199,8 +199,7 @@ export class DataStore {
 			return ok(Array.from(this.namespaces()).map((ns) => ({ namespaceId: ns.id, documents: Array.from(ns.documents()) })));
 		}
 
-		/** @type {Map<string, Set<string>>} */
-		const consolidatedIds = new Map();
+		const consolidatedIds = new Map<string, Set<string>>();
 
 		for (const id of ids) {
 			if (Array.isArray(id) && id.length === 2) {

@@ -115,12 +115,9 @@ export default function contentfulSource(options: ContentfulOptions) {
 	).map(({ createClient }) => {
 		const client = createClient(assembled);
 
-		/** @type {import('./source.js').ContentSource<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>} */
-		const source = defineSource({
+		const source = defineSource<{ entries: Entry<unknown>[]; assets: Asset[] }>({
 			id: options.id,
 			fetch: (ctx) => {
-				// complicated type cast to make TS happy – difficult to get fetchPaginated to infer the type correctly
-				/** @type {ReturnType<typeof fetchPaginated<{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}>>} */
 				const fetchResult = fetchPaginated({
 					fetchPageFn: (params) => {
 						return ResultAsync.fromPromise(
@@ -161,7 +158,7 @@ export default function contentfulSource(options: ContentfulOptions) {
 										assets: [...acc.assets, ...page.assets],
 									};
 								},
-								/** @type {{entries: import('contentful').Entry<unknown>[], assets: import('contentful').Asset[]}} */ ({ entries: [], assets: [] }),
+								{ entries: [], assets: [] },
 							);
 
 							return [

@@ -5,12 +5,6 @@ import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { safeKy } from "../utils/safe-ky.js";
 import { type ContentSource, SourceConfigError, SourceFetchError, defineSource } from "./source.js";
 
-/**
- * @typedef StrapiObjectQuery
- * @property {string} contentType The content type to query
- * @property {{pagination?: {page: number, pageSize: number}, [key: string]: unknown}} params Query parameters. Uses `qs` library to stringify.
- */
-
 type StrapiObjectQuery = {
 	/**
 	 * the content type to query

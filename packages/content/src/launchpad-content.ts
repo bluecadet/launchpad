@@ -102,8 +102,7 @@ export class LaunchpadContent {
 	clear(sources: ContentSource[] = [], { temp = true, backups = true, downloads = true, removeIfEmpty = true } = {}): ResultAsync<void, ContentError> {
 		return ResultAsync.combine(
 			sources.map((source) => {
-				/** @type {ResultAsync<void, ContentError>[]} */
-				const tasks = [];
+				const tasks = [] as ResultAsync<void, ContentError>[];
 				if (temp) {
 					tasks.push(this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }));
 				}

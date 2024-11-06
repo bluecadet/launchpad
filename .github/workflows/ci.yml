@@ -23,8 +23,8 @@ env:
 
 jobs:
 
-  lint:
-    name: Lint
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,24 +36,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
-      - name: Run eslint
+      - name: lint
         run: npm run lint
 
       - name: Validate types
         run: npm run build
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: 'package.json'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run tests
         run: npm run test

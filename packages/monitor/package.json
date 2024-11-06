@@ -3,20 +3,16 @@
   "version": "2.0.0-next.1",
   "description": "",
   "type": "module",
-  "main": "./lib/index.js",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
   },
-  "files": [
-    "types",
-    "lib",
-    "!**/*.test.js",
-    "!**/__tests__"
-  ],
   "scripts": {
     "test": "vitest"
   },

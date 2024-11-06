@@ -1,22 +1,28 @@
 {
 	"extends": "@bluecadet/launchpad-tsconfig/base.json",
 	"compilerOptions": {
-		"outDir": "types"
+		"outDir": "dist",
+		"rootDir": "src"
 	},
-	"include": ["**/*.js"],
-	"exclude": ["test"],
+	"include": [
+		"src/**/*.ts"
+	],
+	"exclude": [
+		"**/*.test.ts",
+		"**/__tests__/*"
+	],
 	"references": [
 		{
-			"path": "../utils"
+			"path": "../utils/tsconfig.src.json"
 		},
 		{
-			"path": "../monitor"
+			"path": "../monitor/tsconfig.src.json"
 		},
 		{
 			"path": "../scaffold"
 		},
 		{
-			"path": "../content"
+			"path": "../content/tsconfig.src.json"
 		}
 	]
 }

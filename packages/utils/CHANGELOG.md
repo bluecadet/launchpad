@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-utils
 
+## 2.0.0-next.2
+
+### Patch Changes
+
+- [#170](https://github.com/bluecadet/launchpad/pull/170) [`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3) Thanks [@claytercek](https://github.com/claytercek)! - refactor to TS
+
 ## 2.0.0-next.1
 
 ### Major Changes

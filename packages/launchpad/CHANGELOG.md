@@ -1,5 +1,19 @@
 # @bluecadet/launchpad
 
+## 2.0.0-next.1
+
+### Patch Changes
+
+- [#170](https://github.com/bluecadet/launchpad/pull/170) [`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3) Thanks [@claytercek](https://github.com/claytercek)! - refactor to TS
+
+- Updated dependencies [[`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3), [`f60543df8c24dbb2043940ce1fec52ac09036735`](https://github.com/bluecadet/launchpad/commit/f60543df8c24dbb2043940ce1fec52ac09036735)]:
+  - @bluecadet/launchpad-dashboard@2.0.0-next.1
+  - @bluecadet/launchpad-scaffold@2.0.0-next.1
+  - @bluecadet/launchpad-content@2.0.0-next.2
+  - @bluecadet/launchpad-monitor@2.0.0-next.2
+  - @bluecadet/launchpad-utils@2.0.0-next.2
+  - @bluecadet/launchpad-cli@2.0.0-next.1
+
 ## 2.0.0-next.0
 
 ### Major Changes

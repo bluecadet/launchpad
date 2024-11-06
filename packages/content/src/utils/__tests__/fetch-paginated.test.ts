@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
-import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
-import { fetchPaginated } from "../fetch-paginated.js";
-import { ResultAsync } from "neverthrow";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { ResultAsync } from "neverthrow";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { SourceFetchError } from "../../sources/source.js";
+import { fetchPaginated } from "../fetch-paginated.js";
 
 const server = setupServer();
 

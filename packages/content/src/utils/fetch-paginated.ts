@@ -1,6 +1,6 @@
+import type { Logger } from "@bluecadet/launchpad-utils";
 import { type ResultAsync, errAsync, okAsync } from "neverthrow";
 import { SourceFetchError } from "../sources/source.js";
-import type { Logger } from "@bluecadet/launchpad-utils";
 
 export type FetchPaginatedOptions<T> = {
 	/**

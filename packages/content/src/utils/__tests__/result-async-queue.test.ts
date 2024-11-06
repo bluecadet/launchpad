@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { ResultAsync } from "neverthrow";
-import ResultAsyncQueue from "../result-async-queue.js";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { ResultAsync } from "neverthrow";
+import { describe, expect, it } from "vitest";
+import ResultAsyncQueue from "../result-async-queue.js";
 
 describe("ResultAsyncQueue", () => {
 	it("should add and process a single task", async () => {

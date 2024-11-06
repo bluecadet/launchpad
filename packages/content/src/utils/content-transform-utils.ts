@@ -1,7 +1,7 @@
-import chalk from "chalk";
-import { ok, type Result } from "neverthrow";
-import type { DataStore, Document, DataKeys } from "./data-store.js";
 import type { Logger } from "@bluecadet/launchpad-utils";
+import chalk from "chalk";
+import { type Result, ok } from "neverthrow";
+import type { DataKeys, DataStore, Document } from "./data-store.js";
 
 /**
  * @param ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.

@@ -1,7 +1,7 @@
-import { err, errAsync, ok, ResultAsync } from "neverthrow";
-import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError } from "./source.js";
-import { fetchPaginated } from "../utils/fetch-paginated.js";
 import type { Asset, Entry } from "contentful";
+import { ResultAsync, err, errAsync, ok } from "neverthrow";
+import { fetchPaginated } from "../utils/fetch-paginated.js";
+import { SourceConfigError, SourceFetchError, SourceMissingDependencyError, defineSource } from "./source.js";
 
 type ContentfulCredentialsDeliveryToken = {
 	/**

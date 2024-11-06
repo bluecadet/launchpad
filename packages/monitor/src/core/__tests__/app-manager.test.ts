@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { ok, okAsync } from "neverthrow";
+import { describe, expect, it, vi } from "vitest";
+import type { ResolvedMonitorConfig } from "../../monitor-config.js";
 import { AppManager } from "../app-manager.js";
 import { ProcessManager } from "../process-manager.js";
-import { ok, okAsync } from "neverthrow";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { ResolvedMonitorConfig } from "../../monitor-config.js";
 
 function setupTestAppManager() {
 	const mockLogger = createMockLogger();

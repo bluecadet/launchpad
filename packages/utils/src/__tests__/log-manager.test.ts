@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
-import { LogManager } from "../log-manager.js";
 import path from "node:path";
 import moment from "moment";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import winston from "winston";
+import { LogManager } from "../log-manager.js";
 
 // we don't want to actually log anything to the console during tests
 const consoleLogSpy = vi.spyOn(winston.transports.Console.prototype, "log").mockImplementation((info, cb) => {

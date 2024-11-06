@@ -1,20 +1,20 @@
 import path from "node:path";
-import chalk from "chalk";
-import {
-	DOWNLOAD_PATH_TOKEN,
-	TIMESTAMP_TOKEN,
-	resolveContentConfig,
-	type ConfigContentSource,
-	type ContentConfig,
-	type ResolvedContentConfig,
-} from "./content-config.js";
-import * as FileUtils from "./utils/file-utils.js";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
 import { PluginDriver } from "@bluecadet/launchpad-utils";
+import chalk from "chalk";
+import { ResultAsync, err, ok, okAsync } from "neverthrow";
+import {
+	type ConfigContentSource,
+	type ContentConfig,
+	DOWNLOAD_PATH_TOKEN,
+	type ResolvedContentConfig,
+	TIMESTAMP_TOKEN,
+	resolveContentConfig,
+} from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
-import { DataStore } from "./utils/data-store.js";
-import { ok, err, ResultAsync, okAsync } from "neverthrow";
 import type { ContentSource } from "./sources/source.js";
+import { DataStore } from "./utils/data-store.js";
+import * as FileUtils from "./utils/file-utils.js";
 
 export class LaunchpadContent {
 	_config: ResolvedContentConfig;

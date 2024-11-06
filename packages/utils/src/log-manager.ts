@@ -2,8 +2,8 @@ import path from "node:path";
 import winston, { type Logger as WinstonLogger } from "winston";
 import "winston-daily-rotate-file";
 import slugify from "@sindresorhus/slugify";
-import moment from "moment";
 import chalk from "chalk";
+import moment from "moment";
 
 export type Logger = Pick<WinstonLogger, "info" | "warn" | "error" | "debug" | "once" | "close"> & {
 	child: (options: Parameters<WinstonLogger["child"]>[0]) => Logger;

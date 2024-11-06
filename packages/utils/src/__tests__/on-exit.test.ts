@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _reset, onExit } from "../on-exit.js";
 
 describe("onExit", () => {
@@ -11,11 +11,7 @@ describe("onExit", () => {
 		onExit(callback, false);
 
 		// Simulate exit events
-		await Promise.all([
-			process.emit("beforeExit", 0),
-			process.emit("SIGTERM", "SIGTERM"),
-			process.emit("SIGINT", "SIGINT"),
-		]);
+		await Promise.all([process.emit("beforeExit", 0), process.emit("SIGTERM", "SIGTERM"), process.emit("SIGINT", "SIGINT")]);
 
 		// Should be called once per event
 		expect(callback).toHaveBeenCalledTimes(3);
@@ -26,11 +22,7 @@ describe("onExit", () => {
 		onExit(callback, true);
 
 		// Simulate multiple exit events
-		await Promise.all([
-			process.emit("SIGTERM", "SIGTERM"),
-			process.emit("SIGTERM", "SIGTERM"),
-			process.emit("SIGTERM", "SIGTERM"),
-		]);
+		await Promise.all([process.emit("SIGTERM", "SIGTERM"), process.emit("SIGTERM", "SIGTERM"), process.emit("SIGTERM", "SIGTERM")]);
 
 		expect(callback).toHaveBeenCalledTimes(1);
 	});
@@ -40,11 +32,7 @@ describe("onExit", () => {
 		onExit(callback, false);
 
 		// Simulate multiple exit events
-		await Promise.all([
-			process.emit("SIGTERM", "SIGTERM"),
-			process.emit("SIGTERM", "SIGTERM"),
-			process.emit("SIGTERM", "SIGTERM"),
-		]);
+		await Promise.all([process.emit("SIGTERM", "SIGTERM"), process.emit("SIGTERM", "SIGTERM"), process.emit("SIGTERM", "SIGTERM")]);
 
 		expect(callback).toHaveBeenCalledTimes(3);
 	});

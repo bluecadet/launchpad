@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MonitorPluginDriver, type MonitorPlugin } from "../monitor-plugin-driver.js";
-import { PluginDriver, type Logger } from "@bluecadet/launchpad-utils";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { type Logger, PluginDriver } from "@bluecadet/launchpad-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type LaunchpadMonitor from "../../launchpad-monitor.js";
+import { type MonitorPlugin, MonitorPluginDriver } from "../monitor-plugin-driver.js";
 
 describe("MonitorPluginDriver", () => {
 	let monitorPluginDriver: MonitorPluginDriver;

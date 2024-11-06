@@ -1,9 +1,9 @@
-import { err, ok, type Result, ResultAsync } from "neverthrow";
-import pm2 from "pm2";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
-import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
-import { Tail } from "tail";
 import type { SubEmitterSocket } from "axon";
+import { type Result, ResultAsync, err, ok } from "neverthrow";
+import pm2 from "pm2";
+import { Tail } from "tail";
+import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
 
 export class BusManager {
 	#logger: Logger;

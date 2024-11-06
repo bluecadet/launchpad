@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import PluginDriver, { HookContextProvider, PluginError } from "../plugin-driver.js";
-import { createMockLogger } from "./test-utils.js";
 import type { HookSet, Plugin } from "../plugin-driver.js";
+import { createMockLogger } from "./test-utils.js";
 
 describe("PluginDriver", () => {
 	describe("basic functionality", () => {

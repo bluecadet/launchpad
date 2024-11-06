@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import sanityToPlain from "../sanity-to-plain.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 

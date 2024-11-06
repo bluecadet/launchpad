@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
-import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
-import contentfulSource from "../contentful-source.js";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
+import contentfulSource from "../contentful-source.js";
 import { SourceConfigError, SourceFetchError } from "../source.js";
 
 const server = setupServer();

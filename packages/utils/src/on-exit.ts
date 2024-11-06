@@ -44,11 +44,7 @@ for (const event of events) {
 	});
 }
 
-export const onExit = (
-	callback: () => Promise<void> | void = async () => {},
-	once = true,
-	includeUncaught = false,
-): void => {
+export const onExit = (callback: () => Promise<void> | void = async () => {}, once = true, includeUncaught = false): void => {
 	callbacks.push({ callback, once, includeUncaught });
 };
 

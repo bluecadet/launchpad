@@ -1,9 +1,9 @@
-import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
-import sortWindows from "../utils/sort-windows.js";
 import type { Logger } from "@bluecadet/launchpad-utils";
-import type { ProcessManager } from "./process-manager.js";
-import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";
+import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import type pm2 from "pm2";
+import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";
+import sortWindows from "../utils/sort-windows.js";
+import type { ProcessManager } from "./process-manager.js";
 
 export class AppManager {
 	#logger: Logger;

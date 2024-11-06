@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ProcessManager } from "../process-manager.js";
-import pm2 from "pm2";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
+import pm2 from "pm2";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ProcessManager } from "../process-manager.js";
 
 vi.mock("cross-spawn");
 

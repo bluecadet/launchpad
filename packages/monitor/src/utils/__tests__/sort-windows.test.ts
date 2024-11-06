@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import sortWindows from "../sort-windows.js";
-import { type Window, windowManager } from "node-window-manager";
-import chalk from "chalk";
-import semver from "semver";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { afterEach } from "node:test";
+import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
+import chalk from "chalk";
+import { type Window, windowManager } from "node-window-manager";
+import semver from "semver";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import sortWindows from "../sort-windows.js";
 
 // Mock node-window-manager
 vi.mock("node-window-manager", () => ({

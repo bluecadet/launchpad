@@ -1,6 +1,7 @@
 import { type BaseHookContext, HookContextProvider, type Plugin, type PluginDriver } from "@bluecadet/launchpad-utils";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
+import chalk from "chalk";
 
 export class ContentError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

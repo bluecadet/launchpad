@@ -20,11 +20,11 @@ export type ContentConfig = {
 	 */
 	downloadPath?: string;
 	/**
-	 * Temp file directory path. Defaults to '%DOWNLOAD_PATH%/.tmp/'.
+	 * Temp file directory path. Defaults to '.tmp/%TIMESTAMP%/'.
 	 */
 	tempPath?: string;
 	/**
-	 * Temp directory path where all downloaded content will be backed up before removal. Defaults to '%TIMESTAMP%/.tmp-backup/'.
+	 * Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/%TIMESTAMP%/'.
 	 */
 	backupPath?: string;
 	/**
@@ -53,8 +53,8 @@ export const CONTENT_CONFIG_DEFAULTS = {
 	sources: [],
 	plugins: [],
 	downloadPath: ".downloads/",
-	tempPath: "%DOWNLOAD_PATH%/.tmp/",
-	backupPath: ".tmp-backup/%TIMESTAMP%/",
+	tempPath: ".tmp/%TIMESTAMP%/",
+	backupPath: ".backup/%TIMESTAMP%/",
 	keep: [],
 	strip: "",
 	backupAndRestore: true,

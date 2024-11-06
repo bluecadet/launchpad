@@ -1,7 +1,7 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
 import type Airtable from "airtable";
 import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
-import { SourceConfigError, SourceFetchError, SourceMissingDependencyError, SourceParseError, defineSource } from "./source.js";
+import { SourceConfigError, SourceFetchError, SourceMissingDependencyError, SourceParseError, defineSource, type SourceFetchPromise } from "./source.js";
 
 type AirtableOptions = {
 	/**
@@ -187,10 +187,7 @@ export default function airtableSource(options: AirtableOptions) {
 		return defineSource({
 			id: assembledOptions.id,
 			fetch: (ctx) => {
-				/**
-				 * @type {Array<import('./source.js').SourceFetchPromise>}
-				 */
-				const tablePromises = [];
+				const tablePromises = [] as SourceFetchPromise[];
 
 				for (const tableId of assembledOptions.tables) {
 					tablePromises.push({

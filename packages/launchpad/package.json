@@ -7,22 +7,11 @@
     "node": ">=17.5.0"
   },
   "type": "module",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
-    }
-  },
-  "files": [
-    "types",
-    "index.js",
-    "lib"
-  ],
   "scripts": {
     "start": "node index.js",
     "test": "cd test && node test.js",
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "dev": "tsc --build --watch"
   },
   "repository": {
     "type": "git",

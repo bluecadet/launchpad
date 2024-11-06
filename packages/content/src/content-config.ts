@@ -1,10 +1,10 @@
 import type { ContentPlugin } from "./content-plugin-driver.js";
-import type { ContentSource, ContentSourceBuilder } from "./sources/source.js";
+import type { ContentSource } from "./sources/source.js";
 
 export const DOWNLOAD_PATH_TOKEN = "%DOWNLOAD_PATH%";
 export const TIMESTAMP_TOKEN = "%TIMESTAMP%";
 
-export type ConfigContentSource = ContentSource | Promise<ContentSource> | ReturnType<ContentSourceBuilder<unknown>>;
+export type ConfigContentSource = ContentSource | Promise<ContentSource>;
 
 export type ContentConfig = {
 	/**

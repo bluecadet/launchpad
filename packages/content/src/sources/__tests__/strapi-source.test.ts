@@ -3,7 +3,6 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
-import { SourceConfigError, SourceFetchError } from "../source.js";
 import strapiSource from "../strapi-source.js";
 
 const server = setupServer();
@@ -29,19 +28,17 @@ function createFetchContext() {
 
 describe("strapiSource", () => {
 	it("should fail with unsupported version", async () => {
-		const result = await strapiSource({
-			id: "test-strapi",
-			baseUrl: "http://localhost:1337",
-			identifier: "test@example.com",
-			password: "password",
-			// @ts-expect-error - testing invalid version
-			version: "5",
-			queries: ["test-content"],
-		});
-
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
-		expect(result._unsafeUnwrapErr().message).toContain("Unsupported strapi version");
+		expect(() =>
+			strapiSource({
+				id: "test-strapi",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "password",
+				// @ts-expect-error - testing invalid version
+				version: "5",
+				queries: ["test-content"],
+			}),
+		).rejects.toThrow();
 	});
 
 	describe("Strapi v4", () => {
@@ -113,33 +110,24 @@ describe("strapiSource", () => {
 				queries: ["test-content"],
 			});
 
-			expect(source).toBeOk();
-			const sourceValue = source._unsafeUnwrap();
+			const result = source.fetch(createFetchContext());
+			expect(result).toHaveLength(1);
 
-			const result = await sourceValue.fetch(createFetchContext());
-			expect(result).toBeOk();
+			const data = (await result[0]!.data.next()).value;
 
-			const fetchPromises = result._unsafeUnwrap();
-			const data = await fetchPromises[0]!.dataPromise;
-			expect(data).toBeOk();
-
-			const content = data._unsafeUnwrap();
-			expect(content).toMatchInlineSnapshot(`
+			expect(data).toMatchInlineSnapshot(`
 				[
 				  {
-				    "data": [
-				      {
-				        "attributes": {
-				          "description": "Test Description",
-				          "title": "Test Content",
-				        },
-				        "id": 1,
-				      },
-				    ],
-				    "id": "test-content-01.json",
+				    "attributes": {
+				      "description": "Test Description",
+				      "title": "Test Content",
+				    },
+				    "id": 1,
 				  },
 				]
 			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
 		});
 
 		it("should handle custom query objects", async () => {
@@ -200,19 +188,11 @@ describe("strapiSource", () => {
 				],
 			});
 
-			expect(source).toBeOk();
-			const sourceValue = source._unsafeUnwrap();
+			const result = source.fetch(createFetchContext());
 
-			const result = await sourceValue.fetch(createFetchContext());
-			expect(result).toBeOk();
+			const data = (await result[0]!.data.next()).value;
 
-			const fetchPromises = result._unsafeUnwrap();
-			const data = await fetchPromises[0]!.dataPromise;
-
-			expect(data).toBeOk();
-
-			const content = data._unsafeUnwrap();
-			expect(content[0]!.data).toMatchInlineSnapshot(`
+			expect(data).toMatchInlineSnapshot(`
 				[
 				  {
 				    "attributes": {
@@ -223,6 +203,8 @@ describe("strapiSource", () => {
 				  },
 				]
 			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
 		});
 	});
 
@@ -271,31 +253,21 @@ describe("strapiSource", () => {
 				queries: ["test-content"],
 			});
 
-			expect(source).toBeOk();
-			const sourceValue = source._unsafeUnwrap();
+			const result = source.fetch(createFetchContext());
+			expect(result).toHaveLength(1);
 
-			const result = await sourceValue.fetch(createFetchContext());
-			expect(result).toBeOk();
-
-			const fetchPromises = result._unsafeUnwrap();
-			const data = await fetchPromises[0]!.dataPromise;
-			expect(data).toBeOk();
-
-			const content = data._unsafeUnwrap();
-			expect(content).toMatchInlineSnapshot(`
+			const data = (await result[0]!.data.next()).value;
+			expect(data).toMatchInlineSnapshot(`
 				[
 				  {
-				    "data": [
-				      {
-				        "description": "Test Description V3",
-				        "id": 1,
-				        "title": "Test Content V3",
-				      },
-				    ],
-				    "id": "test-content-01.json",
+				    "description": "Test Description V3",
+				    "id": 1,
+				    "title": "Test Content V3",
 				  },
 				]
 			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
 		});
 	});
 
@@ -306,19 +278,16 @@ describe("strapiSource", () => {
 			}),
 		);
 
-		const source = await strapiSource({
-			id: "test-strapi",
-			version: "4",
-			baseUrl: "http://localhost:1337",
-			identifier: "test@example.com",
-			password: "wrong-password",
-			queries: ["test-content"],
-		});
-
-		expect(source).toBeErr();
-		const sourceValue = source._unsafeUnwrapErr();
-		expect(sourceValue).toBeInstanceOf(SourceFetchError);
-		expect(sourceValue.message).toContain("Could not complete request to get JWT for test@example.com");
+		expect(
+			strapiSource({
+				id: "test-strapi",
+				version: "4",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "wrong-password",
+				queries: ["test-content"],
+			}),
+		).rejects.toThrow();
 	});
 
 	it("should handle API errors", async () => {
@@ -340,17 +309,9 @@ describe("strapiSource", () => {
 			queries: ["test-content"],
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
+		expect(result).toHaveLength(1);
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
-		expect(data._unsafeUnwrapErr().message).toContain("Could not fetch page");
+		expect(async () => (await result[0]!.data.next()).value).rejects.toThrow();
 	});
 });

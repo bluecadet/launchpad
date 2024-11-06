@@ -1,179 +1,132 @@
 import type { Asset, Entry } from "contentful";
-import { ResultAsync, err, errAsync, ok } from "neverthrow";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { SourceConfigError, SourceFetchError, SourceMissingDependencyError, defineSource } from "./source.js";
+import { defineSource } from "./source.js";
+import { z } from "zod";
 
-type ContentfulCredentialsDeliveryToken = {
-	/**
-	 * Content delivery token (all published content).
-	 */
-	deliveryToken: string;
-	/**
-	 * Content preview token (only unpublished/draft content).
-	 */
-	previewToken?: string;
-};
+// If deliveryToken is provided, then previewToken is optional.
+const contentfulCredentialsSchema = z.union([
+	z.object({
+		/** Content delivery token (all published content). */
+		deliveryToken: z.string().describe("Content delivery token (all published content)."),
+		/** Content preview token (only unpublished/draft content). */
+		previewToken: z.string().optional().describe("Content preview token (only unpublished/draft content)."),
+	}),
+	z.object({
+		/** Content preview token (only unpublished/draft content). */
+		previewToken: z.string().describe("Content preview token (only unpublished/draft content)."),
+	}),
+]);
 
-type ContentfulCredentialsPreviewToken = {
-	/**
-	 * Content preview token (only unpublished/draft content).
-	 */
-	previewToken: string;
-};
+const contentfulSourceSchema = z
+	.object({
+		/** Required field to identify this source. Will be used as download path. */
+		id: z.string().describe("Required field to identify this source. Will be used as download path."),
+		/** Required field to identify this source. Will be used as download path. */
+		space: z.string().describe("Your Contentful space ID."),
+		/** Used to pull localized images. */
+		locale: z.string().default("en-US").describe("Used to pull localized images."),
+		/** The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json' */
+		filename: z.string().default("content.json").describe("The filename you want to use for where all content (entries and assets metadata) will be stored."),
+		/** Optional. Defaults to 'https' */
+		protocol: z.string().default("https").describe("Optional. Defaults to 'https'"),
+		/** Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true */
+		host: z
+			.string()
+			.default("cdn.contentful.com")
+			.describe("Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true"),
+		/** Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false */
+		usePreviewApi: z
+			.boolean()
+			.default(false)
+			.describe("Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false"),
+		/**
+		 * Optionally limit queries to these content types. This will also apply to linked assets.
+		 * Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images.
+		 * Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
+		 */
+		contentTypes: z.array(z.string()).default([]).describe(
+			"Optionally limit queries to these content types. This will also apply to linked assets. \
+				Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images. \
+				Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.",
+		),
+		/** Optional. Supports anything from https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters */
+		searchParams: z.record(z.unknown()).default({
+			limit: 1000, // This is the max that Contentful supports,
+			include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
+		}),
+	})
+	.passthrough()
+	.and(contentfulCredentialsSchema);
 
-type BaseContentfulOptions = {
-	/**
-	 * Required field to identify this source. Will be used as download path.
-	 */
-	id: string;
-	/**
-	 * Your Contentful space ID. Note that an accessToken is required in addition to this
-	 */
-	space: string;
-	/**
-	 * Optional. Used to pull localized images.
-	 */
-	locale?: string;
-	/**
-	 * Optional. The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json'
-	 */
-	filename?: string;
-	/**
-	 * Optional. Defaults to 'https'
-	 */
-	protocol?: string;
-	/**
-	 * Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true
-	 */
-	host?: string;
-	/**
-	 * Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false
-	 */
-	usePreviewApi?: boolean;
-	/**
-	 * Optionally limit queries to these content types. This will also apply to linked assets. Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images. Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
-	 */
-	contentTypes?: Array<string>;
-	/**
-	 * Optional. Supports anything from https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters
-	 */
-	searchParams?: Record<string, unknown>;
-};
+export default async function contentfulSource(options: z.input<typeof contentfulSourceSchema>) {
+	const assembled = contentfulSourceSchema.parse(options);
 
-type ContentfulClientParams = Omit<import("contentful").CreateClientParams, keyof BaseContentfulOptions | "accessToken">;
-
-/**
- * Configuration options for the Contentful ContentSource.
- *
- * Also supports all fields of the Contentful SDK's config.
- *
- * @see Configuration under https://contentful.github.io/contentful.js/contentful/9.1.7/
- */
-type ContentfulOptions = BaseContentfulOptions & ContentfulClientParams & (ContentfulCredentialsDeliveryToken | ContentfulCredentialsPreviewToken);
-
-const CONTENTFUL_OPTIONS_DEFAULTS = {
-	locale: "en-US",
-	filename: "content.json",
-	protocol: "https",
-	host: "cdn.contentful.com",
-	usePreviewApi: false,
-	contentTypes: [],
-	searchParams: {
-		limit: 1000, // This is the max that Contentful supports,
-		include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
-	} as Record<string, unknown>,
-} satisfies Partial<BaseContentfulOptions>;
-
-export default function contentfulSource(options: ContentfulOptions) {
-	const assembled = {
-		accessToken: "",
-		...CONTENTFUL_OPTIONS_DEFAULTS,
-		...options,
-	};
+	let accessToken: string;
 
 	if (assembled.usePreviewApi) {
 		if (!assembled.previewToken) {
-			return errAsync(new SourceConfigError("usePreviewApi is set to true, but no previewToken is provided"));
+			throw new Error("usePreviewApi is set to true, but no previewToken is provided");
 		}
 		assembled.host = "preview.contentful.com";
-		assembled.accessToken = assembled.previewToken;
+		accessToken = assembled.previewToken;
 	} else {
 		if (!("deliveryToken" in assembled) || !assembled.deliveryToken) {
-			return errAsync(new SourceConfigError("usePreviewApi is set to false, but no deliveryToken is provided"));
+			throw new Error("usePreviewApi is set to false, but no deliveryToken is provided");
 		}
 
-		assembled.accessToken = assembled.deliveryToken;
+		accessToken = assembled.deliveryToken as string;
 	}
 
 	if (assembled.contentTypes && assembled.contentTypes.length > 0) {
 		assembled.searchParams["sys.contentType.sys.id[in]"] = assembled.contentTypes.join(",");
 	}
 
-	return ResultAsync.fromPromise(
-		import("contentful"),
-		() => new SourceMissingDependencyError('Could not find module "contentful". Make sure you have installed it.'),
-	).map(({ createClient }) => {
-		const client = createClient(assembled);
+	const { createClient } = await tryImportContentful();
 
-		const source = defineSource<{ entries: Entry<unknown>[]; assets: Asset[] }>({
-			id: options.id,
-			fetch: (ctx) => {
-				const fetchResult = fetchPaginated({
-					fetchPageFn: (params) => {
-						return ResultAsync.fromPromise(
-							client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit }),
-							(error) => new SourceFetchError(`Error fetching page: ${error instanceof Error ? error.message : error}`),
-						).andThen((rawPage) => {
-							if (rawPage.errors) {
-								return err(new SourceFetchError(`Error fetching page: ${rawPage.errors.map((e) => e.message).join(", ")}`));
-							}
+	const client = createClient({
+		...assembled,
+		accessToken,
+	});
 
-							const page = rawPage.toPlainObject();
-							const entries = parseEntries(page);
-							const assets = parseAssets(page);
+	return defineSource({
+		id: options.id,
+		fetch: (ctx) => {
+			return {
+				id: assembled.filename,
+				data: fetchPaginated({
+					fetchPageFn: async (params) => {
+						const rawPage = await client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit });
 
-							if (!entries.length) {
-								return ok(null); // No more pages left
-							}
+						if (rawPage.errors) {
+							throw new Error(`Error fetching page: ${rawPage.errors.map((e) => e.message).join(", ")}`);
+						}
 
-							return ok({
-								entries,
-								assets,
-							});
-						});
+						const page = rawPage.toPlainObject();
+						const entries = parseEntries(page);
+						const assets = parseAssets(page);
+
+						if (!entries.length) {
+							return null; // No more pages left
+						}
+
+						return { entries, assets };
 					},
 					limit: assembled.searchParams.limit as number,
 					logger: ctx.logger,
-				});
-
-				return ok([
-					{
-						id: assembled.filename,
-						dataPromise: fetchResult.map(({ pages }) => {
-							// combine page results
-							const combined = pages.reduce(
-								(acc, page) => {
-									return {
-										entries: [...acc.entries, ...page.entries],
-										assets: [...acc.assets, ...page.assets],
-									};
-								},
-								{ entries: [], assets: [] },
-							);
-
-							return [
-								{
-									id: assembled.filename,
-									data: combined,
-								},
-							];
-						}),
-					},
-				]);
-			},
-		});
-
-		return source;
+					mergePages: true,
+				}).then((fetchResult) => {
+					return fetchResult.reduce<{ entries: Entry<unknown>[]; assets: Asset[] }>(
+						(acc, page) => {
+							return {
+								entries: [...acc.entries, ...page.entries],
+								assets: [...acc.assets, ...page.assets],
+							};
+						},
+						{ entries: [], assets: [] },
+					);
+				}),
+			};
+		},
 	});
 }
 
@@ -209,4 +162,12 @@ function parseAssets(responseObj: any): Array<Asset> {
 		}
 	}
 	return assets;
+}
+
+async function tryImportContentful() {
+	try {
+		return await import("contentful");
+	} catch (error) {
+		throw new Error('Could not find module "contentful". Make sure you have installed it.', { cause: error });
+	}
 }

@@ -1,5 +1,5 @@
 import { JSONPath } from "jsonpath-plus";
-import { ok, err, Result } from "neverthrow";
+import { Result, err, ok } from "neverthrow";
 
 export class DataStoreError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

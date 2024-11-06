@@ -1,7 +1,7 @@
 // @ts-expect-error - no types from this lib
 import toMarkdown from "@sanity/block-content-to-markdown";
-import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { defineContentPlugin } from "../content-plugin-driver.js";
+import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import type { DataKeys } from "../utils/data-store.js";
 
 type SanityToMarkdownOptions = {

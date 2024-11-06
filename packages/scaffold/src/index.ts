@@ -1,6 +1,6 @@
-import * as sudo from "sudo-prompt";
-import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
 import * as path from "node:path";
+import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
+import * as sudo from "sudo-prompt";
 
 export function launchScaffold(parentLogger: Logger) {
 	const logger = LogManager.getLogger("scaffold", parentLogger);

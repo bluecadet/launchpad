@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 type MockLogger = {
 	children: Map<string, MockLogger>;
@@ -15,7 +15,7 @@ type MockLogger = {
 export function createMockLogger() {
 	const children = new Map<string, MockLogger>();
 	return {
-		child: (options: Parameters<MockLogger['child']>[0]) => {
+		child: (options: Parameters<MockLogger["child"]>[0]) => {
 			const child = createMockLogger();
 			children.set(options.module, child);
 			return child;
@@ -26,6 +26,6 @@ export function createMockLogger() {
 		warn: vi.fn(),
 		error: vi.fn(),
 		close: vi.fn(),
-		children
+		children,
 	};
 }

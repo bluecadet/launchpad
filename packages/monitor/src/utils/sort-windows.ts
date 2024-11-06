@@ -1,8 +1,8 @@
-import semver from "semver";
+import type { Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { windowManager } from "node-window-manager";
+import semver from "semver";
 import type { ResolvedAppConfig } from "../monitor-config.js";
-import type { Logger } from "@bluecadet/launchpad-utils";
 
 type SortApp = {
 	options: ResolvedAppConfig;

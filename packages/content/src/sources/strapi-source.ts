@@ -1,9 +1,9 @@
+import type { Logger } from "@bluecadet/launchpad-utils";
+import { type ResultAsync, errAsync, ok, okAsync } from "neverthrow";
 import qs from "qs";
-import { defineSource, SourceConfigError, SourceFetchError, type ContentSource } from "./source.js";
-import { errAsync, ok, okAsync, type ResultAsync } from "neverthrow";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { safeKy } from "../utils/safe-ky.js";
-import type { Logger } from "@bluecadet/launchpad-utils";
+import { type ContentSource, SourceConfigError, SourceFetchError, defineSource } from "./source.js";
 
 /**
  * @typedef StrapiObjectQuery

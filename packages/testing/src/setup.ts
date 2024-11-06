@@ -1,6 +1,6 @@
-import { vi, expect } from "vitest";
 import { fs } from "memfs";
-import { err, ok, type Result } from "neverthrow";
+import { type Result, err, ok } from "neverthrow";
+import { expect, vi } from "vitest";
 import type { LogEntry } from "winston";
 
 vi.mock("fs", () => ({

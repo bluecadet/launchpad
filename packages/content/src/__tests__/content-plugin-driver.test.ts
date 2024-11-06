@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-import { ContentPluginDriver, ContentError, defineContentPlugin } from "../content-plugin-driver.js";
-import { DataStore } from "../utils/data-store.js";
-import { PluginDriver } from "@bluecadet/launchpad-utils";
-import { resolveContentConfig } from "../content-config.js";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { PluginDriver } from "@bluecadet/launchpad-utils";
+import { describe, expect, it, vi } from "vitest";
+import { resolveContentConfig } from "../content-config.js";
+import { ContentError, ContentPluginDriver, defineContentPlugin } from "../content-plugin-driver.js";
+import { DataStore } from "../utils/data-store.js";
 
 describe("ContentPluginDriver", () => {
 	const createMockContext = () => {

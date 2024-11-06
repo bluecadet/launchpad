@@ -1,9 +1,9 @@
 import path from "node:path";
-import { Tail } from "tail";
-import autoBind from "auto-bind";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
-import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
+import autoBind from "auto-bind";
 import type { SubEmitterSocket } from "axon";
+import { Tail } from "tail";
+import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
 
 class LogRelay {
 	protected _appOptions: ResolvedAppConfig;

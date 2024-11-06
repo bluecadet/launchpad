@@ -1,6 +1,6 @@
-import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
-import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError, type SourceFetchPromise } from "./source.js";
+import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
+import { SourceConfigError, SourceFetchError, type SourceFetchPromise, SourceMissingDependencyError, defineSource } from "./source.js";
 
 type BaseSanityOptions = {
 	/**

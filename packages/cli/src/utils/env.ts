@@ -1,6 +1,6 @@
-import dotenv from 'dotenv';
-import fs from 'node:fs';
-import chalk from 'chalk';
+import fs from "node:fs";
+import chalk from "chalk";
+import dotenv from "dotenv";
 
 /**
  * Load env files from paths into process.env
@@ -15,9 +15,9 @@ export function resolveEnv(paths: string[]) {
 
 		// load env file
 		dotenv.config({
-			path: envFilePath
+			path: envFilePath,
 		});
-    
+
 		console.log(`Loaded env file '${chalk.white(envFilePath)}'`);
 	}
 }

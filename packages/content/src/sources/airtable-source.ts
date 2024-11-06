@@ -1,7 +1,7 @@
-import { err, errAsync, ok, okAsync, ResultAsync, type Result } from "neverthrow";
-import { defineSource, SourceConfigError, SourceFetchError, SourceMissingDependencyError, SourceParseError } from "./source.js";
-import type Airtable from "airtable";
 import type { Logger } from "@bluecadet/launchpad-utils";
+import type Airtable from "airtable";
+import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
+import { SourceConfigError, SourceFetchError, SourceMissingDependencyError, SourceParseError, defineSource } from "./source.js";
 
 type AirtableOptions = {
 	/**

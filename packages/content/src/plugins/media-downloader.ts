@@ -1,15 +1,15 @@
-import fs from "node:fs";
-import { defineContentPlugin, type ContentHookContext } from "../content-plugin-driver.js";
 import { setMaxListeners } from "node:events";
+import fs from "node:fs";
 import path from "node:path";
-import { JSONPath } from "jsonpath-plus";
-import chalk from "chalk";
-import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
-import { safeKy } from "../utils/safe-ky.js";
 import { pipeline } from "node:stream/promises";
-import ResultAsyncQueue from "../utils/result-async-queue.js";
-import * as FileUtils from "../utils/file-utils.js";
+import chalk from "chalk";
+import { JSONPath } from "jsonpath-plus";
+import { ResultAsync, errAsync, ok, okAsync } from "neverthrow";
+import { type ContentHookContext, defineContentPlugin } from "../content-plugin-driver.js";
 import type { DataKeys, DataStore } from "../utils/data-store.js";
+import * as FileUtils from "../utils/file-utils.js";
+import ResultAsyncQueue from "../utils/result-async-queue.js";
+import { safeKy } from "../utils/safe-ky.js";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 

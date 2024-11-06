@@ -1,14 +1,14 @@
+import { LogManager, type Logger, onExit } from "@bluecadet/launchpad-utils";
+import { PluginDriver } from "@bluecadet/launchpad-utils";
 import autoBind from "auto-bind";
-import { onExit, LogManager, type Logger } from "@bluecadet/launchpad-utils";
+import { spawn } from "cross-spawn";
+import { ResultAsync, okAsync } from "neverthrow";
+import type pm2 from "pm2";
+import { AppManager } from "./core/app-manager.js";
+import { BusManager } from "./core/bus-manager.js";
 import { MonitorPluginDriver } from "./core/monitor-plugin-driver.js";
 import { ProcessManager } from "./core/process-manager.js";
-import { BusManager } from "./core/bus-manager.js";
-import { ResultAsync, okAsync } from "neverthrow";
-import { PluginDriver } from "@bluecadet/launchpad-utils";
-import { resolveMonitorConfig, type MonitorConfig, type ResolvedMonitorConfig } from "./monitor-config.js";
-import { AppManager } from "./core/app-manager.js";
-import { spawn } from "cross-spawn";
-import type pm2 from "pm2";
+import { type MonitorConfig, type ResolvedMonitorConfig, resolveMonitorConfig } from "./monitor-config.js";
 
 export class LaunchpadMonitor {
 	_config: ResolvedMonitorConfig;

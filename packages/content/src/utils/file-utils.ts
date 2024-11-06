@@ -1,7 +1,7 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 import { glob } from "glob";
-import { okAsync, ResultAsync } from "neverthrow";
+import { ResultAsync, okAsync } from "neverthrow";
 
 export class FileUtilsError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

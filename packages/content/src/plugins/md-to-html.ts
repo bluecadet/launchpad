@@ -1,10 +1,10 @@
-import sanitizeHtml from "sanitize-html";
 import MarkdownIt from "markdown-it";
+import sanitizeHtml from "sanitize-html";
 
-import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
-import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { defineContentPlugin } from "../content-plugin-driver.js";
+import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import type { DataKeys } from "../utils/data-store.js";
+import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
 
 type MdToHtmlOptions = {
 	/** JSONPath to the content to transform */

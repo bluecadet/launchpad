@@ -1,7 +1,7 @@
 import chalk from "chalk";
-import onExit from "./on-exit.js";
-import { okAsync, ResultAsync } from "neverthrow";
+import { ResultAsync, okAsync } from "neverthrow";
 import type { Logger } from "./log-manager.ts";
+import onExit from "./on-exit.js";
 
 export class PluginError extends Error {
 	pluginId?: string;

@@ -1,6 +1,6 @@
-import { HookContextProvider, type PluginDriver, type BaseHookContext, type Plugin } from "@bluecadet/launchpad-utils";
-import type LaunchpadMonitor from "../launchpad-monitor.js";
+import { type BaseHookContext, HookContextProvider, type Plugin, type PluginDriver } from "@bluecadet/launchpad-utils";
 import type pm2 from "pm2";
+import type LaunchpadMonitor from "../launchpad-monitor.js";
 
 export type MonitorHookContext = {
 	/**

@@ -1,12 +1,12 @@
-import { err, errAsync, ok, ResultAsync } from "neverthrow";
-import { findConfig, loadConfigFromFile } from "./config.js";
-import { ConfigError } from "../errors.js";
 import path from "node:path";
-import { resolveEnv } from "./env.js";
-import { resolveLaunchpadConfig, type ResolvedLaunchpadOptions } from "../launchpad-config.js";
-import chalk from "chalk";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
+import chalk from "chalk";
+import { ResultAsync, err, errAsync, ok } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
+import { ConfigError } from "../errors.js";
+import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
+import { findConfig, loadConfigFromFile } from "./config.js";
+import { resolveEnv } from "./env.js";
 
 export function loadConfigAndEnv(argv: LaunchpadArgv): ResultAsync<ResolvedLaunchpadOptions, ConfigError> {
 	const configPath = argv.config ?? findConfig();

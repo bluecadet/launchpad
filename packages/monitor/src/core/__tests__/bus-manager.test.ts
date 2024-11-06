@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BusManager } from "../bus-manager.js";
-import pm2 from "pm2";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import pm2 from "pm2";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BusManager } from "../bus-manager.js";
 import { createMockSubEmitterSocket } from "./core.test-utils.js";
 
 function buildTestBusManager() {

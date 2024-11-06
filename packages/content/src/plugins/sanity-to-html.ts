@@ -1,7 +1,7 @@
 import { toHTML } from "@portabletext/to-html";
 
-import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { defineContentPlugin } from "../content-plugin-driver.js";
+import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import type { DataKeys } from "../utils/data-store.js";
 
 type SanityToHtmlOptions = {

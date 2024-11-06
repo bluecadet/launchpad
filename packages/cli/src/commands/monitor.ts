@@ -1,7 +1,7 @@
-import { err, ok, ResultAsync } from "neverthrow";
+import { ResultAsync, err, ok } from "neverthrow";
+import type { LaunchpadArgv } from "../cli.js";
 import { ImportError, MonitorError } from "../errors.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
-import type { LaunchpadArgv } from "../cli.js";
 
 export function monitor(argv: LaunchpadArgv) {
 	return loadConfigAndEnv(argv)

@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
-import AppLogRouter from "../app-log-router.js";
-import { LogModes, type ResolvedAppConfig } from "../../monitor-config.js";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import type { SubEmitterSocket } from "axon";
+import { describe, expect, it, vi } from "vitest";
+import { LogModes, type ResolvedAppConfig } from "../../monitor-config.js";
+import AppLogRouter from "../app-log-router.js";
 import { createMockSubEmitterSocket } from "./core.test-utils.js";
 
 vi.mock("@bluecadet/launchpad-utils", async () => {

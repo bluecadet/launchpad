@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { ok, okAsync } from "neverthrow";
-import { defineSource, SourceFetchError, SourceParseError } from "./source.js";
-import { safeKy, SafeKyParseError } from "../utils/safe-ky.js";
+import { SafeKyParseError, safeKy } from "../utils/safe-ky.js";
+import { SourceFetchError, SourceParseError, defineSource } from "./source.js";
 
 type JsonSourceOptions = {
 	/**

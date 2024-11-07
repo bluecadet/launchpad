@@ -14,7 +14,7 @@ export default function sanityToPlain({ path, keys }: SanityToPlainOptions) {
 		name: "sanity-to-plain",
 		hooks: {
 			onContentFetchDone(ctx) {
-				applyTransformToFiles({
+				return applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,

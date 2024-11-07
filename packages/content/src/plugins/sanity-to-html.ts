@@ -16,7 +16,7 @@ export default function sanityToHtml({ path, keys }: SanityToHtmlOptions) {
 		name: "sanity-to-html",
 		hooks: {
 			onContentFetchDone(ctx) {
-				applyTransformToFiles({
+				return applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,

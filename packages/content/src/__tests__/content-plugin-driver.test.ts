@@ -7,7 +7,7 @@ import { DataStore } from "../utils/data-store.js";
 
 describe("ContentPluginDriver", () => {
 	const createMockContext = () => {
-		const dataStore = new DataStore();
+		const dataStore = new DataStore("/");
 		const options = resolveContentConfig({
 			downloadPath: "/downloads/",
 			tempPath: "/temp/",

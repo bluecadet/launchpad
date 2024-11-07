@@ -10,60 +10,55 @@ import type { DataKeys, DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
+import { z } from "zod";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
-export type MediaDownloaderConfig = {
+/**
+ * @internal
+ */
+export const mediaDownloaderConfigSchema = z.object({
 	/** Data keys to search for media urls. If not provided, all keys will be searched. */
-	keys?: DataKeys;
+	keys: z.array(z.string()).optional().describe("Data keys to search for media urls. If not provided, all keys will be searched."),
 	/** Regex to match urls to download. */
-	mediaPattern?: RegExp;
+	mediaPattern: z.instanceof(RegExp).describe("Regex to match urls to download.").default(DEFAULT_MEDIA_PATTERN),
 	/** JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`. */
-	matchPath?: string;
+	matchPath: z.string().optional().describe("JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`."),
 	/** Number of concurrent downloads */
-	maxConcurrent?: number;
-	/** Remove all pre-existing files in dest dir when downloads succeed. Ignores files that match `keep`. Defaults to true. */
-	clearOldFilesOnSuccess?: boolean;
+	maxConcurrent: z.number().int().positive().describe("Number of concurrent downloads").default(4),
 	/** Will always download files regardless of whether they've been cached. Defaults to false. */
-	ignoreCache?: boolean;
+	ignoreCache: z.boolean().describe("Will always download files regardless of whether they've been cached.").default(false),
 	/** Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
-	enableIfModifiedSinceCheck?: boolean;
+	enableIfModifiedSinceCheck: z
+		.boolean()
+		.describe("Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists.")
+		.default(true),
 	/** Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
-	enableContentLengthCheck?: boolean;
+	enableContentLengthCheck: z
+		.boolean()
+		.describe(
+			"Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists.",
+		)
+		.default(true),
 	/** Clear the temp dir before starting downloads. This means the cache will be ignored. Defaults to false. */
-	forceClearTempFiles?: boolean;
+	forceClearTempFiles: z.boolean().describe("Clear the temp dir before starting downloads. This means the cache will be ignored.").default(false),
 	/** Function to transform the local path of the downloaded file. */
-	transformLocalPath?: (path: string) => string;
+	transformLocalPath: z
+		.function(z.tuple([z.string()]), z.string())
+		.describe("Function to transform the local path of the downloaded file.")
+		.optional(),
 	/** Maximum timeout for the HTTP request. Defaults to 10 seconds. */
-	maxTimeout?: number;
+	maxTimeout: z.number().int().positive().describe("Maximum timeout for the HTTP request.").default(10000),
 	/** If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw. Defaults to true. */
-	abortOnError?: boolean;
-};
+	abortOnError: z
+		.boolean()
+		.describe(
+			"If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw.",
+		)
+		.default(true),
+});
 
-const DEFAULT_MEDIA_DOWNLOADER_CONFIG = {
-	mediaPattern: DEFAULT_MEDIA_PATTERN,
-	maxConcurrent: 4,
-	clearOldFilesOnSuccess: true,
-	ignoreCache: false,
-	enableIfModifiedSinceCheck: true,
-	enableContentLengthCheck: true,
-	forceClearTempFiles: false,
-	transformLocalPath: (path) => path,
-	maxTimeout: 10000,
-	abortOnError: true,
-} satisfies MediaDownloaderConfig;
-
-export function getMediaDownloaderConfig(config: MediaDownloaderConfig) {
-	return { ...DEFAULT_MEDIA_DOWNLOADER_CONFIG, ...config };
-}
-
-type MediaDownloaderConfigWithDefaults = ReturnType<typeof getMediaDownloaderConfig>;
-
-type DownloadTask = {
-	url: string;
-	destDir: string;
-	tempDir: string;
-};
+type MediaDownloaderConfigWithDefaults = z.infer<typeof mediaDownloaderConfigSchema>;
 
 export function localFilePathFromUrl(url: string) {
 	let urlPath = url.replace(/^[^:]+:\/\/[^/]+/, "");
@@ -163,7 +158,8 @@ export function downloadMedia(
 	abortSignal: AbortSignal,
 	config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<string, FileSystemError | NetworkError | CacheError> {
-	const localPath = config.transformLocalPath(localFilePathFromUrl(url)).replace(encodeRegex, encodeURIComponent);
+	const transformFn = config.transformLocalPath ?? ((path) => path);
+	const localPath = transformFn(localFilePathFromUrl(url)).replace(encodeRegex, encodeURIComponent);
 
 	const destPath = path.join(destDir, localPath);
 	const tempFilePath = path.join(tempDir, localPath);
@@ -181,7 +177,7 @@ export function downloadMedia(
 		.map(() => tempFilePath);
 }
 
-export function findMediaUrls(dataStore: DataStore, options: MediaDownloaderConfigWithDefaults, queryJsonPath: string) {
+export async function findMediaUrls(dataStore: DataStore, options: MediaDownloaderConfigWithDefaults, queryJsonPath: string) {
 	const returnUrls: { url: string; sourceId: string }[] = [];
 	const filteredResult = dataStore.filter(options.keys);
 
@@ -193,11 +189,7 @@ export function findMediaUrls(dataStore: DataStore, options: MediaDownloaderConf
 		const uniqueUrlSet = new Set();
 
 		for (const document of source.documents) {
-			const foundUrls = JSONPath({
-				json: document.data as object,
-				path: queryJsonPath,
-				ignoreEvalErrors: true,
-			}) as string[];
+			const foundUrls = await document.query(queryJsonPath);
 
 			for (const url of foundUrls) {
 				uniqueUrlSet.add(url);
@@ -221,14 +213,13 @@ export function setupDownloadDirectories(ctx: ContentHookContext, config: MediaD
 }
 
 export function cleanupAfterDownload(ctx: ContentHookContext, config: MediaDownloaderConfigWithDefaults): ResultAsync<void, FileSystemError> {
-	return (config.clearOldFilesOnSuccess ? FileUtils.removeFilesFromDir(ctx.paths.getDownloadPath(), ctx.contentOptions.keep) : okAsync(undefined))
-		.andThen(() => FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath()))
+	return FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
 		.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
 		.mapErr((err) => new FileSystemError("Failed to cleanup after download", err));
 }
 
-export default function mediaDownloader(config: MediaDownloaderConfig = {}) {
-	const configWithDefaults = getMediaDownloaderConfig(config);
+export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema>) {
+	const configWithDefaults = mediaDownloaderConfigSchema.parse(config);
 
 	return defineContentPlugin({
 		name: "media-downloader",
@@ -243,7 +234,12 @@ export default function mediaDownloader(config: MediaDownloaderConfig = {}) {
 				const queryJsonPath = configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
 
 				return setupDownloadDirectories(ctx, configWithDefaults)
-					.map(() => findMediaUrls(ctx.data, configWithDefaults, queryJsonPath))
+					.andThen(() =>
+						ResultAsync.fromPromise(
+							findMediaUrls(ctx.data, configWithDefaults, queryJsonPath),
+							(err) => new MediaDownloaderError("Failed to find media urls", err),
+						),
+					)
 					.andThen((urls) => {
 						const queue = new ResultAsyncQueue({
 							concurrency: configWithDefaults.maxConcurrent,

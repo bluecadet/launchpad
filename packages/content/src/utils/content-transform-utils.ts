@@ -25,7 +25,7 @@ type ApplyTransformToFilesParams = {
 /**
  * Shared logic for content transforms
  */
-export function applyTransformToFiles({ dataStore, path, transformFn, logger, keys }: ApplyTransformToFilesParams) {
+export async function applyTransformToFiles({ dataStore, path, transformFn, logger, keys }: ApplyTransformToFilesParams) {
 	const pathStr = chalk.yellow(path);
 
 	const matchingDocuments = getMatchingDocuments(dataStore, keys);
@@ -37,11 +37,7 @@ export function applyTransformToFiles({ dataStore, path, transformFn, logger, ke
 	for (const document of matchingDocuments.value) {
 		logger.debug(chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`));
 
-		const result = document.apply(path, transformFn);
-
-		if (result.isErr()) {
-			throw result.error;
-		}
+		await document.apply(path, transformFn);
 	}
 }
 

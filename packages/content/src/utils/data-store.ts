@@ -21,7 +21,7 @@ export type DataKeys = Array<string | [string] | [string, string]>;
  * It is a proxy for the underlying file, and provides a simple api for updating the file.
  * When the document is updated, a copy of the original file is created with the `.original` suffix.
  */
-abstract class Document<T = unknown> {
+export abstract class Document<T = unknown> {
 	protected _id: string;
 
 	constructor(id: string) {
@@ -30,6 +30,20 @@ abstract class Document<T = unknown> {
 
 	get id() {
 		return this._id;
+	}
+
+	/**
+	 * Read the document. Should only be used internally. Exposed for testing purposes.
+	 * @internal
+	 */
+	abstract _read(): Promise<unknown>;
+
+	/**
+	 * Read the document. Same as {@link _read}, but returns a neverthrow {@link ResultAsync}.
+	 * @internal
+	 */
+	_safeRead(): ResultAsync<unknown, DataStoreError> {
+		return ResultAsync.fromPromise(this._read(), (e) => new DataStoreError(`Error reading document ${this._id}`, { cause: e }));
 	}
 
 	/**
@@ -59,6 +73,12 @@ abstract class Document<T = unknown> {
 			this.apply(pathExpression, fn),
 			(e) => new DataStoreError(`Error applying content transform to document ${this._id}`, { cause: e }),
 		);
+	}
+
+	abstract query(pathExpression: string): Promise<unknown[]>;
+
+	safeQuery(pathExpression: string): ResultAsync<unknown[], DataStoreError> {
+		return ResultAsync.fromPromise(this.query(pathExpression), (e) => new DataStoreError(`Error querying document ${this._id}`, { cause: e }));
 	}
 
 	/**
@@ -114,6 +134,12 @@ class SingleDocument<T = unknown> extends Document<T> {
 		return await this.#handlePromise;
 	}
 
+	override async _read(): Promise<T> {
+		const handle = await this.#getHandle();
+		const data = await handle.readFile("utf-8");
+		return JSON.parse(data);
+	}
+
 	override async update(cb: (data: T) => T | Promise<T>) {
 		if (!this.#hasBeenModified) {
 			// on first modification, copy from the current path to the original path
@@ -137,18 +163,28 @@ class SingleDocument<T = unknown> extends Document<T> {
 	}
 
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
-		await this.update((data) => {
-			JSONPath({
-				json: data as object,
-				path: pathExpression,
-				resultType: "all",
-				callback: ({ value }, _, { parent, parentProperty }) => {
-					parent[parentProperty] = fn(value);
-				},
-			});
+		try {
+			await this.update((data) => {
+				JSONPath({
+					json: data as object,
+					path: pathExpression,
+					resultType: "all",
+					callback: ({ value }, _, { parent, parentProperty }) => {
+						parent[parentProperty] = fn(value);
+					},
+				});
 
-			return data;
-		});
+				return data;
+			});
+		} catch (e) {
+			throw new DataStoreError(`Error applying content transform to document ${this._id}`, { cause: e });
+		}
+	}
+
+	override async query(pathExpression: string): Promise<unknown[]> {
+		const handle = await this.#getHandle();
+		const data = await handle.readFile("utf-8");
+		return JSONPath({ json: JSON.parse(data), path: pathExpression, resultType: "value", ignoreEvalErrors: true });
 	}
 
 	override async close() {
@@ -179,6 +215,10 @@ export class BatchDocument<T = unknown> extends Document<T> {
 		return `${id}-${paddedIndex}`;
 	}
 
+	override async _read(): Promise<T[]> {
+		return Promise.all(this.#documents.map((doc) => doc._read()));
+	}
+
 	async initialize(directory: string, data: AsyncIterable<T>) {
 		for await (const item of data) {
 			this.#documents.push(await SingleDocument.create(directory, BatchDocument.getIndexedId(this._id, this.#documents.length), item));
@@ -197,6 +237,10 @@ export class BatchDocument<T = unknown> extends Document<T> {
 
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
 		await Promise.all(this.#documents.map((doc) => doc.apply(pathExpression, fn)));
+	}
+
+	override async query(pathExpression: string): Promise<unknown[]> {
+		return (await Promise.all(this.#documents.map((doc) => doc.query(pathExpression)))).flat(1);
 	}
 
 	override async close() {
@@ -239,6 +283,10 @@ class Namespace {
 		return doc;
 	}
 
+	safeInsert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): ResultAsync<Document<T>, DataStoreError> {
+		return ResultAsync.fromPromise(this.insert(id, data), (e) => new DataStoreError(`Error inserting document ${id} into namespace ${this.#id}`, { cause: e }));
+	}
+
 	/**
 	 * Get a document from the namespace.
 	 */
@@ -276,13 +324,17 @@ export class DataStore {
 	/**
 	 * Get a namespace from the data store.
 	 */
-	namespace(namespaceId: string): Result<Iterable<Document>, DataStoreError> {
+	namespace(namespaceId: string): Result<Namespace, DataStoreError> {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
 			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
-		return ok(namespace.documents());
+		return ok(namespace);
+	}
+
+	getDocument(namespaceId: string, documentId: string): Result<Document, DataStoreError> {
+		return this.namespace(namespaceId).andThen((ns) => ns.document(documentId));
 	}
 
 	/**
@@ -296,6 +348,18 @@ export class DataStore {
 		const namespace = new Namespace(this.#directory, namespaceId);
 		this.#namespaces.set(namespaceId, namespace);
 		return namespace.initialize().andThen(() => okAsync(namespace));
+	}
+
+	allDocuments(): Iterable<Document> {
+		return Array.from(this.#namespaces.values()).flatMap((ns) => Array.from(ns.documents()));
+	}
+
+	async close() {
+		for (const namespace of this.#namespaces.values()) {
+			for (const document of namespace.documents()) {
+				await document.close();
+			}
+		}
 	}
 
 	/**
@@ -337,8 +401,8 @@ export class DataStore {
 
 		return Result.combine(
 			consolidatedIdsArray.map(([namespaceId, documentIds]) => {
-				return this.namespace(namespaceId).map((docs) => {
-					const documents = Array.from(docs);
+				return this.namespace(namespaceId).map((ns) => {
+					const documents = Array.from(ns.documents());
 
 					if (documentIds.has("*")) {
 						return {

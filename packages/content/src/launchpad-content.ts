@@ -13,7 +13,7 @@ import {
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
-import { DataStore } from "./utils/data-store.js";
+import { DataStore, type DataStoreError } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 
 export class LaunchpadContent {
@@ -29,7 +29,7 @@ export class LaunchpadContent {
 
 		this._logger = LogManager.getLogger("content", parentLogger);
 
-		this._dataStore = new DataStore();
+		this._dataStore = new DataStore(this._config.downloadPath);
 
 		// create all sources
 		this._rawSources = this._config.sources;
@@ -69,7 +69,7 @@ export class LaunchpadContent {
 					)
 					.andThen(() => this._fetchSources(sources))
 					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
-					.andThen(() => this._writeDataStoreToDisk(this._dataStore))
+					.andThen(() => ResultAsync.fromPromise(this._dataStore.close(), (e) => new ContentError("Failed to close data store", { cause: e })))
 					.orElse((e) => {
 						this._pluginDriver.runHookSequential("onContentFetchError", e);
 						this._logger.error("Error in content fetch process:", e);
@@ -226,12 +226,7 @@ export class LaunchpadContent {
 					// wrap source in promise to ensure it's awaited
 					Promise.resolve(source),
 					(error) => new ContentError("Failed to build source", { cause: error }),
-				).andThen((awaited) => {
-					if ("value" in awaited || "error" in awaited) {
-						return awaited.mapErr((e) => new ContentError("Failed to build source", { cause: e }));
-					}
-					return ok(awaited);
-				}),
+				),
 			),
 		).orElse((e) => {
 			this._pluginDriver.runHookSequential("onSetupError", e);
@@ -240,46 +235,26 @@ export class LaunchpadContent {
 	}
 
 	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
+		// Fetch sources in parallel
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
 
-				return source
-					.fetch({
-						logger: sourceLogger,
-						dataStore: this._dataStore,
-					})
-					.asyncAndThen((calls) => {
-						return ResultAsync.combine(calls.map((call) => call.dataPromise));
-					})
-					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }))
-					.andThrough((fetchResults) => {
-						const map = new Map<string, unknown>();
+				const initializedFetch = source.fetch({
+					logger: sourceLogger,
+					dataStore: this._dataStore,
+				});
 
-						for (const result of fetchResults.flat()) {
-							map.set(result.id, result.data);
-						}
+				const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
 
-						return this._dataStore
-							.createNamespaceFromMap(source.id, map)
-							.mapErr((e) => new ContentError(`Unable to create namespace for source ${source.id}`, { cause: e }));
-					});
+				return this._dataStore
+					.createNamespace(source.id)
+					.andThen((namespace) => {
+						return ResultAsync.combine(fetchAsArray.map((fetch) => namespace.safeInsert(fetch.id, fetch.data)));
+					})
+					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }));
 			}),
 		).map(() => undefined); // return void instead of void[]
-	}
-
-	_writeDataStoreToDisk(dataStore: DataStore): ResultAsync<void, ContentError> {
-		return ResultAsync.combine(
-			Array.from(dataStore.namespaces()).flatMap((namespace) =>
-				Array.from(namespace.documents()).map((document) => {
-					const encodeRegex = new RegExp(`[${this._config.encodeChars}]`, "g");
-					const filePath = path.join(this._config.downloadPath, namespace.id, document.id).replace(encodeRegex, encodeURIComponent);
-					return FileUtils.saveJson(document.data, filePath);
-				}),
-			),
-		)
-			.mapErr((e) => new ContentError("Failed to write data store to disk", { cause: e }))
-			.map(() => undefined); // return void instead of void[]
 	}
 
 	_clearDir(dirPath: string, { removeIfEmpty = true, ignoreKeep = false } = {}): ResultAsync<void, ContentError> {

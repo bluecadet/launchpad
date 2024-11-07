@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.0.0-next.3
+
+### Minor Changes
+
+- [#172](https://github.com/bluecadet/launchpad/pull/172) [`5e5ae3227b5fea9ac26db74c7c2f9859312c4021`](https://github.com/bluecadet/launchpad/commit/5e5ae3227b5fea9ac26db74c7c2f9859312c4021) Thanks [@claytercek](https://github.com/claytercek)! - Refactor DataStore to be a fs proxy instead of in memory
+
 ## 2.0.0-next.2
 
 ### Patch Changes

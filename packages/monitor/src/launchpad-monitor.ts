@@ -8,7 +8,11 @@ import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
 import { MonitorPluginDriver } from "./core/monitor-plugin-driver.js";
 import { ProcessManager } from "./core/process-manager.js";
-import { type MonitorConfig, type ResolvedMonitorConfig, resolveMonitorConfig } from "./monitor-config.js";
+import {
+	type MonitorConfig,
+	type ResolvedMonitorConfig,
+	resolveMonitorConfig,
+} from "./monitor-config.js";
 
 export class LaunchpadMonitor {
 	_config: ResolvedMonitorConfig;
@@ -132,7 +136,9 @@ export class LaunchpadMonitor {
 						this._pluginDriver
 							.runHookSequential("beforeAppStart", { appName: name })
 							.andThen(() => this._appManager.startApp(name))
-							.andThrough((process) => this._pluginDriver.runHookSequential("afterAppStart", { appName: name, process })),
+							.andThrough((process) =>
+								this._pluginDriver.runHookSequential("afterAppStart", { appName: name, process }),
+							),
 					),
 				).andThen(() => this._appManager.applyWindowSettings());
 			});
@@ -156,7 +162,9 @@ export class LaunchpadMonitor {
 					this._pluginDriver
 						.runHookSequential("beforeAppStop", { appName: name })
 						.andThen(() => this._appManager.stopApp(name))
-						.andThrough(() => this._pluginDriver.runHookSequential("afterAppStop", { appName: name })),
+						.andThrough(() =>
+							this._pluginDriver.runHookSequential("afterAppStop", { appName: name }),
+						),
 				),
 			).map(() => undefined);
 		});
@@ -170,7 +178,9 @@ export class LaunchpadMonitor {
 		return this._appManager
 			.validateAppNames(appNames)
 			.asyncAndThen((validatedNames) => {
-				return ResultAsync.combine(validatedNames.map((name) => this._appManager.isAppRunning(name, true)));
+				return ResultAsync.combine(
+					validatedNames.map((name) => this._appManager.isAppRunning(name, true)),
+				);
 			})
 			.map((results) => results.some((isRunning) => isRunning));
 	}
@@ -206,7 +216,9 @@ export class LaunchpadMonitor {
 				this._logger.info("...monitor shut down");
 				this._logger.close();
 
-				process.exit(eventOrExitCode === undefined || Number.isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode);
+				process.exit(
+					eventOrExitCode === undefined || Number.isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode,
+				);
 			})
 			.mapErr((error) => {
 				this._logger.error("Unhandled exit exception:", error);

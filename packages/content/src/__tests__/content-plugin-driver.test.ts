@@ -2,7 +2,11 @@ import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { PluginDriver } from "@bluecadet/launchpad-utils";
 import { describe, expect, it, vi } from "vitest";
 import { resolveContentConfig } from "../content-config.js";
-import { ContentError, ContentPluginDriver, defineContentPlugin } from "../content-plugin-driver.js";
+import {
+	ContentError,
+	ContentPluginDriver,
+	defineContentPlugin,
+} from "../content-plugin-driver.js";
 import { DataStore } from "../utils/data-store.js";
 
 describe("ContentPluginDriver", () => {
@@ -16,7 +20,8 @@ describe("ContentPluginDriver", () => {
 
 		const paths = {
 			getDownloadPath: (source?: string) => (source ? `/downloads/${source}` : "/downloads"),
-			getTempPath: (source?: string, plugin?: string) => (source ? `/temp/${plugin}/${source}` : `/temp/${plugin}`),
+			getTempPath: (source?: string, plugin?: string) =>
+				source ? `/temp/${plugin}/${source}` : `/temp/${plugin}`,
 
 			getBackupPath: (source?: string) => (source ? `/backups/${source}` : "/backups"),
 		};

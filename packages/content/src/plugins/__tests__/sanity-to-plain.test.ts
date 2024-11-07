@@ -52,7 +52,9 @@ describe("sanityToPlain plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
 		const plugin = sanityToPlain({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Error applying content transform");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 
 	it("should throw error for block without children", async () => {
@@ -64,7 +66,9 @@ describe("sanityToPlain plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: invalidBlock }));
 
 		const plugin = sanityToPlain({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Error applying content transform");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 
 	it("should throw error for block with invalid children", async () => {
@@ -82,7 +86,9 @@ describe("sanityToPlain plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: invalidBlock }));
 
 		const plugin = sanityToPlain({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Error applying content transform");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 
 	it("should concatenate multiple text spans", async () => {

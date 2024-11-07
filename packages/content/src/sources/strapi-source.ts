@@ -1,9 +1,9 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
+import ky from "ky";
 import qs from "qs";
+import { z } from "zod";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { defineSource } from "./source.js";
-import { z } from "zod";
-import ky from "ky";
 
 const strapiCredentialsSchema = z.union([
 	z.object({
@@ -21,27 +21,38 @@ const strapiCredentialsSchema = z.union([
 const strapiSourceSchema = z
 	.object({
 		/** Required field to identify this source. Will be used as download path. */
-		id: z.string().describe("Required field to identify this source. Will be used as download path."),
+		id: z
+			.string()
+			.describe("Required field to identify this source. Will be used as download path."),
 		/** Strapi version. Defaults to `3`. */
 		version: z.enum(["3", "4"]).describe("Strapi version").default("3"),
 		/** The base url of your Strapi CMS (with or without trailing slash). */
-		baseUrl: z.string().describe("The base url of your Strapi CMS (with or without trailing slash)."),
+		baseUrl: z
+			.string()
+			.describe("The base url of your Strapi CMS (with or without trailing slash)."),
 		/**
 		 * Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
 		 * You can include all query parameters supported by Strapi.
 		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
 		 */
-		queries: z.array(z.union([z.string(), z.object({ contentType: z.string(), params: z.record(z.any()) })])).describe(
-			"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
+		queries: z
+			.array(
+				z.union([z.string(), z.object({ contentType: z.string(), params: z.record(z.any()) })]),
+			)
+			.describe(
+				"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
 			You can include all query parameters supported by Strapi. \
 			You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.",
-		),
+			),
 		/** Max number of entries per page. Defaults to `100`. */
 		limit: z.number().describe("Max number of entries per page").default(100),
 		/** Max number of pages. Defaults to `1000`. */
 		maxNumPages: z.number().describe("Max number of pages").default(1000),
 		/** How many zeros to pad each json filename index with. Defaults to `2`. */
-		pageNumZeroPad: z.number().describe("How many zeros to pad each json filename index with").default(2),
+		pageNumZeroPad: z
+			.number()
+			.describe("How many zeros to pad each json filename index with")
+			.default(2),
 	})
 	.and(strapiCredentialsSchema);
 
@@ -140,14 +151,19 @@ class StrapiV4 extends StrapiVersionUtils {
 	}
 
 	override hasPaginationParams(query: StrapiObjectQuery): boolean {
-		return query?.params?.pagination?.page !== undefined || query?.params?.pagination?.pageSize !== undefined;
+		return (
+			query?.params?.pagination?.page !== undefined ||
+			query?.params?.pagination?.pageSize !== undefined
+		);
 	}
 
 	override transformResult(result: { data: unknown[] }): unknown[] {
 		return result.data;
 	}
 
-	override canFetchMore(result: { meta?: { pagination?: { page: number; pageCount: number } } }): boolean {
+	override canFetchMore(result: {
+		meta?: { pagination?: { page: number; pageCount: number } };
+	}): boolean {
 		if (result?.meta?.pagination) {
 			const { page, pageCount } = result.meta.pagination;
 			return page < pageCount;
@@ -219,7 +235,9 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 		id: assembledOptions.id,
 		fetch: (ctx) => {
 			const versionUtils: StrapiVersionUtils =
-				assembledOptions.version === "4" ? new StrapiV4(assembledOptions, ctx.logger) : new StrapiV3(assembledOptions, ctx.logger);
+				assembledOptions.version === "4"
+					? new StrapiV4(assembledOptions, ctx.logger)
+					: new StrapiV3(assembledOptions, ctx.logger);
 
 			return assembledOptions.queries.map((query) => {
 				let parsedQuery: StrapiObjectQuery;

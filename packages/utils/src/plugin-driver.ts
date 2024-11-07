@@ -31,7 +31,10 @@ export type HookSet = Record<
 	(ctx: any, ...args: never[]) => void | PromiseLike<void>
 >;
 
-export type Plugin<AllowedHooks extends HookSet, ActualHooks extends Partial<AllowedHooks> = Partial<AllowedHooks>> = {
+export type Plugin<
+	AllowedHooks extends HookSet,
+	ActualHooks extends Partial<AllowedHooks> = Partial<AllowedHooks>,
+> = {
 	name: string;
 	hooks: {
 		[K in keyof ActualHooks]: K extends keyof AllowedHooks ? ActualHooks[K] : never;
@@ -107,7 +110,9 @@ export default class PluginDriver<T extends HookSet> {
 
 				return () =>
 					ResultAsync.fromPromise(wrappedHookCall(), (e) => {
-						this.#getBaseContext(plugin).logger.error(chalk.red(`Error in hook ${String(hookName)}`));
+						this.#getBaseContext(plugin).logger.error(
+							chalk.red(`Error in hook ${String(hookName)}`),
+						);
 						this.#getBaseContext(plugin).logger.error(chalk.red(e));
 						return new PluginError(e, { pluginId: plugin.name });
 					});
@@ -142,7 +147,10 @@ export default class PluginDriver<T extends HookSet> {
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
 	}
 
-	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(hookName: K, ...additionalArgs: Tail<Parameters<T[K]>>): Promise<void> {
+	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(
+		hookName: K,
+		...additionalArgs: Tail<Parameters<T[K]>>
+	): Promise<void> {
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
@@ -183,13 +191,21 @@ export class HookContextProvider<T extends HookSet, C> {
 		hookName: K,
 		...additionalArgs: Tail<Parameters<T[K]>>
 	): ResultAsync<void, PluginError> {
-		return this.#innerDriver._runHookSequentialWithCtx(hookName, this._getPluginContext, additionalArgs);
+		return this.#innerDriver._runHookSequentialWithCtx(
+			hookName,
+			this._getPluginContext,
+			additionalArgs,
+		);
 	}
 
 	runHookParallel<K extends KeysWithFullContext<T, C & BaseHookContext>>(
 		hookName: K,
 		...additionalArgs: Tail<Parameters<T[K]>>
 	): ResultAsync<void, PluginError[]> {
-		return this.#innerDriver._runHookParallelWithCtx(hookName, this._getPluginContext, additionalArgs);
+		return this.#innerDriver._runHookParallelWithCtx(
+			hookName,
+			this._getPluginContext,
+			additionalArgs,
+		);
 	}
 }

@@ -1,7 +1,7 @@
-import { JSONPath } from "jsonpath-plus";
-import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { JSONPath } from "jsonpath-plus";
+import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import { ensureDir } from "./file-utils.js";
 
 export class DataStoreError extends Error {
@@ -43,7 +43,10 @@ export abstract class Document<T = unknown> {
 	 * @internal
 	 */
 	_safeRead(): ResultAsync<unknown, DataStoreError> {
-		return ResultAsync.fromPromise(this._read(), (e) => new DataStoreError(`Error reading document ${this._id}`, { cause: e }));
+		return ResultAsync.fromPromise(
+			this._read(),
+			(e) => new DataStoreError(`Error reading document ${this._id}`, { cause: e }),
+		);
 	}
 
 	/**
@@ -57,7 +60,10 @@ export abstract class Document<T = unknown> {
 	 * @param cb A function that takes the current data and returns the new data.
 	 */
 	safeUpdate(cb: (data: T) => T | Promise<T>): ResultAsync<void, DataStoreError> {
-		return ResultAsync.fromPromise(this.update(cb), (e) => new DataStoreError(`Error updating document ${this._id}`, { cause: e }));
+		return ResultAsync.fromPromise(
+			this.update(cb),
+			(e) => new DataStoreError(`Error updating document ${this._id}`, { cause: e }),
+		);
 	}
 
 	/**
@@ -68,17 +74,26 @@ export abstract class Document<T = unknown> {
 	/**
 	 * Apply a function to each element matching the given jsonpath. Same as {@link apply}, but returns a neverthrow {@link ResultAsync}.
 	 */
-	safeApply(pathExpression: string, fn: (x: unknown) => unknown): ResultAsync<void, DataStoreError> {
+	safeApply(
+		pathExpression: string,
+		fn: (x: unknown) => unknown,
+	): ResultAsync<void, DataStoreError> {
 		return ResultAsync.fromPromise(
 			this.apply(pathExpression, fn),
-			(e) => new DataStoreError(`Error applying content transform to document ${this._id}`, { cause: e }),
+			(e) =>
+				new DataStoreError(`Error applying content transform to document ${this._id}`, {
+					cause: e,
+				}),
 		);
 	}
 
 	abstract query(pathExpression: string): Promise<unknown[]>;
 
 	safeQuery(pathExpression: string): ResultAsync<unknown[], DataStoreError> {
-		return ResultAsync.fromPromise(this.query(pathExpression), (e) => new DataStoreError(`Error querying document ${this._id}`, { cause: e }));
+		return ResultAsync.fromPromise(
+			this.query(pathExpression),
+			(e) => new DataStoreError(`Error querying document ${this._id}`, { cause: e }),
+		);
 	}
 
 	/**
@@ -90,7 +105,10 @@ export abstract class Document<T = unknown> {
 	 * Close the file handle. Same as {@link close}, but returns a neverthrow {@link ResultAsync}.
 	 */
 	safeClose(): ResultAsync<void, DataStoreError> {
-		return ResultAsync.fromPromise(this.close(), (e) => new DataStoreError(`Error closing document ${this._id}`, { cause: e }));
+		return ResultAsync.fromPromise(
+			this.close(),
+			(e) => new DataStoreError(`Error closing document ${this._id}`, { cause: e }),
+		);
 	}
 }
 
@@ -177,14 +195,21 @@ class SingleDocument<T = unknown> extends Document<T> {
 				return data;
 			});
 		} catch (e) {
-			throw new DataStoreError(`Error applying content transform to document ${this._id}`, { cause: e });
+			throw new DataStoreError(`Error applying content transform to document ${this._id}`, {
+				cause: e,
+			});
 		}
 	}
 
 	override async query(pathExpression: string): Promise<unknown[]> {
 		const handle = await this.#getHandle();
 		const data = await handle.readFile("utf-8");
-		return JSONPath({ json: JSON.parse(data), path: pathExpression, resultType: "value", ignoreEvalErrors: true });
+		return JSONPath({
+			json: JSON.parse(data),
+			path: pathExpression,
+			resultType: "value",
+			ignoreEvalErrors: true,
+		});
 	}
 
 	override async close() {
@@ -221,7 +246,13 @@ export class BatchDocument<T = unknown> extends Document<T> {
 
 	async initialize(directory: string, data: AsyncIterable<T>) {
 		for await (const item of data) {
-			this.#documents.push(await SingleDocument.create(directory, BatchDocument.getIndexedId(this._id, this.#documents.length), item));
+			this.#documents.push(
+				await SingleDocument.create(
+					directory,
+					BatchDocument.getIndexedId(this._id, this.#documents.length),
+					item,
+				),
+			);
 		}
 	}
 
@@ -283,8 +314,17 @@ class Namespace {
 		return doc;
 	}
 
-	safeInsert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): ResultAsync<Document<T>, DataStoreError> {
-		return ResultAsync.fromPromise(this.insert(id, data), (e) => new DataStoreError(`Error inserting document ${id} into namespace ${this.#id}`, { cause: e }));
+	safeInsert<T = unknown>(
+		id: string,
+		data: Promise<T> | AsyncIterable<T>,
+	): ResultAsync<Document<T>, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.insert(id, data),
+			(e) =>
+				new DataStoreError(`Error inserting document ${id} into namespace ${this.#id}`, {
+					cause: e,
+				}),
+		);
 	}
 
 	/**
@@ -366,9 +406,16 @@ export class DataStore {
 	 * Get lists of documents matching the passed DataKeys grouped by namespace.
 	 * @param ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
 	 */
-	filter(ids?: DataKeys): Result<Array<{ namespaceId: string; documents: Array<Document> }>, DataStoreError> {
+	filter(
+		ids?: DataKeys,
+	): Result<Array<{ namespaceId: string; documents: Array<Document> }>, DataStoreError> {
 		if (!ids) {
-			return ok(Array.from(this.#namespaces.values()).map((ns) => ({ namespaceId: ns.id, documents: Array.from(ns.documents()) })));
+			return ok(
+				Array.from(this.#namespaces.values()).map((ns) => ({
+					namespaceId: ns.id,
+					documents: Array.from(ns.documents()),
+				})),
+			);
 		}
 
 		const consolidatedIds = new Map<string, Set<string>>();

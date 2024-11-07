@@ -69,13 +69,20 @@ export class LaunchpadContent {
 					)
 					.andThen(() => this._fetchSources(sources))
 					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
-					.andThen(() => ResultAsync.fromPromise(this._dataStore.close(), (e) => new ContentError("Failed to close data store", { cause: e })))
+					.andThen(() =>
+						ResultAsync.fromPromise(
+							this._dataStore.close(),
+							(e) => new ContentError("Failed to close data store", { cause: e }),
+						),
+					)
 					.orElse((e) => {
 						this._pluginDriver.runHookSequential("onContentFetchError", e);
 						this._logger.error("Error in content fetch process:", e);
 						this._logger.info("Restoring from backup...");
 						return this.restore(sources).andThen(() => {
-							return err(new ContentError("Failed to download content. Restored from backup.", { cause: e }));
+							return err(
+								new ContentError("Failed to download content. Restored from backup.", { cause: e }),
+							);
 						});
 					})
 					.andThen(() =>
@@ -99,15 +106,22 @@ export class LaunchpadContent {
 	 * Clears all cached content except for files that match config.keep.
 	 * @param sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
 	 */
-	clear(sources: ContentSource[] = [], { temp = true, backups = true, downloads = true, removeIfEmpty = true } = {}): ResultAsync<void, ContentError> {
+	clear(
+		sources: ContentSource[] = [],
+		{ temp = true, backups = true, downloads = true, removeIfEmpty = true } = {},
+	): ResultAsync<void, ContentError> {
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const tasks = [] as ResultAsync<void, ContentError>[];
 				if (temp) {
-					tasks.push(this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }));
+					tasks.push(
+						this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }),
+					);
 				}
 				if (backups) {
-					tasks.push(this._clearDir(this.getBackupPath(source.id), { removeIfEmpty, ignoreKeep: true }));
+					tasks.push(
+						this._clearDir(this.getBackupPath(source.id), { removeIfEmpty, ignoreKeep: true }),
+					);
 				}
 				if (downloads) {
 					tasks.push(this._clearDir(this.getDownloadPath(source.id), { removeIfEmpty }));
@@ -139,7 +153,9 @@ export class LaunchpadContent {
 
 				return FileUtils.pathExists(downloadPath).andThen((exists) => {
 					if (!exists) {
-						this._logger.warn(`Skipping backup for ${source.id}: No downloads found at ${downloadPath}`);
+						this._logger.warn(
+							`Skipping backup for ${source.id}: No downloads found at ${downloadPath}`,
+						);
 						return ok(undefined);
 					}
 					this._logger.debug(`Backing up ${source}`);
@@ -181,7 +197,9 @@ export class LaunchpadContent {
 
 						return okAsync(undefined);
 					})
-					.mapErr((e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`));
+					.mapErr(
+						(e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`),
+					);
 			}),
 		).map(() => undefined); // return void instead of void[]
 	}
@@ -219,7 +237,9 @@ export class LaunchpadContent {
 		return detokenizedPath;
 	}
 
-	_createSourcesFromConfig(rawSources: ConfigContentSource[]): ResultAsync<ContentSource[], ContentError> {
+	_createSourcesFromConfig(
+		rawSources: ConfigContentSource[],
+	): ResultAsync<ContentSource[], ContentError> {
 		return ResultAsync.combine(
 			rawSources.map((source) =>
 				ResultAsync.fromPromise(
@@ -245,23 +265,33 @@ export class LaunchpadContent {
 					dataStore: this._dataStore,
 				});
 
-				const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
+				const fetchAsArray = Array.isArray(initializedFetch)
+					? initializedFetch
+					: [initializedFetch];
 
 				return this._dataStore
 					.createNamespace(source.id)
 					.andThen((namespace) => {
-						return ResultAsync.combine(fetchAsArray.map((fetch) => namespace.safeInsert(fetch.id, fetch.data)));
+						return ResultAsync.combine(
+							fetchAsArray.map((fetch) => namespace.safeInsert(fetch.id, fetch.data)),
+						);
 					})
 					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }));
 			}),
 		).map(() => undefined); // return void instead of void[]
 	}
 
-	_clearDir(dirPath: string, { removeIfEmpty = true, ignoreKeep = false } = {}): ResultAsync<void, ContentError> {
+	_clearDir(
+		dirPath: string,
+		{ removeIfEmpty = true, ignoreKeep = false } = {},
+	): ResultAsync<void, ContentError> {
 		return FileUtils.pathExists(dirPath)
 			.andThen((exists) => {
 				if (!exists) return okAsync(undefined);
-				return FileUtils.removeFilesFromDir(dirPath, ignoreKeep ? undefined : this._config.keep).andThen(() => {
+				return FileUtils.removeFilesFromDir(
+					dirPath,
+					ignoreKeep ? undefined : this._config.keep,
+				).andThen(() => {
 					if (removeIfEmpty) {
 						return FileUtils.removeDirIfEmpty(dirPath);
 					}
@@ -275,7 +305,10 @@ export class LaunchpadContent {
 	_getDetokenizedPath(tokenizedPath: string, downloadPath: string): string {
 		let innerTokenizedPath = tokenizedPath;
 		if (innerTokenizedPath.includes(TIMESTAMP_TOKEN)) {
-			innerTokenizedPath = innerTokenizedPath.replace(TIMESTAMP_TOKEN, FileUtils.getDateString(this._startDatetime));
+			innerTokenizedPath = innerTokenizedPath.replace(
+				TIMESTAMP_TOKEN,
+				FileUtils.getDateString(this._startDatetime),
+			);
 		}
 		if (innerTokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
 			innerTokenizedPath = innerTokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);

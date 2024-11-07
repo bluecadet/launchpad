@@ -1,6 +1,6 @@
+import { z } from "zod";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { defineSource } from "./source.js";
-import { z } from "zod";
 
 const sanitySourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */
@@ -18,7 +18,9 @@ const sanitySourceSchema = z.object({
 	/** An array of queries to fetch. Each query can be a string or an object with a query and an id. */
 	queries: z
 		.array(z.union([z.string(), z.object({ query: z.string(), id: z.string() })]))
-		.describe("An array of queries to fetch. Each query can be a string or an object with a query and an id."),
+		.describe(
+			"An array of queries to fetch. Each query can be a string or an object with a query and an id.",
+		),
 	/** Max number of entries per page. Defaults to 100. */
 	limit: z.number().describe("Max number of entries per page").default(100),
 	/** Max number of pages. Defaults to 1000. */
@@ -82,6 +84,9 @@ function tryImportSanityClient() {
 	try {
 		return import("@sanity/client");
 	} catch (e) {
-		throw new Error('Could not find peer dependency "@sanity/client". Make sure you have installed it.', { cause: e });
+		throw new Error(
+			'Could not find peer dependency "@sanity/client". Make sure you have installed it.',
+			{ cause: e },
+		);
 	}
 }

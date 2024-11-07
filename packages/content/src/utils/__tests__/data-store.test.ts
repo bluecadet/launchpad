@@ -1,7 +1,7 @@
-import { vol } from "memfs";
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { DataStore } from "../data-store.js";
 import path from "node:path";
+import { vol } from "memfs";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DataStore } from "../data-store.js";
 
 describe("SingleDocument", () => {
 	const TEST_DIR = "/test/store";
@@ -26,7 +26,10 @@ describe("SingleDocument", () => {
 		const docResult = namespace.document("test-doc");
 		expect(docResult).toBeOk();
 
-		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		const fileContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			"utf-8",
+		);
 		expect(JSON.parse(fileContent.toString())).toEqual({ content: "test content" });
 	});
 
@@ -35,17 +38,26 @@ describe("SingleDocument", () => {
 		expect(result).toBeOk();
 
 		const namespace = result._unsafeUnwrap();
-		const doc = await namespace.insert("test-doc", Promise.resolve({ content: "original content" }));
+		const doc = await namespace.insert(
+			"test-doc",
+			Promise.resolve({ content: "original content" }),
+		);
 
 		await doc.update((data: any) => ({
 			...data,
 			content: "modified content",
 		}));
 
-		const originalContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.original.json"), "utf-8");
+		const originalContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.original.json"),
+			"utf-8",
+		);
 		expect(JSON.parse(originalContent.toString())).toEqual({ content: "original content" });
 
-		const modifiedContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		const modifiedContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			"utf-8",
+		);
 		expect(JSON.parse(modifiedContent.toString())).toEqual({ content: "modified content" });
 	});
 
@@ -61,9 +73,14 @@ describe("SingleDocument", () => {
 			}),
 		);
 
-		await doc.apply("$.nested.content", (value: unknown) => (typeof value === "string" ? value.toUpperCase() : value));
+		await doc.apply("$.nested.content", (value: unknown) =>
+			typeof value === "string" ? value.toUpperCase() : value,
+		);
 
-		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		const fileContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			"utf-8",
+		);
 		expect(JSON.parse(fileContent.toString())).toEqual({
 			nested: { content: "TEST CONTENT" },
 		});
@@ -76,16 +93,32 @@ describe("SingleDocument", () => {
 		const namespace = result._unsafeUnwrap();
 		await namespace.insert("test-doc.json", Promise.resolve({ content: "test content A" }));
 		await namespace.insert("test-doc.extension", Promise.resolve({ content: "test content B" }));
-		await namespace.insert("test-doc.extension.extension", Promise.resolve({ content: "test content C" }));
+		await namespace.insert(
+			"test-doc.extension.extension",
+			Promise.resolve({ content: "test content C" }),
+		);
 
-		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		const fileContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			"utf-8",
+		);
 		expect(JSON.parse(fileContent.toString())).toMatchObject({ content: "test content A" });
 
-		const extensionFileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.extension"), "utf-8");
-		expect(JSON.parse(extensionFileContent.toString())).toMatchObject({ content: "test content B" });
+		const extensionFileContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.extension"),
+			"utf-8",
+		);
+		expect(JSON.parse(extensionFileContent.toString())).toMatchObject({
+			content: "test content B",
+		});
 
-		const extensionExtensionFileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.extension.extension"), "utf-8");
-		expect(JSON.parse(extensionExtensionFileContent.toString())).toMatchObject({ content: "test content C" });
+		const extensionExtensionFileContent = await vol.readFileSync(
+			path.join(TEST_DIR, "test-namespace", "test-doc.extension.extension"),
+			"utf-8",
+		);
+		expect(JSON.parse(extensionExtensionFileContent.toString())).toMatchObject({
+			content: "test content C",
+		});
 	});
 });
 
@@ -125,7 +158,10 @@ describe("BatchDocument", () => {
 		// Check that all files were created
 		for (let i = 0; i < items.length; i++) {
 			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
-			const content = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", filename), "utf-8");
+			const content = await vol.readFileSync(
+				path.join(TEST_DIR, "test-namespace", filename),
+				"utf-8",
+			);
 			expect(JSON.parse(content.toString())).toEqual(items[i]);
 		}
 	});
@@ -146,12 +182,17 @@ describe("BatchDocument", () => {
 			})(),
 		);
 
-		await doc.apply("$.content", (value: unknown) => (typeof value === "string" ? value.toUpperCase() : value));
+		await doc.apply("$.content", (value: unknown) =>
+			typeof value === "string" ? value.toUpperCase() : value,
+		);
 
 		// Verify all documents were updated
 		for (let i = 0; i < items.length; i++) {
 			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
-			const content = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", filename), "utf-8");
+			const content = await vol.readFileSync(
+				path.join(TEST_DIR, "test-namespace", filename),
+				"utf-8",
+			);
 			expect(JSON.parse(content.toString())).toEqual({
 				content: items[i]!.content.toUpperCase(),
 			});
@@ -184,7 +225,9 @@ describe("DataStore", () => {
 		store.createNamespace("test-namespace");
 		const result = await store.createNamespace("test-namespace");
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr().message).toBe("Namespace test-namespace already exists in data store");
+		expect(result._unsafeUnwrapErr().message).toBe(
+			"Namespace test-namespace already exists in data store",
+		);
 	});
 
 	it("should filter documents by namespace", async () => {

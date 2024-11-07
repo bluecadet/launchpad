@@ -28,10 +28,16 @@ export async function start(argv: LaunchpadArgv) {
 					return ok(monitorInstance);
 				})
 				.andThrough((monitorInstance) => {
-					return ResultAsync.fromPromise(monitorInstance.connect(), () => new MonitorError("Failed to connect to monitor"));
+					return ResultAsync.fromPromise(
+						monitorInstance.connect(),
+						() => new MonitorError("Failed to connect to monitor"),
+					);
 				})
 				.andThrough((monitorInstance) => {
-					return ResultAsync.fromPromise(monitorInstance.start(), () => new MonitorError("Failed to start monitor"));
+					return ResultAsync.fromPromise(
+						monitorInstance.start(),
+						() => new MonitorError("Failed to start monitor"),
+					);
 				})
 				.orElse((error) => handleFatalError(error, rootLogger));
 		});

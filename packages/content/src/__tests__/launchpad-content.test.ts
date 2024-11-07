@@ -115,7 +115,10 @@ describe("LaunchpadContent", () => {
 				},
 			};
 
-			const content = new LaunchpadContent(createBasicConfig([plugin1, plugin2]), createMockLogger());
+			const content = new LaunchpadContent(
+				createBasicConfig([plugin1, plugin2]),
+				createMockLogger(),
+			);
 			await content.download();
 
 			expect(order).toEqual(["plugin1:setup", "plugin2:setup", "plugin1:done", "plugin2:done"]);

@@ -20,7 +20,10 @@ export function safeKy(input: Input, options?: Options): SafeKyResultAsync {
 	return SafeKyResultAsync.fromRequest(req);
 }
 
-export type SafeKyResponseResult<T = unknown> = Omit<KyResponse<T>, "json" | "text" | "arrayBuffer" | "blob"> & {
+export type SafeKyResponseResult<T = unknown> = Omit<
+	KyResponse<T>,
+	"json" | "text" | "arrayBuffer" | "blob"
+> & {
 	// biome-ignore lint/suspicious/noExplicitAny: TODO
 	json: () => ResultAsync<any, SafeKyParseError>;
 	text: () => ResultAsync<string, SafeKyParseError>;
@@ -28,7 +31,10 @@ export type SafeKyResponseResult<T = unknown> = Omit<KyResponse<T>, "json" | "te
 	blob: () => ResultAsync<Blob, SafeKyParseError>;
 };
 
-class SafeKyResultAsync<T = unknown> extends ResultAsync<SafeKyResponseResult<T>, SafeKyFetchError | SafeKyParseError> {
+class SafeKyResultAsync<T = unknown> extends ResultAsync<
+	SafeKyResponseResult<T>,
+	SafeKyFetchError | SafeKyParseError
+> {
 	static fromRequest<T>(promise: ResponsePromise<T>): SafeKyResultAsync<T> {
 		const newPromise = promise
 			.then((res) => {
@@ -41,16 +47,35 @@ class SafeKyResultAsync<T = unknown> extends ResultAsync<SafeKyResponseResult<T>
 					url: res.url,
 					redirected: res.redirected,
 					body: res.body,
-					json: () => ResultAsync.fromPromise(res.json(), (error) => new SafeKyParseError("Error parsing JSON", { cause: error })),
-					text: () => ResultAsync.fromPromise(res.text(), (error) => new SafeKyParseError("Error parsing text", { cause: error })),
-					arrayBuffer: () => ResultAsync.fromPromise(res.arrayBuffer(), (error) => new SafeKyParseError("Error parsing array buffer", { cause: error })),
-					blob: () => ResultAsync.fromPromise(res.blob(), (error) => new SafeKyParseError("Error parsing blob", { cause: error })),
+					json: () =>
+						ResultAsync.fromPromise(
+							res.json(),
+							(error) => new SafeKyParseError("Error parsing JSON", { cause: error }),
+						),
+					text: () =>
+						ResultAsync.fromPromise(
+							res.text(),
+							(error) => new SafeKyParseError("Error parsing text", { cause: error }),
+						),
+					arrayBuffer: () =>
+						ResultAsync.fromPromise(
+							res.arrayBuffer(),
+							(error) => new SafeKyParseError("Error parsing array buffer", { cause: error }),
+						),
+					blob: () =>
+						ResultAsync.fromPromise(
+							res.blob(),
+							(error) => new SafeKyParseError("Error parsing blob", { cause: error }),
+						),
 				};
 
 				return new Ok(remapped) as Ok<SafeKyResponseResult<T>, SafeKyFetchError | SafeKyParseError>;
 			})
 			.catch((error) => {
-				return new Err(new SafeKyFetchError("Error during request", { cause: error })) as Err<SafeKyResponseResult<T>, SafeKyFetchError | SafeKyParseError>;
+				return new Err(new SafeKyFetchError("Error during request", { cause: error })) as Err<
+					SafeKyResponseResult<T>,
+					SafeKyFetchError | SafeKyParseError
+				>;
 			});
 
 		return new SafeKyResultAsync(newPromise);

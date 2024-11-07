@@ -7,7 +7,9 @@ export type ResultAsyncTaskOptions = {
 	signal?: AbortSignal;
 };
 
-export type ResultAsyncTask<TaskResultType, TaskErrorType> = (options: ResultAsyncTaskOptions) => ResultAsync<TaskResultType, TaskErrorType>;
+export type ResultAsyncTask<TaskResultType, TaskErrorType> = (
+	options: ResultAsyncTaskOptions,
+) => ResultAsync<TaskResultType, TaskErrorType>;
 
 /**
  * Wraps a PQueue instance to provide a ResultAsync interface.
@@ -22,7 +24,9 @@ export default class ResultAsyncQueue {
 	/**
 	 * Add a ResultAsync to the queue, returning a ResultAsync that resolves to the task's result, or void if the task is aborted.
 	 */
-	add<TaskResultType, TaskErrorType>(task: ResultAsyncTask<TaskResultType, TaskErrorType>): ResultAsync<TaskResultType | undefined, TaskErrorType> {
+	add<TaskResultType, TaskErrorType>(
+		task: ResultAsyncTask<TaskResultType, TaskErrorType>,
+	): ResultAsync<TaskResultType | undefined, TaskErrorType> {
 		return ResultAsync.fromSafePromise(this.queue.add(task)).andThen((result) => {
 			if (!result) {
 				return ok(undefined);
@@ -42,7 +46,9 @@ export default class ResultAsyncQueue {
 				return (...args) =>
 					task(...args).mapErr((e) => {
 						this.queue.clear();
-						options.logger.error(`Cancelled ${chalk.red(`${this.queue.size} remaining sync tasks`)} due to ${chalk.red("error")}:`);
+						options.logger.error(
+							`Cancelled ${chalk.red(`${this.queue.size} remaining sync tasks`)} due to ${chalk.red("error")}:`,
+						);
 						return e;
 					});
 			});

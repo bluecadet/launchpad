@@ -19,7 +19,8 @@ yargs(hideBin(process.argv))
 	.option("env", { alias: "e", describe: "Path(s) to your .env file(s)", type: "array" })
 	.option("env-cascade", {
 		alias: "E",
-		describe: "cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
+		describe:
+			"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 		type: "string",
 	})
 	.command("start", "Starts launchpad by updating content and starting apps.", async ({ argv }) => {
@@ -27,11 +28,15 @@ yargs(hideBin(process.argv))
 		const { start } = await import("./commands/start.js");
 		await start(resolvedArgv);
 	})
-	.command("stop", "Stops launchpad by stopping apps and killing any existing PM2 instance.", async ({ argv }) => {
-		const resolvedArgv = await argv;
-		const { stop } = await import("./commands/stop.js");
-		await stop(resolvedArgv);
-	})
+	.command(
+		"stop",
+		"Stops launchpad by stopping apps and killing any existing PM2 instance.",
+		async ({ argv }) => {
+			const resolvedArgv = await argv;
+			const { stop } = await import("./commands/stop.js");
+			await stop(resolvedArgv);
+		},
+	)
 	.command("content", "Only download content.", async ({ argv }) => {
 		const resolvedArgv = await argv;
 		const { content } = await import("./commands/content.js");
@@ -42,10 +47,14 @@ yargs(hideBin(process.argv))
 		const { monitor } = await import("./commands/monitor.js");
 		await monitor(resolvedArgv);
 	})
-	.command("scaffold", "Configures the current PC for exhibit environments (with admin prompt).", async ({ argv }) => {
-		const resolvedArgv = await argv;
-		const { scaffold } = await import("./commands/scaffold.js");
-		await scaffold(resolvedArgv);
-	})
+	.command(
+		"scaffold",
+		"Configures the current PC for exhibit environments (with admin prompt).",
+		async ({ argv }) => {
+			const resolvedArgv = await argv;
+			const { scaffold } = await import("./commands/scaffold.js");
+			await scaffold(resolvedArgv);
+		},
+	)
 	.help()
 	.parse();

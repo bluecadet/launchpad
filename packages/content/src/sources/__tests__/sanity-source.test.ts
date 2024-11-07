@@ -41,44 +41,47 @@ describe("sanitySource", () => {
 		// Mock Sanity API responses
 		server.use(
 			// First page of 'test' type
-			http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
-				const url = new URL(request.url);
+			http.get(
+				"https://test-project.api.sanity.io/v2021-10-21/data/query/production",
+				({ request }) => {
+					const url = new URL(request.url);
 
-				const query = url.searchParams.get("query");
+					const query = url.searchParams.get("query");
 
-				if (query === '*[_type == "test"][0..99]') {
+					if (query === '*[_type == "test"][0..99]') {
+						return HttpResponse.json({
+							result: [{ _type: "test", title: "Test Document 1" }],
+							ms: 15,
+						});
+					}
+
+					if (query === '*[_type == "test"][100..199]') {
+						return HttpResponse.json({
+							result: [{ _type: "test", title: "Test Document 2" }],
+							ms: 15,
+						});
+					}
+
+					if (query === '*[_type == "article"][0..99]') {
+						return HttpResponse.json({
+							result: [{ _type: "article", title: "Article 1" }],
+							ms: 15,
+						});
+					}
+
+					if (query === '*[_type == "article"][100..199]') {
+						return HttpResponse.json({
+							result: [{ _type: "article", title: "Article 2" }],
+							ms: 15,
+						});
+					}
+
 					return HttpResponse.json({
-						result: [{ _type: "test", title: "Test Document 1" }],
-						ms: 15,
+						result: [],
+						ms: 5,
 					});
-				}
-
-				if (query === '*[_type == "test"][100..199]') {
-					return HttpResponse.json({
-						result: [{ _type: "test", title: "Test Document 2" }],
-						ms: 15,
-					});
-				}
-
-				if (query === '*[_type == "article"][0..99]') {
-					return HttpResponse.json({
-						result: [{ _type: "article", title: "Article 1" }],
-						ms: 15,
-					});
-				}
-
-				if (query === '*[_type == "article"][100..199]') {
-					return HttpResponse.json({
-						result: [{ _type: "article", title: "Article 2" }],
-						ms: 15,
-					});
-				}
-
-				return HttpResponse.json({
-					result: [],
-					ms: 5,
-				});
-			}),
+				},
+			),
 		);
 
 		const source = await sanitySource({
@@ -112,22 +115,28 @@ describe("sanitySource", () => {
 
 	it("should fetch data with custom query objects", async () => {
 		server.use(
-			http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
-				const url = new URL(request.url);
-				const query = url.searchParams.get("query");
+			http.get(
+				"https://test-project.api.sanity.io/v2021-10-21/data/query/production",
+				({ request }) => {
+					const url = new URL(request.url);
+					const query = url.searchParams.get("query");
 
-				if (query === '*[_type == "custom"][0..99]' || query === '*[_type == "custom"][100..199]') {
+					if (
+						query === '*[_type == "custom"][0..99]' ||
+						query === '*[_type == "custom"][100..199]'
+					) {
+						return HttpResponse.json({
+							result: [{ _type: "custom", data: "Custom Data" }],
+							ms: 15,
+						});
+					}
+
 					return HttpResponse.json({
-						result: [{ _type: "custom", data: "Custom Data" }],
-						ms: 15,
+						result: [],
+						ms: 5,
 					});
-				}
-
-				return HttpResponse.json({
-					result: [],
-					ms: 5,
-				});
-			}),
+				},
+			),
 		);
 
 		const source = await sanitySource({
@@ -177,23 +186,26 @@ describe("sanitySource", () => {
 
 	it("should respect pagination options", async () => {
 		server.use(
-			http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
-				const url = new URL(request.url);
-				const query = url.searchParams.get("query") || "";
-				const offset = query.match(/\[(\d+)\.\./)?.at(1);
+			http.get(
+				"https://test-project.api.sanity.io/v2021-10-21/data/query/production",
+				({ request }) => {
+					const url = new URL(request.url);
+					const query = url.searchParams.get("query") || "";
+					const offset = query.match(/\[(\d+)\.\./)?.at(1);
 
-				if (offset === "100") {
+					if (offset === "100") {
+						return HttpResponse.json({
+							result: [],
+							ms: 5,
+						});
+					}
+
 					return HttpResponse.json({
-						result: [],
-						ms: 5,
+						result: [{ _type: "test", title: `Test Document ${offset}` }],
+						ms: 15,
 					});
-				}
-
-				return HttpResponse.json({
-					result: [{ _type: "test", title: `Test Document ${offset}` }],
-					ms: 15,
-				});
-			}),
+				},
+			),
 		);
 
 		const source = await sanitySource({

@@ -14,7 +14,11 @@ export function isDir(dirPath: string) {
 	return fs.existsSync(dirPath) && fs.lstatSync(dirPath).isDirectory();
 }
 
-export function saveJson(json: unknown, filePath: string, appendJsonExtension = true): ResultAsync<void, FileUtilsError> {
+export function saveJson(
+	json: unknown,
+	filePath: string,
+	appendJsonExtension = true,
+): ResultAsync<void, FileUtilsError> {
 	let filePathWithExtension = filePath;
 	if (appendJsonExtension && !filePath.endsWith(".json")) {
 		filePathWithExtension += ".json";
@@ -34,7 +38,10 @@ export function saveJson(json: unknown, filePath: string, appendJsonExtension = 
  * @param dirPath Any absolute directory path
  * @param exclude Array of glob patterns to exclude (e.g. ['*.json', '** /*.csv', 'my-important-folder/**']). Glob patterns are relative to `dirPath`.
  */
-export function removeFilesFromDir(dirPath: string, exclude: string[] = []): ResultAsync<void, FileUtilsError> {
+export function removeFilesFromDir(
+	dirPath: string,
+	exclude: string[] = [],
+): ResultAsync<void, FileUtilsError> {
 	return ResultAsync.fromPromise(
 		glob(path.join(dirPath, "**/*"), {
 			ignore: exclude.map((pattern) => path.join(dirPath, pattern)),
@@ -67,9 +74,10 @@ export function removeFilesFromDir(dirPath: string, exclude: string[] = []): Res
 
 				const removeDirPromises = dirs.map(
 					(dir) =>
-						ResultAsync.fromPromise(fs.promises.rmdir(dir), (error) => new FileUtilsError(`Failed to remove directory ${dir}`, { cause: error })).orElse(() =>
-							okAsync(undefined),
-						), // Ignore errors if directory is not empty
+						ResultAsync.fromPromise(
+							fs.promises.rmdir(dir),
+							(error) => new FileUtilsError(`Failed to remove directory ${dir}`, { cause: error }),
+						).orElse(() => okAsync(undefined)), // Ignore errors if directory is not empty
 				);
 				return ResultAsync.combine(removeDirPromises);
 			});
@@ -101,9 +109,10 @@ export function removeDirIfEmpty(dirPath: string): ResultAsync<void, FileUtilsEr
 
 export function isDirEmpty(dirPath: string): ResultAsync<boolean, FileUtilsError> {
 	// @see https://stackoverflow.com/a/39218759/782899
-	return ResultAsync.fromPromise(fs.promises.readdir(dirPath), (e) => new FileUtilsError(`Could not read dir ${dirPath}`, { cause: e })).andThen((files) =>
-		okAsync(files.length === 0),
-	);
+	return ResultAsync.fromPromise(
+		fs.promises.readdir(dirPath),
+		(e) => new FileUtilsError(`Could not read dir ${dirPath}`, { cause: e }),
+	).andThen((files) => okAsync(files.length === 0));
 }
 
 /**
@@ -120,7 +129,10 @@ export function ensureDir(dirPath: string): ResultAsync<void, FileUtilsError> {
  * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
  */
 export function remove(dir: string): ResultAsync<void, FileUtilsError> {
-	return ResultAsync.fromPromise(fs.promises.rm(dir, { recursive: true, force: true }), (e) => new FileUtilsError(`Failed to remove ${dir}`, { cause: e }));
+	return ResultAsync.fromPromise(
+		fs.promises.rm(dir, { recursive: true, force: true }),
+		(e) => new FileUtilsError(`Failed to remove ${dir}`, { cause: e }),
+	);
 }
 
 /**
@@ -139,8 +151,15 @@ export function pathExists(dir: string): ResultAsync<boolean, FileUtilsError> {
 /**
  * Copies a file or directory from `src` to `dest`.
  */
-export function copy(src: string, dest: string, options = { preserveTimestamps: true }): ResultAsync<void, FileUtilsError> {
-	return ResultAsync.fromPromise(fs.promises.stat(src), (e) => new FileUtilsError(`Failed to get file stats for ${src}`, { cause: e }))
+export function copy(
+	src: string,
+	dest: string,
+	options = { preserveTimestamps: true },
+): ResultAsync<void, FileUtilsError> {
+	return ResultAsync.fromPromise(
+		fs.promises.stat(src),
+		(e) => new FileUtilsError(`Failed to get file stats for ${src}`, { cause: e }),
+	)
 		.andThrough((stats) => {
 			if (stats.isDirectory()) {
 				return copyDir(src, dest, options);
@@ -161,10 +180,23 @@ export function copy(src: string, dest: string, options = { preserveTimestamps: 
 /**
  * Copies a directory from `src` to `dest`.
  */
-export function copyDir(src: string, dest: string, options = { preserveTimestamps: true }): ResultAsync<void, FileUtilsError> {
+export function copyDir(
+	src: string,
+	dest: string,
+	options = { preserveTimestamps: true },
+): ResultAsync<void, FileUtilsError> {
 	return ensureDir(dest)
-		.andThen(() => ResultAsync.fromPromise(fs.promises.readdir(src), (e) => new FileUtilsError(`Failed to read dir ${src}`, { cause: e })))
-		.andThen((entries) => ResultAsync.combine(entries.map((entry) => copy(path.join(src, entry), path.join(dest, entry), options))))
+		.andThen(() =>
+			ResultAsync.fromPromise(
+				fs.promises.readdir(src),
+				(e) => new FileUtilsError(`Failed to read dir ${src}`, { cause: e }),
+			),
+		)
+		.andThen((entries) =>
+			ResultAsync.combine(
+				entries.map((entry) => copy(path.join(src, entry), path.join(dest, entry), options)),
+			),
+		)
 		.map(() => undefined);
 }
 
@@ -172,5 +204,8 @@ export function copyDir(src: string, dest: string, options = { preserveTimestamp
  * Copies a file from `src` to `dest`.
  */
 export function copyFile(src: string, dest: string): ResultAsync<void, FileUtilsError> {
-	return ResultAsync.fromPromise(fs.promises.copyFile(src, dest), (e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e }));
+	return ResultAsync.fromPromise(
+		fs.promises.copyFile(src, dest),
+		(e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e }),
+	);
 }

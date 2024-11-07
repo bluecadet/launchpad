@@ -16,7 +16,9 @@ describe("ResultAsyncQueue", () => {
 	it("should handle errors in tasks", async () => {
 		const queue = new ResultAsyncQueue();
 		const task = () =>
-			ResultAsync.fromPromise(Promise.reject(new Error("Task failed")), (error) => (error instanceof Error ? error : new Error(String(error))));
+			ResultAsync.fromPromise(Promise.reject(new Error("Task failed")), (error) =>
+				error instanceof Error ? error : new Error(String(error)),
+			);
 
 		const result = await queue.add(task);
 		expect(result).toBeErr();
@@ -40,7 +42,10 @@ describe("ResultAsyncQueue", () => {
 	it("should handle addAll with successful tasks", async () => {
 		const queue = new ResultAsyncQueue();
 		const logger = createMockLogger();
-		const tasks = [() => ResultAsync.fromPromise(Promise.resolve(1), () => new Error()), () => ResultAsync.fromPromise(Promise.resolve(2), () => new Error())];
+		const tasks = [
+			() => ResultAsync.fromPromise(Promise.resolve(1), () => new Error()),
+			() => ResultAsync.fromPromise(Promise.resolve(2), () => new Error()),
+		];
 
 		const result = await queue.addAll(tasks, { logger });
 		expect(result).toBeOk();
@@ -52,7 +57,10 @@ describe("ResultAsyncQueue", () => {
 		const logger = createMockLogger();
 		const tasks = [
 			() => ResultAsync.fromPromise(Promise.resolve(1), () => new Error()),
-			() => ResultAsync.fromPromise(Promise.reject(new Error("Task 2 failed")), (error) => (error instanceof Error ? error : new Error(String(error)))),
+			() =>
+				ResultAsync.fromPromise(Promise.reject(new Error("Task 2 failed")), (error) =>
+					error instanceof Error ? error : new Error(String(error)),
+				),
 			() => ResultAsync.fromPromise(Promise.resolve(3), () => new Error()),
 		];
 

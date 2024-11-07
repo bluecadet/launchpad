@@ -46,7 +46,9 @@ export function fetchPaginated<T, Merge extends boolean = false>({
 		}
 	}
 
-	return (mergePages ? getFlattened(generator()) : generator()) as Merge extends true ? Promise<T[]> : AsyncGenerator<T>;
+	return (mergePages ? getFlattened(generator()) : generator()) as Merge extends true
+		? Promise<T[]>
+		: AsyncGenerator<T>;
 }
 
 async function getFlattened<T>(generator: AsyncGenerator<T>) {

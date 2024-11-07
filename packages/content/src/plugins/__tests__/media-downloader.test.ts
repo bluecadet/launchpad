@@ -3,9 +3,15 @@ import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mediaDownloader, { localFilePathFromUrl, checkCacheStatus, downloadFile, findMediaUrls, mediaDownloaderConfigSchema } from "../media-downloader.js";
-import { createTestPluginContext } from "./plugins.test-utils.js";
 import type { z } from "zod";
+import mediaDownloader, {
+	localFilePathFromUrl,
+	checkCacheStatus,
+	downloadFile,
+	findMediaUrls,
+	mediaDownloaderConfigSchema,
+} from "../media-downloader.js";
+import { createTestPluginContext } from "./plugins.test-utils.js";
 
 function getMediaDownloaderConfig(config: z.input<typeof mediaDownloaderConfigSchema>) {
 	return mediaDownloaderConfigSchema.parse(config);
@@ -21,7 +27,9 @@ describe("mediaDownloader", () => {
 
 	describe("localFilePathFromUrl", () => {
 		it("should strip protocol and domain", () => {
-			expect(localFilePathFromUrl("https://example.com/path/to/file.jpg")).toBe(`path${path.sep}to${path.sep}file.jpg`);
+			expect(localFilePathFromUrl("https://example.com/path/to/file.jpg")).toBe(
+				`path${path.sep}to${path.sep}file.jpg`,
+			);
 		});
 
 		it("should handle URLs without leading slash", () => {
@@ -29,7 +37,9 @@ describe("mediaDownloader", () => {
 		});
 
 		it("should handle URLs with query params", () => {
-			expect(localFilePathFromUrl("https://example.com/path/file.jpg?size=large")).toBe(`path${path.sep}file.jpg?size=large`);
+			expect(localFilePathFromUrl("https://example.com/path/file.jpg?size=large")).toBe(
+				`path${path.sep}file.jpg?size=large`,
+			);
 		});
 	});
 
@@ -39,7 +49,10 @@ describe("mediaDownloader", () => {
 				"https://example.com/new.jpg",
 				"/downloads/new.jpg",
 				new AbortController().signal,
-				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: true }),
+				getMediaDownloaderConfig({
+					enableIfModifiedSinceCheck: true,
+					enableContentLengthCheck: true,
+				}),
 			);
 
 			expect(result).toBeOk();
@@ -64,7 +77,10 @@ describe("mediaDownloader", () => {
 				"https://example.com/cached.jpg",
 				"/downloads/cached.jpg",
 				new AbortController().signal,
-				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: true, enableContentLengthCheck: false }),
+				getMediaDownloaderConfig({
+					enableIfModifiedSinceCheck: true,
+					enableContentLengthCheck: false,
+				}),
 			);
 
 			expect(result).toBeOk();
@@ -90,7 +106,10 @@ describe("mediaDownloader", () => {
 				"https://example.com/size.jpg",
 				"/downloads/size.jpg",
 				new AbortController().signal,
-				getMediaDownloaderConfig({ enableIfModifiedSinceCheck: false, enableContentLengthCheck: true }),
+				getMediaDownloaderConfig({
+					enableIfModifiedSinceCheck: false,
+					enableContentLengthCheck: true,
+				}),
 			);
 
 			expect(result).toBeOk();
@@ -148,11 +167,21 @@ describe("mediaDownloader", () => {
 			await namespace.insert(
 				"doc1",
 				Promise.resolve({
-					images: ["https://example.com/1.jpg", "https://example.com/1.jpg", "https://example.com/2.png", "not-a-url.txt", "https://example.com/doc.pdf"],
+					images: [
+						"https://example.com/1.jpg",
+						"https://example.com/1.jpg",
+						"https://example.com/2.png",
+						"not-a-url.txt",
+						"https://example.com/doc.pdf",
+					],
 				}),
 			);
 
-			const urls = await findMediaUrls(ctx.data, getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }), "$..*[?(@.match(/\\.(jpg|png)$/i))]");
+			const urls = await findMediaUrls(
+				ctx.data,
+				getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }),
+				"$..*[?(@.match(/\\.(jpg|png)$/i))]",
+			);
 
 			expect(urls).toMatchObject([
 				{ url: "https://example.com/1.jpg", sourceId: "test" },
@@ -173,7 +202,11 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const urls = await findMediaUrls(ctx.data, getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }), "$..*[?(@.url)].url");
+			const urls = await findMediaUrls(
+				ctx.data,
+				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }),
+				"$..*[?(@.url)].url",
+			);
 
 			expect(urls).toMatchObject([
 				{ url: "https://example.com/1.jpg", sourceId: "test" },

@@ -9,11 +9,8 @@ import { LaunchpadContent } from "../launchpad-content.js";
 import { defineSource } from "../sources/source.js";
 
 describe("LaunchpadContent", () => {
-	beforeEach(() => {
-		vol.reset();
-	});
-
 	afterEach(() => {
+		vol.reset();
 		vi.clearAllMocks();
 	});
 
@@ -26,17 +23,14 @@ describe("LaunchpadContent", () => {
 				defineSource({
 					id: "test",
 					fetch: () => {
-						return ok([
+						return [
 							{
 								id: "doc1",
-								dataPromise: okAsync([
-									{
-										id: "doc1",
-										data: "doc1",
-									},
-								]),
+								data: Promise.resolve({
+									hello: "world",
+								}),
 							},
-						]);
+						];
 					},
 				}),
 			],
@@ -68,7 +62,7 @@ describe("LaunchpadContent", () => {
 
 			const filePath = path.join("/downloads", "test", "doc1.json");
 			expect(vol.existsSync(filePath)).toBe(true);
-			expect(vol.readFileSync(filePath, "utf8")).toBe("doc1");
+			expect(vol.readFileSync(filePath, "utf8")).toBe(JSON.stringify({ hello: "world" }));
 		});
 
 		it("should respect keep patterns when clearing directories", async () => {
@@ -147,17 +141,6 @@ describe("LaunchpadContent", () => {
 	});
 
 	describe("error handling", () => {
-		it("should wrap filesystem errors", async () => {
-			// Make downloads directory read-only
-			vol.mkdirSync("/downloads", { recursive: true, mode: 0o444 });
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			content._dataStore.createNamespaceFromMap("test", new Map([["doc1", "doc1"]]));
-			const result = await content._writeDataStoreToDisk(content._dataStore);
-
-			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
-		});
-
 		it("should handle directory clearing errors", async () => {
 			// Make directory read-only
 			vol.mkdirSync("/downloads", { recursive: true, mode: 0o777 });

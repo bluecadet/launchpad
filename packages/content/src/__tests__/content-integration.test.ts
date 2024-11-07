@@ -85,7 +85,7 @@ describe("Content Integration", () => {
 	describe("Sanity Source with HTML Conversion", () => {
 		it("should fetch Sanity content and convert blocks to HTML", async () => {
 			server.use(
-				http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
+				http.get("https://test-project.apicdn.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
 					const url = new URL(request.url);
 					const query = url.searchParams.get("query");
 
@@ -131,6 +131,7 @@ describe("Content Integration", () => {
 							projectId: "test-project",
 							apiToken: "test-token",
 							queries: ["article"],
+							mergePages: true,
 						}),
 					],
 					plugins: [sanityToHtml({ path: "$..content" })],

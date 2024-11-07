@@ -1,27 +1,34 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { applyTransformToFiles, getMatchingDocuments, isBlockContent } from "../content-transform-utils.js";
 import { DataStore } from "../data-store.js";
+import { vol } from "memfs";
 
 describe("content-transform-utils", () => {
+	afterEach(() => {
+		vol.reset();
+	});
+
 	describe("getMatchingDocuments", () => {
-		it("should return all documents when ids are not provided", () => {
-			const dataStore = new DataStore();
-			dataStore.createNamespace("test");
-			dataStore.insert("test", "doc1", { content: "test1" });
-			dataStore.insert("test", "doc2", { content: "test2" });
+		it("should return all documents when ids are not provided", async () => {
+			const dataStore = new DataStore("/");
+			const namespace = await dataStore.createNamespace("test");
+			expect(namespace.isOk()).toBe(true);
+
+			await namespace._unsafeUnwrap().insert("doc1", Promise.resolve({ content: "test1" }));
+			await namespace._unsafeUnwrap().insert("doc2", Promise.resolve({ content: "test2" }));
 
 			const result = getMatchingDocuments(dataStore);
 			expect(result).toBeOk();
 			expect(Array.from(result._unsafeUnwrap()).length).toBe(2);
 		});
 
-		it("should return filtered documents when ids are provided", () => {
-			const dataStore = new DataStore();
-			dataStore.createNamespace("test1");
-			dataStore.createNamespace("test2");
-			dataStore.insert("test1", "doc1", { content: "test1" });
-			dataStore.insert("test2", "doc2", { content: "test2" });
+		it("should return filtered documents when ids are provided", async () => {
+			const dataStore = new DataStore("/");
+			const namespace1 = await dataStore.createNamespace("test1");
+			const namespace2 = await dataStore.createNamespace("test2");
+			await namespace1._unsafeUnwrap().insert("doc1", Promise.resolve({ content: "test1" }));
+			await namespace2._unsafeUnwrap().insert("doc2", Promise.resolve({ content: "test2" }));
 
 			const result = getMatchingDocuments(dataStore, ["test1"]);
 			expect(result).toBeOk();
@@ -31,15 +38,15 @@ describe("content-transform-utils", () => {
 	});
 
 	describe("applyTransformToFiles", () => {
-		it("should apply transform to matching documents", () => {
-			const dataStore = new DataStore();
-			dataStore.createNamespace("test");
-			dataStore.insert("test", "doc1", { content: "test" });
+		it("should apply transform to matching documents", async () => {
+			const dataStore = new DataStore("/");
+			const namespace = await dataStore.createNamespace("test");
+			await namespace._unsafeUnwrap().insert("doc1", Promise.resolve({ content: "test" }));
 
 			const logger = createMockLogger();
 			const transformFn = (content: unknown) => (typeof content === "string" ? content.toUpperCase() : content);
 
-			applyTransformToFiles({
+			await applyTransformToFiles({
 				dataStore,
 				path: "$.content",
 				transformFn,
@@ -47,22 +54,21 @@ describe("content-transform-utils", () => {
 				keys: ["test"],
 			});
 
-			// @ts-expect-error
-			expect(dataStore.get("test", "doc1")._unsafeUnwrap().data.content).toBe("TEST");
+			expect(((await dataStore.getDocument("test", "doc1")._unsafeUnwrap()._read()) as any).content).toBe("TEST");
 			expect(logger.debug).toHaveBeenCalled();
 		});
 
-		it("should return error if document.apply fails", () => {
-			const dataStore = new DataStore();
-			dataStore.createNamespace("test");
-			dataStore.insert("test", "doc1", { content: "test" });
+		it("should return error if document.apply fails", async () => {
+			const dataStore = new DataStore("/");
+			const namespace = await dataStore.createNamespace("test");
+			await namespace._unsafeUnwrap().insert("doc1", Promise.resolve({ content: "test" }));
 
 			const logger = createMockLogger();
 			const transformFn = () => {
 				throw new Error("Transform error");
 			};
 
-			expect(() =>
+			expect(
 				applyTransformToFiles({
 					dataStore,
 					path: "$.content",
@@ -70,7 +76,7 @@ describe("content-transform-utils", () => {
 					logger,
 					keys: ["test"],
 				}),
-			).toThrow(/Error applying content transform/);
+			).rejects.toThrow(/Error applying content transform/);
 		});
 	});
 

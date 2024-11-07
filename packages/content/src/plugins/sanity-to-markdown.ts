@@ -16,7 +16,7 @@ export default function sanityToMd({ path, keys }: SanityToMarkdownOptions) {
 		name: "sanity-to-markdown",
 		hooks: {
 			onContentFetchDone(ctx) {
-				applyTransformToFiles({
+				return applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,

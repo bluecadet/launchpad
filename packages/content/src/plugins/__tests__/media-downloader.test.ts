@@ -3,8 +3,13 @@ import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mediaDownloader, { localFilePathFromUrl, checkCacheStatus, downloadFile, findMediaUrls, getMediaDownloaderConfig } from "../media-downloader.js";
+import mediaDownloader, { localFilePathFromUrl, checkCacheStatus, downloadFile, findMediaUrls, mediaDownloaderConfigSchema } from "../media-downloader.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
+import type { z } from "zod";
+
+function getMediaDownloaderConfig(config: z.input<typeof mediaDownloaderConfigSchema>) {
+	return mediaDownloaderConfigSchema.parse(config);
+}
 
 describe("mediaDownloader", () => {
 	const server = setupServer();
@@ -137,13 +142,17 @@ describe("mediaDownloader", () => {
 	});
 
 	describe("findMediaUrls", () => {
-		it("should find URLs using mediaPattern", () => {
-			const ctx = createTestPluginContext();
-			ctx.data.insert("test", "doc1", {
-				images: ["https://example.com/1.jpg", "https://example.com/1.jpg", "https://example.com/2.png", "not-a-url.txt", "https://example.com/doc.pdf"],
-			});
+		it("should find URLs using mediaPattern", async () => {
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					images: ["https://example.com/1.jpg", "https://example.com/1.jpg", "https://example.com/2.png", "not-a-url.txt", "https://example.com/doc.pdf"],
+				}),
+			);
 
-			const urls = findMediaUrls(ctx.data, getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }), "$..*[?(@.match(/\\.(jpg|png)$/i))]");
+			const urls = await findMediaUrls(ctx.data, getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }), "$..*[?(@.match(/\\.(jpg|png)$/i))]");
 
 			expect(urls).toMatchObject([
 				{ url: "https://example.com/1.jpg", sourceId: "test" },
@@ -151,16 +160,20 @@ describe("mediaDownloader", () => {
 			]);
 		});
 
-		it("should find URLs using matchPath", () => {
-			const ctx = createTestPluginContext();
-			ctx.data.insert("test", "doc1", {
-				media: {
-					hero: "https://example.com/hero.jpg",
-					gallery: [{ url: "https://example.com/1.jpg" }, { url: "https://example.com/2.jpg" }],
-				},
-			});
+		it("should find URLs using matchPath", async () => {
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					media: {
+						hero: "https://example.com/hero.jpg",
+						gallery: [{ url: "https://example.com/1.jpg" }, { url: "https://example.com/2.jpg" }],
+					},
+				}),
+			);
 
-			const urls = findMediaUrls(ctx.data, getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }), "$..*[?(@.url)].url");
+			const urls = await findMediaUrls(ctx.data, getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }), "$..*[?(@.url)].url");
 
 			expect(urls).toMatchObject([
 				{ url: "https://example.com/1.jpg", sourceId: "test" },
@@ -179,13 +192,17 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const ctx = createTestPluginContext();
-			ctx.data.insert("test", "doc1", {
-				images: ["https://example.com/1.jpg", "https://example.com/2.jpg"],
-				nested: {
-					image: "https://example.com/3.jpg",
-				},
-			});
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					images: ["https://example.com/1.jpg", "https://example.com/2.jpg"],
+					nested: {
+						image: "https://example.com/3.jpg",
+					},
+				}),
+			);
 
 			const plugin = mediaDownloader({
 				maxConcurrent: 2,
@@ -213,10 +230,14 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const ctx = createTestPluginContext();
-			ctx.data.insert("test", "doc1", {
-				images: ["https://example.com/success.jpg", "https://example.com/error.jpg"],
-			});
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					images: ["https://example.com/success.jpg", "https://example.com/error.jpg"],
+				}),
+			);
 
 			const plugin = mediaDownloader({
 				abortOnError: false,

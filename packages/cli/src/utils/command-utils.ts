@@ -8,7 +8,9 @@ import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launch
 import { findConfig, loadConfigFromFile } from "./config.js";
 import { resolveEnv } from "./env.js";
 
-export function loadConfigAndEnv(argv: LaunchpadArgv): ResultAsync<ResolvedLaunchpadOptions, ConfigError> {
+export function loadConfigAndEnv(
+	argv: LaunchpadArgv,
+): ResultAsync<ResolvedLaunchpadOptions, ConfigError> {
 	const configPath = argv.config ?? findConfig();
 
 	if (!configPath) {
@@ -36,9 +38,10 @@ export function loadConfigAndEnv(argv: LaunchpadArgv): ResultAsync<ResolvedLaunc
 		resolveEnv([path.resolve(configDir, ".env"), path.resolve(configDir, ".env.local")]);
 	}
 
-	return ResultAsync.fromPromise(loadConfigFromFile(configPath), (e) => new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`)).map(
-		(config) => resolveLaunchpadConfig(config),
-	);
+	return ResultAsync.fromPromise(
+		loadConfigFromFile(configPath),
+		(e) => new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`),
+	).map((config) => resolveLaunchpadConfig(config));
 }
 
 export function initializeLogger(config: ResolvedLaunchpadOptions) {
@@ -56,7 +59,9 @@ export function handleFatalError(error: Error, rootLogger: Logger): never {
 export function logFullErrorChain(logger: Logger, error: Error) {
 	let currentError: Error | undefined = error;
 	while (currentError) {
-		logger.error(`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(currentError.message)}`);
+		logger.error(
+			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(currentError.message)}`,
+		);
 		const callstack = currentError.stack;
 		// logger.error(`${chalk.red(callstack ? '│' : '└')} `);
 		if (callstack) {
@@ -65,7 +70,9 @@ export function logFullErrorChain(logger: Logger, error: Error) {
 			let loggedLines = 0;
 			for (const line of lines) {
 				const isLastLine = loggedLines === lines.length - 1 || loggedLines > 2;
-				logger.error(`${chalk.red("│")} ${chalk.red.dim(isLastLine && lines.length > 3 ? "..." : line.trim())}`);
+				logger.error(
+					`${chalk.red("│")} ${chalk.red.dim(isLastLine && lines.length > 3 ? "..." : line.trim())}`,
+				);
 				if (isLastLine) {
 					logger.error(`${chalk.red("└──────────────────")}`);
 				}

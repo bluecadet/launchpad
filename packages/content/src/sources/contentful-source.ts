@@ -1,7 +1,7 @@
 import type { Asset, Entry } from "contentful";
+import { z } from "zod";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { defineSource } from "./source.js";
-import { z } from "zod";
 
 // If deliveryToken is provided, then previewToken is optional.
 const contentfulCredentialsSchema = z.union([
@@ -9,7 +9,10 @@ const contentfulCredentialsSchema = z.union([
 		/** Content delivery token (all published content). */
 		deliveryToken: z.string().describe("Content delivery token (all published content)."),
 		/** Content preview token (only unpublished/draft content). */
-		previewToken: z.string().optional().describe("Content preview token (only unpublished/draft content)."),
+		previewToken: z
+			.string()
+			.optional()
+			.describe("Content preview token (only unpublished/draft content)."),
 	}),
 	z.object({
 		/** Content preview token (only unpublished/draft content). */
@@ -20,25 +23,36 @@ const contentfulCredentialsSchema = z.union([
 const contentfulSourceSchema = z
 	.object({
 		/** Required field to identify this source. Will be used as download path. */
-		id: z.string().describe("Required field to identify this source. Will be used as download path."),
+		id: z
+			.string()
+			.describe("Required field to identify this source. Will be used as download path."),
 		/** Required field to identify this source. Will be used as download path. */
 		space: z.string().describe("Your Contentful space ID."),
 		/** Used to pull localized images. */
 		locale: z.string().default("en-US").describe("Used to pull localized images."),
 		/** The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json' */
-		filename: z.string().default("content.json").describe("The filename you want to use for where all content (entries and assets metadata) will be stored."),
+		filename: z
+			.string()
+			.default("content.json")
+			.describe(
+				"The filename you want to use for where all content (entries and assets metadata) will be stored.",
+			),
 		/** Optional. Defaults to 'https' */
 		protocol: z.string().default("https").describe("Optional. Defaults to 'https'"),
 		/** Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true */
 		host: z
 			.string()
 			.default("cdn.contentful.com")
-			.describe("Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true"),
+			.describe(
+				"Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true",
+			),
 		/** Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false */
 		usePreviewApi: z
 			.boolean()
 			.default(false)
-			.describe("Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false"),
+			.describe(
+				"Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false",
+			),
 		/**
 		 * Optionally limit queries to these content types. This will also apply to linked assets.
 		 * Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images.
@@ -95,10 +109,16 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 				id: assembled.filename,
 				data: fetchPaginated({
 					fetchPageFn: async (params) => {
-						const rawPage = await client.getEntries({ ...assembled.searchParams, skip: params.offset, limit: params.limit });
+						const rawPage = await client.getEntries({
+							...assembled.searchParams,
+							skip: params.offset,
+							limit: params.limit,
+						});
 
 						if (rawPage.errors) {
-							throw new Error(`Error fetching page: ${rawPage.errors.map((e) => e.message).join(", ")}`);
+							throw new Error(
+								`Error fetching page: ${rawPage.errors.map((e) => e.message).join(", ")}`,
+							);
 						}
 
 						const page = rawPage.toPlainObject();
@@ -168,6 +188,8 @@ async function tryImportContentful() {
 	try {
 		return await import("contentful");
 	} catch (error) {
-		throw new Error('Could not find module "contentful". Make sure you have installed it.', { cause: error });
+		throw new Error('Could not find module "contentful". Make sure you have installed it.', {
+			cause: error,
+		});
 	}
 }

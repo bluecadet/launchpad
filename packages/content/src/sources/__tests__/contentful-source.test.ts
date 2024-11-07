@@ -55,44 +55,47 @@ describe("contentfulSource", () => {
 
 	it("should fetch data with delivery token", async () => {
 		server.use(
-			http.get("https://cdn.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+			http.get(
+				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				// Return empty results after first page
-				if (skip > 0) {
+					// Return empty results after first page
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
-						includes: {},
-						total: 1,
-						skip,
-						limit: 1000,
-					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Test Entry" },
-						},
-					],
-					includes: {
-						Asset: [
+						items: [
 							{
-								sys: { type: "Asset", id: "test-asset" },
-								fields: {
-									title: "Test Asset",
-									file: { url: "//test.com/image.jpg" },
-								},
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Test Entry" },
 							},
 						],
-					},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+						includes: {
+							Asset: [
+								{
+									sys: { type: "Asset", id: "test-asset" },
+									fields: {
+										title: "Test Asset",
+										file: { url: "//test.com/image.jpg" },
+									},
+								},
+							],
+						},
+						total: 1,
+						skip: 0,
+						limit: 1000,
+					});
+				},
+			),
 		);
 
 		const source = await contentfulSource({
@@ -118,43 +121,46 @@ describe("contentfulSource", () => {
 
 	it("should fetch data with preview token", async () => {
 		server.use(
-			http.get("https://preview.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+			http.get(
+				"https://preview.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				if (skip > 0) {
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
-						includes: {},
-						total: 1,
-						skip,
-						limit: 1000,
-					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Preview Entry" },
-						},
-					],
-					includes: {
-						Asset: [
+						items: [
 							{
-								sys: { type: "Asset" },
-								fields: {
-									title: "Preview Asset",
-									file: { url: "//test.com/preview.jpg" },
-								},
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Preview Entry" },
 							},
 						],
-					},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+						includes: {
+							Asset: [
+								{
+									sys: { type: "Asset" },
+									fields: {
+										title: "Preview Asset",
+										file: { url: "//test.com/preview.jpg" },
+									},
+								},
+							],
+						},
+						total: 1,
+						skip: 0,
+						limit: 1000,
+					});
+				},
+			),
 		);
 
 		const source = await contentfulSource({
@@ -244,37 +250,40 @@ describe("contentfulSource", () => {
 
 	it("should respect content type filtering", async () => {
 		server.use(
-			http.get("https://cdn.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const contentType = url.searchParams.get("sys.contentType.sys.id[in]");
+			http.get(
+				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const contentType = url.searchParams.get("sys.contentType.sys.id[in]");
 
-				expect(contentType).toBe("article");
+					expect(contentType).toBe("article");
 
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				if (skip > 0) {
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
+						items: [
+							{
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Filtered Entry" },
+							},
+						],
 						includes: {},
 						total: 1,
-						skip,
+						skip: 0,
 						limit: 1000,
 					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Filtered Entry" },
-						},
-					],
-					includes: {},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+				},
+			),
 		);
 
 		const source = await contentfulSource({

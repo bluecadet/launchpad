@@ -1,8 +1,12 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { afterEach, describe, expect, it } from "vitest";
-import { applyTransformToFiles, getMatchingDocuments, isBlockContent } from "../content-transform-utils.js";
-import { DataStore } from "../data-store.js";
 import { vol } from "memfs";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+	applyTransformToFiles,
+	getMatchingDocuments,
+	isBlockContent,
+} from "../content-transform-utils.js";
+import { DataStore } from "../data-store.js";
 
 describe("content-transform-utils", () => {
 	afterEach(() => {
@@ -44,7 +48,8 @@ describe("content-transform-utils", () => {
 			await namespace._unsafeUnwrap().insert("doc1", Promise.resolve({ content: "test" }));
 
 			const logger = createMockLogger();
-			const transformFn = (content: unknown) => (typeof content === "string" ? content.toUpperCase() : content);
+			const transformFn = (content: unknown) =>
+				typeof content === "string" ? content.toUpperCase() : content;
 
 			await applyTransformToFiles({
 				dataStore,
@@ -54,7 +59,9 @@ describe("content-transform-utils", () => {
 				keys: ["test"],
 			});
 
-			expect(((await dataStore.getDocument("test", "doc1")._unsafeUnwrap()._read()) as any).content).toBe("TEST");
+			expect(
+				((await dataStore.getDocument("test", "doc1")._unsafeUnwrap()._read()) as any).content,
+			).toBe("TEST");
 			expect(logger.debug).toHaveBeenCalled();
 		});
 

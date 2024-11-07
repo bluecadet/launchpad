@@ -5,12 +5,12 @@ import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
 import { JSONPath } from "jsonpath-plus";
 import { ResultAsync, errAsync, ok, okAsync } from "neverthrow";
+import { z } from "zod";
 import { type ContentHookContext, defineContentPlugin } from "../content-plugin-driver.js";
 import type { DataKeys, DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
-import { z } from "zod";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
@@ -19,19 +19,35 @@ const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/
  */
 export const mediaDownloaderConfigSchema = z.object({
 	/** Data keys to search for media urls. If not provided, all keys will be searched. */
-	keys: z.array(z.string()).optional().describe("Data keys to search for media urls. If not provided, all keys will be searched."),
+	keys: z
+		.array(z.string())
+		.optional()
+		.describe("Data keys to search for media urls. If not provided, all keys will be searched."),
 	/** Regex to match urls to download. */
-	mediaPattern: z.instanceof(RegExp).describe("Regex to match urls to download.").default(DEFAULT_MEDIA_PATTERN),
+	mediaPattern: z
+		.instanceof(RegExp)
+		.describe("Regex to match urls to download.")
+		.default(DEFAULT_MEDIA_PATTERN),
 	/** JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`. */
-	matchPath: z.string().optional().describe("JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`."),
+	matchPath: z
+		.string()
+		.optional()
+		.describe(
+			"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
+		),
 	/** Number of concurrent downloads */
 	maxConcurrent: z.number().int().positive().describe("Number of concurrent downloads").default(4),
 	/** Will always download files regardless of whether they've been cached. Defaults to false. */
-	ignoreCache: z.boolean().describe("Will always download files regardless of whether they've been cached.").default(false),
+	ignoreCache: z
+		.boolean()
+		.describe("Will always download files regardless of whether they've been cached.")
+		.default(false),
 	/** Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
 	enableIfModifiedSinceCheck: z
 		.boolean()
-		.describe("Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists.")
+		.describe(
+			"Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists.",
+		)
 		.default(true),
 	/** Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
 	enableContentLengthCheck: z
@@ -41,14 +57,22 @@ export const mediaDownloaderConfigSchema = z.object({
 		)
 		.default(true),
 	/** Clear the temp dir before starting downloads. This means the cache will be ignored. Defaults to false. */
-	forceClearTempFiles: z.boolean().describe("Clear the temp dir before starting downloads. This means the cache will be ignored.").default(false),
+	forceClearTempFiles: z
+		.boolean()
+		.describe("Clear the temp dir before starting downloads. This means the cache will be ignored.")
+		.default(false),
 	/** Function to transform the local path of the downloaded file. */
 	transformLocalPath: z
 		.function(z.tuple([z.string()]), z.string())
 		.describe("Function to transform the local path of the downloaded file.")
 		.optional(),
 	/** Maximum timeout for the HTTP request. Defaults to 10 seconds. */
-	maxTimeout: z.number().int().positive().describe("Maximum timeout for the HTTP request.").default(10000),
+	maxTimeout: z
+		.number()
+		.int()
+		.positive()
+		.describe("Maximum timeout for the HTTP request.")
+		.default(10000),
 	/** If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw. Defaults to true. */
 	abortOnError: z
 		.boolean()
@@ -72,13 +96,19 @@ export function checkCacheStatus(
 	url: string,
 	destPath: string,
 	abortSignal: AbortSignal,
-	config: Pick<MediaDownloaderConfigWithDefaults, "ignoreCache" | "enableIfModifiedSinceCheck" | "enableContentLengthCheck" | "maxTimeout">,
+	config: Pick<
+		MediaDownloaderConfigWithDefaults,
+		"ignoreCache" | "enableIfModifiedSinceCheck" | "enableContentLengthCheck" | "maxTimeout"
+	>,
 ) {
 	return FileUtils.pathExists(destPath)
 		.mapErr((err) => new FileSystemError("Failed to check if file exists", err))
 		.andThen((exists) =>
 			exists
-				? ResultAsync.fromPromise(fs.promises.lstat(destPath), (err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err))
+				? ResultAsync.fromPromise(
+						fs.promises.lstat(destPath),
+						(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
+					)
 				: okAsync(null),
 		)
 		.map((stats) => {
@@ -146,7 +176,10 @@ export function downloadFile(
 			}
 
 			const writer = fs.createWriteStream(filePath);
-			return ResultAsync.fromPromise(pipeline(res.body, writer), (err) => new FileSystemError(`Failed to write file: ${err}`, err));
+			return ResultAsync.fromPromise(
+				pipeline(res.body, writer),
+				(err) => new FileSystemError(`Failed to write file: ${err}`, err),
+			);
 		});
 }
 
@@ -170,14 +203,20 @@ export function downloadMedia(
 		.andThen(() => checkCacheStatus(url, destPath, abortSignal, config))
 		.andThen((cacheStatus) => {
 			if (!cacheStatus.shouldDownload && cacheStatus.existingFile) {
-				return FileUtils.copy(cacheStatus.existingFile, tempFilePath).mapErr((e) => new FileSystemError("Failed to copy existing file to temp dir", e));
+				return FileUtils.copy(cacheStatus.existingFile, tempFilePath).mapErr(
+					(e) => new FileSystemError("Failed to copy existing file to temp dir", e),
+				);
 			}
 			return downloadFile(url, tempFilePath, abortSignal, config);
 		})
 		.map(() => tempFilePath);
 }
 
-export async function findMediaUrls(dataStore: DataStore, options: MediaDownloaderConfigWithDefaults, queryJsonPath: string) {
+export async function findMediaUrls(
+	dataStore: DataStore,
+	options: MediaDownloaderConfigWithDefaults,
+	queryJsonPath: string,
+) {
 	const returnUrls: { url: string; sourceId: string }[] = [];
 	const filteredResult = dataStore.filter(options.keys);
 
@@ -204,15 +243,23 @@ export async function findMediaUrls(dataStore: DataStore, options: MediaDownload
 	return returnUrls;
 }
 
-export function setupDownloadDirectories(ctx: ContentHookContext, config: MediaDownloaderConfigWithDefaults): ResultAsync<void, FileSystemError> {
+export function setupDownloadDirectories(
+	ctx: ContentHookContext,
+	config: MediaDownloaderConfigWithDefaults,
+): ResultAsync<void, FileSystemError> {
 	return (
 		config.forceClearTempFiles
-			? FileUtils.remove(ctx.paths.getTempPath()).andThen(() => FileUtils.ensureDir(ctx.paths.getTempPath()))
+			? FileUtils.remove(ctx.paths.getTempPath()).andThen(() =>
+					FileUtils.ensureDir(ctx.paths.getTempPath()),
+				)
 			: FileUtils.ensureDir(ctx.paths.getTempPath())
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
 
-export function cleanupAfterDownload(ctx: ContentHookContext, config: MediaDownloaderConfigWithDefaults): ResultAsync<void, FileSystemError> {
+export function cleanupAfterDownload(
+	ctx: ContentHookContext,
+	config: MediaDownloaderConfigWithDefaults,
+): ResultAsync<void, FileSystemError> {
 	return FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
 		.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
 		.mapErr((err) => new FileSystemError("Failed to cleanup after download", err));
@@ -225,13 +272,22 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 		name: "media-downloader",
 		hooks: {
 			onContentFetchDone(ctx) {
-				if (!configWithDefaults.ignoreCache && !configWithDefaults.enableIfModifiedSinceCheck && !configWithDefaults.enableContentLengthCheck) {
-					ctx.logger.warn(chalk.yellow("Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored."));
+				if (
+					!configWithDefaults.ignoreCache &&
+					!configWithDefaults.enableIfModifiedSinceCheck &&
+					!configWithDefaults.enableContentLengthCheck
+				) {
+					ctx.logger.warn(
+						chalk.yellow(
+							"Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.",
+						),
+					);
 				}
 
 				setMaxListeners(0, ctx.abortSignal);
 
-				const queryJsonPath = configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
+				const queryJsonPath =
+					configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
 
 				return setupDownloadDirectories(ctx, configWithDefaults)
 					.andThen(() =>
@@ -268,7 +324,9 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 								logger: ctx.logger,
 							})
 							.orElse((queueErrors) => {
-								ctx.logger.error(`Encountered ${chalk.red(`${queueErrors.length} error(s)`)} while downloading ${chalk.cyan(tasks.length)} files`);
+								ctx.logger.error(
+									`Encountered ${chalk.red(`${queueErrors.length} error(s)`)} while downloading ${chalk.cyan(tasks.length)} files`,
+								);
 
 								for (const error of queueErrors) {
 									ctx.logger.error(chalk.red(error));

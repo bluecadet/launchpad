@@ -1,10 +1,10 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
+import { vol } from "memfs";
 import { vi } from "vitest";
+import { afterEach } from "vitest";
 import { type ContentConfig, resolveContentConfig } from "../../content-config.js";
 import { DataStore } from "../../utils/data-store.js";
-import { afterEach } from "vitest";
-import { vol } from "memfs";
 
 afterEach(() => {
 	vol.reset();

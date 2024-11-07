@@ -7,13 +7,18 @@ describe("mdToHtml plugin", () => {
 		const ctx = await createTestPluginContext();
 		const namespaceResult = await ctx.data.createNamespace("test");
 		const namespace = namespaceResult._unsafeUnwrap();
-		await namespace.insert("doc1", Promise.resolve({ content: "# Hello\n\nThis is **bold** and *italic*." }));
+		await namespace.insert(
+			"doc1",
+			Promise.resolve({ content: "# Hello\n\nThis is **bold** and *italic*." }),
+		);
 
 		const plugin = mdToHtml({ path: "$.content" });
 		await plugin.hooks.onContentFetchDone(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
-		expect((result as any).content).toBe("<h1>Hello</h1>\n<p>This is <strong>bold</strong> and <em>italic</em>.</p>\n");
+		expect((result as any).content).toBe(
+			"<h1>Hello</h1>\n<p>This is <strong>bold</strong> and <em>italic</em>.</p>\n",
+		);
 	});
 
 	it("should convert markdown to simplified html when simplified=true", async () => {
@@ -48,7 +53,10 @@ describe("mdToHtml plugin", () => {
 	it("should sanitize html in markdown content", async () => {
 		const ctx = await createTestPluginContext();
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
-		await namespace.insert("doc1", Promise.resolve({ content: 'Hello <script>alert("xss")</script>' }));
+		await namespace.insert(
+			"doc1",
+			Promise.resolve({ content: 'Hello <script>alert("xss")</script>' }),
+		);
 
 		const plugin = mdToHtml({ path: "$.content" });
 		await plugin.hooks.onContentFetchDone(ctx);
@@ -63,6 +71,8 @@ describe("mdToHtml plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: { foo: "bar" } }));
 
 		const plugin = mdToHtml({ path: "$.content" });
-		expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Error applying content transform");
+		expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 });

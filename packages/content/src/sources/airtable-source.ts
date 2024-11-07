@@ -1,7 +1,7 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
 import type Airtable from "airtable";
-import { defineSource, type SourceFetchResultDocument } from "./source.js";
 import { z } from "zod";
+import { type SourceFetchResultDocument, defineSource } from "./source.js";
 
 const airtableSourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */
@@ -13,18 +13,32 @@ const airtableSourceSchema = z.object({
 			"Airtable base ID. See https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.",
 		),
 	/** The table view which to select for syncing by default. Defaults to 'Grid view'. */
-	defaultView: z.string().describe("The table view which to select for syncing by default. Defaults to 'Grid view'.").default("Grid view"),
+	defaultView: z
+		.string()
+		.describe("The table view which to select for syncing by default. Defaults to 'Grid view'.")
+		.default("Grid view"),
 	/** The tables you want to fetch from. Defaults to []. */
-	tables: z.array(z.string()).describe("The tables you want to fetch from. Defaults to [].").default([]),
+	tables: z
+		.array(z.string())
+		.describe("The tables you want to fetch from. Defaults to [].")
+		.default([]),
 	/** As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to []. */
 	keyValueTables: z
 		.array(z.string())
-		.describe("As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to [].")
+		.describe(
+			"As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to [].",
+		)
 		.default([]),
 	/** The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'. */
-	endpointUrl: z.string().describe("The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'.").default("https://api.airtable.com"),
+	endpointUrl: z
+		.string()
+		.describe("The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'.")
+		.default("https://api.airtable.com"),
 	/** Appends the local path of attachments to the saved JSON. Defaults to true. */
-	appendLocalAttachmentPaths: z.boolean().describe("Appends the local path of attachments to the saved JSON. Defaults to true.").default(true),
+	appendLocalAttachmentPaths: z
+		.boolean()
+		.describe("Appends the local path of attachments to the saved JSON. Defaults to true.")
+		.default(true),
 	/** Airtable API Key */
 	apiKey: z.string().describe("Airtable API Key"),
 });
@@ -32,7 +46,11 @@ const airtableSourceSchema = z.object({
 /**
  * Fetch data from Airtable.
  */
-function fetchData(base: Airtable.Base, tableId: string, defaultView: string): Promise<Airtable.Record<Airtable.FieldSet>[]> {
+function fetchData(
+	base: Airtable.Base,
+	tableId: string,
+	defaultView: string,
+): Promise<Airtable.Record<Airtable.FieldSet>[]> {
 	const rows: Airtable.Record<Airtable.FieldSet>[] = [];
 
 	return new Promise((resolve, reject) =>
@@ -72,7 +90,10 @@ function isBoolStr(value: unknown) {
 	return typeof value === "string" && (value === "true" || value === "false");
 }
 
-function processTableToSimplified(tableData: Airtable.Record<Airtable.FieldSet>[], isKeyValueTable: boolean): unknown {
+function processTableToSimplified(
+	tableData: Airtable.Record<Airtable.FieldSet>[],
+	isKeyValueTable: boolean,
+): unknown {
 	if (isKeyValueTable) {
 		// biome-ignore lint/suspicious/noExplicitAny: TODO
 		const simplifiedData: Record<string, any> = {};
@@ -129,7 +150,11 @@ export default async function airtableSource(options: z.input<typeof airtableSou
 
 	const rawAirtableDataCache: Record<string, Airtable.Record<Airtable.FieldSet>[]> = {};
 
-	async function getDataCached(tableId: string, force: boolean, logger: Logger): Promise<Airtable.Record<Airtable.FieldSet>[]> {
+	async function getDataCached(
+		tableId: string,
+		force: boolean,
+		logger: Logger,
+	): Promise<Airtable.Record<Airtable.FieldSet>[]> {
 		logger.debug(`Fetching ${tableId} from Airtable`);
 
 		if (force) {
@@ -183,6 +208,8 @@ function tryImportAirtable() {
 	try {
 		return import("airtable");
 	} catch (e) {
-		throw new Error('Could not find peer dependency "airtable". Make sure you have installed it.', { cause: e });
+		throw new Error('Could not find peer dependency "airtable". Make sure you have installed it.', {
+			cause: e,
+		});
 	}
 }

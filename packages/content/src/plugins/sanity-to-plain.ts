@@ -32,7 +32,9 @@ export default function sanityToPlain({ path, keys }: SanityToPlainOptions) {
 	});
 }
 
-function isBlockWithChildren(content: unknown): content is { _type: "block"; children: { text: string }[] } {
+function isBlockWithChildren(
+	content: unknown,
+): content is { _type: "block"; children: { text: string }[] } {
 	// check if object
 	if (!isBlockContent(content)) {
 		return false;

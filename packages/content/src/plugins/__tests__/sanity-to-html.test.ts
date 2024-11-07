@@ -48,6 +48,8 @@ describe("sanityToHtml plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
 		const plugin = sanityToHtml({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Error applying content transform");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 });

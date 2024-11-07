@@ -66,7 +66,10 @@ export class ProcessManager {
 	}
 }
 
-function wrapPm2Function<T>(errorMessage: string, pmFunction: (cb: (err: Error | null, result?: T) => void) => void): ResultAsync<T, Error> {
+function wrapPm2Function<T>(
+	errorMessage: string,
+	pmFunction: (cb: (err: Error | null, result?: T) => void) => void,
+): ResultAsync<T, Error> {
 	return ResultAsync.fromPromise(
 		new Promise((resolve, reject) => {
 			pmFunction((err, result) => {
@@ -82,7 +85,10 @@ function wrapPm2Function<T>(errorMessage: string, pmFunction: (cb: (err: Error |
 	);
 }
 
-const safeDisconnect = Result.fromThrowable(pm2.disconnect, (error) => new Error("Failed to disconnect from PM2", { cause: error }));
+const safeDisconnect = Result.fromThrowable(
+	pm2.disconnect,
+	(error) => new Error("Failed to disconnect from PM2", { cause: error }),
+);
 
 function pingDaemon(): ResultAsync<boolean, Error> {
 	return ResultAsync.fromPromise(

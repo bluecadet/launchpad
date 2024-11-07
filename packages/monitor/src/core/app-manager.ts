@@ -53,7 +53,9 @@ export class AppManager {
 		if (Symbol.iterator in Object(appNames)) {
 			return ok([...appNames]);
 		}
-		return err(new Error("appNames must be null, undefined, a string or an iterable array/set of strings"));
+		return err(
+			new Error("appNames must be null, undefined, a string or an iterable array/set of strings"),
+		);
 	}
 
 	getAllAppNames() {

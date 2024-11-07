@@ -5,9 +5,11 @@ import winston from "winston";
 import { LogManager } from "../log-manager.js";
 
 // we don't want to actually log anything to the console during tests
-const consoleLogSpy = vi.spyOn(winston.transports.Console.prototype, "log").mockImplementation((info, cb) => {
-	if (cb && typeof cb === "function") cb();
-});
+const consoleLogSpy = vi
+	.spyOn(winston.transports.Console.prototype, "log")
+	.mockImplementation((info, cb) => {
+		if (cb && typeof cb === "function") cb();
+	});
 
 describe("LogManager", () => {
 	beforeEach(() => {

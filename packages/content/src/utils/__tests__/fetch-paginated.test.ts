@@ -38,7 +38,8 @@ describe("fetchPaginated", () => {
 		const generator = fetchPaginated({
 			limit: 10,
 			logger: mockLogger,
-			fetchPageFn: ({ limit, offset }) => fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
+			fetchPageFn: ({ limit, offset }) =>
+				fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
 		});
 
 		const pages: unknown[] = [];
@@ -72,7 +73,8 @@ describe("fetchPaginated", () => {
 			limit: 10,
 			logger: mockLogger,
 			mergePages: true,
-			fetchPageFn: ({ limit, offset }) => fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
+			fetchPageFn: ({ limit, offset }) =>
+				fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
 		});
 
 		expect(Array.isArray(result)).toBe(true);
@@ -97,7 +99,8 @@ describe("fetchPaginated", () => {
 		const generator = fetchPaginated({
 			limit: 1,
 			logger: mockLogger,
-			fetchPageFn: ({ limit, offset }) => fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
+			fetchPageFn: ({ limit, offset }) =>
+				fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
 		});
 
 		const pages: unknown[] = [];
@@ -144,7 +147,8 @@ describe("fetchPaginated", () => {
 			limit: 10,
 			maxFetchCount: 2,
 			logger: mockLogger,
-			fetchPageFn: ({ limit, offset }) => fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
+			fetchPageFn: ({ limit, offset }) =>
+				fetch(`http://example.com/api?limit=${limit}&offset=${offset}`).then((res) => res.json()),
 		});
 
 		const pages: unknown[] = [];

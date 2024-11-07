@@ -48,6 +48,8 @@ export type ContentSource<T = unknown, F extends FetchResult<T> = FetchResult<T>
 /**
  * This function doesn't do anything, just returns the source parameter. It's just to make it easier to define/type sources.
  */
-export function defineSource<T = unknown, F extends FetchResult<T> = FetchResult<T>>(src: ContentSource<T, F>) {
+export function defineSource<T = unknown, F extends FetchResult<T> = FetchResult<T>>(
+	src: ContentSource<T, F>,
+) {
 	return src;
 }

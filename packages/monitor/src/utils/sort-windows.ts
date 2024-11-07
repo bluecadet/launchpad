@@ -9,7 +9,11 @@ type SortApp = {
 	pid?: number;
 };
 
-const sortWindows = async (apps: SortApp[], logger: Logger, minNodeVersion?: string): Promise<void> => {
+const sortWindows = async (
+	apps: SortApp[],
+	logger: Logger,
+	minNodeVersion?: string,
+): Promise<void> => {
 	const currNodeVersion = process.version;
 	if (minNodeVersion && !semver.satisfies(currNodeVersion, minNodeVersion)) {
 		return Promise.reject(
@@ -31,12 +35,16 @@ const sortWindows = async (apps: SortApp[], logger: Logger, minNodeVersion?: str
 
 	for (const app of apps) {
 		if (!app.pid) {
-			logger.warn(`Can't sort windows for ${chalk.blue(app.options.pm2.name)} because it has no pid.`);
+			logger.warn(
+				`Can't sort windows for ${chalk.blue(app.options.pm2.name)} because it has no pid.`,
+			);
 			continue;
 		}
 
 		if (!visiblePids.has(app.pid)) {
-			logger.warn(`No window found for ${chalk.blue(app.options.pm2.name)} with pid ${chalk.blue(app.pid)}.`);
+			logger.warn(
+				`No window found for ${chalk.blue(app.options.pm2.name)} with pid ${chalk.blue(app.pid)}.`,
+			);
 			continue;
 		}
 
@@ -62,7 +70,9 @@ const sortWindows = async (apps: SortApp[], logger: Logger, minNodeVersion?: str
 			win.minimize();
 		}
 		if (fgPids.has(win.processId)) {
-			logger.info(`Foregrounding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
+			logger.info(
+				`Foregrounding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`,
+			);
 			win.bringToTop();
 		}
 	}

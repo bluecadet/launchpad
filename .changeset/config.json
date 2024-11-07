@@ -8,6 +8,6 @@
   "fixed": [],
   "linked": [],
   "access": "public",
-  "baseBranch": "develop",
+  "baseBranch": "next",
   "updateInternalDependencies": "patch"
 }

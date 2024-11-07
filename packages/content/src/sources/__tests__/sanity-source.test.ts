@@ -22,7 +22,7 @@ afterEach(() => server.resetHandlers());
 function createFetchContext() {
 	return {
 		logger: createMockLogger(),
-		dataStore: new DataStore(),
+		dataStore: new DataStore("/"),
 	};
 }
 

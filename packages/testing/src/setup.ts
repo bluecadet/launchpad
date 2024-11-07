@@ -88,7 +88,7 @@ vi.mock("winston-daily-rotate-file", async () => {
 	const { default: Transport } = await import("winston-transport");
 
 	class DummyTransport extends Transport {
-		log(info: LogEntry) {
+		override log(info: LogEntry) {
 			// do nothing
 		}
 	}

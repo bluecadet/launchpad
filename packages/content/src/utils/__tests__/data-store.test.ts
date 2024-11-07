@@ -1,144 +1,226 @@
-import { describe, expect, it } from "vitest";
-import { DataStore, DataStoreError, Document } from "../data-store.js";
+import { vol } from "memfs";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { DataStore } from "../data-store.js";
+import path from "node:path";
 
-describe("Document", () => {
-	it("should create a document with id and data", () => {
-		const doc = new Document("test-id", { content: "test content" });
-		expect(doc.id).toBe("test-id");
-		expect(doc.data).toEqual({ content: "test content" });
+describe("SingleDocument", () => {
+	const TEST_DIR = "/test/store";
+	let store: DataStore;
+
+	beforeEach(() => {
+		vol.reset();
+		store = new DataStore(TEST_DIR);
 	});
 
-	it("should update document data", () => {
-		const doc = new Document("test-id", { content: "test content" });
-		doc.update({ content: "updated content" });
-		expect(doc.data).toEqual({ content: "updated content" });
+	afterEach(() => {
+		vol.reset();
 	});
 
-	it("should apply transformation to document data", () => {
-		const doc = new Document("test-id", { content: "test content" });
-		const result = doc.apply("$.content", (value) => (typeof value === "string" ? value.toUpperCase() : value));
+	it("should create and read a document", async () => {
+		const result = await store.createNamespace("test-namespace");
 		expect(result).toBeOk();
-		expect(doc.data).toEqual({ content: "TEST CONTENT" });
+
+		const namespace = result._unsafeUnwrap();
+		await namespace.insert("test-doc", Promise.resolve({ content: "test content" }));
+
+		const docResult = namespace.document("test-doc");
+		expect(docResult).toBeOk();
+
+		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		expect(JSON.parse(fileContent.toString())).toEqual({ content: "test content" });
 	});
 
-	it("should handle errors in apply transformation", () => {
-		const doc = new Document("test-id", { content: "test content" });
-		const result = doc.apply("$.content", () => {
-			throw new Error("Test error");
+	it("should create backup file on first modification", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const namespace = result._unsafeUnwrap();
+		const doc = await namespace.insert("test-doc", Promise.resolve({ content: "original content" }));
+
+		await doc.update((data: any) => ({
+			...data,
+			content: "modified content",
+		}));
+
+		const originalContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.original.json"), "utf-8");
+		expect(JSON.parse(originalContent.toString())).toEqual({ content: "original content" });
+
+		const modifiedContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		expect(JSON.parse(modifiedContent.toString())).toEqual({ content: "modified content" });
+	});
+
+	it("should apply jsonpath transformations", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const namespace = result._unsafeUnwrap();
+		const doc = await namespace.insert(
+			"test-doc",
+			Promise.resolve({
+				nested: { content: "test content" },
+			}),
+		);
+
+		await doc.apply("$.nested.content", (value: unknown) => (typeof value === "string" ? value.toUpperCase() : value));
+
+		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		expect(JSON.parse(fileContent.toString())).toEqual({
+			nested: { content: "TEST CONTENT" },
 		});
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
-		expect(result._unsafeUnwrapErr().message).toBe("Error applying content transform");
-		expect(result._unsafeUnwrapErr().cause).toBeInstanceOf(Error);
-		// @ts-expect-error cause is unknown
-		expect(result._unsafeUnwrapErr().cause.message).toBe("Test error");
+	});
+
+	it("should keep original file extension", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const namespace = result._unsafeUnwrap();
+		await namespace.insert("test-doc.json", Promise.resolve({ content: "test content A" }));
+		await namespace.insert("test-doc.extension", Promise.resolve({ content: "test content B" }));
+		await namespace.insert("test-doc.extension.extension", Promise.resolve({ content: "test content C" }));
+
+		const fileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.json"), "utf-8");
+		expect(JSON.parse(fileContent.toString())).toMatchObject({ content: "test content A" });
+
+		const extensionFileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.extension"), "utf-8");
+		expect(JSON.parse(extensionFileContent.toString())).toMatchObject({ content: "test content B" });
+
+		const extensionExtensionFileContent = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", "test-doc.extension.extension"), "utf-8");
+		expect(JSON.parse(extensionExtensionFileContent.toString())).toMatchObject({ content: "test content C" });
+	});
+});
+
+describe("BatchDocument", () => {
+	const TEST_DIR = "/test/store";
+	let store: DataStore;
+
+	beforeEach(() => {
+		vol.reset();
+		store = new DataStore(TEST_DIR);
+	});
+
+	afterEach(() => {
+		vol.reset();
+	});
+
+	it("should handle batch document creation", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const namespace = result._unsafeUnwrap();
+		const items = [
+			{ id: 1, content: "first" },
+			{ id: 2, content: "second" },
+			{ id: 3, content: "third" },
+		];
+
+		const doc = await namespace.insert(
+			"test-doc",
+			(async function* () {
+				for (const item of items) {
+					yield item;
+				}
+			})(),
+		);
+
+		// Check that all files were created
+		for (let i = 0; i < items.length; i++) {
+			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
+			const content = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", filename), "utf-8");
+			expect(JSON.parse(content.toString())).toEqual(items[i]);
+		}
+	});
+
+	it("should apply updates to all documents in batch", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const namespace = result._unsafeUnwrap();
+		const items = [{ content: "first" }, { content: "second" }, { content: "third" }];
+
+		const doc = await namespace.insert(
+			"test-doc",
+			(async function* () {
+				for (const item of items) {
+					yield item;
+				}
+			})(),
+		);
+
+		await doc.apply("$.content", (value: unknown) => (typeof value === "string" ? value.toUpperCase() : value));
+
+		// Verify all documents were updated
+		for (let i = 0; i < items.length; i++) {
+			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
+			const content = await vol.readFileSync(path.join(TEST_DIR, "test-namespace", filename), "utf-8");
+			expect(JSON.parse(content.toString())).toEqual({
+				content: items[i]!.content.toUpperCase(),
+			});
+		}
 	});
 });
 
 describe("DataStore", () => {
-	it("should create a namespace", () => {
-		const store = new DataStore();
-		const result = store.createNamespace("test-namespace");
-		expect(result).toBeOk();
+	const TEST_DIR = "/test/store";
+	let store: DataStore;
+
+	beforeEach(() => {
+		vol.reset();
+		store = new DataStore(TEST_DIR);
 	});
 
-	it("should not create a duplicate namespace", () => {
-		const store = new DataStore();
+	afterEach(() => {
+		vol.reset();
+	});
+
+	it("should create namespace directory", async () => {
+		const result = await store.createNamespace("test-namespace");
+		expect(result).toBeOk();
+
+		const exists = await vol.existsSync(path.join(TEST_DIR, "test-namespace"));
+		expect(exists).toBe(true);
+	});
+
+	it("should not create duplicate namespace", async () => {
 		store.createNamespace("test-namespace");
-		const result = store.createNamespace("test-namespace");
+		const result = await store.createNamespace("test-namespace");
 		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
 		expect(result._unsafeUnwrapErr().message).toBe("Namespace test-namespace already exists in data store");
 	});
 
-	it("should insert a document into a namespace", () => {
-		const store = new DataStore();
-		store.createNamespace("test-namespace");
-		const result = store.insert("test-namespace", "test-doc", { content: "test content" });
+	it("should filter documents by namespace", async () => {
+		const ns1Result = await store.createNamespace("namespace1");
+		const ns2Result = await store.createNamespace("namespace2");
+		expect(ns1Result).toBeOk();
+		expect(ns2Result).toBeOk();
+
+		const ns1 = ns1Result._unsafeUnwrap();
+		const ns2 = ns2Result._unsafeUnwrap();
+
+		await ns1.insert("test-doc", Promise.resolve({ content: "content 1" }));
+		await ns2.insert("test-doc", Promise.resolve({ content: "content 2" }));
+
+		const result = store.filter(["namespace1"]);
 		expect(result).toBeOk();
+
+		const filtered = result._unsafeUnwrap();
+		expect(filtered).toHaveLength(1);
+		expect(filtered[0]!.namespaceId).toBe("namespace1");
+		expect(filtered[0]!.documents).toHaveLength(1);
 	});
 
-	it("should not insert a duplicate document", () => {
-		const store = new DataStore();
-		store.createNamespace("test-namespace");
-		store.insert("test-namespace", "test-doc", { content: "test content" });
-		const result = store.insert("test-namespace", "test-doc", { content: "duplicate content" });
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
-		expect(result._unsafeUnwrapErr().message).toBe("Document test-doc already exists in namespace test-namespace");
-	});
+	it("should filter documents by specific document ids", async () => {
+		const nsResult = await store.createNamespace("namespace1");
+		expect(nsResult).toBeOk();
+		const namespace = nsResult._unsafeUnwrap();
 
-	it("should get a document from a namespace", () => {
-		const store = new DataStore();
-		store.createNamespace("test-namespace");
-		store.insert("test-namespace", "test-doc", { content: "test content" });
-		const result = store.get("test-namespace", "test-doc");
+		const doc1 = await namespace.insert("test-doc-1", Promise.resolve({ content: "content 1" }));
+		await namespace.insert("test-doc-2", Promise.resolve({ content: "content 2" }));
+
+		const result = store.filter([["namespace1", doc1.id]]);
 		expect(result).toBeOk();
-		expect(result._unsafeUnwrap().data).toEqual({ content: "test content" });
-	});
 
-	it("should return error when getting non-existent document", () => {
-		const store = new DataStore();
-		store.createNamespace("test-namespace");
-		const result = store.get("test-namespace", "non-existent-doc");
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(DataStoreError);
-		expect(result._unsafeUnwrapErr().message).toBe("Document non-existent-doc not found in namespace test-namespace");
-	});
-
-	it("should delete a document from a namespace", () => {
-		const store = new DataStore();
-		store.createNamespace("test-namespace");
-		store.insert("test-namespace", "test-doc", { content: "test content" });
-		const deleteResult = store.delete("test-namespace", "test-doc");
-		expect(deleteResult).toBeOk();
-		const getResult = store.get("test-namespace", "test-doc");
-		expect(getResult).toBeErr();
-	});
-
-	it("should create a namespace from a map", () => {
-		const store = new DataStore();
-		const map = new Map([
-			["doc1", { content: "content 1" }],
-			["doc2", { content: "content 2" }],
-		]);
-		const result = store.createNamespaceFromMap("test-namespace", map);
-		expect(result).toBeOk();
-		const doc1Result = store.get("test-namespace", "doc1");
-		expect(doc1Result).toBeOk();
-		expect(doc1Result._unsafeUnwrap().data).toEqual({ content: "content 1" });
-	});
-
-	it("should filter documents", () => {
-		const store = new DataStore();
-		store.createNamespace("namespace1");
-		store.createNamespace("namespace2");
-		store.insert("namespace1", "doc1", { content: "content 1" });
-		store.insert("namespace1", "doc2", { content: "content 2" });
-		store.insert("namespace2", "doc3", { content: "content 3" });
-
-		const result = store.filter(["namespace1", ["namespace2", "doc3"]]);
-		expect(result).toBeOk();
-		const filteredDocs = result._unsafeUnwrap();
-		expect(filteredDocs).toHaveLength(2);
-		expect(filteredDocs[0]!.namespaceId).toBe("namespace1");
-		expect(filteredDocs[0]!.documents).toHaveLength(2);
-		expect(filteredDocs[1]!.namespaceId).toBe("namespace2");
-		expect(filteredDocs[1]!.documents).toHaveLength(1);
-		expect(filteredDocs[1]!.documents[0]!.id).toBe("doc3");
-	});
-
-	it("should return all documents when filter is not provided", () => {
-		const store = new DataStore();
-		store.createNamespace("namespace1");
-		store.createNamespace("namespace2");
-		store.insert("namespace1", "doc1", { content: "content 1" });
-		store.insert("namespace2", "doc2", { content: "content 2" });
-
-		const result = store.filter();
-		expect(result).toBeOk();
-		const allDocs = result._unsafeUnwrap();
-		expect(allDocs).toHaveLength(2);
-		expect(allDocs.flatMap((ns) => ns.documents)).toHaveLength(2);
+		const filtered = result._unsafeUnwrap();
+		expect(filtered[0]!.documents).toHaveLength(1);
+		expect(filtered[0]!.documents[0]!.id).toBe(doc1.id);
 	});
 });

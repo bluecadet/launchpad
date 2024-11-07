@@ -1,7 +1,8 @@
 import { JSONPath } from "jsonpath-plus";
-import { Result, ResultAsync, err, ok } from "neverthrow";
-import * as fs from "node:fs/promises";
+import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
+import fs from "node:fs/promises";
 import path from "node:path";
+import { ensureDir } from "./file-utils.js";
 
 export class DataStoreError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -87,9 +88,12 @@ class SingleDocument<T = unknown> extends Document<T> {
 	async initialize(data: T | Promise<T>) {
 		const resolvedData = await data;
 
+		// create the directory if it doesn't exist
+		await fs.mkdir(path.dirname(this.#path), { recursive: true });
+
 		// wx+ opens the file for reading and writing, creating it if it doesn't exist, and erroring if it does
-		this.#handlePromise = fs.open(this.#path, "wx+").then((handle) => {
-			handle.write(JSON.stringify(resolvedData));
+		this.#handlePromise = fs.open(this.#path, "wx+").then(async (handle) => {
+			await handle.writeFile(JSON.stringify(resolvedData));
 			return handle;
 		});
 
@@ -123,11 +127,13 @@ class SingleDocument<T = unknown> extends Document<T> {
 		}
 
 		const handle = await this.#getHandle();
-		const data = await fs.readFile(handle, "utf-8");
+
+		const data = await handle.readFile("utf-8");
 
 		const updatedData = cb(JSON.parse(data));
 
-		await fs.writeFile(handle, JSON.stringify(updatedData));
+		await handle.truncate(0); // truncate the file to 0 bytes
+		await handle.writeFile(JSON.stringify(updatedData));
 	}
 
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
@@ -216,14 +222,21 @@ class Namespace {
 		return this.#id;
 	}
 
-	async insert<T = unknown>(data: Promise<T> | AsyncIterable<T>) {
+	initialize() {
+		// create the directory if it doesn't exist
+		return ensureDir(this.#directory);
+	}
+
+	async insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
 		if (data instanceof Promise) {
-			const doc = await SingleDocument.create(this.#directory, BatchDocument.getIndexedId(this.#id, this.#documents.size), data);
+			const doc = await SingleDocument.create(this.#directory, id, data);
 			this.#documents.set(doc.id, doc);
-		} else {
-			const doc = await BatchDocument.create(this.#directory, this.#id, data);
-			this.#documents.set(doc.id, doc);
+			return doc;
 		}
+
+		const doc = await BatchDocument.create(this.#directory, id, data);
+		this.#documents.set(doc.id, doc);
+		return doc;
 	}
 
 	/**
@@ -275,13 +288,14 @@ export class DataStore {
 	/**
 	 * Create a new namespace in the data store.
 	 */
-	createNamespace(namespaceId: string): Result<void, DataStoreError> {
+	createNamespace(namespaceId: string): ResultAsync<Namespace, DataStoreError> {
 		if (this.#namespaces.has(namespaceId)) {
-			return err(new DataStoreError(`Namespace ${namespaceId} already exists in data store`));
+			return errAsync(new DataStoreError(`Namespace ${namespaceId} already exists in data store`));
 		}
 
-		this.#namespaces.set(namespaceId, new Namespace(this.#directory, namespaceId));
-		return ok(undefined);
+		const namespace = new Namespace(this.#directory, namespaceId);
+		this.#namespaces.set(namespaceId, namespace);
+		return namespace.initialize().andThen(() => okAsync(namespace));
 	}
 
 	/**

@@ -71,7 +71,9 @@ describe("FileUtils", () => {
 		it("should exclude specified files", async () => {
 			const result = await FileUtils.removeFilesFromDir("/test-dir", ["*.json", "**/*.csv"]);
 			expect(result).toBeOk();
-			expect(vol.readdirSync("/test-dir", { recursive: true })).toEqual(expect.arrayContaining(["file2.json", "subdir/file3.csv", "subdir"]));
+			expect(vol.readdirSync("/test-dir", { recursive: true })).toEqual(
+				expect.arrayContaining(["file2.json", "subdir/file3.csv", "subdir"]),
+			);
 		});
 	});
 
@@ -219,7 +221,9 @@ describe("FileUtils", () => {
 			vi.setSystemTime(date.getTime());
 			const sourceStats = vol.statSync("/source-file.txt");
 			vi.setSystemTime(date.getTime() + 1000);
-			const result = await FileUtils.copy("/source-file.txt", "/dest-file.txt", { preserveTimestamps: true });
+			const result = await FileUtils.copy("/source-file.txt", "/dest-file.txt", {
+				preserveTimestamps: true,
+			});
 			expect(result).toBeOk();
 			const destStats = vol.statSync("/dest-file.txt");
 			expect(destStats.mtime).toEqual(sourceStats.mtime);

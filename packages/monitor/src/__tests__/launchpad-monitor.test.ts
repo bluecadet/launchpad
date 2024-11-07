@@ -162,8 +162,13 @@ describe("LaunchpadMonitor", () => {
 
 			await monitor.start("test-app");
 
-			expect(plugin.hooks.beforeAppStart).toHaveBeenCalledWith(expect.any(Object), { appName: "test-app" });
-			expect(plugin.hooks.afterAppStart).toHaveBeenCalledWith(expect.any(Object), { appName: "test-app", process: expect.any(Object) });
+			expect(plugin.hooks.beforeAppStart).toHaveBeenCalledWith(expect.any(Object), {
+				appName: "test-app",
+			});
+			expect(plugin.hooks.afterAppStart).toHaveBeenCalledWith(expect.any(Object), {
+				appName: "test-app",
+				process: expect.any(Object),
+			});
 		});
 	});
 
@@ -184,8 +189,12 @@ describe("LaunchpadMonitor", () => {
 
 			await monitor.stop("test-app");
 
-			expect(plugin.hooks.beforeAppStop).toHaveBeenCalledWith(expect.any(Object), { appName: "test-app" });
-			expect(plugin.hooks.afterAppStop).toHaveBeenCalledWith(expect.any(Object), { appName: "test-app" });
+			expect(plugin.hooks.beforeAppStop).toHaveBeenCalledWith(expect.any(Object), {
+				appName: "test-app",
+			});
+			expect(plugin.hooks.afterAppStop).toHaveBeenCalledWith(expect.any(Object), {
+				appName: "test-app",
+			});
 		});
 	});
 
@@ -226,7 +235,9 @@ describe("LaunchpadMonitor", () => {
 			const exitCode = 123;
 			await monitor.shutdown(exitCode);
 
-			expect(plugin.hooks.beforeShutdown).toHaveBeenCalledWith(expect.any(Object), { code: exitCode });
+			expect(plugin.hooks.beforeShutdown).toHaveBeenCalledWith(expect.any(Object), {
+				code: exitCode,
+			});
 		});
 	});
 });

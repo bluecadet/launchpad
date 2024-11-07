@@ -14,7 +14,7 @@ export default function sanityToPlain({ path, keys }: SanityToPlainOptions) {
 		name: "sanity-to-plain",
 		hooks: {
 			onContentFetchDone(ctx) {
-				applyTransformToFiles({
+				return applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -32,7 +32,9 @@ export default function sanityToPlain({ path, keys }: SanityToPlainOptions) {
 	});
 }
 
-function isBlockWithChildren(content: unknown): content is { _type: "block"; children: { text: string }[] } {
+function isBlockWithChildren(
+	content: unknown,
+): content is { _type: "block"; children: { text: string }[] } {
 	// check if object
 	if (!isBlockContent(content)) {
 		return false;

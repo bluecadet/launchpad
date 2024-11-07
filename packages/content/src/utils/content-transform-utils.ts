@@ -6,7 +6,10 @@ import type { DataKeys, DataStore, Document } from "./data-store.js";
 /**
  * @param ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
  */
-export function getMatchingDocuments(dataStore: DataStore, ids?: DataKeys): Result<Iterable<Document>, Error> {
+export function getMatchingDocuments(
+	dataStore: DataStore,
+	ids?: DataKeys,
+): Result<Iterable<Document>, Error> {
 	if (!ids) {
 		return ok(dataStore.allDocuments());
 	}
@@ -25,7 +28,13 @@ type ApplyTransformToFilesParams = {
 /**
  * Shared logic for content transforms
  */
-export function applyTransformToFiles({ dataStore, path, transformFn, logger, keys }: ApplyTransformToFilesParams) {
+export async function applyTransformToFiles({
+	dataStore,
+	path,
+	transformFn,
+	logger,
+	keys,
+}: ApplyTransformToFilesParams) {
 	const pathStr = chalk.yellow(path);
 
 	const matchingDocuments = getMatchingDocuments(dataStore, keys);
@@ -37,11 +46,7 @@ export function applyTransformToFiles({ dataStore, path, transformFn, logger, ke
 	for (const document of matchingDocuments.value) {
 		logger.debug(chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`));
 
-		const result = document.apply(path, transformFn);
-
-		if (result.isErr()) {
-			throw result.error;
-		}
+		await document.apply(path, transformFn);
 	}
 }
 

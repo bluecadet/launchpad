@@ -1,5 +1,8 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { JSONPath } from "jsonpath-plus";
-import { Result, err, ok } from "neverthrow";
+import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
+import { ensureDir } from "./file-utils.js";
 
 export class DataStoreError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -15,50 +18,264 @@ export type DataKeys = Array<string | [string] | [string, string]>;
 
 /**
  * A document represents a single file or resource.
+ * It is a proxy for the underlying file, and provides a simple api for updating the file.
+ * When the document is updated, a copy of the original file is created with the `.original` suffix.
  */
-export class Document<T = unknown> {
-	#id: string;
-	#originalData: T;
+export abstract class Document<T = unknown> {
+	protected _id: string;
 
-	constructor(id: string, data: T) {
-		this.#id = id;
-		this.#originalData = data;
+	constructor(id: string) {
+		this._id = id;
 	}
 
 	get id() {
-		return this.#id;
+		return this._id;
 	}
 
 	/**
-	 * Returns a copy of the document's data.
+	 * Read the document. Should only be used internally. Exposed for testing purposes.
+	 * @internal
 	 */
-	get data() {
-		return this.#originalData;
+	abstract _read(): Promise<unknown>;
+
+	/**
+	 * Read the document. Same as {@link _read}, but returns a neverthrow {@link ResultAsync}.
+	 * @internal
+	 */
+	_safeRead(): ResultAsync<unknown, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this._read(),
+			(e) => new DataStoreError(`Error reading document ${this._id}`, { cause: e }),
+		);
 	}
 
-	update(data: T) {
-		this.#originalData = data;
+	/**
+	 * Update the document with the given callback.
+	 * @param cb A function that takes the current data and returns the new data.
+	 */
+	abstract update(cb: (data: T) => T | Promise<T>): Promise<void>;
+
+	/**
+	 * Update the document with the given callback. Same as {@link update}, but returns a neverthrow {@link ResultAsync}.
+	 * @param cb A function that takes the current data and returns the new data.
+	 */
+	safeUpdate(cb: (data: T) => T | Promise<T>): ResultAsync<void, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.update(cb),
+			(e) => new DataStoreError(`Error updating document ${this._id}`, { cause: e }),
+		);
 	}
 
 	/**
 	 * Apply a function to each element matching the given jsonpath.
 	 */
-	apply(pathExpression: string, fn: (x: unknown) => unknown): Result<void, DataStoreError> {
-		// catch errrors thrown from JSONPath OR the fn callback
-		try {
-			JSONPath({
-				json: this.#originalData as object,
-				path: pathExpression,
-				resultType: "all",
-				callback: ({ value }, _, { parent, parentProperty }) => {
-					parent[parentProperty] = fn(value);
-				},
-			});
+	abstract apply(pathExpression: string, fn: (x: unknown) => unknown): Promise<void>;
 
-			return ok(undefined);
-		} catch (e) {
-			return err(new DataStoreError("Error applying content transform", { cause: e }));
+	/**
+	 * Apply a function to each element matching the given jsonpath. Same as {@link apply}, but returns a neverthrow {@link ResultAsync}.
+	 */
+	safeApply(
+		pathExpression: string,
+		fn: (x: unknown) => unknown,
+	): ResultAsync<void, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.apply(pathExpression, fn),
+			(e) =>
+				new DataStoreError(`Error applying content transform to document ${this._id}`, {
+					cause: e,
+				}),
+		);
+	}
+
+	abstract query(pathExpression: string): Promise<unknown[]>;
+
+	safeQuery(pathExpression: string): ResultAsync<unknown[], DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.query(pathExpression),
+			(e) => new DataStoreError(`Error querying document ${this._id}`, { cause: e }),
+		);
+	}
+
+	/**
+	 * Close the file handle.
+	 */
+	abstract close(): Promise<void>;
+
+	/**
+	 * Close the file handle. Same as {@link close}, but returns a neverthrow {@link ResultAsync}.
+	 */
+	safeClose(): ResultAsync<void, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.close(),
+			(e) => new DataStoreError(`Error closing document ${this._id}`, { cause: e }),
+		);
+	}
+}
+
+class SingleDocument<T = unknown> extends Document<T> {
+	#hasBeenModified = false;
+	#handlePromise: Promise<fs.FileHandle> | null = null;
+	#path: string;
+
+	constructor(directory: string, id: string) {
+		super(id);
+		const filename = id.includes(".") ? id : `${id}.json`;
+		this.#path = path.join(directory, filename);
+	}
+
+	async initialize(data: T | Promise<T>) {
+		const resolvedData = await data;
+
+		// create the directory if it doesn't exist
+		await fs.mkdir(path.dirname(this.#path), { recursive: true });
+
+		// wx+ opens the file for reading and writing, creating it if it doesn't exist, and erroring if it does
+		this.#handlePromise = fs.open(this.#path, "wx+").then(async (handle) => {
+			await handle.writeFile(JSON.stringify(resolvedData));
+			return handle;
+		});
+
+		return this.#handlePromise.then(() => this); // resolve void
+	}
+
+	static async create<T>(directory: string, id: string, data: T | Promise<T>) {
+		const doc = new SingleDocument<T>(directory, id);
+		await doc.initialize(data);
+		return doc;
+	}
+
+	async #getHandle() {
+		if (!this.#handlePromise) {
+			throw new DataStoreError(`Document ${this._id} not initialized`);
 		}
+
+		return await this.#handlePromise;
+	}
+
+	override async _read(): Promise<T> {
+		const handle = await this.#getHandle();
+		const data = await handle.readFile("utf-8");
+		return JSON.parse(data);
+	}
+
+	override async update(cb: (data: T) => T | Promise<T>) {
+		if (!this.#hasBeenModified) {
+			// on first modification, copy from the current path to the original path
+			await fs.copyFile(
+				this.#path,
+				this.#path.replace(/(\.[^.]*)$/, ".original$1"), // replace the extension with .original.[extension]
+				fs.constants.COPYFILE_EXCL, // fail if the original file already exists
+			);
+
+			this.#hasBeenModified = true;
+		}
+
+		const handle = await this.#getHandle();
+
+		const data = await handle.readFile("utf-8");
+
+		const updatedData = cb(JSON.parse(data));
+
+		await handle.truncate(0); // truncate the file to 0 bytes
+		await handle.writeFile(JSON.stringify(updatedData));
+	}
+
+	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
+		try {
+			await this.update((data) => {
+				JSONPath({
+					json: data as object,
+					path: pathExpression,
+					resultType: "all",
+					callback: ({ value }, _, { parent, parentProperty }) => {
+						parent[parentProperty] = fn(value);
+					},
+				});
+
+				return data;
+			});
+		} catch (e) {
+			throw new DataStoreError(`Error applying content transform to document ${this._id}`, {
+				cause: e,
+			});
+		}
+	}
+
+	override async query(pathExpression: string): Promise<unknown[]> {
+		const handle = await this.#getHandle();
+		const data = await handle.readFile("utf-8");
+		return JSONPath({
+			json: JSON.parse(data),
+			path: pathExpression,
+			resultType: "value",
+			ignoreEvalErrors: true,
+		});
+	}
+
+	override async close() {
+		const handle = await this.#getHandle();
+		await handle.close();
+	}
+}
+
+/**
+ * A batch of documents. This is a wrapper around a list of {@link SingleDocument}s that provides the same api for updating all documents in the batch.
+ * This is useful for sources that return a list of documents via pagination.
+ */
+export class BatchDocument<T = unknown> extends Document<T> {
+	#documents: Array<SingleDocument<T>> = [];
+
+	/**
+	 * Add a zero-padded index to the document id. If id includes a file extension, it will be preserved after the index.
+	 */
+	static getIndexedId(id: string, index: number) {
+		const paddedIndex = index.toString().padStart(2, "0");
+
+		const lastDotIndex = id.lastIndexOf(".");
+
+		if (lastDotIndex !== -1) {
+			return `${id.slice(0, lastDotIndex)}-${paddedIndex}${id.slice(lastDotIndex)}`;
+		}
+
+		return `${id}-${paddedIndex}`;
+	}
+
+	override async _read(): Promise<T[]> {
+		return Promise.all(this.#documents.map((doc) => doc._read()));
+	}
+
+	async initialize(directory: string, data: AsyncIterable<T>) {
+		for await (const item of data) {
+			this.#documents.push(
+				await SingleDocument.create(
+					directory,
+					BatchDocument.getIndexedId(this._id, this.#documents.length),
+					item,
+				),
+			);
+		}
+	}
+
+	static async create<T>(directory: string, id: string, data: AsyncIterable<T>) {
+		const doc = new BatchDocument<T>(id);
+		await doc.initialize(directory, data);
+		return doc;
+	}
+
+	override async update(cb: (data: T) => T | Promise<T>) {
+		await Promise.all(this.#documents.map((doc) => doc.update(cb)));
+	}
+
+	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
+		await Promise.all(this.#documents.map((doc) => doc.apply(pathExpression, fn)));
+	}
+
+	override async query(pathExpression: string): Promise<unknown[]> {
+		return (await Promise.all(this.#documents.map((doc) => doc.query(pathExpression)))).flat(1);
+	}
+
+	override async close() {
+		await Promise.all(this.#documents.map((doc) => doc.close()));
 	}
 }
 
@@ -67,27 +284,53 @@ export class Document<T = unknown> {
  */
 class Namespace {
 	#id: string;
+	#directory: string;
 
 	#documents = new Map<string, Document>();
 
-	constructor(id: string) {
+	constructor(parentDirectory: string, id: string) {
 		this.#id = id;
+		this.#directory = path.join(parentDirectory, id);
 	}
 
 	get id() {
 		return this.#id;
 	}
 
-	insert(id: string, data: unknown): Result<void, DataStoreError> {
-		if (this.#documents.has(id)) {
-			return err(new DataStoreError(`Document ${id} already exists in namespace ${this.#id}`));
-		}
-
-		this.#documents.set(id, new Document(id, data));
-		return ok(undefined);
+	initialize() {
+		// create the directory if it doesn't exist
+		return ensureDir(this.#directory);
 	}
 
-	get(id: string): Result<Document, DataStoreError> {
+	async insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
+		if (data instanceof Promise) {
+			const doc = await SingleDocument.create(this.#directory, id, data);
+			this.#documents.set(doc.id, doc);
+			return doc;
+		}
+
+		const doc = await BatchDocument.create(this.#directory, id, data);
+		this.#documents.set(doc.id, doc);
+		return doc;
+	}
+
+	safeInsert<T = unknown>(
+		id: string,
+		data: Promise<T> | AsyncIterable<T>,
+	): ResultAsync<Document<T>, DataStoreError> {
+		return ResultAsync.fromPromise(
+			this.insert(id, data),
+			(e) =>
+				new DataStoreError(`Error inserting document ${id} into namespace ${this.#id}`, {
+					cause: e,
+				}),
+		);
+	}
+
+	/**
+	 * Get a document from the namespace.
+	 */
+	document(id: string): Result<Document, DataStoreError> {
 		const document = this.#documents.get(id);
 		if (!document) {
 			return err(new DataStoreError(`Document ${id} not found in namespace ${this.#id}`));
@@ -96,18 +339,11 @@ class Namespace {
 		return ok(document);
 	}
 
+	/**
+	 * Get all documents in the namespace.
+	 */
 	documents() {
 		return this.#documents.values();
-	}
-
-	delete(id: string): Result<void, DataStoreError> {
-		this.#documents.delete(id);
-		return ok(undefined);
-	}
-
-	update(id: string, data: unknown): Result<void, DataStoreError> {
-		this.#documents.set(id, new Document(id, data));
-		return ok(undefined);
 	}
 }
 
@@ -117,86 +353,69 @@ class Namespace {
  */
 export class DataStore {
 	#namespaces = new Map<string, Namespace>();
+	#directory: string;
 
-	get(namespaceId: string, documentId: string): Result<Document, DataStoreError> {
+	constructor(directory: string) {
+		this.#directory = directory;
+		// create the directory if it doesn't exist
+		fs.mkdir(this.#directory, { recursive: true });
+	}
+
+	/**
+	 * Get a namespace from the data store.
+	 */
+	namespace(namespaceId: string): Result<Namespace, DataStoreError> {
 		const namespace = this.#namespaces.get(namespaceId);
 		if (!namespace) {
 			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
 		}
 
-		return namespace.get(documentId);
+		return ok(namespace);
 	}
 
-	namespace(namespaceId: string): Result<Iterable<Document>, DataStoreError> {
-		const namespace = this.#namespaces.get(namespaceId);
-		if (!namespace) {
-			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
-		}
-
-		return ok(namespace.documents());
+	getDocument(namespaceId: string, documentId: string): Result<Document, DataStoreError> {
+		return this.namespace(namespaceId).andThen((ns) => ns.document(documentId));
 	}
 
-	*allDocuments() {
-		for (const namespace of this.namespaces()) {
-			yield* namespace.documents();
-		}
-	}
-
-	namespaces() {
-		return this.#namespaces.values();
-	}
-
-	createNamespace(namespaceId: string): Result<void, DataStoreError> {
+	/**
+	 * Create a new namespace in the data store.
+	 */
+	createNamespace(namespaceId: string): ResultAsync<Namespace, DataStoreError> {
 		if (this.#namespaces.has(namespaceId)) {
-			return err(new DataStoreError(`Namespace ${namespaceId} already exists in data store`));
+			return errAsync(new DataStoreError(`Namespace ${namespaceId} already exists in data store`));
 		}
 
-		this.#namespaces.set(namespaceId, new Namespace(namespaceId));
-		return ok(undefined);
+		const namespace = new Namespace(this.#directory, namespaceId);
+		this.#namespaces.set(namespaceId, namespace);
+		return namespace.initialize().andThen(() => okAsync(namespace));
 	}
 
-	createNamespaceFromMap(namespaceId: string, map: Map<string, unknown>): Result<void, DataStoreError> {
-		const namespaceResult = this.createNamespace(namespaceId);
+	allDocuments(): Iterable<Document> {
+		return Array.from(this.#namespaces.values()).flatMap((ns) => Array.from(ns.documents()));
+	}
 
-		if (namespaceResult.isErr()) {
-			return namespaceResult;
-		}
-
-		for (const [documentId, data] of map.entries()) {
-			const insertResult = this.insert(namespaceId, documentId, data);
-			if (insertResult.isErr()) {
-				return insertResult;
+	async close() {
+		for (const namespace of this.#namespaces.values()) {
+			for (const document of namespace.documents()) {
+				await document.close();
 			}
 		}
-
-		return ok(undefined);
-	}
-
-	insert(namespaceId: string, documentId: string, data: unknown): Result<void, DataStoreError> {
-		const namespace = this.#namespaces.get(namespaceId);
-		if (!namespace) {
-			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
-		}
-
-		return namespace.insert(documentId, data);
-	}
-
-	delete(namespaceId: string, documentId: string): Result<void, DataStoreError> {
-		const namespace = this.#namespaces.get(namespaceId);
-		if (!namespace) {
-			return err(new DataStoreError(`Namespace ${namespaceId} not found in data store`));
-		}
-
-		return namespace.delete(documentId);
 	}
 
 	/**
 	 * Get lists of documents matching the passed DataKeys grouped by namespace.
 	 * @param ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
 	 */
-	filter(ids?: DataKeys): Result<Array<{ namespaceId: string; documents: Array<Document> }>, DataStoreError> {
+	filter(
+		ids?: DataKeys,
+	): Result<Array<{ namespaceId: string; documents: Array<Document> }>, DataStoreError> {
 		if (!ids) {
-			return ok(Array.from(this.namespaces()).map((ns) => ({ namespaceId: ns.id, documents: Array.from(ns.documents()) })));
+			return ok(
+				Array.from(this.#namespaces.values()).map((ns) => ({
+					namespaceId: ns.id,
+					documents: Array.from(ns.documents()),
+				})),
+			);
 		}
 
 		const consolidatedIds = new Map<string, Set<string>>();
@@ -229,8 +448,8 @@ export class DataStore {
 
 		return Result.combine(
 			consolidatedIdsArray.map(([namespaceId, documentIds]) => {
-				return this.namespace(namespaceId).map((docs) => {
-					const documents = Array.from(docs);
+				return this.namespace(namespaceId).map((ns) => {
+					const documents = Array.from(ns.documents());
 
 					if (documentIds.has("*")) {
 						return {

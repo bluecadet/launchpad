@@ -85,40 +85,43 @@ describe("Content Integration", () => {
 	describe("Sanity Source with HTML Conversion", () => {
 		it("should fetch Sanity content and convert blocks to HTML", async () => {
 			server.use(
-				http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", ({ request }) => {
-					const url = new URL(request.url);
-					const query = url.searchParams.get("query");
+				http.get(
+					"https://test-project.apicdn.sanity.io/v2021-10-21/data/query/production",
+					({ request }) => {
+						const url = new URL(request.url);
+						const query = url.searchParams.get("query");
 
-					if (query?.includes("[100..")) {
-						return HttpResponse.json({
-							result: [],
-							ms: 15,
-						});
-					}
+						if (query?.includes("[100..")) {
+							return HttpResponse.json({
+								result: [],
+								ms: 15,
+							});
+						}
 
-					if (query?.includes("article")) {
-						return HttpResponse.json({
-							result: [
-								{
-									_type: "article",
-									title: "Test Article",
-									content: {
-										_type: "block",
-										children: [
-											{
-												_type: "span",
-												text: "Hello from Sanity",
-											},
-										],
+						if (query?.includes("article")) {
+							return HttpResponse.json({
+								result: [
+									{
+										_type: "article",
+										title: "Test Article",
+										content: {
+											_type: "block",
+											children: [
+												{
+													_type: "span",
+													text: "Hello from Sanity",
+												},
+											],
+										},
 									},
-								},
-							],
-							ms: 15,
-						});
-					}
+								],
+								ms: 15,
+							});
+						}
 
-					return HttpResponse.json({ result: [] });
-				}),
+						return HttpResponse.json({ result: [] });
+					},
+				),
 			);
 
 			const content = new LaunchpadContent(
@@ -131,6 +134,7 @@ describe("Content Integration", () => {
 							projectId: "test-project",
 							apiToken: "test-token",
 							queries: ["article"],
+							mergePages: true,
 						}),
 					],
 					plugins: [sanityToHtml({ path: "$..content" })],
@@ -254,7 +258,9 @@ describe("Content Integration", () => {
 
 			// Check if existing content was preserved
 			expect(vol.existsSync("/downloads/test/existing.json")).toBe(true);
-			const preserved = JSON.parse(vol.readFileSync("/downloads/test/existing.json", "utf8").toString());
+			const preserved = JSON.parse(
+				vol.readFileSync("/downloads/test/existing.json", "utf8").toString(),
+			);
 			expect(preserved.data).toBe("existing");
 		});
 

@@ -95,7 +95,8 @@ export class BusManager {
 				}
 				throw new Error("Failed to connect to PM2 bus");
 			}),
-			(error) => (error instanceof Error ? error : new Error("Unknown error connecting to PM2 bus")),
+			(error) =>
+				error instanceof Error ? error : new Error("Unknown error connecting to PM2 bus"),
 		);
 	}
 
@@ -118,7 +119,9 @@ export class BusManager {
 			}
 			return ok(undefined);
 		} catch (error) {
-			return err(error instanceof Error ? error : new Error("Unknown error disconnecting from PM2 bus"));
+			return err(
+				error instanceof Error ? error : new Error("Unknown error disconnecting from PM2 bus"),
+			);
 		}
 	}
 

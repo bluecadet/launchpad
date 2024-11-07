@@ -1,7 +1,11 @@
-import { type BaseHookContext, HookContextProvider, type Plugin, type PluginDriver } from "@bluecadet/launchpad-utils";
+import {
+	type BaseHookContext,
+	HookContextProvider,
+	type Plugin,
+	type PluginDriver,
+} from "@bluecadet/launchpad-utils";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
-import chalk from "chalk";
 
 export class ContentError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -26,12 +30,20 @@ export type ContentHooks = {
 	onSetupError: (ctx: CombinedContentHookContext, error: ContentError) => void | PromiseLike<void>;
 	onContentFetchSetup: (ctx: CombinedContentHookContext) => void | PromiseLike<void>;
 	onContentFetchDone: (ctx: CombinedContentHookContext) => void | PromiseLike<void>;
-	onContentFetchError: (ctx: CombinedContentHookContext, error: ContentError) => void | PromiseLike<void>;
+	onContentFetchError: (
+		ctx: CombinedContentHookContext,
+		error: ContentError,
+	) => void | PromiseLike<void>;
 };
 
-export type ContentPlugin<T extends Partial<ContentHooks> = Partial<ContentHooks>> = Plugin<ContentHooks, T>;
+export type ContentPlugin<T extends Partial<ContentHooks> = Partial<ContentHooks>> = Plugin<
+	ContentHooks,
+	T
+>;
 
-export function defineContentPlugin<T extends Partial<ContentHooks>>(plugin: ContentPlugin<T>): ContentPlugin<T> {
+export function defineContentPlugin<T extends Partial<ContentHooks>>(
+	plugin: ContentPlugin<T>,
+): ContentPlugin<T> {
 	return plugin;
 }
 

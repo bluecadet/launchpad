@@ -1,52 +1,32 @@
 import chalk from "chalk";
-import { ok, okAsync } from "neverthrow";
-import { SafeKyParseError, safeKy } from "../utils/safe-ky.js";
-import { SourceFetchError, SourceParseError, defineSource } from "./source.js";
+import ky from "ky";
+import { okAsync } from "neverthrow";
+import { z } from "zod";
+import { defineSource } from "./source.js";
 
-type JsonSourceOptions = {
-	/**
-	 * Required field to identify this source. Will be used as download path.
-	 */
-	id: string;
-	/**
-	 * A mapping of json key -> url
-	 */
-	files: Record<string, string>;
-	/**
-	 * Max request timeout in ms. Defaults to 30 seconds.
-	 */
-	maxTimeout?: number;
-};
+const jsonSourceSchema = z.object({
+	/** required field to identify this source. Will be used as download path. */
+	id: z.string().describe("Required field to identify this source. Will be used as download path."),
+	/** A mapping of json key -> url */
+	files: z.record(z.string(), z.string()).describe("A mapping of json key -> url"),
+	/** Max request timeout in ms. Defaults to 30 seconds. */
+	maxTimeout: z.number().describe("Max request timeout in ms.").default(30_000),
+});
 
-export default function jsonSource(options: JsonSourceOptions) {
-	return okAsync(
-		defineSource({
-			id: options.id,
-			fetch: (ctx) => {
-				const jsonFetchPromises = Object.entries(options.files).map(([key, url]) => {
-					ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-					return {
-						id: key,
-						dataPromise: safeKy(url, { timeout: options.maxTimeout })
-							.json()
-							.mapErr((e) => {
-								if (e instanceof SafeKyParseError) {
-									return new SourceParseError(`Could not parse json from ${url}`, { cause: e });
-								}
-								return new SourceFetchError(`Could not fetch json from ${url}`, { cause: e });
-							})
-							.map((data) => {
-								return [
-									{
-										id: key,
-										data,
-									},
-								];
-							}),
-					};
-				});
-				return ok(jsonFetchPromises);
-			},
-		}),
-	);
+export default function jsonSource(options: z.input<typeof jsonSourceSchema>) {
+	const parsedOptions = jsonSourceSchema.parse(options);
+
+	return defineSource({
+		id: parsedOptions.id,
+		fetch: (ctx) => {
+			return Object.entries(parsedOptions.files).map(([key, url]) => {
+				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
+
+				return {
+					id: key,
+					data: ky.get(url, { timeout: parsedOptions.maxTimeout }).json(),
+				};
+			});
+		},
+	});
 }

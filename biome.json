@@ -13,7 +13,7 @@
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
-		"lineWidth": 160
+		"lineWidth": 100
 	},
 	"organizeImports": {
 		"enabled": true
@@ -36,6 +36,9 @@
 				"rules": {
 					"style": {
 						"noNonNullAssertion": "off"
+					},
+					"suspicious": {
+						"noExplicitAny": "off"
 					}
 				}
 			}

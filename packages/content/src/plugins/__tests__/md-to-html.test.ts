@@ -3,60 +3,76 @@ import mdToHtml from "../md-to-html.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
 describe("mdToHtml plugin", () => {
-	it("should convert markdown to html", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: "# Hello\n\nThis is **bold** and *italic*." });
+	it("should convert markdown to html", async () => {
+		const ctx = await createTestPluginContext();
+		const namespaceResult = await ctx.data.createNamespace("test");
+		const namespace = namespaceResult._unsafeUnwrap();
+		await namespace.insert(
+			"doc1",
+			Promise.resolve({ content: "# Hello\n\nThis is **bold** and *italic*." }),
+		);
 
 		const plugin = mdToHtml({ path: "$.content" });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const result = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		expect((result.data as Record<string, unknown>).content).toBe("<h1>Hello</h1>\n<p>This is <strong>bold</strong> and <em>italic</em>.</p>\n");
+		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		expect((result as any).content).toBe(
+			"<h1>Hello</h1>\n<p>This is <strong>bold</strong> and <em>italic</em>.</p>\n",
+		);
 	});
 
-	it("should convert markdown to simplified html when simplified=true", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: "This is **bold** and *italic*." });
+	it("should convert markdown to simplified html when simplified=true", async () => {
+		const ctx = await createTestPluginContext();
+		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespace.insert("doc1", Promise.resolve({ content: "This is **bold** and *italic*." }));
 
 		const plugin = mdToHtml({ path: "$.content", simplified: true });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const result = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		expect((result.data as Record<string, unknown>).content).toBe("This is <b>bold</b> and <i>italic</i>.");
+		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		expect((result as any).content).toBe("This is <b>bold</b> and <i>italic</i>.");
 	});
 
-	it("should only transform specified keys", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.createNamespace("skip");
-		ctx.data.insert("test", "doc1", { content: "# Hello" });
-		ctx.data.insert("skip", "doc2", { content: "# Hello" });
+	it("should only transform specified keys", async () => {
+		const ctx = await createTestPluginContext();
+		const namespaceTest = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespaceTest.insert("doc1", Promise.resolve({ content: "# Hello" }));
+		const namespaceSkip = (await ctx.data.createNamespace("skip"))._unsafeUnwrap();
+		await namespaceSkip.insert("doc2", Promise.resolve({ content: "# Hello" }));
 
 		const plugin = mdToHtml({ path: "$.content", keys: ["test"] });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const transformed = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		const skipped = ctx.data.get("skip", "doc2")._unsafeUnwrap();
+		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
 
-		expect((transformed.data as Record<string, unknown>).content).toBe("<h1>Hello</h1>\n");
-		expect((skipped.data as Record<string, unknown>).content).toBe("# Hello");
+		expect((transformed as any).content).toBe("<h1>Hello</h1>\n");
+		expect((skipped as any).content).toBe("# Hello");
 	});
 
-	it("should sanitize html in markdown content", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: 'Hello <script>alert("xss")</script>' });
+	it("should sanitize html in markdown content", async () => {
+		const ctx = await createTestPluginContext();
+		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespace.insert(
+			"doc1",
+			Promise.resolve({ content: 'Hello <script>alert("xss")</script>' }),
+		);
 
 		const plugin = mdToHtml({ path: "$.content" });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const result = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		expect((result.data as Record<string, unknown>).content).not.toContain("<script>");
+		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		expect((result as any).content).not.toContain("<script>");
 	});
 
 	it("should throw error for non-string content", async () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: { foo: "bar" } });
+		const ctx = await createTestPluginContext();
+		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespace.insert("doc1", Promise.resolve({ content: { foo: "bar" } }));
 
 		const plugin = mdToHtml({ path: "$.content" });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow("Error applying content transform");
+		expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 });

@@ -86,7 +86,9 @@ describe("AppManager", () => {
 			const result = await appManager.startApp("non-existent-app");
 
 			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr().message).toContain("No app found with the name 'non-existent-app'");
+			expect(result._unsafeUnwrapErr().message).toContain(
+				"No app found with the name 'non-existent-app'",
+			);
 		});
 	});
 
@@ -136,7 +138,9 @@ describe("AppManager", () => {
 			// @ts-expect-error Testing invalid input
 			const result = await appManager.validateAppNames(123);
 			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr().message).toContain("appNames must be null, undefined, a string or an iterable array/set of strings");
+			expect(result._unsafeUnwrapErr().message).toContain(
+				"appNames must be null, undefined, a string or an iterable array/set of strings",
+			);
 		});
 	});
 
@@ -152,7 +156,9 @@ describe("AppManager", () => {
 			const { appManager } = setupTestAppManager();
 			const result = await appManager.getAppOptions("invalid-app");
 			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr().message).toContain("No app found with the name 'invalid-app'");
+			expect(result._unsafeUnwrapErr().message).toContain(
+				"No app found with the name 'invalid-app'",
+			);
 		});
 	});
 });

@@ -17,10 +17,16 @@ export function monitor(argv: LaunchpadArgv) {
 					return ok(monitorInstance);
 				})
 				.andThrough((monitorInstance) => {
-					return ResultAsync.fromPromise(monitorInstance.connect(), () => new MonitorError("Failed to connect to monitor"));
+					return ResultAsync.fromPromise(
+						monitorInstance.connect(),
+						() => new MonitorError("Failed to connect to monitor"),
+					);
 				})
 				.andThrough((monitorInstance) => {
-					return ResultAsync.fromPromise(monitorInstance.start(), () => new MonitorError("Failed to start monitor"));
+					return ResultAsync.fromPromise(
+						monitorInstance.start(),
+						() => new MonitorError("Failed to start monitor"),
+					);
 				})
 				.orElse((error) => handleFatalError(error, rootLogger));
 		});
@@ -29,6 +35,9 @@ export function monitor(argv: LaunchpadArgv) {
 export function importLaunchpadMonitor() {
 	return ResultAsync.fromPromise(
 		import("@bluecadet/launchpad-monitor"),
-		() => new ImportError('Could not find module "@bluecadet/launchpad-monitor". Make sure you have installed it.'),
+		() =>
+			new ImportError(
+				'Could not find module "@bluecadet/launchpad-monitor". Make sure you have installed it.',
+			),
 	);
 }

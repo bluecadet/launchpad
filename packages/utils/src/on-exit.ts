@@ -35,7 +35,10 @@ for (const event of events) {
 				continue;
 			}
 
-			if (!callback.includeUncaught && (event === "uncaughtException" || event === "unhandledRejection")) {
+			if (
+				!callback.includeUncaught &&
+				(event === "uncaughtException" || event === "unhandledRejection")
+			) {
 				continue;
 			}
 
@@ -44,7 +47,11 @@ for (const event of events) {
 	});
 }
 
-export const onExit = (callback: () => Promise<void> | void = async () => {}, once = true, includeUncaught = false): void => {
+export const onExit = (
+	callback: () => Promise<void> | void = async () => {},
+	once = true,
+	includeUncaught = false,
+): void => {
 	callbacks.push({ callback, once, includeUncaught });
 };
 

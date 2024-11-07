@@ -1,4 +1,9 @@
-import { type BaseHookContext, HookContextProvider, type Plugin, type PluginDriver } from "@bluecadet/launchpad-utils";
+import {
+	type BaseHookContext,
+	HookContextProvider,
+	type Plugin,
+	type PluginDriver,
+} from "@bluecadet/launchpad-utils";
 import type pm2 from "pm2";
 import type LaunchpadMonitor from "../launchpad-monitor.js";
 
@@ -21,19 +26,37 @@ export type MonitorHooks = {
 	/** called after disconnecting from PM2 */
 	afterDisconnect: (ctx: CombinedMonitorHookContext) => Promise<void> | void;
 	/** called before starting an app */
-	beforeAppStart: (ctx: CombinedMonitorHookContext, arg: { appName: string }) => Promise<void> | void;
+	beforeAppStart: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string },
+	) => Promise<void> | void;
 	/** called after an app is started */
-	afterAppStart: (ctx: CombinedMonitorHookContext, arg: { appName: string; process: pm2.ProcessDescription }) => Promise<void> | void;
+	afterAppStart: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; process: pm2.ProcessDescription },
+	) => Promise<void> | void;
 	/** called before stopping an app */
-	beforeAppStop: (ctx: CombinedMonitorHookContext, arg: { appName: string }) => Promise<void> | void;
+	beforeAppStop: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string },
+	) => Promise<void> | void;
 	/** called after an app is stopped */
 	afterAppStop: (ctx: CombinedMonitorHookContext, arg: { appName: string }) => Promise<void> | void;
 	/** called when an app encounters an error */
-	onAppError: (ctx: CombinedMonitorHookContext, arg: { appName: string; error: Error }) => Promise<void> | void;
+	onAppError: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; error: Error },
+	) => Promise<void> | void;
 	/** called when an app outputs a log message */
-	onAppLog: (ctx: CombinedMonitorHookContext, arg: { appName: string; data: string }) => Promise<void> | void;
+	onAppLog: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; data: string },
+	) => Promise<void> | void;
 	/** called when an app outputs an error log */
-	onAppErrorLog: (ctx: CombinedMonitorHookContext, arg: { appName: string; data: string }) => Promise<void> | void;
+	onAppErrorLog: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; data: string },
+	) => Promise<void> | void;
 	/** called before shutting down the monitor */
 	beforeShutdown: (ctx: CombinedMonitorHookContext, arg: { code?: number }) => Promise<void> | void;
 };

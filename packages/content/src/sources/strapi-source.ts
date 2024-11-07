@@ -1,9 +1,62 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
-import { type ResultAsync, errAsync, ok, okAsync } from "neverthrow";
+import ky from "ky";
 import qs from "qs";
+import { z } from "zod";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { safeKy } from "../utils/safe-ky.js";
-import { type ContentSource, SourceConfigError, SourceFetchError, defineSource } from "./source.js";
+import { defineSource } from "./source.js";
+
+const strapiCredentialsSchema = z.union([
+	z.object({
+		/** Username or email. Should be configured via `./.env.local` */
+		identifier: z.string().describe("Username or email. Should be configured via `./.env.local`"),
+		/** Password. Should be configured via `./.env.local` */
+		password: z.string().describe("Password. Should be configured via `./.env.local`"),
+	}),
+	z.object({
+		/** A previously generated JWT token. */
+		token: z.string().describe("A previously generated JWT token."),
+	}),
+]);
+
+const strapiSourceSchema = z
+	.object({
+		/** Required field to identify this source. Will be used as download path. */
+		id: z
+			.string()
+			.describe("Required field to identify this source. Will be used as download path."),
+		/** Strapi version. Defaults to `3`. */
+		version: z.enum(["3", "4"]).describe("Strapi version").default("3"),
+		/** The base url of your Strapi CMS (with or without trailing slash). */
+		baseUrl: z
+			.string()
+			.describe("The base url of your Strapi CMS (with or without trailing slash)."),
+		/**
+		 * Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
+		 * You can include all query parameters supported by Strapi.
+		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
+		 */
+		queries: z
+			.array(
+				z.union([z.string(), z.object({ contentType: z.string(), params: z.record(z.any()) })]),
+			)
+			.describe(
+				"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
+			You can include all query parameters supported by Strapi. \
+			You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.",
+			),
+		/** Max number of entries per page. Defaults to `100`. */
+		limit: z.number().describe("Max number of entries per page").default(100),
+		/** Max number of pages. Defaults to `1000`. */
+		maxNumPages: z.number().describe("Max number of pages").default(1000),
+		/** How many zeros to pad each json filename index with. Defaults to `2`. */
+		pageNumZeroPad: z
+			.number()
+			.describe("How many zeros to pad each json filename index with")
+			.default(2),
+	})
+	.and(strapiCredentialsSchema);
+
+type StrapiSourceSchemaOutput = z.output<typeof strapiSourceSchema>;
 
 type StrapiObjectQuery = {
 	/**
@@ -27,75 +80,11 @@ type StrapiPagination = {
 	limit: number;
 };
 
-type StrapiLoginCredentials = {
-	/**
-	 * Username or email. Should be configured via `./.env.local`
-	 */
-	identifier: string;
-	/**
-	 * Password. Should be configured via `./.env.local`
-	 */
-	password: string;
-};
-
-type StrapiTokenCredentials = {
-	/**
-	 * A previously generated JWT token.
-	 */
-	token: string;
-};
-
-export type StrapiCredentials = StrapiLoginCredentials | StrapiTokenCredentials;
-
-export type BaseStrapiOptions = {
-	/**
-	 * Required field to identify this source. Will be used as download path.
-	 */
-	id: string;
-	/**
-	 * Versions `3` and `4` are supported. Defaults to `3`.
-	 */
-	version?: "3" | "4";
-	/**
-	 * The base url of your Strapi CMS (with or without trailing slash).
-	 */
-	baseUrl: string;
-	/**
-	 * Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
-	 * You can include all query parameters supported by Strapi.
-	 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
-	 */
-	queries: Array<string | StrapiObjectQuery>;
-	/**
-	 * Max number of entries per page. Defaults to `100`.
-	 */
-	limit?: number;
-	/**
-	 * Max number of pages. Use the default of `-1` for all pages. Defaults to `-1`.
-	 */
-	maxNumPages?: number;
-	/**
-	 * How many zeros to pad each json filename index with. Defaults to `0`.
-	 */
-	pageNumZeroPad?: number;
-};
-
-export type StrapiOptions = BaseStrapiOptions & StrapiCredentials;
-
-export type StrapiOptionsAssembled = Required<BaseStrapiOptions> & StrapiCredentials;
-
-const STRAPI_OPTION_DEFAULTS = {
-	version: "3",
-	limit: 100,
-	maxNumPages: -1,
-	pageNumZeroPad: 2,
-} satisfies Partial<BaseStrapiOptions>;
-
 class StrapiVersionUtils {
-	protected config: StrapiOptionsAssembled;
+	protected config: StrapiSourceSchemaOutput;
 	protected logger: Logger;
 
-	constructor(config: StrapiOptionsAssembled, logger: Logger) {
+	constructor(config: StrapiSourceSchemaOutput, logger: Logger) {
 		this.config = config;
 		this.logger = logger;
 	}
@@ -162,14 +151,19 @@ class StrapiV4 extends StrapiVersionUtils {
 	}
 
 	override hasPaginationParams(query: StrapiObjectQuery): boolean {
-		return query?.params?.pagination?.page !== undefined || query?.params?.pagination?.pageSize !== undefined;
+		return (
+			query?.params?.pagination?.page !== undefined ||
+			query?.params?.pagination?.pageSize !== undefined
+		);
 	}
 
 	override transformResult(result: { data: unknown[] }): unknown[] {
 		return result.data;
 	}
 
-	override canFetchMore(result: { meta?: { pagination?: { page: number; pageCount: number } } }): boolean {
+	override canFetchMore(result: {
+		meta?: { pagination?: { page: number; pageCount: number } };
+	}): boolean {
 		if (result?.meta?.pagination) {
 			const { page, pageCount } = result.meta.pagination;
 			return page < pageCount;
@@ -215,65 +209,55 @@ class StrapiV3 extends StrapiVersionUtils {
 	}
 }
 
-function getJwt(baseUrl: string, identifier: string, password: string): ResultAsync<string, SourceFetchError> {
-	const url = new URL("/auth/local", baseUrl);
-
-	return safeKy(url.toString(), {
-		method: "POST",
-		json: { identifier, password },
-	})
-		.json()
-		.map((response) => response.jwt)
-		.mapErr((e) => new SourceFetchError(`Could not complete request to get JWT for ${identifier}`, { cause: e }));
-}
-
-function getToken(assembledOptions: StrapiOptionsAssembled): ResultAsync<string, SourceFetchError> {
+async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 	if ("token" in assembledOptions) {
-		return okAsync(assembledOptions.token);
+		return assembledOptions.token;
 	}
 
-	return getJwt(assembledOptions.baseUrl, assembledOptions.identifier, assembledOptions.password);
+	const url = new URL("/auth/local", assembledOptions.baseUrl);
+	const response = await ky.post<{ jwt: string }>(url.toString(), {
+		json: { identifier: assembledOptions.identifier, password: assembledOptions.password },
+	});
+
+	return response.json().then((json) => json.jwt);
 }
 
-export default function strapiSource(options: StrapiOptions): ResultAsync<ContentSource, SourceConfigError> {
-	const assembledOptions = {
-		...STRAPI_OPTION_DEFAULTS,
-		...options,
-	};
+export default async function strapiSource(options: z.input<typeof strapiSourceSchema>) {
+	const assembledOptions = strapiSourceSchema.parse(options);
 
 	if (assembledOptions.version !== "4" && assembledOptions.version !== "3") {
-		return errAsync(new SourceConfigError(`Unsupported strapi version '${assembledOptions.version}'`));
+		throw new Error(`Unsupported strapi version '${assembledOptions.version}'`);
 	}
 
-	return getToken(assembledOptions).map((token) =>
-		defineSource({
-			id: options.id,
-			fetch: (ctx) => {
-				const versionUtils: StrapiVersionUtils =
-					assembledOptions.version === "4" ? new StrapiV4(assembledOptions, ctx.logger) : new StrapiV3(assembledOptions, ctx.logger);
+	const token = await getToken(assembledOptions);
 
-				const fetchPromises = assembledOptions.queries.map((query) => {
-					let parsedQuery: StrapiObjectQuery;
+	return defineSource({
+		id: assembledOptions.id,
+		fetch: (ctx) => {
+			const versionUtils: StrapiVersionUtils =
+				assembledOptions.version === "4"
+					? new StrapiV4(assembledOptions, ctx.logger)
+					: new StrapiV3(assembledOptions, ctx.logger);
 
-					if (typeof query === "string") {
-						parsedQuery = versionUtils.parseQuery(query);
-					} else {
-						parsedQuery = query;
-					}
+			return assembledOptions.queries.map((query) => {
+				let parsedQuery: StrapiObjectQuery;
 
-					return {
-						id: parsedQuery.contentType,
-						dataPromise: fetchPaginated({
-							fetchPageFn: (params) => {
-								const pageNum = params.offset / params.limit;
+				if (typeof query === "string") {
+					parsedQuery = versionUtils.parseQuery(query);
+				} else {
+					parsedQuery = query;
+				}
 
-								if (pageNum > assembledOptions.maxNumPages && assembledOptions.maxNumPages !== -1) {
-									return okAsync(null);
-								}
+				return {
+					id: parsedQuery.contentType,
+					data: fetchPaginated({
+						fetchPageFn: async (params) => {
+							const pageNum = params.offset / params.limit;
 
-								ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+							ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
-								return safeKy(
+							const response = await ky
+								.get(
 									versionUtils.buildUrl(parsedQuery, {
 										start: params.offset,
 										limit: params.limit,
@@ -284,34 +268,22 @@ export default function strapiSource(options: StrapiOptions): ResultAsync<Conten
 										},
 									},
 								)
-									.json()
-									.map((json) => {
-										const transformedContent = versionUtils.transformResult(json);
+								.json();
 
-										if (!transformedContent || !transformedContent.length) {
-											return null;
-										}
+							const transformedContent = versionUtils.transformResult(response);
 
-										return transformedContent;
-									})
-									.mapErr((e) => new SourceFetchError(`Could not fetch page ${pageNum} of ${parsedQuery.contentType}`, { cause: e }));
-							},
-							limit: assembledOptions.limit,
-							logger: ctx.logger,
-						}).map((data) => {
-							return data.pages.map((page, i) => {
-								const fileName = `${parsedQuery.contentType}-${(i + 1).toString().padStart(assembledOptions.pageNumZeroPad, "0")}.json`;
-								return {
-									id: fileName,
-									data: page,
-								};
-							});
-						}),
-					};
-				});
+							if (!transformedContent || !transformedContent.length) {
+								return null; // trigger end of pagination
+							}
 
-				return ok(fetchPromises);
-			},
-		}),
-	);
+							return transformedContent;
+						},
+						maxFetchCount: assembledOptions.maxNumPages,
+						limit: assembledOptions.limit,
+						logger: ctx.logger,
+					}),
+				};
+			});
+		},
+	});
 }

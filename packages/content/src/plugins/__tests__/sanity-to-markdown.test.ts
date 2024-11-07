@@ -13,38 +13,43 @@ describe("sanityToMd plugin", () => {
 		],
 	};
 
-	it("should convert Sanity block to markdown", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: validBlock });
+	it("should convert Sanity block to markdown", async () => {
+		const ctx = await createTestPluginContext();
+		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespace.insert("doc1", Promise.resolve({ content: validBlock }));
 
 		const plugin = sanityToMd({ path: "$.content" });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const result = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		expect((result.data as Record<string, unknown>).content).toBe("Hello world");
+		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		expect((result as any).content).toBe("Hello world");
 	});
 
-	it("should only transform specified keys", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.createNamespace("skip");
-		ctx.data.insert("test", "doc1", { content: validBlock });
-		ctx.data.insert("skip", "doc2", { content: validBlock });
+	it("should only transform specified keys", async () => {
+		const ctx = await createTestPluginContext();
+		const testNamespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		const skipNamespace = (await ctx.data.createNamespace("skip"))._unsafeUnwrap();
+		await testNamespace.insert("doc1", Promise.resolve({ content: validBlock }));
+		await skipNamespace.insert("doc2", Promise.resolve({ content: validBlock }));
 
 		const plugin = sanityToMd({ path: "$.content", keys: ["test"] });
-		plugin.hooks.onContentFetchDone(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
-		const transformed = ctx.data.get("test", "doc1")._unsafeUnwrap();
-		const skipped = ctx.data.get("skip", "doc2")._unsafeUnwrap();
+		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
+		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
 
-		expect((transformed.data as Record<string, unknown>).content).toBe("Hello world");
-		expect((skipped.data as Record<string, unknown>).content).toEqual(validBlock);
+		expect((transformed as any).content).toBe("Hello world");
+		expect((skipped as any).content).toEqual(validBlock);
 	});
 
-	it("should throw error for invalid block content", () => {
-		const ctx = createTestPluginContext();
-		ctx.data.insert("test", "doc1", { content: "not a block" });
+	it("should throw error for invalid block content", async () => {
+		const ctx = await createTestPluginContext();
+		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
 		const plugin = sanityToMd({ path: "$.content" });
-		expect(() => plugin.hooks.onContentFetchDone(ctx)).toThrow("Error applying content transform");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+			"Error applying content transform",
+		);
 	});
 });

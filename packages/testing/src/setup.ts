@@ -1,6 +1,6 @@
-import { fs } from "memfs";
+import { fs, vol } from "memfs";
 import { type Result, err, ok } from "neverthrow";
-import { expect, vi } from "vitest";
+import { afterEach, expect, vi } from "vitest";
 import type { LogEntry } from "winston";
 
 vi.mock("fs", () => ({
@@ -88,7 +88,7 @@ vi.mock("winston-daily-rotate-file", async () => {
 	const { default: Transport } = await import("winston-transport");
 
 	class DummyTransport extends Transport {
-		log(info: LogEntry) {
+		override log(info: LogEntry) {
 			// do nothing
 		}
 	}

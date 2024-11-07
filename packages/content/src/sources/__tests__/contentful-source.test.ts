@@ -4,7 +4,6 @@ import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
 import contentfulSource from "../contentful-source.js";
-import { SourceConfigError, SourceFetchError } from "../source.js";
 
 const server = setupServer();
 
@@ -23,79 +22,80 @@ afterEach(() => server.resetHandlers());
 function createFetchContext() {
 	return {
 		logger: createMockLogger(),
-		dataStore: new DataStore(),
+		dataStore: new DataStore("/"),
 	};
 }
 
 describe("contentfulSource", () => {
 	it("should fail with missing delivery token when not using preview", async () => {
-		// @ts-expect-error - testing invalid options
-		const result = await contentfulSource({
-			id: "test-contentful",
-			space: "test-space",
-			// missing deliveryToken
-			usePreviewApi: false,
-		});
-
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
-		expect(result._unsafeUnwrapErr().message).toContain("no deliveryToken is provided");
+		expect(
+			async () =>
+				// @ts-expect-error - testing invalid options
+				await contentfulSource({
+					id: "test-contentful",
+					space: "test-space",
+					// missing deliveryToken
+					usePreviewApi: false,
+				}),
+		).rejects.toThrow();
 	});
 
 	it("should fail with missing preview token when using preview", async () => {
-		// @ts-expect-error - testing invalid options
-		const result = await contentfulSource({
-			id: "test-contentful",
-			space: "test-space",
-			// missing previewToken
-			usePreviewApi: true,
-		});
-
-		expect(result).toBeErr();
-		expect(result._unsafeUnwrapErr()).toBeInstanceOf(SourceConfigError);
-		expect(result._unsafeUnwrapErr().message).toContain("no previewToken is provided");
+		expect(
+			async () =>
+				// @ts-expect-error - testing invalid options
+				await contentfulSource({
+					id: "test-contentful",
+					space: "test-space",
+					// missing previewToken
+					usePreviewApi: true,
+				}),
+		).rejects.toThrow();
 	});
 
 	it("should fetch data with delivery token", async () => {
 		server.use(
-			http.get("https://cdn.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+			http.get(
+				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				// Return empty results after first page
-				if (skip > 0) {
+					// Return empty results after first page
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
-						includes: {},
-						total: 1,
-						skip,
-						limit: 1000,
-					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Test Entry" },
-						},
-					],
-					includes: {
-						Asset: [
+						items: [
 							{
-								sys: { type: "Asset", id: "test-asset" },
-								fields: {
-									title: "Test Asset",
-									file: { url: "//test.com/image.jpg" },
-								},
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Test Entry" },
 							},
 						],
-					},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+						includes: {
+							Asset: [
+								{
+									sys: { type: "Asset", id: "test-asset" },
+									fields: {
+										title: "Test Asset",
+										file: { url: "//test.com/image.jpg" },
+									},
+								},
+							],
+						},
+						total: 1,
+						skip: 0,
+						limit: 1000,
+					});
+				},
+			),
 		);
 
 		const source = await contentfulSource({
@@ -105,26 +105,15 @@ describe("contentfulSource", () => {
 			usePreviewApi: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = await source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
+		const data = await result.data;
 
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(1);
-
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeOk();
-
-		const content = data._unsafeUnwrap();
-		expect(content).toHaveLength(1);
-		expect(content[0]!.id).toBe("content.json");
-		expect(content[0]!.data.entries).toHaveLength(1);
-		expect(content[0]!.data.assets).toHaveLength(1);
+		expect(data.entries).toHaveLength(1);
+		expect(data.assets).toHaveLength(1);
 
 		// Check first entry
-		expect(content[0]!.data.entries[0]).toEqual({
+		expect(data.entries[0]).toEqual({
 			sys: { type: "Entry", contentType: { sys: { id: "article" } } },
 			fields: { title: "Test Entry" },
 		});
@@ -132,43 +121,46 @@ describe("contentfulSource", () => {
 
 	it("should fetch data with preview token", async () => {
 		server.use(
-			http.get("https://preview.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+			http.get(
+				"https://preview.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				if (skip > 0) {
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
-						includes: {},
-						total: 1,
-						skip,
-						limit: 1000,
-					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Preview Entry" },
-						},
-					],
-					includes: {
-						Asset: [
+						items: [
 							{
-								sys: { type: "Asset" },
-								fields: {
-									title: "Preview Asset",
-									file: { url: "//test.com/preview.jpg" },
-								},
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Preview Entry" },
 							},
 						],
-					},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+						includes: {
+							Asset: [
+								{
+									sys: { type: "Asset" },
+									fields: {
+										title: "Preview Asset",
+										file: { url: "//test.com/preview.jpg" },
+									},
+								},
+							],
+						},
+						total: 1,
+						skip: 0,
+						limit: 1000,
+					});
+				},
+			),
 		);
 
 		const source = await contentfulSource({
@@ -178,54 +170,41 @@ describe("contentfulSource", () => {
 			usePreviewApi: true,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
+		const data = await result.data;
 
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeOk();
-
-		const content = data._unsafeUnwrap();
-
-		expect(content).toMatchInlineSnapshot(`
-			[
-			  {
-			    "data": {
-			      "assets": [
-			        {
-			          "fields": {
-			            "file": {
-			              "url": "//test.com/preview.jpg",
-			            },
-			            "title": "Preview Asset",
-			          },
-			          "sys": {
-			            "type": "Asset",
-			          },
+		expect(data).toMatchInlineSnapshot(`
+			{
+			  "assets": [
+			    {
+			      "fields": {
+			        "file": {
+			          "url": "//test.com/preview.jpg",
 			        },
-			      ],
-			      "entries": [
-			        {
-			          "fields": {
-			            "title": "Preview Entry",
-			          },
-			          "sys": {
-			            "contentType": {
-			              "sys": {
-			                "id": "article",
-			              },
-			            },
-			            "type": "Entry",
-			          },
-			        },
-			      ],
+			        "title": "Preview Asset",
+			      },
+			      "sys": {
+			        "type": "Asset",
+			      },
 			    },
-			    "id": "content.json",
-			  },
-			]
+			  ],
+			  "entries": [
+			    {
+			      "fields": {
+			        "title": "Preview Entry",
+			      },
+			      "sys": {
+			        "contentType": {
+			          "sys": {
+			            "id": "article",
+			          },
+			        },
+			        "type": "Entry",
+			      },
+			    },
+			  ],
+			}
 		`);
 	});
 
@@ -243,17 +222,9 @@ describe("contentfulSource", () => {
 			retryOnError: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
-		expect(data._unsafeUnwrapErr().message).toContain("Error fetching page");
+		expect(result.data).rejects.toThrow();
 	});
 
 	it("should handle contentful errors array", async () => {
@@ -272,52 +243,47 @@ describe("contentfulSource", () => {
 			deliveryToken: "test-token",
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
-
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
-		expect(data._unsafeUnwrapErr().message).toContain("Invalid content type");
+		expect(result.data).rejects.toThrow();
 	});
 
 	it("should respect content type filtering", async () => {
 		server.use(
-			http.get("https://cdn.contentful.com/spaces/test-space/environments/master/entries", ({ request }) => {
-				const url = new URL(request.url);
-				const contentType = url.searchParams.get("sys.contentType.sys.id[in]");
+			http.get(
+				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
+				({ request }) => {
+					const url = new URL(request.url);
+					const contentType = url.searchParams.get("sys.contentType.sys.id[in]");
 
-				expect(contentType).toBe("article");
+					expect(contentType).toBe("article");
 
-				const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
 
-				if (skip > 0) {
+					if (skip > 0) {
+						return HttpResponse.json({
+							items: [],
+							includes: {},
+							total: 1,
+							skip,
+							limit: 1000,
+						});
+					}
+
 					return HttpResponse.json({
-						items: [],
+						items: [
+							{
+								sys: { type: "Entry", contentType: { sys: { id: "article" } } },
+								fields: { title: "Filtered Entry" },
+							},
+						],
 						includes: {},
 						total: 1,
-						skip,
+						skip: 0,
 						limit: 1000,
 					});
-				}
-
-				return HttpResponse.json({
-					items: [
-						{
-							sys: { type: "Entry", contentType: { sys: { id: "article" } } },
-							fields: { title: "Filtered Entry" },
-						},
-					],
-					includes: {},
-					total: 1,
-					skip: 0,
-					limit: 1000,
-				});
-			}),
+				},
+			),
 		);
 
 		const source = await contentfulSource({
@@ -328,18 +294,10 @@ describe("contentfulSource", () => {
 			retryOnError: false,
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
-		expect(result).toBeOk();
+		const data = await result.data;
 
-		const fetchPromises = result._unsafeUnwrap();
-		const data = await fetchPromises[0]!.dataPromise;
-
-		expect(data).toBeOk();
-
-		const content = data._unsafeUnwrap();
-		expect(content[0]!.data.entries.every((entry) => entry.sys.contentType.sys.id === "article")).toBe(true);
+		expect(data.entries.every((entry) => entry.sys.contentType.sys.id === "article")).toBe(true);
 	});
 });

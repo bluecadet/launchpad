@@ -1,5 +1,4 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
-import type { Result, ResultAsync } from "neverthrow";
 import type { DataStore } from "../utils/data-store.js";
 
 /**
@@ -11,24 +10,12 @@ export type SourceFetchResultDocument<T = unknown> = {
 	 */
 	id: string;
 	/**
-	 * serializable data fetched from the source
+	 * Either a promise returning a single document, or an async iterable returning multiple documents.
 	 */
-	data: T;
+	data: Promise<T> | AsyncIterable<T>;
 };
 
-/**
- * Represents a single fetch promise from a source, which can return multiple documents.
- */
-export type SourceFetchPromise<T = unknown> = {
-	/**
-	 * Id of the fetch request, used for logging and debugging
-	 */
-	id: string;
-	/**
-	 * Promise that resolves to an array of documents
-	 */
-	dataPromise: ResultAsync<Array<SourceFetchResultDocument<T>>, SourceFetchError | SourceParseError>;
-};
+export type FetchResult<T> = SourceFetchResultDocument<T>[] | SourceFetchResultDocument<T>;
 
 /**
  * Context object passed to the `fetch` method of a source.
@@ -47,50 +34,22 @@ export type FetchContext = {
 /**
  * Represents a single content source.
  */
-export type ContentSource<T = unknown> = {
+export type ContentSource<T = unknown, F extends FetchResult<T> = FetchResult<T>> = {
 	/**
 	 * Id of the source. This will be the 'namespace' for the documents fetched from this source.
 	 */
 	id: string;
-	fetch: (ctx: FetchContext) => Result<Array<SourceFetchPromise<T>>, SourceFetchError | SourceParseError>;
+	/**
+	 * Fetches the documents from the source. Returns either an array of documents or a single document.
+	 */
+	fetch: (ctx: FetchContext) => F;
 };
-
-/**
- * Represents a function that builds a content source.
- */
-export type ContentSourceBuilder<O, T = unknown> = (options: O) => ResultAsync<ContentSource<T>, SourceConfigError | SourceMissingDependencyError>;
 
 /**
  * This function doesn't do anything, just returns the source parameter. It's just to make it easier to define/type sources.
  */
-export function defineSource<T = unknown>(src: ContentSource<T>) {
+export function defineSource<T = unknown, F extends FetchResult<T> = FetchResult<T>>(
+	src: ContentSource<T, F>,
+) {
 	return src;
-}
-
-export class SourceFetchError extends Error {
-	constructor(message: string, { cause }: { cause?: unknown } = {}) {
-		super(message, { cause });
-		this.name = "SourceFetchError";
-	}
-}
-
-export class SourceConfigError extends Error {
-	constructor(message: string, { cause }: { cause?: unknown } = {}) {
-		super(message, { cause });
-		this.name = "SourceConfigError";
-	}
-}
-
-export class SourceParseError extends Error {
-	constructor(message: string, { cause }: { cause?: unknown } = {}) {
-		super(message, { cause });
-		this.name = "SourceParseError";
-	}
-}
-
-export class SourceMissingDependencyError extends Error {
-	constructor(message: string, { cause }: { cause?: unknown } = {}) {
-		super(message, { cause });
-		this.name = "SourceMissingDependencyError";
-	}
 }

@@ -23,6 +23,9 @@ export function content(argv: LaunchpadArgv) {
 export function importLaunchpadContent() {
 	return ResultAsync.fromPromise(
 		import("@bluecadet/launchpad-content"),
-		() => new ImportError('Could not find module "@bluecadet/launchpad-content". Make sure you have installed it.'),
+		() =>
+			new ImportError(
+				'Could not find module "@bluecadet/launchpad-content". Make sure you have installed it.',
+			),
 	);
 }

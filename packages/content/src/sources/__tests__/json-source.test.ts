@@ -4,7 +4,6 @@ import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
 import jsonSource from "../json-source.js";
-import { SourceFetchError, SourceParseError } from "../source.js";
 
 const server = setupServer();
 
@@ -23,7 +22,7 @@ afterEach(() => server.resetHandlers());
 function createFetchContext() {
 	return {
 		logger: createMockLogger(),
-		dataStore: new DataStore(),
+		dataStore: new DataStore("/"),
 	};
 }
 
@@ -46,26 +45,18 @@ describe("jsonSource", () => {
 			},
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
+		expect(result).toBeInstanceOf(Array);
+		expect(result).toHaveLength(2);
 
-		const result = await sourceValue.fetch(createFetchContext());
+		const data1 = await result[0]!.data;
+		const data2 = await result[1]!.data;
 
-		expect(result).toBeOk();
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(2);
-
-		const data1 = await fetchPromises[0]!.dataPromise;
-		const data2 = await fetchPromises[1]!.dataPromise;
-
-		expect(data1).toBeOk();
-		expect(data2).toBeOk();
-
-		expect(data1._unsafeUnwrap()).toEqual([{ id: "data1.json", data: { key: "value1" } }]);
-		expect(data2._unsafeUnwrap()).toEqual([{ id: "data2.json", data: { key: "value2" } }]);
+		expect(data1).toEqual({ key: "value1" });
+		expect(data2).toEqual({ key: "value2" });
 	});
 
-	it("should handle fetch errors", async () => {
+	it("should throw on fetch errors", async () => {
 		server.use(
 			http.get("https://api.example.com/error", () => {
 				return HttpResponse.error();
@@ -79,21 +70,15 @@ describe("jsonSource", () => {
 			},
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
+		expect(result).toHaveLength(1);
 
-		const result = await sourceValue.fetch(createFetchContext());
-
-		expect(result).toBeOk();
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(1);
-
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
+		expect(async () => {
+			await result[0]!.data;
+		}).rejects.toThrow();
 	});
 
-	it("should handle parse errors", async () => {
+	it("should throw on parse errors", async () => {
 		server.use(
 			http.get("https://api.example.com/invalid", () => {
 				return new HttpResponse("Invalid JSON", {
@@ -109,18 +94,13 @@ describe("jsonSource", () => {
 			},
 		});
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const result = source.fetch(createFetchContext());
 
-		const result = await sourceValue.fetch(createFetchContext());
+		expect(result).toHaveLength(1);
 
-		expect(result).toBeOk();
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(1);
-
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceParseError);
+		expect(async () => {
+			await result[0]!.data;
+		}).rejects.toThrow();
 	});
 
 	it("should respect the maxTimeout option", async () => {
@@ -138,25 +118,18 @@ describe("jsonSource", () => {
 			},
 			maxTimeout: 1000,
 		});
+		const result = source.fetch(createFetchContext());
 
-		expect(source).toBeOk();
-		const sourceValue = source._unsafeUnwrap();
+		const promise = result[0]!.data;
 
-		const result = await sourceValue.fetch(createFetchContext());
+		expect(promise).rejects.toThrow();
 
-		vi.advanceTimersByTime(1000);
+		// Need to run the timer and wait for the rejection
+		await vi.runAllTimersAsync();
+	});
 
-		expect(result).toBeOk();
-		const fetchPromises = result._unsafeUnwrap();
-		expect(fetchPromises).toHaveLength(1);
-
-		const data = await fetchPromises[0]!.dataPromise;
-		expect(data).toBeErr();
-		expect(data._unsafeUnwrapErr()).toBeInstanceOf(SourceFetchError);
-		expect(data._unsafeUnwrapErr().message).toContain("Could not fetch json from https://api.example.com/slow");
-		// @ts-expect-error cause is unknown
-		expect(data._unsafeUnwrapErr().cause.message).toContain("Error during request");
-		// @ts-expect-error cause is unknown
-		expect(data._unsafeUnwrapErr().cause.cause.message).toContain("Request timed out");
+	it("should throw on incomplete config", async () => {
+		// @ts-expect-error - incomplete config
+		expect(() => jsonSource({})).toThrow();
 	});
 });

@@ -3,7 +3,12 @@ import path from "node:path";
 import url from "node:url";
 import chalk from "chalk";
 
-const DEFAULT_CONFIG_PATHS = ["launchpad.config.js", "launchpad.config.mjs", "launchpad.json", "config.json"];
+const DEFAULT_CONFIG_PATHS = [
+	"launchpad.config.js",
+	"launchpad.config.mjs",
+	"launchpad.json",
+	"config.json",
+];
 
 function getProcessDirname(importMeta?: ImportMeta) {
 	return importMeta ? path.dirname(url.fileURLToPath(importMeta.url)) : "";
@@ -17,7 +22,10 @@ function getProcessDirname(importMeta?: ImportMeta) {
  * @param importMeta The import.meta property of the file at your base directory.
  * @returns The parsed config object or null if none can be found
  */
-export async function importJsConfig<T>(paths: string[], importMeta?: ImportMeta): Promise<Partial<T> | null> {
+export async function importJsConfig<T>(
+	paths: string[],
+	importMeta?: ImportMeta,
+): Promise<Partial<T> | null> {
 	const __dirname = getProcessDirname(importMeta);
 	for (const configPath of paths) {
 		const fileUrl = url.pathToFileURL(path.join(__dirname, configPath));

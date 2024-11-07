@@ -1,8 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
-import { type ResultAsync, errAsync, okAsync } from "neverthrow";
-import { SourceFetchError } from "../sources/source.js";
 
-export type FetchPaginatedOptions<T> = {
+export type FetchPaginatedOptions<T, Merge extends boolean> = {
 	/**
 	 * The number of items to fetch per page
 	 */
@@ -14,55 +12,49 @@ export type FetchPaginatedOptions<T> = {
 	/**
 	 * A function that takes a params object and returns a ResultAsync of an array of T. To indicate the end of pagination, return an empty array, or null.
 	 */
-	fetchPageFn: (params: { limit: number; offset: number }) => ResultAsync<T | null, SourceFetchError>;
+	fetchPageFn: (params: { limit: number; offset: number }) => Promise<T | null>;
 	/**
 	 * A logger instance
 	 */
 	logger: Logger;
+	/**
+	 * Whether to merge pages into a single array. Defaults to false.
+	 */
+	mergePages?: Merge;
 };
 
-export type FetchPaginatedResult<T, M> = ResultAsync<M extends undefined ? { pages: Array<T> } : { pages: Array<T>; meta: M }, SourceFetchError>;
-
 /**
- * Handles paginated fetching
- * @template {unknown} T
- * @template {unknown} [M=undefined]
- * @param {M extends undefined ? FetchPaginatedOptions<T> : FetchPaginatedOptions<T> & {meta: M}} options
- * @returns {FetchPaginatedResult<T, M>}
+ * Handles paginated fetching. Returns an async iterable, unless mergePages is true in which case it returns a flattened array.
  */
-export function fetchPaginated<T, M = undefined>({
+export function fetchPaginated<T, Merge extends boolean = false>({
 	fetchPageFn,
 	limit,
 	logger,
 	maxFetchCount = 1000,
-	...rest
-}: FetchPaginatedOptions<T> & { meta?: M }): FetchPaginatedResult<T, M> {
-	const pages: Array<T> = [];
-	let page = 0;
+	mergePages,
+}: FetchPaginatedOptions<T, Merge>): Merge extends true ? Promise<T[]> : AsyncGenerator<T> {
+	async function* generator() {
+		for (let i = 0; i < maxFetchCount; i++) {
+			logger.debug(`Fetching page ${i}`);
+			const data = await fetchPageFn({ limit, offset: i * limit });
 
-	const fetchNextPage: () => ResultAsync<T | null, SourceFetchError> = () => {
-		logger.debug(`Fetching page ${page}`);
-		return fetchPageFn({ limit, offset: page * limit }).andThen((data) => {
 			if (data === null || (Array.isArray(data) && data.length === 0)) {
-				return okAsync(null);
-			}
-			pages.push(data);
-			page++;
-
-			if (page >= maxFetchCount) {
-				return errAsync(new SourceFetchError("Maximum fetch count reached. This is likely a bug. Make sure your fetchPageFn ret"));
+				return;
 			}
 
-			return fetchNextPage();
-		});
-	};
-
-	return fetchNextPage().andThen(() => {
-		if ("meta" in rest) {
-			// Have to cast to FetchPaginatedResult<T, M> because TS gets confused by the 'M extends undefined ?'... stuff
-			return okAsync({ pages, meta: rest.meta }) as FetchPaginatedResult<T, M>;
+			yield data as T;
 		}
-		// Have to cast to FetchPaginatedResult<T, M> because TS gets confused by the 'M extends undefined ?'... stuff
-		return okAsync({ pages }) as FetchPaginatedResult<T, M>;
-	});
+	}
+
+	return (mergePages ? getFlattened(generator()) : generator()) as Merge extends true
+		? Promise<T[]>
+		: AsyncGenerator<T>;
+}
+
+async function getFlattened<T>(generator: AsyncGenerator<T>) {
+	const pages: T[] = [];
+	for await (const page of generator) {
+		pages.push(page);
+	}
+	return pages.flat(1);
 }

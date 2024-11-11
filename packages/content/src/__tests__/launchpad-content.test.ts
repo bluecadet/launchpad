@@ -1,11 +1,10 @@
 import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
-import { ok, okAsync } from "neverthrow";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveContentConfig } from "../content-config.js";
 import { ContentError, type ContentPlugin } from "../content-plugin-driver.js";
-import { LaunchpadContent } from "../launchpad-content.js";
+import LaunchpadContent from "../launchpad-content.js";
 import { defineSource } from "../sources/source.js";
 
 describe("LaunchpadContent", () => {

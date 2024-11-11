@@ -55,8 +55,6 @@ export const onExit = (
 	callbacks.push({ callback, once, includeUncaught });
 };
 
-export default onExit;
-
 /** @internal */
 export function _reset(): void {
 	didTrigger = false;

@@ -8,7 +8,7 @@ export function monitor(argv: LaunchpadArgv) {
 		.andThen(initializeLogger)
 		.andThen(({ config, rootLogger }) => {
 			return importLaunchpadMonitor()
-				.andThen(({ LaunchpadMonitor }) => {
+				.andThen(({ default: LaunchpadMonitor }) => {
 					if (!config.monitor) {
 						return err(new Error("No monitor config found in your config file."));
 					}

@@ -56,7 +56,7 @@ export function handleFatalError(error: Error, rootLogger: Logger): never {
 	process.exit(1);
 }
 
-export function logFullErrorChain(logger: Logger, error: Error) {
+function logFullErrorChain(logger: Logger, error: Error) {
 	let currentError: Error | undefined = error;
 	while (currentError) {
 		logger.error(

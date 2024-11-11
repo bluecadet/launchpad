@@ -222,7 +222,7 @@ class SingleDocument<T = unknown> extends Document<T> {
  * A batch of documents. This is a wrapper around a list of {@link SingleDocument}s that provides the same api for updating all documents in the batch.
  * This is useful for sources that return a list of documents via pagination.
  */
-export class BatchDocument<T = unknown> extends Document<T> {
+class BatchDocument<T = unknown> extends Document<T> {
 	#documents: Array<SingleDocument<T>> = [];
 
 	/**

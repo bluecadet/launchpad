@@ -10,37 +10,6 @@ const DEFAULT_CONFIG_PATHS = [
 	"config.json",
 ];
 
-function getProcessDirname(importMeta?: ImportMeta) {
-	return importMeta ? path.dirname(url.fileURLToPath(importMeta.url)) : "";
-}
-
-/**
- * Imports a JS config from a set of paths. The JS files have to export
- * its config as the default export. Will return the first config found.
- * @template T config type
- * @param paths
- * @param importMeta The import.meta property of the file at your base directory.
- * @returns The parsed config object or null if none can be found
- */
-export async function importJsConfig<T>(
-	paths: string[],
-	importMeta?: ImportMeta,
-): Promise<Partial<T> | null> {
-	const __dirname = getProcessDirname(importMeta);
-	for (const configPath of paths) {
-		const fileUrl = url.pathToFileURL(path.join(__dirname, configPath));
-		try {
-			if (fs.existsSync(fileUrl)) {
-				console.log(`Importing JS config from ${fileUrl}`);
-				return (await import(fileUrl.toString())).default;
-			}
-		} catch (err) {
-			console.warn(`Could not import JS config from ${fileUrl}`, err);
-		}
-	}
-	return null;
-}
-
 /**
  * Searches for a config file in the current and parent directories, up to a max depth of 64.
  * @returns {string | null} Absolute path to the config file or null if none can be found.

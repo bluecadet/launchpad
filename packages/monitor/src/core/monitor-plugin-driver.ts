@@ -7,7 +7,7 @@ import {
 import type pm2 from "pm2";
 import type LaunchpadMonitor from "../launchpad-monitor.js";
 
-export type MonitorHookContext = {
+type MonitorHookContext = {
 	/**
 	 * the monitor instance
 	 */
@@ -61,7 +61,16 @@ export type MonitorHooks = {
 	beforeShutdown: (ctx: CombinedMonitorHookContext, arg: { code?: number }) => Promise<void> | void;
 };
 
-export type MonitorPlugin = Plugin<MonitorHooks>;
+export type MonitorPlugin<T extends Partial<MonitorHooks> = Partial<MonitorHooks>> = Plugin<
+	MonitorHooks,
+	T
+>;
+
+export function defineMonitorPlugin<T extends Partial<MonitorHooks>>(
+	plugin: MonitorPlugin<T>,
+): MonitorPlugin<T> {
+	return plugin;
+}
 
 export class MonitorPluginDriver extends HookContextProvider<MonitorHooks, MonitorHookContext> {
 	/**

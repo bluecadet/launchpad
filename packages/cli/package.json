@@ -52,7 +52,6 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/cli",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.0.0-next.2",
-    "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "dotenv": "^16.4.5",
     "neverthrow": "^8.1.1",

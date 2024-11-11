@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { Result, ResultAsync, err, ok } from "neverthrow";
 import PQueue from "p-queue";
 
-export type ResultAsyncTaskOptions = {
+type ResultAsyncTaskOptions = {
 	signal?: AbortSignal;
 };
 

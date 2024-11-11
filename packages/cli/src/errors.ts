@@ -1,4 +1,4 @@
-export class LaunchpadCLIError extends Error {
+class LaunchpadCLIError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "LaunchpadCLIError";

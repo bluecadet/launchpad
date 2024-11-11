@@ -4,7 +4,7 @@ import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { LaunchpadContent } from "../launchpad-content.js";
+import LaunchpadContent from "../launchpad-content.js";
 import mdToHtml from "../plugins/md-to-html.js";
 import mediaDownloader from "../plugins/media-downloader.js";
 import sanityToHtml from "../plugins/sanity-to-html.js";

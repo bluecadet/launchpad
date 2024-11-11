@@ -13,10 +13,10 @@ import {
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
-import { DataStore, type DataStoreError } from "./utils/data-store.js";
+import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 
-export class LaunchpadContent {
+class LaunchpadContent {
 	_config: ResolvedContentConfig;
 	_logger: Logger;
 	_pluginDriver: ContentPluginDriver;

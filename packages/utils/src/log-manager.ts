@@ -25,7 +25,7 @@ const DEFAULT_LOG_FORMAT = winston.format.combine(
 	}),
 );
 
-export interface LogFileConfig {
+interface LogFileConfig {
 	format?: winston.Logform.Format;
 	extension?: string;
 	dirname?: string;
@@ -52,7 +52,7 @@ interface ResolvedLogFileConfig {
 	datePattern: string;
 }
 
-export interface LaunchpadLogConfig {
+interface LaunchpadLogConfig {
 	filename?: string;
 	fileOptions?: LogFileConfig;
 	level?: string;
@@ -181,5 +181,3 @@ export class LogManager {
 		Object.freeze(console);
 	}
 }
-
-export default LogManager;

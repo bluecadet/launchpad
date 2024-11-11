@@ -20,7 +20,7 @@ export function safeKy(input: Input, options?: Options): SafeKyResultAsync {
 	return SafeKyResultAsync.fromRequest(req);
 }
 
-export type SafeKyResponseResult<T = unknown> = Omit<
+type SafeKyResponseResult<T = unknown> = Omit<
 	KyResponse<T>,
 	"json" | "text" | "arrayBuffer" | "blob"
 > & {

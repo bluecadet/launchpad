@@ -14,7 +14,7 @@ import {
 	resolveMonitorConfig,
 } from "./monitor-config.js";
 
-export class LaunchpadMonitor {
+class LaunchpadMonitor {
 	_config: ResolvedMonitorConfig;
 	_logger: Logger;
 	_processManager: ProcessManager;

@@ -183,7 +183,7 @@ export function downloadFile(
 		});
 }
 
-export function downloadMedia(
+function downloadMedia(
 	url: string,
 	tempDir: string,
 	destDir: string,
@@ -243,7 +243,7 @@ export async function findMediaUrls(
 	return returnUrls;
 }
 
-export function setupDownloadDirectories(
+function setupDownloadDirectories(
 	ctx: ContentHookContext,
 	config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<void, FileSystemError> {
@@ -256,7 +256,7 @@ export function setupDownloadDirectories(
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
 
-export function cleanupAfterDownload(
+function cleanupAfterDownload(
 	ctx: ContentHookContext,
 	config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<void, FileSystemError> {

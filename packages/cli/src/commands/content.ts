@@ -8,7 +8,7 @@ export function content(argv: LaunchpadArgv) {
 		.andThen(initializeLogger)
 		.andThen(({ config, rootLogger }) => {
 			return importLaunchpadContent()
-				.andThen(({ LaunchpadContent }) => {
+				.andThen(({ default: LaunchpadContent }) => {
 					if (!config.content) {
 						return err(new Error("No content config found in your config file."));
 					}

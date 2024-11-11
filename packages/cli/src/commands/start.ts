@@ -10,7 +10,7 @@ export async function start(argv: LaunchpadArgv) {
 		.andThen(initializeLogger)
 		.andThen(({ config, rootLogger }) => {
 			return importLaunchpadContent()
-				.andThen(({ LaunchpadContent }) => {
+				.andThen(({ default: LaunchpadContent }) => {
 					if (!config.content) {
 						return err(new Error("No content config found in your config file."));
 					}
@@ -19,7 +19,7 @@ export async function start(argv: LaunchpadArgv) {
 					return contentInstance.start();
 				})
 				.andThen(() => importLaunchpadMonitor())
-				.andThen(({ LaunchpadMonitor }) => {
+				.andThen(({ default: LaunchpadMonitor }) => {
 					if (!config.monitor) {
 						return err(new Error("No monitor config found in your config file."));
 					}

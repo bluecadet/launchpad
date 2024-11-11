@@ -37,7 +37,6 @@
     "markdown-it": "^12.3.2",
     "neverthrow": "^8.0.0",
     "p-queue": "^7.1.0",
-    "path-scurry": "^2.0.0",
     "qs": "^6.11.1",
     "sanitize-html": "^2.5.1",
     "zod": "^3.23.8"
@@ -51,10 +50,8 @@
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/markdown-it": "^12.2.0",
-    "@types/progress-stream": "^2.0.2",
     "@types/qs": "^6.9.7",
     "@types/sanitize-html": "^2.9.0",
-    "@types/sharp": "^0.30.5",
     "memfs": "^4.14.0",
     "msw": "^2.5.1",
     "vitest": "^2.1.3"

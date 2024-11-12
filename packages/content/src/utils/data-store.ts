@@ -3,6 +3,7 @@ import path from "node:path";
 import { JSONPath } from "jsonpath-plus";
 import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import { ensureDir } from "./file-utils.js";
+import { z } from "zod";
 
 export class DataStoreError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -14,7 +15,19 @@ export class DataStoreError extends Error {
 /**
  * A list containing a combination of namespace ids, and namespace/document id tuples.
  */
-export type DataKeys = Array<string | [string] | [string, string]>;
+export const dataKeysSchema = z
+	.array(
+		z
+			.string()
+			.or(z.tuple([z.string()]))
+			.or(z.tuple([z.string(), z.string()])),
+	)
+	.describe("A list containing a combination of namespace ids, and namespace/document id tuples.");
+
+/**
+ * A list containing a combination of namespace ids, and namespace/document id tuples.
+ */
+export type DataKeys = z.infer<typeof dataKeysSchema>;
 
 /**
  * A document represents a single file or resource.

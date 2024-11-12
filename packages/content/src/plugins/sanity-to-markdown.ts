@@ -2,16 +2,19 @@
 import toMarkdown from "@sanity/block-content-to-markdown";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import type { DataKeys } from "../utils/data-store.js";
+import { dataKeysSchema } from "../utils/data-store.js";
+import { z } from "zod";
 
-type SanityToMarkdownOptions = {
+const sanityToMdSchema = z.object({
 	/** JSONPath to the content to transform */
-	path: string;
+	path: z.string().describe("JSONPath to the content to transform"),
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys?: DataKeys;
-};
+	keys: dataKeysSchema.optional(),
+});
 
-export default function sanityToMd({ path, keys }: SanityToMarkdownOptions) {
+export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
+	const { path, keys } = sanityToMdSchema.parse(options);
+
 	return defineContentPlugin({
 		name: "sanity-to-markdown",
 		hooks: {

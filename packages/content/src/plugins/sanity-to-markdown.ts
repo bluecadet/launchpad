@@ -1,9 +1,9 @@
 // @ts-expect-error - no types from this lib
 import toMarkdown from "@sanity/block-content-to-markdown";
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
-import { z } from "zod";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const sanityToMdSchema = z.object({

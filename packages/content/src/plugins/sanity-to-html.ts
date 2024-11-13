@@ -1,9 +1,9 @@
 import { toHTML } from "@portabletext/to-html";
 
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
-import { z } from "zod";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const sanityToHtmlSchema = z.object({

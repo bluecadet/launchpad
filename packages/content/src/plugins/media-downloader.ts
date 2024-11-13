@@ -107,9 +107,9 @@ export function checkCacheStatus(
 		.andThen((exists) =>
 			exists
 				? ResultAsync.fromPromise(
-					fs.promises.lstat(destPath),
-					(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
-				)
+						fs.promises.lstat(destPath),
+						(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
+					)
 				: okAsync(null),
 		)
 		.map((stats) => {
@@ -251,8 +251,8 @@ function setupDownloadDirectories(
 	return (
 		config.forceClearTempFiles
 			? FileUtils.remove(ctx.paths.getTempPath()).andThen(() =>
-				FileUtils.ensureDir(ctx.paths.getTempPath()),
-			)
+					FileUtils.ensureDir(ctx.paths.getTempPath()),
+				)
 			: FileUtils.ensureDir(ctx.paths.getTempPath())
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
@@ -267,7 +267,11 @@ function cleanupAfterDownload(
 }
 
 export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
-	const configWithDefaults = parsePluginConfig("mediaDownloader", mediaDownloaderConfigSchema, config);
+	const configWithDefaults = parsePluginConfig(
+		"mediaDownloader",
+		mediaDownloaderConfigSchema,
+		config,
+	);
 
 	return defineContentPlugin({
 		name: "media-downloader",

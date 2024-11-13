@@ -6,10 +6,10 @@ import { ResultAsync, err, ok, okAsync } from "neverthrow";
 import {
 	type ConfigContentSource,
 	type ContentConfig,
-	contentConfigSchema,
 	DOWNLOAD_PATH_TOKEN,
 	type ResolvedContentConfig,
 	TIMESTAMP_TOKEN,
+	contentConfigSchema,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";

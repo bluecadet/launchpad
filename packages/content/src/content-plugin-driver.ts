@@ -1,12 +1,12 @@
 import {
 	type BaseHookContext,
 	HookContextProvider,
+	createPluginValidator,
 	type Plugin,
 	type PluginDriver,
 } from "@bluecadet/launchpad-utils";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
-import { createPluginValidator } from "../../utils/src/plugin-driver.js";
 
 export class ContentError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

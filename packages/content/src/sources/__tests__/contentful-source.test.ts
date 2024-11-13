@@ -107,7 +107,10 @@ describe("contentfulSource", () => {
 
 		const result = await source.fetch(createFetchContext());
 
-		const data = await result.data;
+		const data = await result.data as {
+			entries: any[];
+			assets: any[];
+		};
 
 		expect(data.entries).toHaveLength(1);
 		expect(data.assets).toHaveLength(1);
@@ -296,7 +299,10 @@ describe("contentfulSource", () => {
 
 		const result = source.fetch(createFetchContext());
 
-		const data = await result.data;
+		const data = await result.data as {
+			entries: any[];
+			assets: any[];
+		};
 
 		expect(data.entries.every((entry) => entry.sys.contentType.sys.id === "article")).toBe(true);
 	});

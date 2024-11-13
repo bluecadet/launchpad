@@ -1,6 +1,6 @@
 {
   "name": "launchpad",
-  "private": "true",
+  "private": true,
   "version": "0.0.1",
   "description": "monorepo for @bluecadet/launchpad and friends",
   "scripts": {
@@ -32,10 +32,12 @@
     "@changesets/changelog-github": "^0.4.6",
     "@changesets/cli": "^2.23.0",
     "@types/node": "^20.3.1",
+    "sherif": "^1.0.1",
     "typescript": "^5.1.3",
     "vitest": "^2.1.4"
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "npm@10.9.0"
 }

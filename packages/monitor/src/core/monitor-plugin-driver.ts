@@ -6,6 +6,7 @@ import {
 } from "@bluecadet/launchpad-utils";
 import type pm2 from "pm2";
 import type LaunchpadMonitor from "../launchpad-monitor.js";
+import { createPluginValidator } from "@bluecadet/launchpad-utils";
 
 type MonitorHookContext = {
 	/**
@@ -71,6 +72,21 @@ export function defineMonitorPlugin<T extends Partial<MonitorHooks>>(
 ): MonitorPlugin<T> {
 	return plugin;
 }
+
+export const monitorPluginSchema = createPluginValidator<MonitorHooks>([
+	"beforeConnect",
+	"afterConnect",
+	"beforeDisconnect",
+	"afterDisconnect",
+	"beforeAppStart",
+	"afterAppStart",
+	"beforeAppStop",
+	"afterAppStop",
+	"onAppError",
+	"onAppLog",
+	"onAppErrorLog",
+	"beforeShutdown",
+]);
 
 export class MonitorPluginDriver extends HookContextProvider<MonitorHooks, MonitorHookContext> {
 	/**

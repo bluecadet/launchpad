@@ -35,7 +35,8 @@
     "node-window-manager": "^2.2.4",
     "pm2": "^5.1.2",
     "semver": "^7.3.5",
-    "tail": "^2.2.4"
+    "tail": "^2.2.4",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",

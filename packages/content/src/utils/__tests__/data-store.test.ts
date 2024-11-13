@@ -31,6 +31,8 @@ describe("SingleDocument", () => {
 			"utf-8",
 		);
 		expect(JSON.parse(fileContent.toString())).toEqual({ content: "test content" });
+
+		expect(await docResult._unsafeUnwrap()._read()).toMatchObject({ content: "test content" });
 	});
 
 	it("should create backup file on first modification", async () => {

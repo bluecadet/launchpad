@@ -38,20 +38,32 @@ const logFileConfigSchema = z.object({
 	/** The maximum number of log files to keep. */
 	maxFiles: z.string().default("28d").describe("The maximum number of log files to keep."),
 	/** The pattern for the date in the log file name. */
-	datePattern: z.string().default(FILE_TIMESTAMP_FORMAT).describe("The pattern for the date in the log file name."),
+	datePattern: z
+		.string()
+		.default(FILE_TIMESTAMP_FORMAT)
+		.describe("The pattern for the date in the log file name."),
 });
 
 export const logConfigSchema = z.object({
 	/** The filename for the log files. */
-	filename: z.string().default(`${DATE_KEY}-${LOG_TYPE_KEY}`).describe("The filename for the log files."),
+	filename: z
+		.string()
+		.default(`${DATE_KEY}-${LOG_TYPE_KEY}`)
+		.describe("The filename for the log files."),
 	/** The options for the log files. */
 	fileOptions: logFileConfigSchema.default({}).describe("The options for the log files."),
 	/** The log level for the logger. */
 	level: z.string().default("info").describe("The log level for the logger."),
 	/** The format for how each line is logged in the console. This should be a winston.Logform.Format class instance. */
-	format: z.any().default(DEFAULT_LOG_FORMAT).describe("The format for how each line is logged in the console."),
+	format: z
+		.any()
+		.default(DEFAULT_LOG_FORMAT)
+		.describe("The format for how each line is logged in the console."),
 	/** Whether to override the console methods. */
-	overrideConsole: z.boolean().default(process.env.NODE_ENV !== "test").describe("Whether to override the console methods."),
+	overrideConsole: z
+		.boolean()
+		.default(process.env.NODE_ENV !== "test")
+		.describe("Whether to override the console methods."),
 });
 
 export type LogConfig = z.input<typeof logConfigSchema>;

@@ -7,7 +7,7 @@ import AppLogRouter from "../app-log-router.js";
 import { createMockSubEmitterSocket } from "./core.test-utils.js";
 
 vi.mock("@bluecadet/launchpad-utils", async (importOriginal) => {
-	const original = await importOriginal() as typeof import("@bluecadet/launchpad-utils");
+	const original = (await importOriginal()) as typeof import("@bluecadet/launchpad-utils");
 
 	return {
 		...original,

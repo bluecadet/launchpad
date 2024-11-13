@@ -1,6 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
-import type { DataStore } from "../utils/data-store.js";
 import { z } from "zod";
+import type { DataStore } from "../utils/data-store.js";
 
 /**
  * Context object passed to the `fetch` method of a source.
@@ -64,8 +64,6 @@ export type ContentSource = z.infer<typeof contentSourceSchema>;
 /**
  * This function doesn't do anything, just returns the source parameter. It's just to make it easier to define/type sources.
  */
-export function defineSource<T extends ContentSource>(
-	src: T,
-): T {
+export function defineSource<T extends ContentSource>(src: T): T {
 	return src;
 }

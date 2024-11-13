@@ -107,7 +107,7 @@ describe("contentfulSource", () => {
 
 		const result = await source.fetch(createFetchContext());
 
-		const data = await result.data as {
+		const data = (await result.data) as {
 			entries: any[];
 			assets: any[];
 		};
@@ -299,7 +299,7 @@ describe("contentfulSource", () => {
 
 		const result = source.fetch(createFetchContext());
 
-		const data = await result.data as {
+		const data = (await result.data) as {
 			entries: any[];
 			assets: any[];
 		};

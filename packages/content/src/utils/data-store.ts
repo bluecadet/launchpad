@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { JSONPath } from "jsonpath-plus";
 import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
-import { ensureDir } from "./file-utils.js";
 import { z } from "zod";
+import { ensureDir } from "./file-utils.js";
 
 export class DataStoreError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -178,9 +178,9 @@ class SingleDocument<T = unknown> extends Document<T> {
 	}
 
 	async #write(data: T, handle?: fs.FileHandle) {
-		const writeHandle = handle ?? await this.#getHandle();
+		const writeHandle = handle ?? (await this.#getHandle());
 		const dataStr = JSON.stringify(data);
-		const buffer = Buffer.from(dataStr, 'utf-8');
+		const buffer = Buffer.from(dataStr, "utf-8");
 		await writeHandle.truncate(0); // truncate the file to 0 bytes
 		await writeHandle.write(buffer, 0, buffer.length, 0);
 		this.#lastWriteSize = buffer.length;

@@ -1,21 +1,28 @@
 import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
-import type { DataKeys } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
-type MdToHtmlOptions = {
+const mdToHtmlSchema = z.object({
 	/** JSONPath to the content to transform */
-	path: string;
+	path: z.string().describe("JSONPath to the content to transform"),
 	/** Enable for single paragraph content, will render inline */
-	simplified?: boolean;
-	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys?: DataKeys;
-};
+	simplified: z
+		.boolean()
+		.describe("Enable for single paragraph content, will render inline")
+		.default(false),
+	/** Data keys to apply the transform to. If not provided, all keys will be transformed */
+	keys: dataKeysSchema.optional(),
+});
 
-export default function mdToHtml({ path, simplified = false, keys }: MdToHtmlOptions) {
+export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
+	const { path, keys, simplified } = parsePluginConfig("mdToHtml", mdToHtmlSchema, options);
+
 	return defineContentPlugin({
 		name: "md-to-html",
 		hooks: {

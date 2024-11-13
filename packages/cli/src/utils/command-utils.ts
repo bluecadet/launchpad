@@ -2,6 +2,7 @@ import path from "node:path";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { ResultAsync, err, errAsync, ok } from "neverthrow";
+import { ZodError } from "zod";
 import type { LaunchpadArgv } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
@@ -40,7 +41,10 @@ export function loadConfigAndEnv(
 
 	return ResultAsync.fromPromise(
 		loadConfigFromFile(configPath),
-		(e) => new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`),
+		(e) =>
+			new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`, {
+				cause: e,
+			}),
 	).map((config) => resolveLaunchpadConfig(config));
 }
 
@@ -50,17 +54,21 @@ export function initializeLogger(config: ResolvedLaunchpadOptions) {
 	return ok({ config, rootLogger });
 }
 
-export function handleFatalError(error: Error, rootLogger: Logger): never {
-	rootLogger.error("Content failed to download.");
+export function handleFatalError(error: Error, rootLogger: Logger | Console): never {
 	logFullErrorChain(rootLogger, error);
 	process.exit(1);
 }
 
-function logFullErrorChain(logger: Logger, error: Error) {
+function logFullErrorChain(logger: Logger | Console, error: Error) {
 	let currentError: Error | undefined = error;
+
+	logger.error("");
+	logger.error(`${chalk.red.bold("Full error chain:")}`);
+	logger.error("");
+
 	while (currentError) {
 		logger.error(
-			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(currentError.message)}`,
+			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(getPrettyMessage(currentError))}`,
 		);
 		const callstack = currentError.stack;
 		// logger.error(`${chalk.red(callstack ? '│' : '└')} `);
@@ -91,4 +99,29 @@ function logFullErrorChain(logger: Logger, error: Error) {
 			currentError = undefined;
 		}
 	}
+
+	logger.error("");
+}
+
+function getPrettyMessage(e: Error): string {
+	if (e instanceof ZodError) {
+		return formatZodError(e);
+	}
+
+	return e.message;
+}
+
+function formatZodError(e: ZodError): string {
+	return e.errors
+		.map((issue) => {
+			const path = issue.path.length ? `property "${issue.path.join(".")}"` : "<root>";
+			let additionalInfo = "";
+
+			if ("expected" in issue) {
+				additionalInfo = ` (expected: ${issue.expected}, received: ${issue.received})`;
+			}
+
+			return `${path}: ${issue.message}${additionalInfo}`;
+		})
+		.join("\n");
 }

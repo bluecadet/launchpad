@@ -9,7 +9,7 @@ import {
 	DOWNLOAD_PATH_TOKEN,
 	type ResolvedContentConfig,
 	TIMESTAMP_TOKEN,
-	resolveContentConfig,
+	contentConfigSchema,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
@@ -25,7 +25,7 @@ class LaunchpadContent {
 	_dataStore: DataStore;
 
 	constructor(config: ContentConfig, parentLogger: Logger) {
-		this._config = resolveContentConfig(config);
+		this._config = contentConfigSchema.parse(config);
 
 		this._logger = LogManager.getLogger("content", parentLogger);
 

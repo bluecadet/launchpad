@@ -1,17 +1,21 @@
 // @ts-expect-error - no types from this lib
 import toMarkdown from "@sanity/block-content-to-markdown";
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import type { DataKeys } from "../utils/data-store.js";
+import { dataKeysSchema } from "../utils/data-store.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
-type SanityToMarkdownOptions = {
+const sanityToMdSchema = z.object({
 	/** JSONPath to the content to transform */
-	path: string;
+	path: z.string().describe("JSONPath to the content to transform"),
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys?: DataKeys;
-};
+	keys: dataKeysSchema.optional(),
+});
 
-export default function sanityToMd({ path, keys }: SanityToMarkdownOptions) {
+export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
+	const { path, keys } = parsePluginConfig("sanityToMd", sanityToMdSchema, options);
+
 	return defineContentPlugin({
 		name: "sanity-to-markdown",
 		hooks: {

@@ -2,7 +2,7 @@ import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveContentConfig } from "../content-config.js";
+import { contentConfigSchema } from "../content-config.js";
 import { ContentError, type ContentPlugin } from "../content-plugin-driver.js";
 import LaunchpadContent from "../launchpad-content.js";
 import { defineSource } from "../sources/source.js";
@@ -36,21 +36,6 @@ describe("LaunchpadContent", () => {
 			plugins,
 		};
 	};
-
-	describe("constructor", () => {
-		it("should initialize with default options when no config provided", () => {
-			const content = new LaunchpadContent({}, createMockLogger());
-			expect(content).toBeInstanceOf(LaunchpadContent);
-			expect(content._config).toEqual(resolveContentConfig({}));
-		});
-
-		it("should initialize with provided config", () => {
-			const config = createBasicConfig();
-			const content = new LaunchpadContent(config, createMockLogger());
-			expect(content).toBeInstanceOf(LaunchpadContent);
-			expect(content._config).toEqual(resolveContentConfig(config));
-		});
-	});
 
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {

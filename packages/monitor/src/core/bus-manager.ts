@@ -26,7 +26,7 @@ export class BusManager {
 
 		this.#appConfigs.set(appName, appConfig);
 
-		if (appConfig.logging.mode === LogModes.TailLogFile) {
+		if (appConfig.logging.mode === LogModes.file) {
 			this._setupFileTailing(appConfig);
 		}
 	}
@@ -159,7 +159,7 @@ export class BusManager {
 			}
 
 			// Handle log events for bus mode
-			if (appConfig.logging.mode === LogModes.LogBusEvents) {
+			if (appConfig.logging.mode === LogModes.bus) {
 				if (eventType === "log:out" && appConfig.logging.showStdout) {
 					this.#handleBusLogOut(appName, eventData);
 				} else if (eventType === "log:err" && appConfig.logging.showStderr) {
@@ -178,7 +178,7 @@ export class BusManager {
 
 	#handleProcessOnline(appName: string) {
 		const appConfig = this.#appConfigs.get(appName);
-		if (appConfig?.logging.mode === LogModes.TailLogFile) {
+		if (appConfig?.logging.mode === LogModes.file) {
 			this._setupFileTailing(appConfig);
 		}
 	}

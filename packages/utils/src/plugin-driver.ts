@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { ResultAsync, okAsync } from "neverthrow";
+import { z } from "zod";
 import type { Logger } from "./log-manager.js";
 import { onExit } from "./on-exit.js";
 
@@ -46,6 +47,18 @@ type Tail<T extends unknown[]> = T extends [unknown, ...infer R] ? R : [];
 type KeysWithFullContext<T extends HookSet, C> = {
 	[K in keyof T]: C extends Parameters<T[K]>[0] ? K : never;
 }[keyof T];
+
+export function createPluginValidator<T extends HookSet>(validHookKeys: (keyof T)[]) {
+	return z.object({
+		name: z.string(),
+		hooks: z.record(z.string() as z.ZodType<keyof T>, z.function()).refine(
+			(hooks) => Object.keys(hooks).every((hook) => validHookKeys.includes(hook as keyof T)),
+			(val) => ({
+				message: `Invalid hooks found: ${Object.keys(val).join(", ")}`,
+			}),
+		),
+	}) as z.ZodType<Plugin<T>>;
+}
 
 export default class PluginDriver<T extends HookSet> {
 	#plugins: Plugin<T>[] = [];

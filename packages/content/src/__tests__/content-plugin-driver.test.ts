@@ -1,7 +1,7 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { PluginDriver } from "@bluecadet/launchpad-utils";
 import { describe, expect, it, vi } from "vitest";
-import { resolveContentConfig } from "../content-config.js";
+import { contentConfigSchema } from "../content-config.js";
 import {
 	ContentError,
 	ContentPluginDriver,
@@ -12,7 +12,7 @@ import { DataStore } from "../utils/data-store.js";
 describe("ContentPluginDriver", () => {
 	const createMockContext = () => {
 		const dataStore = new DataStore("/");
-		const options = resolveContentConfig({
+		const options = contentConfigSchema.parse({
 			downloadPath: "/downloads/",
 			tempPath: "/temp/",
 			backupPath: "/backups/",

@@ -1,15 +1,19 @@
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import type { DataKeys } from "../utils/data-store.js";
+import { dataKeysSchema } from "../utils/data-store.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
-type SanityToPlainOptions = {
+const sanityToPlainSchema = z.object({
 	/** JSONPath to the content to transform */
-	path: string;
+	path: z.string().describe("JSONPath to the content to transform"),
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys?: DataKeys;
-};
+	keys: dataKeysSchema.optional(),
+});
 
-export default function sanityToPlain({ path, keys }: SanityToPlainOptions) {
+export default function sanityToPlain(options: z.input<typeof sanityToPlainSchema>) {
+	const { path, keys } = parsePluginConfig("sanityToPlain", sanityToPlainSchema, options);
+
 	return defineContentPlugin({
 		name: "sanity-to-plain",
 		hooks: {

@@ -1,17 +1,21 @@
 import { toHTML } from "@portabletext/to-html";
 
+import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import type { DataKeys } from "../utils/data-store.js";
+import { dataKeysSchema } from "../utils/data-store.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
-type SanityToHtmlOptions = {
+const sanityToHtmlSchema = z.object({
 	/** JSONPath to the content to transform */
-	path: string;
+	path: z.string().describe("JSONPath to the content to transform"),
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys?: DataKeys;
-};
+	keys: dataKeysSchema.optional(),
+});
 
-export default function sanityToHtml({ path, keys }: SanityToHtmlOptions) {
+export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>) {
+	const { path, keys } = parsePluginConfig("sanityToHtml", sanityToHtmlSchema, options);
+
 	return defineContentPlugin({
 		name: "sanity-to-html",
 		hooks: {

@@ -4,6 +4,7 @@ import "winston-daily-rotate-file";
 import slugify from "@sindresorhus/slugify";
 import chalk from "chalk";
 import moment from "moment";
+import { z } from "zod";
 
 export type Logger = Pick<WinstonLogger, "info" | "warn" | "error" | "debug" | "once" | "close"> & {
 	child: (options: Parameters<WinstonLogger["child"]>[0]) => Logger;
@@ -25,70 +26,48 @@ const DEFAULT_LOG_FORMAT = winston.format.combine(
 	}),
 );
 
-interface LogFileConfig {
-	format?: winston.Logform.Format;
-	extension?: string;
-	dirname?: string;
-	maxSize?: string;
-	maxFiles?: string;
-	datePattern?: string;
-}
+const logFileConfigSchema = z.object({
+	/** The format for how each line is logged. This should be a winston.Logform.Format class instance. */
+	format: z.any().default(DEFAULT_LOG_FORMAT).describe("The format for how each line is logged."), // TODO: z.instanceOf(Format) is not working... Looks like logform types are broken.
+	/** The extension for the log files. */
+	extension: z.string().default(".log").describe("The extension for the log files."),
+	/** The directory where log files are stored. */
+	dirname: z.string().default(".logs").describe("The directory where log files are stored."),
+	/** The maximum size of each log file. */
+	maxSize: z.string().default("20m").describe("The maximum size of each log file."),
+	/** The maximum number of log files to keep. */
+	maxFiles: z.string().default("28d").describe("The maximum number of log files to keep."),
+	/** The pattern for the date in the log file name. */
+	datePattern: z
+		.string()
+		.default(FILE_TIMESTAMP_FORMAT)
+		.describe("The pattern for the date in the log file name."),
+});
 
-const LOG_FILE_CONFIG_DEFAULTS = {
-	format: DEFAULT_LOG_FORMAT,
-	extension: ".log",
-	dirname: ".logs",
-	maxSize: "20m",
-	maxFiles: "28d",
-	datePattern: FILE_TIMESTAMP_FORMAT,
-};
+export const logConfigSchema = z.object({
+	/** The filename for the log files. */
+	filename: z
+		.string()
+		.default(`${DATE_KEY}-${LOG_TYPE_KEY}`)
+		.describe("The filename for the log files."),
+	/** The options for the log files. */
+	fileOptions: logFileConfigSchema.default({}).describe("The options for the log files."),
+	/** The log level for the logger. */
+	level: z.string().default("info").describe("The log level for the logger."),
+	/** The format for how each line is logged in the console. This should be a winston.Logform.Format class instance. */
+	format: z
+		.any()
+		.default(DEFAULT_LOG_FORMAT)
+		.describe("The format for how each line is logged in the console."),
+	/** Whether to override the console methods. */
+	overrideConsole: z
+		.boolean()
+		.default(process.env.NODE_ENV !== "test")
+		.describe("Whether to override the console methods."),
+});
 
-interface ResolvedLogFileConfig {
-	format: winston.Logform.Format;
-	extension: string;
-	dirname: string;
-	maxSize: string;
-	maxFiles: string;
-	datePattern: string;
-}
-
-interface LaunchpadLogConfig {
-	filename?: string;
-	fileOptions?: LogFileConfig;
-	level?: string;
-	format?: winston.Logform.Format;
-	overrideConsole?: boolean;
-}
-
-export type LogConfig = LaunchpadLogConfig & Omit<winston.LoggerOptions, keyof LaunchpadLogConfig>;
-
-const LOG_OPTIONS_DEFAULTS = {
-	filename: `${DATE_KEY}-${LOG_TYPE_KEY}`,
-	fileOptions: LOG_FILE_CONFIG_DEFAULTS,
-	level: "info",
-	format: DEFAULT_LOG_FORMAT,
-	overrideConsole: process.env.NODE_ENV !== "test",
-} as const;
-
-// Define the resolved config type first
-interface ResolvedLogConfig {
-	filename: string;
-	fileOptions: ResolvedLogFileConfig;
-	level: string;
-	format: winston.Logform.Format;
-	overrideConsole: boolean;
-}
-
-function resolveLogConfig(config?: LogConfig): ResolvedLogConfig {
-	return {
-		...LOG_OPTIONS_DEFAULTS,
-		...config,
-		fileOptions: {
-			...LOG_FILE_CONFIG_DEFAULTS,
-			...config?.fileOptions,
-		},
-	};
-}
+export type LogConfig = z.input<typeof logConfigSchema>;
+export type ResolvedLogConfig = z.output<typeof logConfigSchema>;
 
 export class LogManager {
 	/** @internal */
@@ -96,8 +75,8 @@ export class LogManager {
 	private _config: ResolvedLogConfig;
 	private _rootLogger: WinstonLogger;
 
-	constructor(config?: LogConfig) {
-		this._config = resolveLogConfig(config);
+	constructor(config: LogConfig = {}) {
+		this._config = logConfigSchema.parse(config);
 		this._rootLogger = winston.createLogger({
 			...this._config,
 			transports: [

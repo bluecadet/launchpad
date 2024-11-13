@@ -1,6 +1,7 @@
 import {
 	type BaseHookContext,
 	HookContextProvider,
+	createPluginValidator,
 	type Plugin,
 	type PluginDriver,
 } from "@bluecadet/launchpad-utils";
@@ -46,6 +47,13 @@ export function defineContentPlugin<T extends Partial<ContentHooks>>(
 ): ContentPlugin<T> {
 	return plugin;
 }
+
+export const contentPluginSchema = createPluginValidator<ContentHooks>([
+	"onSetupError",
+	"onContentFetchSetup",
+	"onContentFetchDone",
+	"onContentFetchError",
+]);
 
 export class ContentPluginDriver extends HookContextProvider<ContentHooks, ContentHookContext> {
 	#dataStore: DataStore;

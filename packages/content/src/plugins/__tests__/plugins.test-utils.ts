@@ -3,7 +3,7 @@ import type { Logger } from "@bluecadet/launchpad-utils";
 import { vol } from "memfs";
 import { vi } from "vitest";
 import { afterEach } from "vitest";
-import { type ContentConfig, resolveContentConfig } from "../../content-config.js";
+import { type ContentConfig, contentConfigSchema } from "../../content-config.js";
 import { DataStore } from "../../utils/data-store.js";
 
 afterEach(() => {
@@ -28,6 +28,6 @@ export async function createTestPluginContext({
 			getTempPath: vi.fn().mockReturnValue("/temp"),
 			getBackupPath: vi.fn().mockReturnValue("/backup"),
 		},
-		contentOptions: resolveContentConfig(baseOptions),
+		contentOptions: contentConfigSchema.parse(baseOptions),
 	};
 }

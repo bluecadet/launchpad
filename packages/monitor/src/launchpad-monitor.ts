@@ -11,7 +11,7 @@ import { ProcessManager } from "./core/process-manager.js";
 import {
 	type MonitorConfig,
 	type ResolvedMonitorConfig,
-	resolveMonitorConfig,
+	monitorConfigSchema,
 } from "./monitor-config.js";
 
 class LaunchpadMonitor {
@@ -26,7 +26,7 @@ class LaunchpadMonitor {
 	constructor(config: MonitorConfig, parentLogger: Logger) {
 		autoBind(this);
 		this._logger = LogManager.getLogger("monitor", parentLogger);
-		this._config = resolveMonitorConfig(config);
+		this._config = monitorConfigSchema.parse(config);
 
 		this._processManager = new ProcessManager(this._logger);
 		this._busManager = new BusManager(this._logger);

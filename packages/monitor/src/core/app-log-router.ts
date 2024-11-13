@@ -202,7 +202,7 @@ export default class AppLogRouter {
 
 		const appLogger = LogManager.getLogger(appName, this.#logger);
 
-		if (logOptions.mode === LogModes.TailLogFile) {
+		if (logOptions.mode === LogModes.file) {
 			const fileRelay = new FileLogRelay(appOptions, appLogger);
 			this.#logRelays.set(appName, fileRelay);
 		} else {

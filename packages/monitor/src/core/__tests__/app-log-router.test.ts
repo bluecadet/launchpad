@@ -6,8 +6,11 @@ import { LogModes, type ResolvedAppConfig } from "../../monitor-config.js";
 import AppLogRouter from "../app-log-router.js";
 import { createMockSubEmitterSocket } from "./core.test-utils.js";
 
-vi.mock("@bluecadet/launchpad-utils", async () => {
+vi.mock("@bluecadet/launchpad-utils", async (importOriginal) => {
+	const original = await importOriginal() as typeof import("@bluecadet/launchpad-utils");
+
 	return {
+		...original,
 		LogManager: {
 			getInstance: vi.fn(() => ({
 				getFilePath: vi.fn((name) => `/logs/${name}.log`),
@@ -45,7 +48,7 @@ function buildTestAppLogRouter(configOverrides: DeepPartial<ResolvedAppConfig> =
 		},
 		logging: {
 			logToLaunchpadDir: true,
-			mode: LogModes.LogBusEvents,
+			mode: LogModes.bus,
 			showStdout: true,
 			showStderr: true,
 			...configOverrides.logging,
@@ -70,7 +73,7 @@ describe("AppLogRouter", () => {
 		it("should initialize file logging relay when mode is file", () => {
 			const { mockAppConfig } = buildTestAppLogRouter({
 				logging: {
-					mode: LogModes.TailLogFile,
+					mode: LogModes.file,
 				},
 			});
 

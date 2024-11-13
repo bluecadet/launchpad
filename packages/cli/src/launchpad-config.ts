@@ -1,6 +1,6 @@
 import type { ContentConfig } from "@bluecadet/launchpad-content";
 import type { MonitorConfig } from "@bluecadet/launchpad-monitor";
-import type { LogConfig } from "../../utils/src/log-manager.js";
+import type { LogConfig } from "@bluecadet/launchpad-utils";
 
 export type LaunchpadConfig = {
 	content?: ContentConfig;

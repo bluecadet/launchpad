@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const sanityToPlainSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -11,7 +12,7 @@ const sanityToPlainSchema = z.object({
 });
 
 export default function sanityToPlain(options: z.input<typeof sanityToPlainSchema>) {
-	const { path, keys } = sanityToPlainSchema.parse(options);
+	const { path, keys } = parsePluginConfig("sanityToPlain", sanityToPlainSchema, options);
 
 	return defineContentPlugin({
 		name: "sanity-to-plain",

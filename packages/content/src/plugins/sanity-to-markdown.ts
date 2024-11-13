@@ -4,6 +4,7 @@ import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import { z } from "zod";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const sanityToMdSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -13,7 +14,7 @@ const sanityToMdSchema = z.object({
 });
 
 export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
-	const { path, keys } = sanityToMdSchema.parse(options);
+	const { path, keys } = parsePluginConfig("sanityToMd", sanityToMdSchema, options);
 
 	return defineContentPlugin({
 		name: "sanity-to-markdown",

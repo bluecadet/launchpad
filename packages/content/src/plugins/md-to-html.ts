@@ -6,6 +6,7 @@ import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema, type DataKeys } from "../utils/data-store.js";
 import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
 import { z } from "zod";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const mdToHtmlSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -20,7 +21,7 @@ const mdToHtmlSchema = z.object({
 });
 
 export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
-	const { path, simplified, keys } = mdToHtmlSchema.parse(options);
+	const { path, keys, simplified } = parsePluginConfig("mdToHtml", mdToHtmlSchema, options);
 
 	return defineContentPlugin({
 		name: "md-to-html",

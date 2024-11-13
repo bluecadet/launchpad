@@ -6,6 +6,7 @@ import {
 } from "@bluecadet/launchpad-utils";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
+import { createPluginValidator } from "../../utils/src/plugin-driver.js";
 
 export class ContentError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -46,6 +47,13 @@ export function defineContentPlugin<T extends Partial<ContentHooks>>(
 ): ContentPlugin<T> {
 	return plugin;
 }
+
+export const contentPluginSchema = createPluginValidator<ContentHooks>([
+	"onSetupError",
+	"onContentFetchSetup",
+	"onContentFetchDone",
+	"onContentFetchError",
+]);
 
 export class ContentPluginDriver extends HookContextProvider<ContentHooks, ContentHookContext> {
 	#dataStore: DataStore;

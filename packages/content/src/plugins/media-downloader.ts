@@ -11,6 +11,7 @@ import type { DataKeys, DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
@@ -106,9 +107,9 @@ export function checkCacheStatus(
 		.andThen((exists) =>
 			exists
 				? ResultAsync.fromPromise(
-						fs.promises.lstat(destPath),
-						(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
-					)
+					fs.promises.lstat(destPath),
+					(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
+				)
 				: okAsync(null),
 		)
 		.map((stats) => {
@@ -250,8 +251,8 @@ function setupDownloadDirectories(
 	return (
 		config.forceClearTempFiles
 			? FileUtils.remove(ctx.paths.getTempPath()).andThen(() =>
-					FileUtils.ensureDir(ctx.paths.getTempPath()),
-				)
+				FileUtils.ensureDir(ctx.paths.getTempPath()),
+			)
 			: FileUtils.ensureDir(ctx.paths.getTempPath())
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
@@ -265,8 +266,8 @@ function cleanupAfterDownload(
 		.mapErr((err) => new FileSystemError("Failed to cleanup after download", err));
 }
 
-export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema>) {
-	const configWithDefaults = mediaDownloaderConfigSchema.parse(config);
+export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
+	const configWithDefaults = parsePluginConfig("mediaDownloader", mediaDownloaderConfigSchema, config);
 
 	return defineContentPlugin({
 		name: "media-downloader",

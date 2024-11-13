@@ -4,6 +4,7 @@ import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import { z } from "zod";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const sanityToHtmlSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -13,7 +14,7 @@ const sanityToHtmlSchema = z.object({
 });
 
 export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>) {
-	const { path, keys } = sanityToHtmlSchema.parse(options);
+	const { path, keys } = parsePluginConfig("sanityToHtml", sanityToHtmlSchema, options);
 
 	return defineContentPlugin({
 		name: "sanity-to-html",

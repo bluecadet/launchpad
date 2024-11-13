@@ -39,6 +39,9 @@ jobs:
       - name: lint
         run: npm run lint
 
+      - name: lint dependency versions
+        run: npx sherif
+
       - name: Validate types
         run: npm run build
 

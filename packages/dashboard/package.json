@@ -25,9 +25,8 @@
 	"bugs": {
 		"url": "https://github.com/bluecadet/launchpad/issues"
 	},
-	"dependencies": {},
+	"homepage": "https://github.com/bluecadet/launchpad/packages/dashboard",
 	"devDependencies": {
 		"@bluecadet/launchpad-tsconfig": "0.1.0"
-	},
-	"homepage": "https://github.com/bluecadet/launchpad/packages/dashboard"
+	}
 }

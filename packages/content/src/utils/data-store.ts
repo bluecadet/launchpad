@@ -130,6 +130,8 @@ class SingleDocument<T = unknown> extends Document<T> {
 	#handlePromise: Promise<fs.FileHandle> | null = null;
 	#path: string;
 
+	#lastWriteSize = 0;
+
 	constructor(directory: string, id: string) {
 		super(id);
 		const filename = id.includes(".") ? id : `${id}.json`;
@@ -144,7 +146,7 @@ class SingleDocument<T = unknown> extends Document<T> {
 
 		// wx+ opens the file for reading and writing, creating it if it doesn't exist, and erroring if it does
 		this.#handlePromise = fs.open(this.#path, "wx+").then(async (handle) => {
-			await handle.writeFile(JSON.stringify(resolvedData));
+			await this.#write(resolvedData, handle);
 			return handle;
 		});
 
@@ -167,8 +169,21 @@ class SingleDocument<T = unknown> extends Document<T> {
 
 	override async _read(): Promise<T> {
 		const handle = await this.#getHandle();
-		const data = await handle.readFile("utf-8");
-		return JSON.parse(data);
+
+		const buffer = Buffer.alloc(this.#lastWriteSize);
+
+		const readResult = await handle.read(buffer, 0, this.#lastWriteSize, 0);
+
+		return JSON.parse(readResult.buffer.toString());
+	}
+
+	async #write(data: T, handle?: fs.FileHandle) {
+		const writeHandle = handle ?? await this.#getHandle();
+		const dataStr = JSON.stringify(data);
+		const buffer = Buffer.from(dataStr, 'utf-8');
+		await writeHandle.truncate(0); // truncate the file to 0 bytes
+		await writeHandle.write(buffer, 0, buffer.length, 0);
+		this.#lastWriteSize = buffer.length;
 	}
 
 	override async update(cb: (data: T) => T | Promise<T>) {
@@ -183,14 +198,11 @@ class SingleDocument<T = unknown> extends Document<T> {
 			this.#hasBeenModified = true;
 		}
 
-		const handle = await this.#getHandle();
+		const data = await this._read();
 
-		const data = await handle.readFile("utf-8");
+		const updatedData = await cb(data);
 
-		const updatedData = cb(JSON.parse(data));
-
-		await handle.truncate(0); // truncate the file to 0 bytes
-		await handle.writeFile(JSON.stringify(updatedData));
+		await this.#write(updatedData);
 	}
 
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
@@ -215,10 +227,9 @@ class SingleDocument<T = unknown> extends Document<T> {
 	}
 
 	override async query(pathExpression: string): Promise<unknown[]> {
-		const handle = await this.#getHandle();
-		const data = await handle.readFile("utf-8");
+		const data = await this._read();
 		return JSONPath({
-			json: JSON.parse(data),
+			json: data as object,
 			path: pathExpression,
 			resultType: "value",
 			ignoreEvalErrors: true,

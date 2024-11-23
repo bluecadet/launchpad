@@ -15,6 +15,7 @@ import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
+import { FetchLogger } from "./utils/fetch-logger.js";
 
 class LaunchpadContent {
 	_config: ResolvedContentConfig;
@@ -66,7 +67,7 @@ class LaunchpadContent {
 							temp: false,
 							backups: false,
 							downloads: true,
-						})
+						}),
 					)
 					.andThen(() => this._fetchSources(sources))
 					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
@@ -86,7 +87,9 @@ class LaunchpadContent {
 							);
 						});
 					})
-					.andTee(() => this._logger.info("Content fetch complete. Clearing temp and backup directories."))
+					.andTee(() =>
+						this._logger.info("Content fetch complete. Clearing temp and backup directories."),
+					)
 					.andThen(() =>
 						this.clear(sources, {
 							temp: true,
@@ -175,14 +178,14 @@ class LaunchpadContent {
 	 */
 	restore(sources: ContentSource[] = [], removeBackups = true): ResultAsync<void, ContentError> {
 		this._logger.info("Attempting to restore from backup...");
-		
+
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const downloadPath = this.getDownloadPath(source.id);
 				const backupPath = this.getBackupPath(source.id);
 
 				return FileUtils.pathExists(backupPath)
-					.andThen(exists => {
+					.andThen((exists) => {
 						if (!exists) {
 							this._logger.warn(`No backup found for ${source.id}`);
 							return ok(undefined);
@@ -190,16 +193,19 @@ class LaunchpadContent {
 
 						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
 
-						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(() => {
-							if (removeBackups) {
-								this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
-								return FileUtils.remove(backupPath);
-							}
-							return ok(undefined);
-						});
+						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(
+							() => {
+								if (removeBackups) {
+									this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
+									return FileUtils.remove(backupPath);
+								}
+								return ok(undefined);
+							},
+						);
 					})
 					.mapErr(
-						(e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
+						(e) =>
+							new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
 					);
 			}),
 		).map(() => undefined); // return void instead of void[]
@@ -257,7 +263,12 @@ class LaunchpadContent {
 
 	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
 		this._logger.info("Beginning content fetch process");
-		this._logger.info(`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`);
+		this._logger.info(
+			`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`,
+		);
+
+		const fetchLogger = new FetchLogger(this._logger);
+
 		// Fetch sources in parallel
 		return ResultAsync.combine(
 			sources.map((source) => {
@@ -272,6 +283,10 @@ class LaunchpadContent {
 					? initializedFetch
 					: [initializedFetch];
 
+				for (const fetch of fetchAsArray) {
+					fetchLogger.addFetch(source.id, fetch.id, fetch.data);
+				}
+
 				return this._dataStore
 					.createNamespace(source.id)
 					.andThen((namespace) => {
@@ -281,7 +296,16 @@ class LaunchpadContent {
 					})
 					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }));
 			}),
-		).map(() => undefined); // return void instead of void[]
+		)
+			.andTee(() => {
+				fetchLogger.close();
+				this._logger.info("Fetch completed.");
+			})
+			.orElse((e) => {
+				fetchLogger.close();
+				return err(e);
+			})
+			.map(() => undefined); // return void instead of void[]
 	}
 
 	_clearDir(

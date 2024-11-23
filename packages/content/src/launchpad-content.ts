@@ -60,12 +60,13 @@ class LaunchpadContent {
 			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
 			.andThen((sources) =>
 				this.backup(sources)
+					.andTee(() => this._logger.info("Clearing download directory"))
 					.andThen(() =>
 						this.clear(sources, {
 							temp: false,
 							backups: false,
 							downloads: true,
-						}),
+						})
 					)
 					.andThen(() => this._fetchSources(sources))
 					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
@@ -177,28 +178,24 @@ class LaunchpadContent {
 				const backupPath = this.getBackupPath(source.id);
 
 				return FileUtils.pathExists(backupPath)
-					.andThrough((exists) => {
+					.andThen(exists => {
 						if (!exists) {
-							return err(`No backups found at ${backupPath}`);
-						}
-						return ok(undefined);
-					})
-					.andTee(() => {
-						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-					})
-					.andThen(() => {
-						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true });
-					})
-					.andThen(() => {
-						if (removeBackups) {
-							this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
-							return FileUtils.remove(backupPath);
+							this._logger.warn(`No backup found for ${source.id}`);
+							return ok(undefined);
 						}
 
-						return okAsync(undefined);
+						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
+
+						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(() => {
+							if (removeBackups) {
+								this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
+								return FileUtils.remove(backupPath);
+							}
+							return ok(undefined);
+						});
 					})
 					.mapErr(
-						(e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`),
+						(e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
 					);
 			}),
 		).map(() => undefined); // return void instead of void[]
@@ -255,6 +252,8 @@ class LaunchpadContent {
 	}
 
 	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
+		this._logger.info("Beginning content fetch process");
+		this._logger.info(`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`);
 		// Fetch sources in parallel
 		return ResultAsync.combine(
 			sources.map((source) => {

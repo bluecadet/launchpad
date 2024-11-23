@@ -12,6 +12,7 @@ import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { FixedConsoleLogger, type Logger } from "@bluecadet/launchpad-utils";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 
@@ -95,20 +96,20 @@ export function localFilePathFromUrl(url: string) {
 
 export function checkCacheStatus(
 	url: string,
-	destPath: string,
+	backupPath: string,
 	abortSignal: AbortSignal,
 	config: Pick<
 		MediaDownloaderConfigWithDefaults,
 		"ignoreCache" | "enableIfModifiedSinceCheck" | "enableContentLengthCheck" | "maxTimeout"
 	>,
 ) {
-	return FileUtils.pathExists(destPath)
+	return FileUtils.pathExists(backupPath)
 		.mapErr((err) => new FileSystemError("Failed to check if file exists", err))
 		.andThen((exists) =>
 			exists
 				? ResultAsync.fromPromise(
-						fs.promises.lstat(destPath),
-						(err) => new FileSystemError(`Failed to get file stats for ${destPath}`, err),
+						fs.promises.lstat(backupPath),
+						(err) => new FileSystemError(`Failed to get file stats for ${backupPath}`, err),
 					)
 				: okAsync(null),
 		)
@@ -121,7 +122,7 @@ export function checkCacheStatus(
 				return { shouldDownload: true };
 			}
 
-			return { shouldDownload: false, existingFile: destPath, stats };
+			return { shouldDownload: false, existingFile: backupPath, stats };
 		})
 		.andThen((result) => {
 			if (result.shouldDownload || !result.stats) {
@@ -139,13 +140,14 @@ export function checkCacheStatus(
 			})
 				.mapErr((err) => new NetworkError(`Failed to check cache status for ${url}`, err))
 				.map((res) => {
-					let isRemoteNew = false;
+					let isRemoteNew = true;
 
 					if (config.enableIfModifiedSinceCheck) {
 						isRemoteNew = res.status !== 304;
 					}
 
-					if (config.enableContentLengthCheck) {
+					// only check content length if the response says it's new
+					if (isRemoteNew && config.enableContentLengthCheck) {
 						const remoteSize = Number.parseInt(res.headers.get("content-length") ?? "");
 						const localSize = result.stats.size;
 						isRemoteNew = isRemoteNew || remoteSize !== localSize;
@@ -186,31 +188,40 @@ export function downloadFile(
 
 function downloadMedia(
 	url: string,
-	tempDir: string,
 	destDir: string,
+	backupDir: string,
 	encodeRegex: RegExp,
 	abortSignal: AbortSignal,
 	config: MediaDownloaderConfigWithDefaults,
-): ResultAsync<string, FileSystemError | NetworkError | CacheError> {
+): ResultAsync<
+	{ cacheHit: boolean; destPath: string },
+	FileSystemError | NetworkError | CacheError
+> {
 	const transformFn = config.transformLocalPath ?? ((path) => path);
 	const localPath = transformFn(localFilePathFromUrl(url)).replace(encodeRegex, encodeURIComponent);
 
 	const destPath = path.join(destDir, localPath);
-	const tempFilePath = path.join(tempDir, localPath);
-	const tempFilePathDir = path.dirname(tempFilePath);
+	const backupPath = path.join(backupDir, localPath);
+	const destPathDir = path.dirname(destPath);
 
-	return FileUtils.ensureDir(tempFilePathDir)
-		.mapErr((err) => new FileSystemError("Failed to create temp dir", err))
-		.andThen(() => checkCacheStatus(url, destPath, abortSignal, config))
+	return FileUtils.ensureDir(destPathDir)
+		.mapErr((err) => new FileSystemError("Failed to create dest dir", err))
+		.andThen(() => checkCacheStatus(url, backupPath, abortSignal, config))
 		.andThen((cacheStatus) => {
 			if (!cacheStatus.shouldDownload && cacheStatus.existingFile) {
-				return FileUtils.copy(cacheStatus.existingFile, tempFilePath).mapErr(
-					(e) => new FileSystemError("Failed to copy existing file to temp dir", e),
-				);
+				return FileUtils.copy(cacheStatus.existingFile, destPath)
+					.mapErr((e) => new FileSystemError("Failed to copy existing file to dest dir", e))
+					.map(() => ({
+						cacheHit: true,
+						destPath,
+					}));
 			}
-			return downloadFile(url, tempFilePath, abortSignal, config);
-		})
-		.map(() => tempFilePath);
+
+			return downloadFile(url, destPath, abortSignal, config).map(() => ({
+				cacheHit: false,
+				destPath,
+			}));
+		});
 }
 
 export async function findMediaUrls(
@@ -308,27 +319,52 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 
 						const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, "g");
 
+						ctx.logger.info(`Syncing ${chalk.cyan(urls.length)} files`);
+
+						const progressLogger = new MediaDownloaderProgressLogger(ctx.logger, urls.length);
+
 						const tasks = urls.map((url) => {
 							const task = ({ signal }: { signal?: AbortSignal }) =>
 								downloadMedia(
 									url.url,
-									path.join(ctx.paths.getTempPath(), url.sourceId),
-									path.join(ctx.paths.getDownloadPath(), url.sourceId),
+									ctx.paths.getTempPath(url.sourceId),
+									ctx.paths.getBackupPath(url.sourceId),
 									encodeRegex,
 									signal ?? ctx.abortSignal,
 									configWithDefaults,
-								);
+								).andTee(({ cacheHit }) => {
+									if (cacheHit) {
+										progressLogger.addCached();
+									} else {
+										progressLogger.addFetched();
+									}
+								});
 							return task;
 						});
-
-						ctx.logger.info(`Syncing ${chalk.cyan(tasks.length)} files`);
 
 						return queue
 							.addAll(tasks, {
 								abortOnError: configWithDefaults.abortOnError,
 								logger: ctx.logger,
 							})
+							.andTee(() => {
+								progressLogger.close();
+
+								ctx.logger.info(
+									`Finished downloading ${chalk.cyan(tasks.length)} files to ${chalk.cyan(
+										ctx.paths.getDownloadPath(),
+									)}`,
+								);
+
+								ctx.logger.info(
+									`Of the ${chalk.cyan(tasks.length)} media files, ${chalk.green(
+										progressLogger.fetched,
+									)} were downloaded and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
+								);
+							})
 							.orElse((queueErrors) => {
+								progressLogger.close();
+
 								ctx.logger.error(
 									`Encountered ${chalk.red(`${queueErrors.length} error(s)`)} while downloading ${chalk.cyan(tasks.length)} files`,
 								);
@@ -347,6 +383,7 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 							});
 					})
 					.andThen(() => {
+						ctx.logger.debug('Moving downloaded media files to "download" directory');
 						return cleanupAfterDownload(ctx, configWithDefaults);
 					})
 					.orElse((e) => {
@@ -407,5 +444,60 @@ class QueueError extends MediaDownloaderError {
 		super(`Queue encountered ${errors.length} errors`);
 		this.name = "QueueError";
 		this.errors = errors;
+	}
+}
+
+class MediaDownloaderProgressLogger extends FixedConsoleLogger {
+	#total: number;
+	#fetched = 0;
+	#cached = 0;
+
+	get fetched() {
+		return this.#fetched;
+	}
+
+	get cached() {
+		return this.#cached;
+	}
+
+	constructor(logger: Logger, total: number) {
+		super(logger, 0);
+		this.#total = total;
+	}
+
+	addFetched() {
+		this.#fetched++;
+		this.update();
+	}
+
+	addCached() {
+		this.#cached++;
+		this.update();
+	}
+
+	#renderProgressBar() {
+		const total = this.#total;
+		const fetched = this.#fetched;
+		const cached = this.#cached;
+		const BAR_LENGTH = 60;
+
+		// Calculate exact segments
+		const fetchedLength = Math.round((fetched / total) * BAR_LENGTH);
+		const cachedLength = Math.round((cached / total) * BAR_LENGTH);
+		// Ensure remaining is never negative
+		const remainingLength = Math.max(0, BAR_LENGTH - fetchedLength - cachedLength);
+
+		const fetchedBar = chalk.green("=".repeat(fetchedLength));
+		const cachedBar = chalk.yellow("=".repeat(cachedLength));
+		const remainingBar = chalk.gray("=".repeat(remainingLength));
+
+		return `${fetchedBar}${cachedBar}${remainingBar}`;
+	}
+
+	override getFixedConsoleMessage(): string {
+		return (
+			`Syncing Media: ${this.#renderProgressBar()}\n` +
+			`Fetched: ${chalk.green(this.#fetched)}, Cached: ${chalk.yellow(this.#cached)}, Remaining: ${this.#total - this.#fetched - this.#cached} \n`
+		);
 	}
 }

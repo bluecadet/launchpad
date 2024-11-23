@@ -20,7 +20,7 @@ export type ContentHookContext = {
 	contentOptions: ResolvedContentConfig;
 	paths: {
 		getDownloadPath: (source?: string) => string;
-		getTempPath: (source?: string, pluginName?: string) => string;
+		getTempPath: (source?: string) => string;
 		getBackupPath: (source?: string) => string;
 	};
 };

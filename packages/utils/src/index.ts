@@ -12,5 +12,5 @@ export {
 	TTY_ONLY,
 	NO_TTY,
 	TTY_FIXED,
-	TTY_FIXED_END
+	TTY_FIXED_END,
 } from "./console-transport.js";

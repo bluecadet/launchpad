@@ -1,3 +1,4 @@
+import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import { vol } from "memfs";
@@ -5,7 +6,6 @@ import { vi } from "vitest";
 import { afterEach } from "vitest";
 import { type ContentConfig, contentConfigSchema } from "../../content-config.js";
 import { DataStore } from "../../utils/data-store.js";
-import path from "node:path";
 
 afterEach(() => {
 	vol.reset();

@@ -7,7 +7,10 @@ import moment from "moment";
 import { z } from "zod";
 import { CustomConsoleTransport, FilterLogType } from "./console-transport.js";
 
-export type Logger = Pick<WinstonLogger, "info" | "warn" | "error" | "debug" | "once" | "close" | "log"> & {
+export type Logger = Pick<
+	WinstonLogger,
+	"info" | "warn" | "error" | "debug" | "once" | "close" | "log"
+> & {
 	child: (options: Parameters<WinstonLogger["child"]>[0]) => Logger;
 };
 
@@ -88,19 +91,28 @@ export class LogManager {
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
-					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
+					format: winston.format.combine(
+						this._config.fileOptions.format,
+						new FilterLogType("file"),
+					),
 					filename: this.getFilePath("launchpad-info", false),
 					level: "info",
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
-					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
+					format: winston.format.combine(
+						this._config.fileOptions.format,
+						new FilterLogType("file"),
+					),
 					filename: this.getFilePath("launchpad-debug", false),
 					level: "debug",
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
-					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
+					format: winston.format.combine(
+						this._config.fileOptions.format,
+						new FilterLogType("file"),
+					),
 					filename: this.getFilePath("launchpad-error", false),
 					level: "error",
 				}),

@@ -14,8 +14,8 @@ import {
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
 import { DataStore } from "./utils/data-store.js";
-import * as FileUtils from "./utils/file-utils.js";
 import { FetchLogger } from "./utils/fetch-logger.js";
+import * as FileUtils from "./utils/file-utils.js";
 
 class LaunchpadContent {
 	_config: ResolvedContentConfig;

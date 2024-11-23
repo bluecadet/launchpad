@@ -1,9 +1,9 @@
-import winston from "winston";
 import ansiEscapes from "ansi-escapes";
+import type { Format, TransformableInfo } from "logform";
+import winston from "winston";
 import type { ConsoleTransportOptions } from "winston/lib/winston/transports/index.js";
-import { onExit } from "./on-exit.js";
-import type { TransformableInfo, Format } from "logform";
 import type { Logger } from "./log-manager.js";
+import { onExit } from "./on-exit.js";
 
 export const TTY_ONLY = Symbol("ttyOnly");
 export const NO_TTY = Symbol("noTTY");

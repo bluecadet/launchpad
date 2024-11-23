@@ -86,6 +86,7 @@ class LaunchpadContent {
 							);
 						});
 					})
+					.andTee(() => this._logger.info("Content fetch complete. Clearing temp and backup directories."))
 					.andThen(() =>
 						this.clear(sources, {
 							temp: true,
@@ -147,6 +148,7 @@ class LaunchpadContent {
 	 * Backs up all downloads of source to a separate backup dir.
 	 */
 	backup(sources: ContentSource[] = []): ResultAsync<void, ContentError> {
+		this._logger.info("Backing up downloads...");
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const downloadPath = this.getDownloadPath(source.id);
@@ -159,7 +161,7 @@ class LaunchpadContent {
 						);
 						return ok(undefined);
 					}
-					this._logger.debug(`Backing up ${source}`);
+					this._logger.info(`Backing up source: ${source.id}`);
 					return FileUtils.copy(downloadPath, backupPath);
 				});
 			}),
@@ -172,6 +174,8 @@ class LaunchpadContent {
 	 * Restores all downloads of source from its backup dir if it exists.
 	 */
 	restore(sources: ContentSource[] = [], removeBackups = true): ResultAsync<void, ContentError> {
+		this._logger.info("Attempting to restore from backup...");
+		
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const downloadPath = this.getDownloadPath(source.id);

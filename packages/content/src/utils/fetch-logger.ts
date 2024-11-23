@@ -1,7 +1,6 @@
 import { FixedConsoleLogger, NO_TTY } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-
-type FetchData = Promise<unknown> | AsyncIterable<unknown>;
+import type { ResultAsync } from "neverthrow";
 
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -22,7 +21,11 @@ export class FetchLogger extends FixedConsoleLogger {
 	#fetches: Map<string, Map<string, FetchState>> = new Map();
 	#spinnerFrameIndex = 0;
 
-	addFetch(sourceId: string, documentId: string, fetchPromise: FetchData): void {
+	async addFetch(
+		sourceId: string,
+		documentId: string,
+		fetchPromise: ResultAsync<unknown, unknown>,
+	): Promise<void> {
 		if (!this.#fetches.has(sourceId)) {
 			this.#fetches.set(sourceId, new Map());
 		}
@@ -33,30 +36,32 @@ export class FetchLogger extends FixedConsoleLogger {
 
 		const startTime = Date.now();
 
-		if (fetchPromise instanceof Promise) {
-			fetchPromise
-				.then(() => {
-					const endTime = Date.now();
-					const duration = endTime - startTime;
-					this.#fetches.get(sourceId)?.set(documentId, { state: "resolved", duration });
-					this.logger.info(
-						`${this.getIcon("resolved")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
-						{
-							[NO_TTY]: true,
-						},
-					);
-				})
-				.catch(() => {
-					const endTime = Date.now();
-					const duration = endTime - startTime;
-					this.#fetches.get(sourceId)?.set(documentId, { state: "rejected", duration });
-					this.logger.error(
-						`${this.getIcon("rejected")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
-						{
-							[NO_TTY]: true,
-						},
-					);
-				});
+		try {
+			const result = await fetchPromise;
+
+			if (!result.isOk()) {
+				throw result.error;
+			}
+
+			const endTime = Date.now();
+			const duration = endTime - startTime;
+			this.#fetches.get(sourceId)?.set(documentId, { state: "resolved", duration });
+			this.logger.info(
+				`${this.getIcon("resolved")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
+				{
+					[NO_TTY]: true,
+				},
+			);
+		} catch (e) {
+			const endTime = Date.now();
+			const duration = endTime - startTime;
+			this.#fetches.get(sourceId)?.set(documentId, { state: "rejected", duration });
+			this.logger.error(
+				`${this.getIcon("rejected")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
+				{
+					[NO_TTY]: true,
+				},
+			);
 		}
 	}
 

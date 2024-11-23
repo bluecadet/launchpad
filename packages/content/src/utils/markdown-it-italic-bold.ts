@@ -1,5 +1,5 @@
 import type { PluginSimple } from "markdown-it";
-import type { RenderRule } from "markdown-it/lib/renderer.js";
+import type { RenderRule } from "markdown-it/lib/renderer.mjs";
 
 const render: RenderRule = (tokens, idx, options, _env, self) => {
 	const token = tokens[idx];

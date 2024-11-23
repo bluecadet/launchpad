@@ -96,7 +96,7 @@ export class LogManager {
 					...this._config.fileOptions,
 					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
 					filename: this.getFilePath("launchpad-debug", false),
-					level: "debug",b
+					level: "debug",
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,

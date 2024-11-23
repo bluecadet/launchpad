@@ -5,8 +5,9 @@ import slugify from "@sindresorhus/slugify";
 import chalk from "chalk";
 import moment from "moment";
 import { z } from "zod";
+import { CustomConsoleTransport, FilterLogType } from "./console-transport.js";
 
-export type Logger = Pick<WinstonLogger, "info" | "warn" | "error" | "debug" | "once" | "close"> & {
+export type Logger = Pick<WinstonLogger, "info" | "warn" | "error" | "debug" | "once" | "close" | "log"> & {
 	child: (options: Parameters<WinstonLogger["child"]>[0]) => Logger;
 };
 
@@ -77,22 +78,29 @@ export class LogManager {
 
 	constructor(config: LogConfig = {}) {
 		this._config = logConfigSchema.parse(config);
+
 		this._rootLogger = winston.createLogger({
 			...this._config,
 			transports: [
-				new winston.transports.Console({ level: this._config.level }),
+				new CustomConsoleTransport({
+					level: this._config.level,
+					format: new FilterLogType("tty"),
+				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
+					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
 					filename: this.getFilePath("launchpad-info", false),
 					level: "info",
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
+					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
 					filename: this.getFilePath("launchpad-debug", false),
 					level: "debug",
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,
+					format: winston.format.combine(this._config.fileOptions.format, new FilterLogType("file")),
 					filename: this.getFilePath("launchpad-error", false),
 					level: "error",
 				}),

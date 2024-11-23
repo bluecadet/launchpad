@@ -9,9 +9,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "test": "cd test && node test.js",
-    "build": "tsc --build",
-    "dev": "tsc --build --watch"
+    "test": "cd test && node test.js"
   },
   "repository": {
     "type": "git",

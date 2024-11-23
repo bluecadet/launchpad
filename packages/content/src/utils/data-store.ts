@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import path from "node:path";
+import path, { resolve } from "node:path";
 import { JSONPath } from "jsonpath-plus";
 import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import { z } from "zod";
@@ -312,6 +312,8 @@ class Namespace {
 
 	#documents = new Map<string, Document>();
 
+	#pendingInserts = new Map<string, Promise<void>>();
+
 	constructor(parentDirectory: string, id: string) {
 		this.#id = id;
 		this.#directory = path.join(parentDirectory, id);
@@ -326,14 +328,67 @@ class Namespace {
 		return ensureDir(this.#directory);
 	}
 
+	/**
+	 * Returns a promise that resolves when the document is available, or rejects if the document fails to insert.
+	 * @param documentId
+	 */
+	waitFor(documentId: string): Promise<void> {
+		if (this.#documents.has(documentId)) {
+			return Promise.resolve();
+		}
+
+		const pendingInsert = this.#pendingInserts.get(documentId);
+
+		if (!pendingInsert) {
+			return Promise.reject(
+				new DataStoreError(`Document ${documentId} not found in namespace ${this.#id}`),
+			);
+		}
+
+		return pendingInsert;
+	}
+
 	async insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
+		let insertPromiseResolve: () => void;
+		let insertPromiseReject: () => void;
+		const insertPromise = new Promise<void>((resolve, reject) => {
+			insertPromiseResolve = resolve;
+			insertPromiseReject = reject;
+		});
+
+		this.#pendingInserts.set(id, insertPromise);
+
+		insertPromise.finally(() => {
+			this.#pendingInserts.delete(id);
+		});
+
 		if (data instanceof Promise) {
-			const doc = await SingleDocument.create(this.#directory, id, data);
+			const doc = await SingleDocument.create(this.#directory, id, data).then(
+				(doc) => {
+					insertPromiseResolve();
+					return doc;
+				},
+				(e) => {
+					insertPromiseReject();
+					throw e;
+				},
+			);
+
 			this.#documents.set(doc.id, doc);
 			return doc;
 		}
 
-		const doc = await BatchDocument.create(this.#directory, id, data);
+		const doc = await BatchDocument.create(this.#directory, id, data).then(
+			(doc) => {
+				insertPromiseResolve();
+				return doc;
+			},
+			(e) => {
+				insertPromiseReject();
+				throw e;
+			},
+		);
+
 		this.#documents.set(doc.id, doc);
 		return doc;
 	}

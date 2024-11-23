@@ -2,7 +2,7 @@ import path from "node:path";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
 import { PluginDriver } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { ResultAsync, err, ok, okAsync } from "neverthrow";
+import { Result, ResultAsync, err, ok, okAsync } from "neverthrow";
 import {
 	type ConfigContentSource,
 	type ContentConfig,
@@ -269,43 +269,48 @@ class LaunchpadContent {
 
 		const fetchLogger = new FetchLogger(this._logger);
 
-		// Fetch sources in parallel
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
-
-				const initializedFetch = source.fetch({
-					logger: sourceLogger,
-					dataStore: this._dataStore,
-				});
-
-				const fetchAsArray = Array.isArray(initializedFetch)
-					? initializedFetch
-					: [initializedFetch];
-
-				for (const fetch of fetchAsArray) {
-					fetchLogger.addFetch(source.id, fetch.id, fetch.data);
-				}
-
-				return this._dataStore
-					.createNamespace(source.id)
-					.andThen((namespace) => {
-						return ResultAsync.combine(
-							fetchAsArray.map((fetch) => namespace.safeInsert(fetch.id, fetch.data)),
-						);
-					})
-					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }));
-			}),
-		)
+		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
+			.andThen(() =>
+				Result.combine(sources.map((source) => this._getSourceFetchPromises(source, fetchLogger))),
+			)
+			.andThen((fetchPromises) => {
+				return ResultAsync.combine(fetchPromises.flat());
+			})
 			.andTee(() => {
 				fetchLogger.close();
 				this._logger.info("Fetch completed.");
 			})
 			.orElse((e) => {
 				fetchLogger.close();
+				this._logger.error("Fetch failed.");
 				return err(e);
 			})
-			.map(() => undefined); // return void instead of void[]
+			.map(() => undefined); // return void instead of void[];
+	}
+
+	_getSourceFetchPromises(source: ContentSource, fetchLogger: FetchLogger) {
+		const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
+
+		const initializedFetch = source.fetch({
+			logger: sourceLogger,
+			dataStore: this._dataStore,
+		});
+
+		const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
+
+		return this._dataStore.namespace(source.id).andThen((namespace) => {
+			const promises = fetchAsArray.map((req) => {
+				const insertResultAsync = namespace.safeInsert(req.id, req.data).mapErr((e) => {
+					return new ContentError(`Failed to write data for ${req.id}`, e);
+				});
+
+				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
+
+				return insertResultAsync;
+			});
+
+			return ok(promises);
+		});
 	}
 
 	_clearDir(

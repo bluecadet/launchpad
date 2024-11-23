@@ -2,6 +2,7 @@ import { setMaxListeners } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { FixedConsoleLogger, type Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { JSONPath } from "jsonpath-plus";
 import { ResultAsync, errAsync, ok, okAsync } from "neverthrow";
@@ -12,7 +13,6 @@ import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
-import { FixedConsoleLogger, type Logger } from "@bluecadet/launchpad-utils";
 
 const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
 

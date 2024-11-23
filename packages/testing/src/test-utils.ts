@@ -10,6 +10,7 @@ type MockLogger = {
 	warn: () => void;
 	error: () => void;
 	close: () => void;
+	log: () => void;
 };
 
 export function createMockLogger() {
@@ -26,6 +27,7 @@ export function createMockLogger() {
 		warn: vi.fn(),
 		error: vi.fn(),
 		close: vi.fn(),
+		log: vi.fn(),
 		children,
 	};
 }

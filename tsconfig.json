@@ -1,0 +1,24 @@
+{
+  "extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"references": [
+		{
+			"path": "packages/utils/tsconfig.src.json"
+		},
+		{
+			"path": "packages/dashboard"
+		},
+		{
+			"path": "packages/monitor/tsconfig.src.json"
+		},
+		{
+			"path": "packages/scaffold"
+		},
+		{
+			"path": "packages/content/tsconfig.src.json"
+		},
+		{
+			"path": "packages/cli"
+		}
+	],
+  "include": []
+}

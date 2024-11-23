@@ -42,9 +42,15 @@ export function removeFilesFromDir(
 	dirPath: string,
 	exclude: string[] = [],
 ): ResultAsync<void, FileUtilsError> {
+	// Glob expects posix paths
+	const globPath = path.join(dirPath, "**/*").replaceAll(path.sep, path.posix.sep);
+	const excludePaths = exclude.map((pattern) =>
+		path.join(dirPath, pattern).replaceAll(path.sep, path.posix.sep),
+	);
+
 	return ResultAsync.fromPromise(
-		glob(path.join(dirPath, "**/*"), {
-			ignore: exclude.map((pattern) => path.join(dirPath, pattern)),
+		glob(globPath, {
+			ignore: excludePaths,
 			dot: true,
 			nodir: true, // Only match files, not directories
 		}),
@@ -62,8 +68,8 @@ export function removeFilesFromDir(
 		.andThen(() => {
 			// Remove empty directories after deleting files
 			return ResultAsync.fromPromise(
-				glob(path.join(dirPath, "**/*"), {
-					ignore: exclude,
+				glob(globPath, {
+					ignore: excludePaths,
 					dot: true,
 					nodir: false, // Match directories this time
 				}),

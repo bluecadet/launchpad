@@ -2,7 +2,7 @@ import path from "node:path";
 import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
 import { PluginDriver } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { ResultAsync, err, ok, okAsync } from "neverthrow";
+import { Result, ResultAsync, err, ok, okAsync } from "neverthrow";
 import {
 	type ConfigContentSource,
 	type ContentConfig,
@@ -14,6 +14,7 @@ import {
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";
 import { DataStore } from "./utils/data-store.js";
+import { FetchLogger } from "./utils/fetch-logger.js";
 import * as FileUtils from "./utils/file-utils.js";
 
 class LaunchpadContent {
@@ -60,6 +61,7 @@ class LaunchpadContent {
 			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
 			.andThen((sources) =>
 				this.backup(sources)
+					.andTee(() => this._logger.info("Clearing download directory"))
 					.andThen(() =>
 						this.clear(sources, {
 							temp: false,
@@ -85,6 +87,9 @@ class LaunchpadContent {
 							);
 						});
 					})
+					.andTee(() =>
+						this._logger.info("Content fetch complete. Clearing temp and backup directories."),
+					)
 					.andThen(() =>
 						this.clear(sources, {
 							temp: true,
@@ -146,6 +151,7 @@ class LaunchpadContent {
 	 * Backs up all downloads of source to a separate backup dir.
 	 */
 	backup(sources: ContentSource[] = []): ResultAsync<void, ContentError> {
+		this._logger.info("Backing up downloads...");
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const downloadPath = this.getDownloadPath(source.id);
@@ -158,7 +164,7 @@ class LaunchpadContent {
 						);
 						return ok(undefined);
 					}
-					this._logger.debug(`Backing up ${source}`);
+					this._logger.info(`Backing up source: ${source.id}`);
 					return FileUtils.copy(downloadPath, backupPath);
 				});
 			}),
@@ -171,34 +177,35 @@ class LaunchpadContent {
 	 * Restores all downloads of source from its backup dir if it exists.
 	 */
 	restore(sources: ContentSource[] = [], removeBackups = true): ResultAsync<void, ContentError> {
+		this._logger.info("Attempting to restore from backup...");
+
 		return ResultAsync.combine(
 			sources.map((source) => {
 				const downloadPath = this.getDownloadPath(source.id);
 				const backupPath = this.getBackupPath(source.id);
 
 				return FileUtils.pathExists(backupPath)
-					.andThrough((exists) => {
+					.andThen((exists) => {
 						if (!exists) {
-							return err(`No backups found at ${backupPath}`);
-						}
-						return ok(undefined);
-					})
-					.andTee(() => {
-						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-					})
-					.andThen(() => {
-						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true });
-					})
-					.andThen(() => {
-						if (removeBackups) {
-							this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
-							return FileUtils.remove(backupPath);
+							this._logger.warn(`No backup found for ${source.id}`);
+							return ok(undefined);
 						}
 
-						return okAsync(undefined);
+						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
+
+						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(
+							() => {
+								if (removeBackups) {
+									this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
+									return FileUtils.remove(backupPath);
+								}
+								return ok(undefined);
+							},
+						);
 					})
 					.mapErr(
-						(e) => new ContentError(`Failed to restore source ${chalk.white(source.id)}: ${e}`),
+						(e) =>
+							new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
 					);
 			}),
 		).map(() => undefined); // return void instead of void[]
@@ -255,30 +262,55 @@ class LaunchpadContent {
 	}
 
 	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
-		// Fetch sources in parallel
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
+		this._logger.info("Beginning content fetch process");
+		this._logger.info(
+			`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`,
+		);
 
-				const initializedFetch = source.fetch({
-					logger: sourceLogger,
-					dataStore: this._dataStore,
+		const fetchLogger = new FetchLogger(this._logger);
+
+		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
+			.andThen(() =>
+				Result.combine(sources.map((source) => this._getSourceFetchPromises(source, fetchLogger))),
+			)
+			.andThen((fetchPromises) => {
+				return ResultAsync.combine(fetchPromises.flat());
+			})
+			.andTee(() => {
+				fetchLogger.close();
+				this._logger.info("Fetch completed.");
+			})
+			.orElse((e) => {
+				fetchLogger.close();
+				this._logger.error("Fetch failed.");
+				return err(e);
+			})
+			.map(() => undefined); // return void instead of void[];
+	}
+
+	_getSourceFetchPromises(source: ContentSource, fetchLogger: FetchLogger) {
+		const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
+
+		const initializedFetch = source.fetch({
+			logger: sourceLogger,
+			dataStore: this._dataStore,
+		});
+
+		const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
+
+		return this._dataStore.namespace(source.id).andThen((namespace) => {
+			const promises = fetchAsArray.map((req) => {
+				const insertResultAsync = namespace.safeInsert(req.id, req.data).mapErr((e) => {
+					return new ContentError(`Failed to write data for ${req.id}`, e);
 				});
 
-				const fetchAsArray = Array.isArray(initializedFetch)
-					? initializedFetch
-					: [initializedFetch];
+				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
 
-				return this._dataStore
-					.createNamespace(source.id)
-					.andThen((namespace) => {
-						return ResultAsync.combine(
-							fetchAsArray.map((fetch) => namespace.safeInsert(fetch.id, fetch.data)),
-						);
-					})
-					.mapErr((e) => new ContentError(`Failed to fetch source ${source.id}`, { cause: e }));
-			}),
-		).map(() => undefined); // return void instead of void[]
+				return insertResultAsync;
+			});
+
+			return ok(promises);
+		});
 	}
 
 	_clearDir(

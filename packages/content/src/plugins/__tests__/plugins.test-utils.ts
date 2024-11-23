@@ -1,3 +1,4 @@
+import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import { vol } from "memfs";
@@ -24,9 +25,15 @@ export async function createTestPluginContext({
 		logger,
 		abortSignal: new AbortController().signal,
 		paths: {
-			getDownloadPath: vi.fn().mockReturnValue("/download"),
-			getTempPath: vi.fn().mockReturnValue("/temp"),
-			getBackupPath: vi.fn().mockReturnValue("/backup"),
+			getDownloadPath: vi
+				.fn()
+				.mockImplementation((sourceId?: string) => path.join("/download", sourceId || "")),
+			getTempPath: vi
+				.fn()
+				.mockImplementation((sourceId?: string) => path.join("/temp", sourceId || "")),
+			getBackupPath: vi
+				.fn()
+				.mockImplementation((sourceId?: string) => path.join("/backup", sourceId || "")),
 		},
 		contentOptions: contentConfigSchema.parse(baseOptions),
 	};

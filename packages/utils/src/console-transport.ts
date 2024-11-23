@@ -102,16 +102,22 @@ export class FilterLogType implements Format {
 }
 
 export abstract class FixedConsoleLogger {
-	#interval: NodeJS.Timeout;
+	#interval: NodeJS.Timeout | null = null;
+	#didClose = false;
 
 	constructor(
 		protected logger: Logger,
-		level = "info",
 		ttyUpdateInterval = 50,
 	) {
-		this.#interval = setInterval(() => {
-			this.update();
-		}, ttyUpdateInterval);
+		if (ttyUpdateInterval >= 0) {
+			this.#interval = setInterval(() => {
+				this.update();
+			}, ttyUpdateInterval);
+		}
+
+		onExit(() => {
+			this.close();
+		});
 	}
 
 	abstract getFixedConsoleMessage(): string;
@@ -125,7 +131,15 @@ export abstract class FixedConsoleLogger {
 	}
 
 	close() {
-		clearInterval(this.#interval);
+		if (this.#didClose) {
+			return;
+		}
+
+		this.#didClose = true;
+
+		if (this.#interval !== null) {
+			clearInterval(this.#interval);
+		}
 		this.update();
 		this.logger.info("", { [TTY_FIXED_END]: true });
 	}

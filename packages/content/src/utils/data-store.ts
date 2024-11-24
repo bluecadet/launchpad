@@ -208,16 +208,31 @@ class SingleDocument<T = unknown> extends Document<T> {
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
 		try {
 			await this.update((data) => {
+				const promises: Promise<void>[] = [];
+
 				JSONPath({
 					json: data as object,
 					path: pathExpression,
 					resultType: "all",
+					ignoreEvalErrors: true,
 					callback: ({ value }, _, { parent, parentProperty }) => {
-						parent[parentProperty] = fn(value);
+						const fnResult = fn(value);
+
+						if (fnResult instanceof Promise) {
+							// if the function returns a promise, wait for it to resolve before updating the parent
+							promises.push(
+								fnResult.then((result) => {
+									parent[parentProperty] = result;
+								}),
+							);
+						} else {
+							parent[parentProperty] = fnResult;
+						}
 					},
 				});
 
-				return data;
+				// wait for all promises to resolve before returning
+				return Promise.all(promises).then(() => data);
 			});
 		} catch (e) {
 			throw new DataStoreError(`Error applying content transform to document ${this._id}`, {
@@ -287,15 +302,24 @@ class BatchDocument<T = unknown> extends Document<T> {
 	}
 
 	override async update(cb: (data: T) => T | Promise<T>) {
-		await Promise.all(this.#documents.map((doc) => doc.update(cb)));
+		for (const doc of this.#documents) {
+			await doc.update(cb);
+		}
 	}
 
 	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
-		await Promise.all(this.#documents.map((doc) => doc.apply(pathExpression, fn)));
+		for (const doc of this.#documents) {
+			await doc.apply(pathExpression, fn);
+		}
 	}
 
 	override async query(pathExpression: string): Promise<unknown[]> {
-		return (await Promise.all(this.#documents.map((doc) => doc.query(pathExpression)))).flat(1);
+		const results: unknown[] = [];
+		for (const doc of this.#documents) {
+			const values = await doc.query(pathExpression);
+			results.push(...values);
+		}
+		return results;
 	}
 
 	override async close() {

@@ -19,8 +19,15 @@ const LOG_TYPE_KEY = "%LOG_TYPE%";
 const LOG_TIMESTAMP_FORMAT = "YYYY-MM-DD-HH:mm:ss";
 const FILE_TIMESTAMP_FORMAT = "YYYY-MM-DD";
 
-const DEFAULT_LOG_FORMAT = winston.format.combine(
+const DEFAULT_CONSOLE_LOG_FORMAT = winston.format.combine(
 	winston.format.colorize(),
+	winston.format.printf((info) => {
+		const moduleStr = info.module ? chalk.gray(` (${info.module})`) : "";
+		return `${info.level}:${moduleStr} ${info.message}`;
+	}),
+);
+
+const DEFAULT_FILE_LOG_FORMAT = winston.format.combine(
 	winston.format.timestamp({
 		format: LOG_TIMESTAMP_FORMAT,
 	}),
@@ -28,11 +35,15 @@ const DEFAULT_LOG_FORMAT = winston.format.combine(
 		const moduleStr = info.module ? chalk.gray(` (${info.module})`) : "";
 		return `${info.timestamp} ${info.level}:${moduleStr} ${info.message}`;
 	}),
+	winston.format.uncolorize(),
 );
 
 const logFileConfigSchema = z.object({
 	/** The format for how each line is logged. This should be a winston.Logform.Format class instance. */
-	format: z.any().default(DEFAULT_LOG_FORMAT).describe("The format for how each line is logged."), // TODO: z.instanceOf(Format) is not working... Looks like logform types are broken.
+	format: z
+		.any()
+		.default(DEFAULT_FILE_LOG_FORMAT)
+		.describe("The format for how each line is logged."), // TODO: z.instanceOf(Format) is not working... Looks like logform types are broken.
 	/** The extension for the log files. */
 	extension: z.string().default(".log").describe("The extension for the log files."),
 	/** The directory where log files are stored. */
@@ -61,7 +72,7 @@ export const logConfigSchema = z.object({
 	/** The format for how each line is logged in the console. This should be a winston.Logform.Format class instance. */
 	format: z
 		.any()
-		.default(DEFAULT_LOG_FORMAT)
+		.default(DEFAULT_CONSOLE_LOG_FORMAT)
 		.describe("The format for how each line is logged in the console."),
 	/** Whether to override the console methods. */
 	overrideConsole: z
@@ -82,12 +93,14 @@ export class LogManager {
 	constructor(config: LogConfig = {}) {
 		this._config = logConfigSchema.parse(config);
 
+		const { format: consoleFormat, ...rest } = this._config;
+
 		this._rootLogger = winston.createLogger({
-			...this._config,
+			...rest,
 			transports: [
 				new CustomConsoleTransport({
 					level: this._config.level,
-					format: new FilterLogType("tty"),
+					format: winston.format.combine(consoleFormat, new FilterLogType("tty")),
 				}),
 				new winston.transports.DailyRotateFile({
 					...this._config.fileOptions,

@@ -21,101 +21,70 @@ export class PluginError extends Error {
 	}
 }
 
-export interface BaseHookContext {
+type ArgTuple<Arg> = Arg extends undefined ? [] : [Arg];
+
+export interface BaseHookContext<Args> {
 	logger: Logger;
 	abortSignal: AbortSignal;
+	emit: <K extends keyof Args>(
+		event: K,
+		...args: ArgTuple<Args[K]>
+	) => ResultAsync<unknown, unknown>;
 }
 
-export type HookSet = Record<
-	string,
-	// biome-ignore lint/suspicious/noExplicitAny: required for derived context types
-	(ctx: any, ...args: never[]) => void | PromiseLike<void>
->;
+type HookFunction<Context, Arg> = (
+	ctx: Context,
+	...args: ArgTuple<Arg>
+) => void | Promise<void> | PromiseLike<void>;
 
-export type Plugin<
-	AllowedHooks extends HookSet,
-	ActualHooks extends Partial<AllowedHooks> = Partial<AllowedHooks>,
-> = {
+export type HookSet<HookArgs, Context> = {
+	[K in keyof HookArgs]: HookFunction<Context, HookArgs[K]>;
+};
+
+export type Plugin<HookArgs, Context> = {
 	name: string;
 	hooks: {
-		[K in keyof ActualHooks]: K extends keyof AllowedHooks ? ActualHooks[K] : never;
+		[K in keyof HookArgs]?: K extends keyof HookArgs ? HookSet<HookArgs, Context>[K] : never;
 	};
 };
 
-type Tail<T extends unknown[]> = T extends [unknown, ...infer R] ? R : [];
-
-type KeysWithFullContext<T extends HookSet, C> = {
-	[K in keyof T]: C extends Parameters<T[K]>[0] ? K : never;
-}[keyof T];
-
-export function createPluginValidator<T extends HookSet>(validHookKeys: (keyof T)[]) {
+export function createPluginValidator<Args, Ctx>() {
 	return z.object({
 		name: z.string(),
-		hooks: z.record(z.string() as z.ZodType<keyof T>, z.function()).refine(
-			(hooks) => Object.keys(hooks).every((hook) => validHookKeys.includes(hook as keyof T)),
-			(val) => ({
-				message: `Invalid hooks found: ${Object.keys(val).join(", ")}`,
-			}),
-		),
-	}) as z.ZodType<Plugin<T>>;
+		hooks: z.record(z.string(), z.function()),
+	}) as unknown as z.ZodType<Plugin<Args, Ctx>>;
 }
 
-export default class PluginDriver<T extends HookSet> {
-	#plugins: Plugin<T>[] = [];
-	readonly #baseHookContexts = new Map<Plugin<T>, BaseHookContext>();
-	readonly #baseLogger: Logger;
-	readonly #abortController = new AbortController();
+export default class PluginDriver<Args, Ctx> {
+	#plugins: Plugin<Args, Ctx>[] = [];
 
-	get plugins(): ReadonlyArray<Plugin<T>> {
+	get plugins(): ReadonlyArray<Plugin<Args, Ctx>> {
 		return this.#plugins;
 	}
 
-	constructor(baseLogger: Logger, plugins?: Plugin<T>[]) {
-		this.#baseLogger = baseLogger;
-
+	constructor(plugins?: Plugin<Args, Ctx>[]) {
 		if (plugins) {
 			this.add(plugins);
 		}
-
-		onExit(() => {
-			this.#abortController.abort();
-		});
 	}
 
-	add(plugins: Plugin<T> | Plugin<T>[]): void {
+	add(plugins: Plugin<Args, Ctx> | Plugin<Args, Ctx>[]): void {
 		const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
 
 		for (const plugin of pluginArray) {
 			this.#plugins.push(plugin);
-			this.#baseHookContexts.set(plugin, {
-				logger: this.#baseLogger.child({ module: `plugin:${plugin.name}` }),
-				abortSignal: this.#abortController.signal,
-			});
 		}
 	}
 
-	#getBaseContext(plugin: Plugin<T>): BaseHookContext {
-		const ctx = this.#baseHookContexts.get(plugin);
-
-		if (!ctx) {
-			throw new Error(`Plugin not found: ${plugin.name}`);
-		}
-
-		return ctx;
-	}
-
-	#getHookCalls<K extends keyof T>(
+	#getHookCalls<K extends keyof Args>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
-		additionalArgs: Tail<Parameters<T[K]>>,
+		contextGetter: (plugin: Plugin<Args, Ctx>) => Ctx,
+		...additionalArgs: ArgTuple<Args[K]>
 	): (() => ResultAsync<void, PluginError>)[] {
 		return this.#plugins.map((plugin) => {
-			const hook = plugin.hooks[hookName];
+			const hook = plugin.hooks[hookName] as HookFunction<Ctx, Args[K]> | undefined;
 			if (hook) {
-				const context = {
-					...this.#getBaseContext(plugin),
-					...contextGetter(plugin),
-				};
+				const context = contextGetter(plugin);
 
 				const wrappedHookCall = async () => {
 					await hook(context, ...additionalArgs);
@@ -123,10 +92,6 @@ export default class PluginDriver<T extends HookSet> {
 
 				return () =>
 					ResultAsync.fromPromise(wrappedHookCall(), (e) => {
-						this.#getBaseContext(plugin).logger.error(
-							chalk.red(`Error in hook ${String(hookName)}`),
-						);
-						this.#getBaseContext(plugin).logger.error(chalk.red(e));
 						return new PluginError(e, { pluginId: plugin.name });
 					});
 			}
@@ -135,14 +100,14 @@ export default class PluginDriver<T extends HookSet> {
 		});
 	}
 
-	_runHookSequentialWithCtx<K extends keyof T>(
+	_runHookSequentialWithCtx<K extends keyof Args>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
-		additionalArgs: Tail<Parameters<T[K]>>,
+		contextGetter: (plugin: Plugin<Args, Ctx>) => Ctx,
+		...additionalArgs: ArgTuple<Args[K]>
 	): ResultAsync<void, PluginError> {
 		let result: ResultAsync<void, PluginError> = okAsync(undefined);
 
-		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
+		const hookCalls = this.#getHookCalls(hookName, contextGetter, ...additionalArgs);
 
 		for (const hookCall of hookCalls) {
 			result = result.andThen(() => hookCall());
@@ -151,74 +116,86 @@ export default class PluginDriver<T extends HookSet> {
 		return result;
 	}
 
-	_runHookParallelWithCtx<K extends keyof T>(
+	_runHookParallelWithCtx<K extends keyof Args>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
-		additionalArgs: Tail<Parameters<T[K]>>,
+		contextGetter: (plugin: Plugin<Args, Ctx>) => Ctx,
+		...additionalArgs: ArgTuple<Args[K]>
 	): ResultAsync<void, PluginError[]> {
-		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
+		const hookCalls = this.#getHookCalls(hookName, contextGetter, ...additionalArgs);
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
-	}
-
-	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(
-		hookName: K,
-		...additionalArgs: Tail<Parameters<T[K]>>
-	): Promise<void> {
-		for (const plugin of this.#plugins) {
-			const hook = plugin.hooks[hookName];
-			if (hook) {
-				await hook(this.#getBaseContext(plugin), ...additionalArgs);
-			}
-		}
 	}
 }
 
-export class HookContextProvider<T extends HookSet, C> {
-	readonly #innerDriver: PluginDriver<T>;
+export class HookContextProvider<Args, Ctx> {
+	readonly #innerDriver: PluginDriver<Args, Ctx>;
+	readonly #baseHookContexts = new Map<Plugin<Args, Ctx>, BaseHookContext<Args>>();
+	readonly #baseLogger: Logger;
+	readonly #abortController: AbortController;
 
-	constructor(innerDriver: PluginDriver<T>) {
+	constructor(innerDriver: PluginDriver<Args, Ctx>, baseLogger: Logger) {
+		this.#baseLogger = baseLogger;
+		this.#abortController = new AbortController();
 		this._initialize(innerDriver.plugins);
 		this.#innerDriver = innerDriver;
 		this._getPluginContext = this._getPluginContext.bind(this);
+
+		onExit(() => {
+			this.#abortController.abort();
+		});
 	}
 
-	get plugins(): ReadonlyArray<Plugin<T>> {
+	get plugins(): ReadonlyArray<Plugin<Args, Ctx>> {
 		return this.#innerDriver.plugins;
 	}
 
-	protected _initialize(plugins: ReadonlyArray<Plugin<T>>): void {
-		// implement in subclass
+	protected _initialize(plugins: ReadonlyArray<Plugin<Args, Ctx>>): void {
+		for (const plugin of plugins) {
+			this.#baseHookContexts.set(plugin, {
+				logger: this.#baseLogger.child({ module: `plugin:${plugin.name}` }),
+				abortSignal: this.#abortController.signal,
+				emit: this.runHookSequential.bind(this),
+			});
+		}
 	}
 
-	protected _getPluginContext(plugin: Plugin<T>): C {
-		throw new Error("_getPluginContext Not implemented");
+	protected _getBaseHookContext(plugin: Plugin<Args, Ctx>): BaseHookContext<Args> {
+		const context = this.#baseHookContexts.get(plugin);
+		if (!context) {
+			throw new Error(`Plugin ${plugin.name} not found in context map`);
+		}
+
+		return context;
 	}
 
-	add(plugins: Plugin<T> | Plugin<T>[]): void {
+	protected _getPluginContext(plugin: Plugin<Args, Ctx>): Ctx {
+		throw new Error("Not implemented");
+	}
+
+	add(plugins: Plugin<Args, Ctx> | Plugin<Args, Ctx>[]): void {
 		const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
 		this._initialize(pluginArray);
 		this.#innerDriver.add(plugins);
 	}
 
-	runHookSequential<K extends KeysWithFullContext<T, C & BaseHookContext>>(
+	runHookSequential<K extends keyof Args>(
 		hookName: K,
-		...additionalArgs: Tail<Parameters<T[K]>>
+		...additionalArgs: ArgTuple<Args[K]>
 	): ResultAsync<void, PluginError> {
 		return this.#innerDriver._runHookSequentialWithCtx(
 			hookName,
 			this._getPluginContext,
-			additionalArgs,
+			...additionalArgs,
 		);
 	}
 
-	runHookParallel<K extends KeysWithFullContext<T, C & BaseHookContext>>(
+	runHookParallel<K extends keyof Args>(
 		hookName: K,
-		...additionalArgs: Tail<Parameters<T[K]>>
+		...additionalArgs: ArgTuple<Args[K]>
 	): ResultAsync<void, PluginError[]> {
 		return this.#innerDriver._runHookParallelWithCtx(
 			hookName,
 			this._getPluginContext,
-			additionalArgs,
+			...additionalArgs,
 		);
 	}
 }

@@ -1,7 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import PluginDriver, { HookContextProvider, PluginError } from "../plugin-driver.js";
-import type { HookSet, Plugin } from "../plugin-driver.js";
+import type { Plugin } from "../plugin-driver.js";
 import { createMockLogger } from "./test-utils.js";
+import type { Logger } from "../log-manager.js";
+
+type TestHookArgs = {
+	testHook: undefined;
+};
+
+type TestHookCtx = {
+	logger: Logger;
+	abortSignal: AbortSignal;
+};
+
+const testHookContext = {
+	logger: createMockLogger(),
+	abortSignal: new AbortController().signal,
+};
 
 describe("PluginDriver", () => {
 	describe("basic functionality", () => {
@@ -13,14 +28,12 @@ describe("PluginDriver", () => {
 				},
 			};
 
-			const mockLogger = createMockLogger();
-			const driver = new PluginDriver(mockLogger, [plugin]);
+			const driver = new PluginDriver([plugin]);
 			expect(driver.plugins).toContain(plugin);
 		});
 
 		it("should add plugins after initialization", () => {
-			const mockLogger = createMockLogger();
-			const driver = new PluginDriver(mockLogger);
+			const driver = new PluginDriver();
 			const plugin = {
 				name: "test-plugin",
 				hooks: {
@@ -57,8 +70,8 @@ describe("PluginDriver", () => {
 
 				const mockLogger = createMockLogger();
 
-				const driver = new PluginDriver<HookSet>(mockLogger, [plugin1, plugin2]);
-				await driver.runHookSequential("testHook");
+				const driver = new PluginDriver<TestHookArgs, TestHookCtx>([plugin1, plugin2]);
+				const result = await driver._runHookSequentialWithCtx("testHook", () => testHookContext);
 
 				expect(order).toEqual([1, 2]);
 			});
@@ -83,9 +96,8 @@ describe("PluginDriver", () => {
 					},
 				};
 
-				const mockLogger = createMockLogger();
-				const driver = new PluginDriver(mockLogger, [plugin1, plugin2]);
-				const result = await driver._runHookSequentialWithCtx("testHook", () => ({}), []);
+				const driver = new PluginDriver<TestHookArgs, TestHookCtx>([plugin1, plugin2]);
+				const result = await driver._runHookSequentialWithCtx("testHook", () => testHookContext);
 
 				expect(result.isErr()).toBe(true);
 				expect(order).toEqual([1]); // Second plugin should not run
@@ -116,9 +128,8 @@ describe("PluginDriver", () => {
 					},
 				};
 
-				const mockLogger = createMockLogger();
-				const driver = new PluginDriver(mockLogger, [plugin1, plugin2]);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const driver = new PluginDriver<TestHookArgs, TestHookCtx>([plugin1, plugin2]);
+				const result = await driver._runHookParallelWithCtx("testHook", () => testHookContext);
 
 				expect(result.isOk()).toBe(true);
 				expect(executions).toHaveLength(2);
@@ -146,9 +157,8 @@ describe("PluginDriver", () => {
 					},
 				};
 
-				const mockLogger = createMockLogger();
-				const driver = new PluginDriver(mockLogger, [plugin1, plugin2]);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const driver = new PluginDriver<TestHookArgs, TestHookCtx>([plugin1, plugin2]);
+				const result = await driver._runHookParallelWithCtx("testHook", () => testHookContext);
 
 				expect(result.isErr()).toBe(true);
 				const unwrapped = result._unsafeUnwrapErr();
@@ -178,9 +188,8 @@ describe("PluginDriver", () => {
 					},
 				};
 
-				const mockLogger = createMockLogger();
-				const driver = new PluginDriver(mockLogger, [plugin1, plugin2]);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const driver = new PluginDriver<TestHookArgs, TestHookCtx>([plugin1, plugin2]);
+				const result = await driver._runHookParallelWithCtx("testHook", () => testHookContext);
 
 				expect(result.isErr()).toBe(true);
 				expect(executed).toContain("plugin1");
@@ -189,7 +198,7 @@ describe("PluginDriver", () => {
 		});
 
 		it("should provide base context to hooks", async () => {
-			const plugin: Plugin<HookSet> = {
+			const plugin: Plugin<TestHookArgs, TestHookCtx> = {
 				name: "test-plugin",
 				hooks: {
 					testHook: (context) => {
@@ -200,21 +209,24 @@ describe("PluginDriver", () => {
 			};
 
 			const mockLogger = createMockLogger();
-			const driver = new PluginDriver(mockLogger, [plugin]);
-			await driver.runHookSequential("testHook");
+			const driver = new PluginDriver([plugin]);
+			await driver._runHookParallelWithCtx("testHook", () => ({
+				logger: mockLogger,
+				abortSignal: new AbortController().signal,
+			}));
 		});
 	});
 });
 
 describe("HookContextProvider", () => {
 	it("should provide additional context to hooks", async () => {
-		class TestContextProvider extends HookContextProvider<HookSet, { testValue: string }> {
+		class TestContextProvider extends HookContextProvider<TestHookArgs, { testValue: string }> {
 			override _getPluginContext() {
 				return { testValue: "test" };
 			}
 		}
 
-		const plugin: Plugin<HookSet> = {
+		const plugin: Plugin<TestHookArgs, { testValue: string }> = {
 			name: "test-plugin",
 			hooks: {
 				testHook: (context) => {
@@ -224,15 +236,15 @@ describe("HookContextProvider", () => {
 		};
 
 		const mockLogger = createMockLogger();
-		const baseDriver = new PluginDriver(mockLogger, [plugin]);
-		const provider = new TestContextProvider(baseDriver);
+		const baseDriver = new PluginDriver<TestHookArgs, { testValue: string }>([plugin]);
+		const provider = new TestContextProvider(baseDriver, mockLogger);
 
 		const result = await provider.runHookSequential("testHook");
 		expect(result.isOk()).toBe(true);
 	});
 
 	it("should support both sequential and parallel execution", async () => {
-		class TestContextProvider extends HookContextProvider<HookSet, { testValue: string }> {
+		class TestContextProvider extends HookContextProvider<TestHookArgs, { testValue: string }> {
 			override _getPluginContext() {
 				return { testValue: "test" };
 			}
@@ -258,8 +270,8 @@ describe("HookContextProvider", () => {
 		};
 
 		const mockLogger = createMockLogger();
-		const baseDriver = new PluginDriver(mockLogger, [plugin1, plugin2]);
-		const provider = new TestContextProvider(baseDriver);
+		const baseDriver = new PluginDriver<TestHookArgs, { testValue: string }>([plugin1, plugin2]);
+		const provider = new TestContextProvider(baseDriver, mockLogger);
 
 		// Test sequential
 		order.length = 0;

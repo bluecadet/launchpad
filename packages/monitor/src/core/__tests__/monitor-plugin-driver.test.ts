@@ -2,7 +2,12 @@ import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { type Logger, PluginDriver } from "@bluecadet/launchpad-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type LaunchpadMonitor from "../../launchpad-monitor.js";
-import { type MonitorPlugin, MonitorPluginDriver } from "../monitor-plugin-driver.js";
+import {
+	type CombinedMonitorHookContext,
+	type MonitorHookArgs,
+	type MonitorPlugin,
+	MonitorPluginDriver,
+} from "../monitor-plugin-driver.js";
 
 describe("MonitorPluginDriver", () => {
 	let monitorPluginDriver: MonitorPluginDriver;
@@ -38,8 +43,14 @@ describe("MonitorPluginDriver", () => {
 			},
 		};
 
-		const basePluginDriver = new PluginDriver(mockLogger, [mockPlugin]);
-		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: mockMonitor });
+		const basePluginDriver = new PluginDriver<MonitorHookArgs, CombinedMonitorHookContext>([
+			mockPlugin,
+		]);
+
+		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, {
+			monitor: mockMonitor,
+			logger: mockLogger,
+		});
 	});
 
 	describe("constructor", () => {
@@ -50,10 +61,8 @@ describe("MonitorPluginDriver", () => {
 
 	describe("_getPluginContext", () => {
 		it("should return context with monitor instance", () => {
-			const context = monitorPluginDriver._getPluginContext();
-			expect(context).toEqual({
-				monitor: mockMonitor,
-			});
+			const context = monitorPluginDriver._getPluginContext(mockPlugin);
+			expect(context).toHaveProperty("monitor", mockMonitor);
 		});
 	});
 

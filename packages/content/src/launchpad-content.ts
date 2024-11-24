@@ -35,12 +35,11 @@ class LaunchpadContent {
 		// create all sources
 		this._rawSources = this._config.sources;
 
-		const basePluginDriver = new PluginDriver(this._config.plugins);
+		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
 
 		this._pluginDriver = new ContentPluginDriver(basePluginDriver, {
 			dataStore: this._dataStore,
 			options: this._config,
-			logger: this._logger,
 			paths: {
 				getDownloadPath: this.getDownloadPath.bind(this),
 				getTempPath: this.getTempPath.bind(this),

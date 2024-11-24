@@ -24,7 +24,6 @@ export async function createTestPluginContext({
 		data,
 		logger,
 		abortSignal: new AbortController().signal,
-		emit: vi.fn(),
 		paths: {
 			getDownloadPath: vi
 				.fn()

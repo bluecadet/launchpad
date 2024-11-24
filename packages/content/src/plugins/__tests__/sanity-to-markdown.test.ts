@@ -19,7 +19,7 @@ describe("sanityToMd plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: validBlock }));
 
 		const plugin = sanityToMd({ path: "$.content" });
-		await plugin.hooks.onContentFetchDone!(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).content).toBe("Hello world");
@@ -33,7 +33,7 @@ describe("sanityToMd plugin", () => {
 		await skipNamespace.insert("doc2", Promise.resolve({ content: validBlock }));
 
 		const plugin = sanityToMd({ path: "$.content", keys: ["test"] });
-		await plugin.hooks.onContentFetchDone!(ctx);
+		await plugin.hooks.onContentFetchDone(ctx);
 
 		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
@@ -48,7 +48,7 @@ describe("sanityToMd plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
 		const plugin = sanityToMd({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone!(ctx)).rejects.toThrow(
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
 			"Error applying content transform",
 		);
 	});

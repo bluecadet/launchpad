@@ -1,7 +1,6 @@
 import {
 	type BaseHookContext,
 	HookContextProvider,
-	type Logger,
 	type Plugin,
 	type PluginDriver,
 } from "@bluecadet/launchpad-utils";
@@ -16,69 +15,95 @@ type MonitorHookContext = {
 	monitor: LaunchpadMonitor;
 };
 
-export type MonitorHookArgs = {
+export type CombinedMonitorHookContext = BaseHookContext & MonitorHookContext;
+
+export type MonitorHooks = {
 	/** called before connecting to PM2 */
-	beforeConnect: undefined;
+	beforeConnect: (ctx: CombinedMonitorHookContext) => Promise<void> | void;
 	/** called after successfully connecting to PM2 */
-	afterConnect: undefined;
+	afterConnect: (ctx: CombinedMonitorHookContext) => Promise<void> | void;
 	/** called before disconnecting from PM2 */
-	beforeDisconnect: undefined;
+	beforeDisconnect: (ctx: CombinedMonitorHookContext) => Promise<void> | void;
 	/** called after disconnecting from PM2 */
-	afterDisconnect: undefined;
+	afterDisconnect: (ctx: CombinedMonitorHookContext) => Promise<void> | void;
 	/** called before starting an app */
-	beforeAppStart: { appName: string };
+	beforeAppStart: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string },
+	) => Promise<void> | void;
 	/** called after an app is started */
-	afterAppStart: { appName: string; process: pm2.ProcessDescription };
+	afterAppStart: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; process: pm2.ProcessDescription },
+	) => Promise<void> | void;
 	/** called before stopping an app */
-	beforeAppStop: { appName: string };
+	beforeAppStop: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string },
+	) => Promise<void> | void;
 	/** called after an app is stopped */
-	afterAppStop: { appName: string };
+	afterAppStop: (ctx: CombinedMonitorHookContext, arg: { appName: string }) => Promise<void> | void;
 	/** called when an app encounters an error */
-	onAppError: { appName: string; error: Error };
+	onAppError: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; error: Error },
+	) => Promise<void> | void;
 	/** called when an app outputs a log message */
-	onAppLog: { appName: string; data: string };
+	onAppLog: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; data: string },
+	) => Promise<void> | void;
 	/** called when an app outputs an error log */
-	onAppErrorLog: { appName: string; data: string };
+	onAppErrorLog: (
+		ctx: CombinedMonitorHookContext,
+		arg: { appName: string; data: string },
+	) => Promise<void> | void;
 	/** called before shutting down the monitor */
-	beforeShutdown: { code?: number };
+	beforeShutdown: (ctx: CombinedMonitorHookContext, arg: { code?: number }) => Promise<void> | void;
 };
 
-export type CombinedMonitorHookContext = BaseHookContext<MonitorHookArgs> & MonitorHookContext;
+export type MonitorPlugin<T extends Partial<MonitorHooks> = Partial<MonitorHooks>> = Plugin<
+	MonitorHooks,
+	T
+>;
 
-export type MonitorPlugin = Plugin<MonitorHookArgs, CombinedMonitorHookContext>;
-
-export function defineMonitorPlugin(plugin: MonitorPlugin): MonitorPlugin {
+export function defineMonitorPlugin<T extends Partial<MonitorHooks>>(
+	plugin: MonitorPlugin<T>,
+): MonitorPlugin<T> {
 	return plugin;
 }
 
-export const monitorPluginSchema = createPluginValidator<
-	MonitorHookArgs,
-	CombinedMonitorHookContext
->();
+export const monitorPluginSchema = createPluginValidator<MonitorHooks>([
+	"beforeConnect",
+	"afterConnect",
+	"beforeDisconnect",
+	"afterDisconnect",
+	"beforeAppStart",
+	"afterAppStart",
+	"beforeAppStop",
+	"afterAppStop",
+	"onAppError",
+	"onAppLog",
+	"onAppErrorLog",
+	"beforeShutdown",
+]);
 
-export class MonitorPluginDriver extends HookContextProvider<
-	MonitorHookArgs,
-	CombinedMonitorHookContext
-> {
+export class MonitorPluginDriver extends HookContextProvider<MonitorHooks, MonitorHookContext> {
 	/**
 	 * @type {import('../launchpad-monitor.js').LaunchpadMonitor}
 	 */
 	#monitor;
 
-	constructor(
-		wrappee: PluginDriver<MonitorHookArgs, CombinedMonitorHookContext>,
-		{ monitor, logger }: { monitor: LaunchpadMonitor; logger: Logger },
-	) {
-		super(wrappee, logger);
+	constructor(wrappee: PluginDriver<MonitorHooks>, { monitor }: { monitor: LaunchpadMonitor }) {
+		super(wrappee);
 		this.#monitor = monitor;
 
 		// Add event handler to BusManager
 		this.#monitor._busManager.addEventHandler(this._handleBusEvent.bind(this));
 	}
 
-	override _getPluginContext(plugin: MonitorPlugin): CombinedMonitorHookContext {
+	override _getPluginContext() {
 		return {
-			...this._getBaseHookContext(plugin),
 			monitor: this.#monitor,
 		};
 	}

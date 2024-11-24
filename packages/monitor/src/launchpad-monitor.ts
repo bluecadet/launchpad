@@ -38,11 +38,8 @@ class LaunchpadMonitor {
 			});
 		}
 
-		const basePluginDriver = new PluginDriver(this._config.plugins);
-		this._pluginDriver = new MonitorPluginDriver(basePluginDriver, {
-			monitor: this,
-			logger: this._logger,
-		});
+		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
+		this._pluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: this });
 	}
 
 	/**

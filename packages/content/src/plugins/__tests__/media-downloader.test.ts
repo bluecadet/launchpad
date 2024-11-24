@@ -333,36 +333,5 @@ describe("mediaDownloader", () => {
 			const errorPath = path.join(ctx.paths.getDownloadPath(), "test", "error.jpg");
 			expect(vol.existsSync(errorPath)).toBe(false);
 		});
-
-		it("Should emit mediaDownloaded event", async () => {
-			server.use(
-				http.get(/https?:\/\/example\.com\/.*/i, () => {
-					return new HttpResponse("media content", {
-						headers: { "Content-Type": "image/jpeg" },
-					});
-				}),
-			);
-
-			const ctx = await createTestPluginContext();
-			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
-			await namespace.insert(
-				"doc1",
-				Promise.resolve({
-					images: ["https://example.com/test.jpg"],
-				}),
-			);
-
-			const plugin = mediaDownloader({
-				mediaPattern: /\.jpg$/i,
-			});
-
-			await plugin.hooks.onContentFetchDone!(ctx);
-
-			expect(ctx.emit).toHaveBeenCalledWith("plugin:media-downloader:mediaDownloaded", {
-				url: "https://example.com/test.jpg",
-				sourceId: "test",
-				localPath: "/temp/test/test.jpg",
-			});
-		});
 	});
 });

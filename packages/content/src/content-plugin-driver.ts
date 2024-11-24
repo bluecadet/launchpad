@@ -1,8 +1,6 @@
 import {
 	type BaseHookContext,
 	HookContextProvider,
-	type HookSet,
-	type Logger,
 	type Plugin,
 	type PluginDriver,
 	createPluginValidator,
@@ -27,32 +25,37 @@ export type ContentHookContext = {
 	};
 };
 
-export interface CoreContentHookArgs {
-	onSetupError: ContentError;
-	onContentFetchSetup: undefined;
-	onContentFetchDone: undefined;
-	onContentFetchError: ContentError;
-}
+export type CombinedContentHookContext = BaseHookContext & ContentHookContext;
 
-export interface ContentHookArgs extends CoreContentHookArgs {}
+export type ContentHooks = {
+	onSetupError: (ctx: CombinedContentHookContext, error: ContentError) => void | PromiseLike<void>;
+	onContentFetchSetup: (ctx: CombinedContentHookContext) => void | PromiseLike<void>;
+	onContentFetchDone: (ctx: CombinedContentHookContext) => void | PromiseLike<void>;
+	onContentFetchError: (
+		ctx: CombinedContentHookContext,
+		error: ContentError,
+	) => void | PromiseLike<void>;
+};
 
-export type CombinedContentHookContext = BaseHookContext<ContentHookArgs> & ContentHookContext;
+export type ContentPlugin<T extends Partial<ContentHooks> = Partial<ContentHooks>> = Plugin<
+	ContentHooks,
+	T
+>;
 
-export type ContentPlugin = Plugin<ContentHookArgs, CombinedContentHookContext>;
-
-export function defineContentPlugin(plugin: ContentPlugin): ContentPlugin {
+export function defineContentPlugin<T extends Partial<ContentHooks>>(
+	plugin: ContentPlugin<T>,
+): ContentPlugin<T> {
 	return plugin;
 }
 
-export const contentPluginSchema = createPluginValidator<
-	ContentHookArgs,
-	CombinedContentHookContext
->();
+export const contentPluginSchema = createPluginValidator<ContentHooks>([
+	"onSetupError",
+	"onContentFetchSetup",
+	"onContentFetchDone",
+	"onContentFetchError",
+]);
 
-export class ContentPluginDriver extends HookContextProvider<
-	ContentHookArgs,
-	CombinedContentHookContext
-> {
+export class ContentPluginDriver extends HookContextProvider<ContentHooks, ContentHookContext> {
 	#dataStore: DataStore;
 	#options: ResolvedContentConfig;
 	#pathGetters: {
@@ -62,16 +65,14 @@ export class ContentPluginDriver extends HookContextProvider<
 	};
 
 	constructor(
-		wrappee: PluginDriver<ContentHookArgs, CombinedContentHookContext>,
+		wrappee: PluginDriver<ContentHooks>,
 		{
 			dataStore,
 			options,
 			paths,
-			logger,
 		}: {
 			dataStore: DataStore;
 			options: ResolvedContentConfig;
-			logger: Logger;
 			paths: {
 				getDownloadPath: (source?: string) => string;
 				getTempPath: (source?: string, pluginName?: string) => string;
@@ -79,7 +80,7 @@ export class ContentPluginDriver extends HookContextProvider<
 			};
 		},
 	) {
-		super(wrappee, logger);
+		super(wrappee);
 		this.#dataStore = dataStore;
 		this.#options = options;
 		this.#pathGetters = paths;
@@ -87,7 +88,6 @@ export class ContentPluginDriver extends HookContextProvider<
 
 	override _getPluginContext(plugin: ContentPlugin) {
 		return {
-			...this._getBaseHookContext(plugin),
 			data: this.#dataStore,
 			contentOptions: this.#options,
 			paths: {

@@ -373,12 +373,6 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 									} else {
 										progressLogger.addFresh();
 									}
-
-									ctx.emit("plugin:media-downloader:mediaDownloaded", {
-										url: mediaItem.url,
-										sourceId: mediaItem.sourceId,
-										localPath: destPath,
-									});
 								});
 							return task;
 						});

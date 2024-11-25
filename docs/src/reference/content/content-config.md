@@ -20,7 +20,7 @@ For detailed source configuration options, see [Sources Reference](./sources/ind
 
 A list of content transformation plugins that process content after download. Plugins can modify, analyze, or enhance content before final output.
 
-See [Content Plugin Reference](./content-plugins/index.md) for available plugins and usage.
+See [Content Plugin Reference](./plugins/index.md) for available plugins and usage.
 
 ### `downloadPath`
 

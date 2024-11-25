@@ -4,3 +4,4 @@ export { default as sanityToPlain } from "./sanity-to-plain.js";
 export { default as sanityToMd } from "./sanity-to-markdown.js";
 export { default as mediaDownloader } from "./media-downloader.js";
 export { default as sharp } from "./sharp.js";
+export { default as sanityImageUrlTransform } from "./sanity-image-url-transform.js";

@@ -1,3 +1,13 @@
+# Scaffold Config
+
+The scaffold configuration controls how Windows systems are configured for exhibit and kiosk environments. It provides extensive customization options for system settings, application installation, startup behaviors, and Windows optimizations.
+
+When you run the scaffold process, you'll be presented with an option to edit the default config before it's applied.
+
+## Example Config
+
+```powershell
+
 if (!$global:LaunchpadConfig) { $global:LaunchpadConfig = @{} }
 if (!$global:LaunchpadConfig.Computer) { $global:LaunchpadConfig.Computer = @{} }
 if (!$global:LaunchpadConfig.InstallApps) { $global:LaunchpadConfig.InstallApps = @{} }
@@ -9,27 +19,27 @@ if (!$global:LaunchpadConfig.Exhibit) { $global:LaunchpadConfig.Exhibit = @{} }
 $global:LaunchpadConfig.ConfirmAllScripts = $true;
 
 # Computer config
-$global:LaunchpadConfig.Computer.ComputerName = hostname										# Leave as hostname to use the current computer name
-$global:LaunchpadConfig.Computer.WindowsUsername = [Environment]::UserName	# Leave as [Environment]::UserName to sue the current user name    
+$global:LaunchpadConfig.Computer.ComputerName = hostname          # Leave as hostname to use the current computer name
+$global:LaunchpadConfig.Computer.WindowsUsername = [Environment]::UserName # Leave as [Environment]::UserName to sue the current user name    
 $global:LaunchpadConfig.Computer.WindowsPassword = ""
 $global:LaunchpadConfig.Computer.PowerConfig = "$PSScriptRoot\presets\exhibit_power_config.pow"
 
 # Install start up tasks to launch your app. Paths are relative to setup.bat
-$global:LaunchpadConfig.Computer.TaskSchedulerPath = "\Exhibit"					# The path where startup scripts will be stored
-$global:LaunchpadConfig.Computer.StartupWorkingDir = "$PSScriptRoot\..\..\..\..\..\..\"	# Working dir of the startup action
-$global:LaunchpadConfig.Computer.StartupCreateBat = $true							# Create a bat file to launch at startup
-$global:LaunchpadConfig.Computer.StartupBat = "launch.bat"						# The filename used for StartupCreateBat
-$global:LaunchpadConfig.Computer.StartupBatContent = "npx launchpad"		# The contents of the startup bat file
-$global:LaunchpadConfig.Computer.StartupAction = $global:LaunchpadConfig.Computer.StartupBat	# The action to run at startup
-$global:LaunchpadConfig.Computer.StartupDelay = "PT3M"									#	PT3M = 3 min, PT4M = 4 min, ... (stands for poll time X minutes)
+$global:LaunchpadConfig.Computer.TaskSchedulerPath = "\Exhibit"     # The path where startup scripts will be stored
+$global:LaunchpadConfig.Computer.StartupWorkingDir = "$PSScriptRoot\..\..\..\..\..\..\" # Working dir of the startup action
+$global:LaunchpadConfig.Computer.StartupCreateBat = $true       # Create a bat file to launch at startup
+$global:LaunchpadConfig.Computer.StartupBat = "launch.bat"      # The filename used for StartupCreateBat
+$global:LaunchpadConfig.Computer.StartupBatContent = "npx launchpad"  # The contents of the startup bat file
+$global:LaunchpadConfig.Computer.StartupAction = $global:LaunchpadConfig.Computer.StartupBat # The action to run at startup
+$global:LaunchpadConfig.Computer.StartupDelay = "PT3M"         # PT3M = 3 min, PT4M = 4 min, ... (stands for poll time X minutes)
 $global:LaunchpadConfig.Computer.Timezone = "Eastern Standard Time"
 $global:LaunchpadConfig.Computer.RebootTime = "3:00"
 
 # App installs
-$global:LaunchpadConfig.InstallApps.Enabled = $true													# Install Chocolatey; Required for any of the below app packages
+$global:LaunchpadConfig.InstallApps.Enabled = $true             # Install Chocolatey; Required for any of the below app packages
 $global:LaunchpadConfig.InstallApps.Apps = "nvm", "python", "vscode", "github-desktop", "git", "cmake", "visualstudio2022buildtools", "visualstudio2022-workload-nativedesktop", "visualstudio2022-workload-vctools"
 
-$global:LaunchpadConfig.InstallApps.InstallNodeDependencies = $true				# Installs Launchpad dependencies
+$global:LaunchpadConfig.InstallApps.InstallNodeDependencies = $true    # Installs Launchpad dependencies
 
 # Computer/User Settings
 $global:LaunchpadConfig.Windows.SetComputerName = $false
@@ -68,4 +78,5 @@ $global:LaunchpadConfig.Windows.UnpinStartMenuApps = $true
 
 # Windows 8 Specific
 $global:LaunchpadConfig.Windows.Windows8.DisableStartPage = $true
-  
+
+```

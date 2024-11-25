@@ -91,6 +91,13 @@ export default defineConfig({
 							{ text: "Plugins", link: "/reference/monitor/plugins" },
 						],
 					},
+					{
+						text: "Scaffold",
+						link: "/reference/scaffold",
+						items: [
+							{ text: "Scaffold Config", link: "/reference/scaffold/scaffold-config" },
+						],
+					},
 				],
 			},
 			{

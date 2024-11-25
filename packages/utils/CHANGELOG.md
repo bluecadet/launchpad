@@ -1,5 +1,15 @@
 # @bluecadet/launchpad-utils
 
+## 2.0.0-next.4
+
+### Minor Changes
+
+- [#177](https://github.com/bluecadet/launchpad/pull/177) [`a6f330947de66ba5b95abdf06f66ecfaca67bd0a`](https://github.com/bluecadet/launchpad/commit/a6f330947de66ba5b95abdf06f66ecfaca67bd0a) Thanks [@github-actions](https://github.com/apps/github-actions)! - cleanup file and console log formats
+
+### Patch Changes
+
+- [#178](https://github.com/bluecadet/launchpad/pull/178) [`f8c6ceff03b9e46871bcfb2569c7c7e510ec8758`](https://github.com/bluecadet/launchpad/commit/f8c6ceff03b9e46871bcfb2569c7c7e510ec8758) Thanks [@claytercek](https://github.com/claytercek)! - Add image transform plugins
+
 ## 2.0.0-next.3
 
 ### Minor Changes

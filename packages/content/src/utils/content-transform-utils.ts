@@ -17,6 +17,10 @@ export function getMatchingDocuments(
 	return dataStore.filter(ids).map((results) => results.flatMap((result) => result.documents));
 }
 
+export function regexToJSONPathQuery(regex: RegExp): string {
+	return `$..[?(@.match(${regex}))]`;
+}
+
 type ApplyTransformToFilesParams = {
 	dataStore: DataStore;
 	path: string;

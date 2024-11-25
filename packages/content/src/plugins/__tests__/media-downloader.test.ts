@@ -2,7 +2,7 @@ import path from "node:path";
 import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 import mediaDownloader, {
 	localFilePathFromUrl,
@@ -180,6 +180,7 @@ describe("mediaDownloader", () => {
 			const urls = await findMediaUrls(
 				ctx.data,
 				getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }),
+				"",
 				"$..*[?(@.match(/\\.(jpg|png)$/i))]",
 			);
 
@@ -205,6 +206,7 @@ describe("mediaDownloader", () => {
 			const urls = await findMediaUrls(
 				ctx.data,
 				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }),
+				"",
 				"$..*[?(@.url)].url",
 			);
 
@@ -212,6 +214,50 @@ describe("mediaDownloader", () => {
 				{ url: "https://example.com/1.jpg", sourceId: "test" },
 				{ url: "https://example.com/2.jpg", sourceId: "test" },
 			]);
+		});
+
+		it("should update document paths when updatePaths is true", async () => {
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					media: {
+						hero: "https://example.com/hero.jpg",
+						gallery: [{ url: "https://example.com/1.jpg" }, { url: "https://example.com/2.jpg" }],
+					},
+				}),
+			);
+
+			await findMediaUrls(
+				ctx.data,
+				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url", updatePaths: false }),
+				"",
+				"$..*[?(@.url)].url",
+			);
+
+			// Verify original data was modified to use relative paths
+			expect(await namespace.document("doc1")._unsafeUnwrap()._read()).toEqual({
+				media: {
+					hero: "https://example.com/hero.jpg",
+					gallery: [{ url: "https://example.com/1.jpg" }, { url: "https://example.com/2.jpg" }],
+				},
+			});
+
+			await findMediaUrls(
+				ctx.data,
+				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url", updatePaths: true }),
+				"",
+				"$..*[?(@.url)].url",
+			);
+
+			// Verify original data was modified to use relative paths
+			expect(await namespace.document("doc1")._unsafeUnwrap()._read()).toEqual({
+				media: {
+					hero: "https://example.com/hero.jpg",
+					gallery: [{ url: "1.jpg" }, { url: "2.jpg" }],
+				},
+			});
 		});
 	});
 
@@ -242,7 +288,7 @@ describe("mediaDownloader", () => {
 				mediaPattern: /\.jpg$/i,
 			});
 
-			await plugin.hooks.onContentFetchDone(ctx);
+			await plugin.hooks.onContentFetchDone!(ctx);
 
 			// Check all files were downloaded
 			const expectedFiles = ["1.jpg", "2.jpg", "3.jpg"];
@@ -277,7 +323,7 @@ describe("mediaDownloader", () => {
 				mediaPattern: /\.jpg$/i,
 			});
 
-			await plugin.hooks.onContentFetchDone(ctx);
+			await plugin.hooks.onContentFetchDone!(ctx);
 
 			// Success file should exist
 			const successPath = path.join(ctx.paths.getDownloadPath(), "test", "success.jpg");

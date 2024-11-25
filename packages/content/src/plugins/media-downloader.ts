@@ -2,19 +2,23 @@ import { setMaxListeners } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
-import { FixedConsoleLogger, type Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { JSONPath } from "jsonpath-plus";
 import { ResultAsync, errAsync, ok, okAsync } from "neverthrow";
 import { z } from "zod";
 import { type ContentHookContext, defineContentPlugin } from "../content-plugin-driver.js";
-import type { DataKeys, DataStore } from "../utils/data-store.js";
+import type { DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { CacheProgressLogger, parsePluginConfig, queryOrUpdate } from "./contentPluginHelpers.js";
 
-const DEFAULT_MEDIA_PATTERN = /\.(jpg|jpeg|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
+const DEFAULT_MEDIA_PATTERN = /\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
+
+declare module "../content-plugin-driver.js" {
+	interface ContentHookArgs {
+		"plugin:media-downloader:mediaDownloaded": { url: string; sourceId: string; localPath: string };
+	}
+}
 
 /**
  * @internal
@@ -82,6 +86,16 @@ export const mediaDownloaderConfigSchema = z.object({
 			"If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw.",
 		)
 		.default(true),
+	/**
+	 * Update downloaded media URLs in content to point to the new location, relative to the source download directory.
+	 * Defaults to true.
+	 */
+	updatePaths: z
+		.boolean()
+		.default(true)
+		.describe(
+			"Update downloaded media URLs in content to point to the new location, relative to the source download directory. This option is required if you want to use the 'sharp' plugin to transform downloaded images.",
+		),
 });
 
 type MediaDownloaderConfigWithDefaults = z.infer<typeof mediaDownloaderConfigSchema>;
@@ -188,20 +202,14 @@ export function downloadFile(
 
 function downloadMedia(
 	url: string,
-	destDir: string,
-	backupDir: string,
-	encodeRegex: RegExp,
+	destPath: string,
+	backupPath: string,
 	abortSignal: AbortSignal,
 	config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<
 	{ cacheHit: boolean; destPath: string },
 	FileSystemError | NetworkError | CacheError
 > {
-	const transformFn = config.transformLocalPath ?? ((path) => path);
-	const localPath = transformFn(localFilePathFromUrl(url)).replace(encodeRegex, encodeURIComponent);
-
-	const destPath = path.join(destDir, localPath);
-	const backupPath = path.join(backupDir, localPath);
 	const destPathDir = path.dirname(destPath);
 
 	return FileUtils.ensureDir(destPathDir)
@@ -223,33 +231,53 @@ function downloadMedia(
 			}));
 		});
 }
+type MediaDownload = {
+	url: string;
+	sourceId: string;
+	localPath: string;
+};
 
 export async function findMediaUrls(
 	dataStore: DataStore,
 	options: MediaDownloaderConfigWithDefaults,
+	encodeChars: string,
 	queryJsonPath: string,
 ) {
-	const returnUrls: { url: string; sourceId: string }[] = [];
+	const returnUrls: MediaDownload[] = [];
 	const filteredResult = dataStore.filter(options.keys);
 
 	if (filteredResult.isErr()) {
 		throw filteredResult.error;
 	}
 
+	const encodeRegex = new RegExp(`[${encodeChars}]`, "g");
+	const transformFn = options.transformLocalPath ?? ((path) => path);
+
 	for (const source of filteredResult.value) {
 		const uniqueUrlSet = new Set();
 
-		for (const document of source.documents) {
-			const foundUrls = await document.query(queryJsonPath);
+		await queryOrUpdate({
+			documents: source.documents,
+			queryJsonPath,
+			update: options.updatePaths,
+			callback: async (val: unknown) => {
+				if (typeof val !== "string") {
+					throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
+				}
 
-			for (const url of foundUrls) {
-				uniqueUrlSet.add(url);
-			}
-		}
+				const localPath = transformFn(localFilePathFromUrl(val)).replace(
+					encodeRegex,
+					encodeURIComponent,
+				);
 
-		for (const url of uniqueUrlSet) {
-			returnUrls.push({ url: url as string, sourceId: source.namespaceId });
-		}
+				if (!uniqueUrlSet.has(val)) {
+					uniqueUrlSet.add(val);
+					returnUrls.push({ url: val, sourceId: source.namespaceId, localPath });
+				}
+
+				return localPath;
+			},
+		});
 	}
 
 	return returnUrls;
@@ -308,35 +336,42 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 				return setupDownloadDirectories(ctx, configWithDefaults)
 					.andThen(() =>
 						ResultAsync.fromPromise(
-							findMediaUrls(ctx.data, configWithDefaults, queryJsonPath),
+							findMediaUrls(
+								ctx.data,
+								configWithDefaults,
+								ctx.contentOptions.encodeChars,
+								queryJsonPath,
+							),
 							(err) => new MediaDownloaderError("Failed to find media urls", err),
 						),
 					)
-					.andThen((urls) => {
+					.andThen((mediaItems) => {
 						const queue = new ResultAsyncQueue({
 							concurrency: configWithDefaults.maxConcurrent,
 						});
 
-						const encodeRegex = new RegExp(`[${ctx.contentOptions.encodeChars}]`, "g");
+						ctx.logger.info(`Syncing ${chalk.cyan(mediaItems.length)} files`);
 
-						ctx.logger.info(`Syncing ${chalk.cyan(urls.length)} files`);
+						const progressLogger = new MediaDownloaderProgressLogger(ctx.logger, mediaItems.length);
 
-						const progressLogger = new MediaDownloaderProgressLogger(ctx.logger, urls.length);
+						const tasks = mediaItems.map((mediaItem) => {
+							const destDir = ctx.paths.getTempPath(mediaItem.sourceId);
+							const backupDir = ctx.paths.getBackupPath(mediaItem.sourceId);
+							const destPath = path.join(destDir, mediaItem.localPath);
+							const backupPath = path.join(backupDir, mediaItem.localPath);
 
-						const tasks = urls.map((url) => {
 							const task = ({ signal }: { signal?: AbortSignal }) =>
 								downloadMedia(
-									url.url,
-									ctx.paths.getTempPath(url.sourceId),
-									ctx.paths.getBackupPath(url.sourceId),
-									encodeRegex,
+									mediaItem.url,
+									destPath,
+									backupPath,
 									signal ?? ctx.abortSignal,
 									configWithDefaults,
 								).andTee(({ cacheHit }) => {
 									if (cacheHit) {
 										progressLogger.addCached();
 									} else {
-										progressLogger.addFetched();
+										progressLogger.addFresh();
 									}
 								});
 							return task;
@@ -358,7 +393,7 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 
 								ctx.logger.info(
 									`Of the ${chalk.cyan(tasks.length)} media files, ${chalk.green(
-										progressLogger.fetched,
+										progressLogger.fresh,
 									)} were downloaded and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
 								);
 							})
@@ -447,57 +482,11 @@ class QueueError extends MediaDownloaderError {
 	}
 }
 
-class MediaDownloaderProgressLogger extends FixedConsoleLogger {
-	#total: number;
-	#fetched = 0;
-	#cached = 0;
-
-	get fetched() {
-		return this.#fetched;
-	}
-
-	get cached() {
-		return this.#cached;
-	}
-
-	constructor(logger: Logger, total: number) {
-		super(logger, 0);
-		this.#total = total;
-	}
-
-	addFetched() {
-		this.#fetched++;
-		this.update();
-	}
-
-	addCached() {
-		this.#cached++;
-		this.update();
-	}
-
-	#renderProgressBar() {
-		const total = this.#total;
-		const fetched = this.#fetched;
-		const cached = this.#cached;
-		const BAR_LENGTH = 60;
-
-		// Calculate exact segments
-		const fetchedLength = Math.round((fetched / total) * BAR_LENGTH);
-		const cachedLength = Math.round((cached / total) * BAR_LENGTH);
-		// Ensure remaining is never negative
-		const remainingLength = Math.max(0, BAR_LENGTH - fetchedLength - cachedLength);
-
-		const fetchedBar = chalk.green("=".repeat(fetchedLength));
-		const cachedBar = chalk.yellow("=".repeat(cachedLength));
-		const remainingBar = chalk.gray("=".repeat(remainingLength));
-
-		return `${fetchedBar}${cachedBar}${remainingBar}`;
-	}
-
+class MediaDownloaderProgressLogger extends CacheProgressLogger {
 	override getFixedConsoleMessage(): string {
 		return (
-			`Syncing Media: ${this.#renderProgressBar()}\n` +
-			`Fetched: ${chalk.green(this.#fetched)}, Cached: ${chalk.yellow(this.#cached)}, Remaining: ${this.#total - this.#fetched - this.#cached} \n`
+			`Syncing Media: ${super.getFixedConsoleMessage()}\n` +
+			`Fetched: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
 		);
 	}
 }

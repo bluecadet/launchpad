@@ -16,10 +16,12 @@ export const TTY_FIXED_END = Symbol("ttyFixedEnd");
  * This is useful for progress bars, status messages, etc.
  */
 export class CustomConsoleTransport extends winston.transports.Console {
+	#didQuit = false;
+
 	constructor(args: ConsoleTransportOptions) {
 		super(args);
 
-		onExit(this.#handleQuit);
+		onExit(this.#handleQuit.bind(this));
 	}
 
 	#fixedMessage: string | null = null;
@@ -54,6 +56,10 @@ export class CustomConsoleTransport extends winston.transports.Console {
 		}
 	}
 	#updateFixedMessage(message: string | null) {
+		if (this.#didQuit) {
+			return;
+		}
+
 		const lastMessage = this.#fixedMessage;
 		if (lastMessage === null) {
 			// hide cursor when displaying fixed message
@@ -72,6 +78,8 @@ export class CustomConsoleTransport extends winston.transports.Console {
 	}
 
 	#handleQuit() {
+		this.#updateFixedMessage(null);
+		this.#didQuit = true;
 		// make sure to show cursor before exiting
 		process.stdout.write(ansiEscapes.cursorShow);
 	}
@@ -114,10 +122,6 @@ export abstract class FixedConsoleLogger {
 				this.update();
 			}, ttyUpdateInterval);
 		}
-
-		onExit(() => {
-			this.close();
-		});
 	}
 
 	abstract getFixedConsoleMessage(): string;

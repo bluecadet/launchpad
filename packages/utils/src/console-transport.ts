@@ -21,7 +21,7 @@ export class CustomConsoleTransport extends winston.transports.Console {
 	constructor(args: ConsoleTransportOptions) {
 		super(args);
 
-		onExit(this.#handleQuit);
+		onExit(this.#handleQuit.bind(this));
 	}
 
 	#fixedMessage: string | null = null;

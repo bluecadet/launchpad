@@ -83,6 +83,14 @@ export default defineConfig({
 							{ text: "DataStore", link: "/reference/content/data-store" },
 						],
 					},
+					{
+						text: "Monitor",
+						link: "/reference/monitor",
+						items: [
+							{ text: "Monitor Config", link: "/reference/monitor/monitor-config" },
+							{ text: "Plugins", link: "/reference/monitor/plugins" },
+						],
+					},
 				],
 			},
 			{

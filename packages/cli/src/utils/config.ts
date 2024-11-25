@@ -3,12 +3,7 @@ import path from "node:path";
 import url from "node:url";
 import chalk from "chalk";
 
-const DEFAULT_CONFIG_PATHS = [
-	"launchpad.config.js",
-	"launchpad.config.mjs",
-	"launchpad.json",
-	"config.json",
-];
+const DEFAULT_CONFIG_PATHS = ["launchpad.config.js", "launchpad.config.mjs"];
 
 /**
  * Searches for a config file in the current and parent directories, up to a max depth of 64.

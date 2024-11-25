@@ -46,6 +46,15 @@ export default defineConfig({
 				text: "Reference",
 				items: [
 					{
+						text: "CLI",
+						link: "/reference/cli",
+						items: [
+							{ text: "Env", link: "/reference/cli/env" },
+							{ text: "Config Loading", link: "/reference/cli/config-loading" },
+							{ text: "Commands", link: "/reference/cli/commands" },
+						],
+					},
+					{
 						text: "Content",
 						link: "/reference/content",
 						items: [
@@ -94,9 +103,7 @@ export default defineConfig({
 					{
 						text: "Scaffold",
 						link: "/reference/scaffold",
-						items: [
-							{ text: "Scaffold Config", link: "/reference/scaffold/scaffold-config" },
-						],
+						items: [{ text: "Scaffold Config", link: "/reference/scaffold/scaffold-config" }],
 					},
 				],
 			},

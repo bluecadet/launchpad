@@ -87,9 +87,8 @@ The resolved content configuration object. See [Content Config Reference](../con
 
 Helpers for retrieving the download, temp, and backup path. If no `source` is passed, then it will return the path to the respective root directory.
 
-::: info Note:
-The `getTempPath` function returns a directory scoped to the current plugin. Plugins do not share temp directories.
-:::
+> [!NOTE] Note:
+> The `getTempPath` function returns a directory scoped to the current plugin. Plugins do not share temp directories.
 
 ### `logger`
 

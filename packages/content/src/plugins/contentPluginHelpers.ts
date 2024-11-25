@@ -107,6 +107,6 @@ export class CacheProgressLogger extends FixedConsoleLogger {
 	}
 
 	override getFixedConsoleMessage(): string {
-		return `Syncing Media: ${this.#renderProgressBar()}\n`;
+		return `${this.#renderProgressBar()}`;
 	}
 }

@@ -41,11 +41,6 @@ const sharpPluginSchema = z.object({
 		.function(z.tuple([z.custom<Sharp.Sharp>()]))
 		.returns(z.custom<Sharp.Sharp>())
 		.describe("The sharp transform to apply to the images."),
-	/** The suffix to add to the transformed image filenames. Defaults to '-sharp' */
-	imageSuffix: z
-		.string()
-		.default("-sharp")
-		.describe("The suffix to add to the transformed image filenames."),
 	/** The number of images to transform concurrently. Defaults to 4. */
 	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
 });
@@ -56,6 +51,10 @@ async function transformImage(
 	outputImagePath: string,
 	backupImagePath: string,
 ) {
+	await FileUtils.ensureDir(path.dirname(outputImagePath)).mapErr((err) => {
+		throw new Error(`Error creating directory '${path.dirname(outputImagePath)}'`, err);
+	});
+
 	const backupExists = await FileUtils.pathExists(backupImagePath).match(
 		(val) => val,
 		(err) => {
@@ -86,7 +85,7 @@ async function transformImage(
 
 	await pipeline(
 		fs.createReadStream(sourceImagePath),
-		sharpTransform,
+		sharpTransform.clone(),
 		fs.createWriteStream(outputImagePath),
 	);
 
@@ -113,6 +112,8 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 
 				const transform = resolvedConfig.buildTransform(Sharp());
 
+				transform.setMaxListeners(0);
+
 				// make sure we don't transform the same image multiple times
 				const sourceUrls = new Set<string>();
 
@@ -138,7 +139,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 								throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
 							}
 
-							const newLocalPath = getOutputFilename(val, resolvedConfig.imageSuffix, transform);
+							const newLocalPath = getOutputFilename(val, transform);
 
 							if (!sourceUrls.has(val)) {
 								sourceUrls.add(val);
@@ -205,14 +206,77 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 	});
 }
 
-function getOutputFilename(inputPath: string, suffix: string, sharpTransform: Sharp.Sharp) {
+function getOutputFilename(inputPath: string, sharpTransform: Sharp.Sharp) {
 	const { dir, name, ext } = path.parse(inputPath);
 
 	// 'options' is a private property, so we need to use Object.getOwnPropertyDescriptor
-	const outputFormat =
-		Object.getOwnPropertyDescriptor(sharpTransform, "options")?.value?.formatOut ?? "input";
+	const options = Object.getOwnPropertyDescriptor(sharpTransform, "options")?.value ?? {};
+
+	const outputFormat = options?.formatOut ?? "input";
 
 	const newExt = outputFormat === "input" ? ext : `.${outputFormat}`;
+
+	let suffix = "";
+
+	if (options?.width !== -1 && options?.height !== -1) {
+		suffix += `@${options.width}x${options.height}`;
+
+		if (options?.canvas) {
+			suffix += `-${options.canvas}`;
+		}
+	}
+
+	if (options?.blurSigma) {
+		suffix += `@blur_${options.blurSigma}`;
+	}
+
+	if (options?.angle) {
+		suffix += `@rotate_${options.angle}deg`;
+	}
+
+	if (options?.flip) {
+		suffix += "@flipped";
+	}
+
+	if (options?.flop) {
+		suffix += "@flopped";
+	}
+
+	if (options?.grayscale) {
+		suffix += "@grayscale";
+	}
+
+	if (options?.brightness !== 1) {
+		suffix += `@brightness_${options.brightness}`;
+	}
+
+	if (options?.gamma !== 0) {
+		suffix += `@gamma_${options.gamma}`;
+	}
+
+	if (options?.hue !== 0) {
+		suffix += `@hue_${options.hue}`;
+	}
+
+	if (options?.saturation !== 1) {
+		suffix += `@saturation_${options.saturation}`;
+	}
+
+	if (options?.lightness !== 0) {
+		suffix += `@threshold_${options.threshold}`;
+	}
+
+	if (options?.normalise) {
+		suffix += "@normalized";
+	}
+
+	if (options?.negate) {
+		suffix += "@negated";
+	}
+
+	if (suffix === "") {
+		suffix = "@sharp"; // default suffix
+	}
 
 	return path.join(dir, `${name}${suffix}${newExt}`);
 }
@@ -220,7 +284,7 @@ function getOutputFilename(inputPath: string, suffix: string, sharpTransform: Sh
 class SharpProgressLogger extends CacheProgressLogger {
 	override getFixedConsoleMessage(): string {
 		return (
-			`Syncing Media: ${super.getFixedConsoleMessage()}\n` +
+			`Transforming Images: ${super.getFixedConsoleMessage()}\n` +
 			`Transformed: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
 		);
 	}

@@ -72,16 +72,18 @@ async function transformImage(
 		return { output: outputImagePath, fromCache: true };
 	}
 
-	await FileUtils.pathExists(sourceImagePath)
-		.andTee((exists) => {
-			if (!exists)
-				throw new Error(
-					`Input file '${sourceImagePath}' does not exist or is not readable. Make sure it's been downloaded via the 'mediaDownloader' plugin prior to using the 'sharp' plugin.`,
-				);
-		})
-		.orElse((e) => {
-			throw new Error(`Error checking if file '${sourceImagePath}' exists`, e);
-		});
+	const result = await FileUtils.pathExists(sourceImagePath).match(
+		(val) => val,
+		(err) => {
+			throw new Error(`Error checking if file '${sourceImagePath}' exists`, err);
+		},
+	);
+
+	if (!result) {
+		throw new Error(
+			`Input file '${sourceImagePath}' does not exist or is not readable. Make sure it's been downloaded via the 'mediaDownloader' plugin prior to using the 'sharp' plugin.`,
+		);
+	}
 
 	await pipeline(
 		fs.createReadStream(sourceImagePath),
@@ -242,8 +244,8 @@ function getOutputFilename(inputPath: string, sharpTransform: Sharp.Sharp) {
 		suffix += "@flopped";
 	}
 
-	if (options?.grayscale) {
-		suffix += "@grayscale";
+	if (options?.greyscale) {
+		suffix += "@greyscale";
 	}
 
 	if (options?.brightness !== 1) {

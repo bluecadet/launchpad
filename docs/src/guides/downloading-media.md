@@ -96,9 +96,7 @@ sharp({
 ## Best Practices
 
 - **Enable Caching**: Launchpad automatically caches downloaded and transformed files
-- **Use Appropriate Concurrency**: Adjust `maxConcurrent` based on your server capacity
-- **Order Plugins Correctly**: Always put `mediaDownloader` before transformation plugins
-- **Transform Once**: If applying multiple transforms to the same image, only update URLs in the final transform
+- **Order Plugins Correctly**: Always put `mediaDownloader` before `sharp` plugins
 
 ## Troubleshooting
 

@@ -46,6 +46,14 @@ export default defineConfig({
 				],
 			},
 			{
+				text: "Recipes",
+				items: [
+					{ text: "Custom Content Source", link: "/recipes/custom-content-source" },
+					{ text: "Custom Content Plugin", link: "/recipes/custom-content-plugin" },
+					{ text: "Custom Monitor Plugin", link: "/recipes/custom-monitor-plugin" },
+				],
+			},
+			{
 				text: "Reference",
 				items: [
 					{
@@ -109,10 +117,6 @@ export default defineConfig({
 						items: [{ text: "Scaffold Config", link: "/reference/scaffold/scaffold-config" }],
 					},
 				],
-			},
-			{
-				text: "Recipes",
-				items: [],
 			},
 		],
 

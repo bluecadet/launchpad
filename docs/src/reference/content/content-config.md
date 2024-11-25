@@ -11,7 +11,7 @@ Configuration for managing content sources, plugins, and file handling settings.
 
 A list of content source options that defines where content is downloaded from. You can configure multiple sources and use different source types simultaneously. Each source can be either a direct ContentSource object or a Promise that resolves to a ContentSource.
 
-For detailed source configuration options, see [Sources Reference](./sources).
+For detailed source configuration options, see [Sources Reference](./sources/index.md).
 
 ### `plugins`
 
@@ -20,7 +20,7 @@ For detailed source configuration options, see [Sources Reference](./sources).
 
 A list of content transformation plugins that process content after download. Plugins can modify, analyze, or enhance content before final output.
 
-See [Content Plugin Reference](./content-plugins) for available plugins and usage.
+See [Content Plugin Reference](./content-plugins/index.md) for available plugins and usage.
 
 ### `downloadPath`
 

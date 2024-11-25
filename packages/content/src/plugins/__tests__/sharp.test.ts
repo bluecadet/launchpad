@@ -70,8 +70,6 @@ describe("sharp", () => {
 				updateURLs: false,
 			}).hooks.onContentFetchDone!(ctx);
 
-			console.log(vol.toTree());
-
 			expect(vol.existsSync("/download/test/image@100x100-crop.jpg")).toBe(true);
 			expect(vol.existsSync("/download/test/image@greyscale.jpg")).toBe(true);
 		});

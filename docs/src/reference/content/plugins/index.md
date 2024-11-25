@@ -92,7 +92,7 @@ Helpers for retrieving the download, temp, and backup path. If no `source` is pa
 
 ### `logger`
 
-A plugin-specific logger. See [Log Manager](../../shared/log-manager.md) for more info.
+A plugin-specific logger.
 
 ### `abortSignal`
 

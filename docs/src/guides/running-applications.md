@@ -89,5 +89,4 @@ npx launchpad monitor start
 ## Next Steps
 
 - Learn about [content management](./fetching-content.md)
-- Explore [system configuration](./configuring-windows.md)
 - Read the [monitor reference](../reference/monitor/index.md) for detailed API documentation

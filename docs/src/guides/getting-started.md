@@ -83,4 +83,4 @@ npx launchpad stop
 
 - Learn about [Content Sources](../content/sources/json)
 - Configure [Process Management](../monitor/configuration)
-- Set up [Health Monitoring](../monitor/health) 
+- Set up [Health Monitoring](../monitor/health)

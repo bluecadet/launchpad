@@ -1,6 +1,6 @@
 import { vol } from "memfs";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Sharp from "sharp";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import sharp from "../sharp.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 

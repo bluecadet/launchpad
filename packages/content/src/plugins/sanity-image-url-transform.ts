@@ -1,16 +1,16 @@
 import imageUrlBuilder from "@sanity/image-url";
+import type { ImageUrlBuilder } from "@sanity/image-url/lib/types/builder.js";
+import type {
+	SanityAsset,
+	SanityImageObject,
+	SanityImageWithAssetStub,
+	SanityReference,
+} from "@sanity/image-url/lib/types/types.js";
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
-import type {
-	SanityReference,
-	SanityAsset,
-	SanityImageObject,
-	SanityImageWithAssetStub,
-} from "@sanity/image-url/lib/types/types.js";
-import type { ImageUrlBuilder } from "@sanity/image-url/lib/types/builder.js";
 
 const sanityImageUrlTransformSchema = z.object({
 	/** JSONPath to the content to transform. Defaults to all nodes with an `_type` of `image`. */

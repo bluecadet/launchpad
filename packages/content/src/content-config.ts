@@ -45,11 +45,6 @@ export const contentConfigSchema = z.object({
 			"Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']`",
 		)
 		.default([]),
-	/** Strips this string from all media file paths when saving them locally */
-	strip: z
-		.string()
-		.describe("Strips this string from all media file paths when saving them locally")
-		.default(""),
 	/** Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true. */
 	backupAndRestore: z
 		.boolean()

@@ -1,0 +1,54 @@
+# @Bluecadet/Launchpad-CLI
+
+The CLI package provides a command-line interface for managing Launchpad installations. It serves as the primary entry point for running content management, process monitoring, and system configuration tasks.
+
+## Features
+
+- **Command Line Interface**: Easy-to-use commands for common operations:
+  - Start/stop content downloads and app monitoring
+  - Run content updates independently
+  - Configure system settings
+  - Access help documentation
+
+- **Configuration Management**:
+  - Load and parse config files
+  - Environment variable handling with dotenv
+  - Cascading configuration support
+  - Type-safe config validation
+
+- **Flexible Commands**:
+  - `start`: Full launchpad startup (content + apps)
+  - `stop`: Graceful shutdown of all processes
+  - `content`: Content-only operations
+  - `monitor`: Process monitoring operations
+  - `scaffold`: System configuration (Windows)
+
+## Installation
+
+The CLI can be installed globally via npm:
+
+```bash
+npm install @bluecadet/launchpad-cli
+
+# install any other modules you need, depeneding on your use-case
+npm install @bluecadet/launchpad-content @bluecadet/launchpad-monitor
+```
+
+## Usage
+
+Once installed, you can run commands using the `launchpad` executable:
+
+```bash
+npx launchpad <command> [options]
+```
+
+For help:
+
+```bash
+npx launchpad help
+```
+
+> [!NOTE] Note:
+> if installed globally (`npm install -g @bluecadet/launchpad-cli`) you don't need the `npx` prefix when running commands.
+
+See [Commands](./commands.md) for more information on the available commands.

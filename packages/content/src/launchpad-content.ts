@@ -59,8 +59,11 @@ class LaunchpadContent {
 
 		return this._createSourcesFromConfig(inputSources)
 			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
-			.andThen((sources) =>
-				this.backup(sources)
+			.andThen((sources) => {
+				const backupAndRestore = this._config.backupAndRestore;
+				const backupProcess = backupAndRestore ? this.backup(sources) : okAsync(undefined);
+
+				return backupProcess
 					.andTee(() => this._logger.info("Clearing download directory"))
 					.andThen(() =>
 						this.clear(sources, {
@@ -80,12 +83,17 @@ class LaunchpadContent {
 					.orElse((e) => {
 						this._pluginDriver.runHookSequential("onContentFetchError", e);
 						this._logger.error("Error in content fetch process:", e);
-						this._logger.info("Restoring from backup...");
-						return this.restore(sources).andThen(() => {
-							return err(
-								new ContentError("Failed to download content. Restored from backup.", { cause: e }),
-							);
-						});
+						if (backupAndRestore) {
+							this._logger.info("Restoring from backup...");
+							return this.restore(sources).andThen(() => {
+								return err(
+									new ContentError("Failed to download content. Restored from backup.", {
+										cause: e,
+									}),
+								);
+							});
+						}
+						return err(e);
 					})
 					.andTee(() =>
 						this._logger.info("Content fetch complete. Clearing temp and backup directories."),
@@ -93,11 +101,11 @@ class LaunchpadContent {
 					.andThen(() =>
 						this.clear(sources, {
 							temp: true,
-							backups: true,
+							backups: backupAndRestore,
 							downloads: false,
 						}),
-					),
-			);
+					);
+			});
 	}
 
 	/**

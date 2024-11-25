@@ -78,9 +78,3 @@ npx launchpad monitor
 # Stop any running launchpad processes
 npx launchpad stop
 ```
-
-## Next Steps
-
-- Learn about [Content Sources](../content/sources/json)
-- Configure [Process Management](../monitor/configuration)
-- Set up [Health Monitoring](../monitor/health)

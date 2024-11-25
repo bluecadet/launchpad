@@ -1,28 +1,66 @@
-# Launchpad
+# 🚀 Launchpad
 
-Launchpad is a highly configurable suite of tools to manage media installations. It features:
+**A toolkit for building and managing interactive media installations**
 
-### 🚀 **Process Management**
+Launchpad provides a collection of tools designed to streamline the development, deployment, and maintenance of media installations. It handles content management, process monitoring, system configuration, and more.
 
-- Launch and monitor multiple applications
-- Automatic restarts on crashes
-- Graceful shutdowns
-  
-### 📥 **Content Management**
+## Key Features
 
-- Download from multiple CMS platforms
-- Transform content (markdown to HTML, etc)
-- Process images (resize, crop, etc)
-- Local caching with smart updates
+- 📂 **Content Management**: Fetch and transform content from any source
+- 🔍 **Process Monitoring**: Keep your applications running reliably
+- 🛠️ **System Configuration**: Automate Windows kiosk setup
+- 💻 **Command Line Interface**: Easy-to-use commands for common operations
+- 🔌 **Plugin Architecture**: Extend functionality with custom plugins
 
-### 🔧 **System Configuration**
+## Why Launchpad?
 
-- Windows kiosk mode setup
-- Power settings optimization
-- Common exhibit configurations
+- **Reliable**: Built for 24/7 operation in museum environments
+- **Flexible**: Modular design lets you use only what you need
+- **Extensible**: Plugin system for custom functionality
+- **Type-Safe**: Written in TypeScript with full type coverage
 
-### 📊 **Monitoring & Logging**
+## Core Packages
 
-- Centralized logging
-- Process statistics
-- Health monitoring
+- [@bluecadet/launchpad-cli](./reference/cli/index.md): Command-line interface and configuration management
+- [@bluecadet/launchpad-content](./reference/content/index.md): Content pipeline and transformation tools
+- [@bluecadet/launchpad-monitor](./reference/monitor/index.md): Process monitoring and management
+- [@bluecadet/launchpad-scaffold](./reference/scaffold/index.md): Windows system configuration
+
+## Quick Start
+
+>[!NOTE] Tip
+> See the [Getting Started](/guides/getting-started) guide for detailed setup instructions.
+
+
+
+1. Install the packages you need:
+
+```bash
+npm install @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor
+```
+
+2. Create a configuration file:
+
+```js
+// launchpad.config.js
+import { defineConfig } from '@bluecadet/launchpad-cli';
+
+export default defineConfig({
+  content: {
+    sources: [
+      // Content source configurations
+    ]
+  },
+  monitor: {
+    apps: [
+      // Application configurations
+    ]
+  }
+});
+```
+
+3. Run launchpad:
+
+```bash
+npx launchpad start
+```

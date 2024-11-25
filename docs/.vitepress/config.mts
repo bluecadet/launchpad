@@ -40,6 +40,9 @@ export default defineConfig({
 				items: [
 					{ text: "Introduction", link: "/" },
 					{ text: "Getting Started", link: "/guides/getting-started" },
+					{ text: "Fetching Content", link: "/guides/fetching-content" },
+					{ text: "Downloading Media", link: "/guides/downloading-media" },
+					{ text: "Running Applications", link: "/guides/running-applications" },
 				],
 			},
 			{

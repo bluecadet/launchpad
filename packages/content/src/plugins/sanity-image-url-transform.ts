@@ -32,6 +32,7 @@ const sanityImageUrlTransformSchema = z.object({
 	buildUrl: z
 		.function(z.tuple([z.custom<ImageUrlBuilder>()]))
 		.returns(z.custom<ImageUrlBuilder>())
+		.default((bldr) => bldr)
 		.describe("Function to build the image URL"),
 });
 

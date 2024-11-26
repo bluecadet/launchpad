@@ -60,7 +60,7 @@ JSONPath to the content to transform. By default, matches all nodes with `_type`
 ### `buildUrl`
 
 - **Type:** `(builder: ImageUrlBuilder) => ImageUrlBuilder`
-- **Required**
+- **Default:** `builder => builder`
 
 Function to configure image transformations using Sanity's image URL builder.
 

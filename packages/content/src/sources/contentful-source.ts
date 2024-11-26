@@ -28,8 +28,6 @@ const contentfulSourceSchema = z
 			.describe("Required field to identify this source. Will be used as download path."),
 		/** Required field to identify this source. Will be used as download path. */
 		space: z.string().describe("Your Contentful space ID."),
-		/** Used to pull localized images. */
-		locale: z.string().default("en-US").describe("Used to pull localized images."),
 		/** The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json' */
 		filename: z
 			.string()
@@ -37,7 +35,7 @@ const contentfulSourceSchema = z
 			.describe(
 				"The filename you want to use for where all content (entries and assets metadata) will be stored.",
 			),
-		/** Optional. Defaults to 'https' */
+		/** Optional. Defaults to 'https'. This updates the asset urls for better compatibility with the mediaDownloader plugin. By default, asset urls have no protocol. */
 		protocol: z.string().default("https").describe("Optional. Defaults to 'https'"),
 		/** Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true */
 		host: z
@@ -123,7 +121,7 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 
 						const page = rawPage.toPlainObject();
 						const entries = parseEntries(page);
-						const assets = parseAssets(page);
+						const assets = parseAssets(page, assembled.protocol);
 
 						if (!entries.length) {
 							return null; // No more pages left
@@ -171,13 +169,20 @@ function parseEntries(responseObj: any): Array<Entry<unknown>> {
  * Returns all entries from a sync() or getEntries() response object.
  */
 // biome-ignore lint/suspicious/noExplicitAny: unknown type from CMS
-function parseAssets(responseObj: any): Array<Asset> {
+function parseAssets(responseObj: any, protocol: string): Array<Asset> {
 	const assets = responseObj.assets || [];
 	if (responseObj.includes) {
 		// 'includes' is an object where the key = type, and the value = list of items
 		for (const [key, items] of Object.entries(responseObj.includes)) {
 			if (key === "Asset") {
-				assets.push(...(items as Array<Asset>));
+				const withMediaProtocols = (items as Array<Asset>).map((asset) => {
+					if (asset.fields.file.url.startsWith("//")) {
+						asset.fields.file.url = `${protocol}:${asset.fields.file.url}`;
+					}
+					return asset;
+				});
+
+				assets.push(...withMediaProtocols);
 			}
 		}
 	}
@@ -186,7 +191,8 @@ function parseAssets(responseObj: any): Array<Asset> {
 
 async function tryImportContentful() {
 	try {
-		return await import("contentful");
+		const contentful = await import("contentful");
+		return contentful.default;
 	} catch (error) {
 		throw new Error('Could not find module "contentful". Make sure you have installed it.', {
 			cause: error,

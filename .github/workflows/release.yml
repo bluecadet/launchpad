@@ -5,7 +5,6 @@ on:
     branches:
       - develop
       - next
-      - changeset-release/*
     paths:
       - "packages/**"
       - ".changeset/**"
@@ -30,6 +29,8 @@ jobs:
         with:
           # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
           fetch-depth: 0
+          # custom token so that the changesets stuff still works with our branch protections
+          token: ${{ secrets.BC_GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:

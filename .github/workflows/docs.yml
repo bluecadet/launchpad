@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - next # TODO: remove this after next release
       - develop
     paths:
       - "docs/**"

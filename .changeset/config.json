@@ -8,7 +8,7 @@
   "fixed": [],
   "linked": [],
   "access": "public",
-  "baseBranch": "next",
+  "baseBranch": "develop",
   "updateInternalDependencies": "patch",
   "privatePackages": {
     "version": false,

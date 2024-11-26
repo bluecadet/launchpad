@@ -97,6 +97,7 @@ export default defineConfig({
 					{ text: "Custom Content Source", link: "/recipes/custom-content-source" },
 					{ text: "Custom Content Plugin", link: "/recipes/custom-content-plugin" },
 					{ text: "Custom Monitor Plugin", link: "/recipes/custom-monitor-plugin" },
+					{ text: "Transforming Sanity Images", link: "/recipes/transforming-sanity-images" },
 				],
 			},
 			{

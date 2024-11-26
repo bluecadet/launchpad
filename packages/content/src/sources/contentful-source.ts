@@ -4,21 +4,33 @@ import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { defineSource } from "./source.js";
 
 // If deliveryToken is provided, then previewToken is optional.
-const contentfulCredentialsSchema = z.union([
-	z.object({
-		/** Content delivery token (all published content). */
-		deliveryToken: z.string().describe("Content delivery token (all published content)."),
-		/** Content preview token (only unpublished/draft content). */
-		previewToken: z
-			.string()
-			.optional()
-			.describe("Content preview token (only unpublished/draft content)."),
-	}),
-	z.object({
-		/** Content preview token (only unpublished/draft content). */
-		previewToken: z.string().describe("Content preview token (only unpublished/draft content)."),
-	}),
-]);
+const contentfulCredentialsSchema = z.union(
+	[
+		z.object({
+			/** Content delivery token (all published content). */
+			deliveryToken: z.string().describe("Content delivery token (all published content)."),
+			/** Content preview token (only unpublished/draft content). */
+			previewToken: z
+				.string()
+				.optional()
+				.describe("Content preview token (only unpublished/draft content)."),
+		}),
+		z.object({
+			/** Content preview token (only unpublished/draft content). */
+			previewToken: z.string().describe("Content preview token (only unpublished/draft content)."),
+		}),
+	],
+	{
+		errorMap: (error) => {
+			if (error.code === "invalid_union")
+				return {
+					message: "You must provide either a `deliveryToken` or a `previewToken`.",
+				};
+
+			return { message: error.message ?? "" };
+		},
+	},
+);
 
 const contentfulSourceSchema = z
 	.object({

@@ -5,18 +5,30 @@ import { z } from "zod";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 import { defineSource } from "./source.js";
 
-const strapiCredentialsSchema = z.union([
-	z.object({
-		/** Username or email. Should be configured via `./.env.local` */
-		identifier: z.string().describe("Username or email. Should be configured via `./.env.local`"),
-		/** Password. Should be configured via `./.env.local` */
-		password: z.string().describe("Password. Should be configured via `./.env.local`"),
-	}),
-	z.object({
-		/** A previously generated JWT token. */
-		token: z.string().describe("A previously generated JWT token."),
-	}),
-]);
+const strapiCredentialsSchema = z.union(
+	[
+		z.object({
+			/** Username or email. Should be configured via `./.env.local` */
+			identifier: z.string().describe("Username or email. Should be configured via `./.env.local`"),
+			/** Password. Should be configured via `./.env.local` */
+			password: z.string().describe("Password. Should be configured via `./.env.local`"),
+		}),
+		z.object({
+			/** A previously generated JWT token. */
+			token: z.string().describe("A previously generated JWT token."),
+		}),
+	],
+	{
+		errorMap: (error) => {
+			if (error.code === "invalid_union")
+				return {
+					message: "Either `identifier` and `password` OR a `token` must be provided.",
+				};
+
+			return { message: error.message ?? "" };
+		},
+	},
+);
 
 const strapiSourceSchema = z
 	.object({

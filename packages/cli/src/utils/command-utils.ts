@@ -1,5 +1,5 @@
 import path from "node:path";
-import { LogManager, type Logger, TTY_FIXED_END } from "@bluecadet/launchpad-utils";
+import { LogManager, type Logger, NO_TTY, TTY_FIXED_END } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { ResultAsync, err, errAsync, ok } from "neverthrow";
 import { ZodError } from "zod";
@@ -74,26 +74,20 @@ function logFullErrorChain(logger: Logger | Console, error: Error) {
 			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(getPrettyMessage(currentError))}`,
 		);
 		const callstack = currentError.stack;
-		// logger.error(`${chalk.red(callstack ? '│' : '└')} `);
-		if (callstack) {
-			const lines = callstack.split("\n").slice(1);
-			// log up to 3 lines of the callstack
-			let loggedLines = 0;
-			for (const line of lines) {
-				const isLastLine = loggedLines === lines.length - 1 || loggedLines > 2;
-				logger.error(
-					`${chalk.red("│")} ${chalk.red.dim(isLastLine && lines.length > 3 ? "..." : line.trim())}`,
-				);
-				if (isLastLine) {
-					logger.error(`${chalk.red("└──────────────────")}`);
-				}
-				loggedLines++;
 
-				if (loggedLines > 3) {
-					break;
-				}
+		if (callstack) {
+			logger.error(`${chalk.red("│")}`);
+
+			const lines = callstack.split("\n").slice(1);
+
+			for (const line of lines) {
+				logger.error(`${chalk.red("│")} ${chalk.red.dim(line)}`);
 			}
+
+			logger.error(`${chalk.red("│")}`);
+			logger.error(`${chalk.red("└──────────────────")}`);
 		}
+
 		if (currentError.cause && currentError.cause instanceof Error) {
 			currentError = currentError.cause;
 			logger.error(`    ${chalk.red.dim("│")} ${chalk.red.dim("Caused by:")}`);

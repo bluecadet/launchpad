@@ -47,9 +47,9 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  list-style-type: none;
+  list-style-type: none !important;
   align-items: baseline;
-  padding: 0;
+  padding: 0 !important;
   margin-bottom: 1.2rem;
 }
 
@@ -59,7 +59,7 @@ li {
 }
 
 a {
-  text-decoration: none;
+  text-decoration: none !important;
 }
 
 li.version, li.link a {

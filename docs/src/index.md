@@ -1,6 +1,16 @@
+---
+titleTemplate: 🚀 Launchpad
+---
+
+<header>
+
 # 🚀 Launchpad
 
-**A toolkit for building and managing interactive media installations**
+<p class="tagline">
+  A toolkit for building and managing interactive media installations
+</p>
+
+</header>
 
 Launchpad provides a collection of tools designed to streamline the development, deployment, and maintenance of media installations. It handles content management, process monitoring, system configuration, and more.
 
@@ -30,8 +40,6 @@ Launchpad provides a collection of tools designed to streamline the development,
 
 >[!NOTE] Tip
 > See the [Getting Started](/guides/getting-started) guide for detailed setup instructions.
-
-
 
 1. Install the packages you need:
 
@@ -64,3 +72,7 @@ export default defineConfig({
 ```bash
 npx launchpad start
 ```
+
+---
+
+Developed with ❤️ by [Bluecadet](https://bluecadet.com), available free and open-source under the MIT license.

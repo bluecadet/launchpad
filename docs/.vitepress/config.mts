@@ -10,6 +10,48 @@ export default defineConfig({
 	base: "/launchpad/",
 	srcDir: "src",
 
+	head: [
+		[
+			"link",
+			{
+				rel: "icon",
+				href: "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>",
+			},
+		],
+		["meta", { name: "author", content: "Bluecadet" }],
+		["meta", { name: "og:title", content: "🚀 Launchpad" }],
+		[
+			"meta",
+			{
+				name: "og:description",
+				content:
+					"A comprehensive toolkit for managing interactive media installations. Includes content management, process monitoring, and automated deployment tools.",
+			},
+		],
+		["meta", { name: "og:type", content: "website" }],
+		["meta", { name: "og:url", content: "https://bluecadet.github.io/launchpad/" }],
+		[
+			"meta",
+			{
+				name: "keywords",
+				content:
+					"media installations, content management, process monitoring, deployment tools, interactive media, digital experiences, launchpad, pm2, cms integration",
+			},
+		],
+		["meta", { name: "robots", content: "index, follow" }],
+		["meta", { name: "viewport", content: "width=device-width, initial-scale=1.0" }],
+	],
+
+	// add canonical link to head
+	transformPageData(pageData, ctx) {
+		const canonicalUrl = `https://bluecadet.github.io/launchpad/${pageData.relativePath}`
+			.replace(/index\.md$/, "")
+			.replace(/\.md$/, ".html");
+
+		pageData.frontmatter.head ??= [];
+		pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
+	},
+
 	themeConfig: {
 		siteTitle: "🚀 Launchpad",
 		search: {
@@ -20,7 +62,7 @@ export default defineConfig({
 		},
 		nav: [
 			{
-				text: pkg.version,
+				text: `v${pkg.version}`,
 				items: [
 					{
 						text: "Changelog",
@@ -31,6 +73,10 @@ export default defineConfig({
 						link: "https://github.com/bluecadet/launchpad/blob/develop/CONTRIBUTING.md",
 					},
 				],
+			},
+			{
+				text: "Bluecadet",
+				link: "https://bluecadet.com",
 			},
 		],
 

@@ -1,5 +1,13 @@
 # @bluecadet/launchpad
 
+## 2.0.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [[`879d4de542038d5e9910de149307fb8434a04cd1`](https://github.com/bluecadet/launchpad/commit/879d4de542038d5e9910de149307fb8434a04cd1)]:
+  - @bluecadet/launchpad-content@2.0.0-next.8
+  - @bluecadet/launchpad-cli@2.0.0-next.5
+
 ## 2.0.0-next.4
 
 ### Patch Changes

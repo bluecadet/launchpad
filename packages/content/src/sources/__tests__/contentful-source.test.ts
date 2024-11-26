@@ -183,7 +183,7 @@ describe("contentfulSource", () => {
 			    {
 			      "fields": {
 			        "file": {
-			          "url": "//test.com/preview.jpg",
+			          "url": "https://test.com/preview.jpg",
 			        },
 			        "title": "Preview Asset",
 			      },

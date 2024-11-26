@@ -69,13 +69,6 @@ Set to true to use the Preview API instead of the Content Delivery API. Requires
 
 Optionally limit queries to specific content types. This will also apply to linked assets. Types that link to other types will include up to 10 levels of child content.
 
-### `locale`
-
-- **Type:** `string`
-- **Default:** `'en-US'`
-
-Used to pull localized content.
-
 ### `filename`
 
 - **Type:** `string`
@@ -88,7 +81,7 @@ The filename where content (entries and assets metadata) will be stored.
 - **Type:** `string`
 - **Default:** `'https'`
 
-The protocol to use for API requests.
+This updates the asset urls for better compatibility with the mediaDownloader plugin. By default, asset urls have no protocol.
 
 ### `host`
 

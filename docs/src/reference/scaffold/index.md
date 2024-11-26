@@ -1,4 +1,12 @@
-# @Bluecadet/Launchpad-Scaffold
+---
+title: "@bluecadet/launchpad-scaffold"
+---
+
+<script setup>
+  import PackageHeader from '../../components/PackageHeader.vue'
+</script>
+
+<PackageHeader package="scaffold" />
 
 The scaffold package is a specialized toolset for configuring Windows systems in exhibit and kiosk environments. It provides automated setup and optimization features to prepare Windows machines for reliable, long-term operation.
 

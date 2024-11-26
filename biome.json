@@ -8,7 +8,7 @@
 	"files": {
 		"ignoreUnknown": false,
 		"ignore": [],
-		"include": ["**/src/**/*.ts", "docs/**/*.ts", "docs/**/*.mts"]
+		"include": ["**/src/**/*.ts", "docs/**/*.ts", "docs/**/*.mts", "docs/**/*.vue"]
 	},
 	"formatter": {
 		"enabled": true,

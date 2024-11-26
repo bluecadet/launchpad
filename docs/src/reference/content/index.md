@@ -1,4 +1,12 @@
-# @Bluecadet/Launchpad-Content
+---
+title: "@bluecadet/launchpad-content"
+---
+
+<script setup>
+  import PackageHeader from '../../components/PackageHeader.vue'
+</script>
+
+<PackageHeader package="content" />
 
 The content package is a powerful tool for downloading, transforming, and managing content from various sources. It provides a flexible, plugin-based architecture for handling content pipelines.
 

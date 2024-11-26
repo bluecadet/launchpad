@@ -1,4 +1,12 @@
-# @Bluecadet/Launchpad-Monitor
+---
+title: "@bluecadet/launchpad-monitor"
+---
+
+<script setup>
+  import PackageHeader from '../../components/PackageHeader.vue'
+</script>
+
+<PackageHeader package="monitor" />
 
 The monitor package is a robust process management and monitoring tool designed for media installations. It provides comprehensive control over application lifecycles, window management, and system monitoring.
 

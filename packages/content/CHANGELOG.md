@@ -1,5 +1,15 @@
 # @bluecadet/launchpad-content
 
+## 2.0.0-next.7
+
+### Minor Changes
+
+- [#188](https://github.com/bluecadet/launchpad/pull/188) [`aa37868b6135cafb2b89fae11b11d261f27ff6df`](https://github.com/bluecadet/launchpad/commit/aa37868b6135cafb2b89fae11b11d261f27ff6df) Thanks [@claytercek](https://github.com/claytercek)! - Update mediaDownloader and sanityImageUrlTransform defaults
+
+### Patch Changes
+
+- [#189](https://github.com/bluecadet/launchpad/pull/189) [`6d9ae5f944e74f3bd7ca6b0c18cac7c09da01d02`](https://github.com/bluecadet/launchpad/commit/6d9ae5f944e74f3bd7ca6b0c18cac7c09da01d02) Thanks [@claytercek](https://github.com/claytercek)! - Improve contentful source compatibility with mediaDownloader
+
 ## 2.0.0-next.6
 
 ### Patch Changes

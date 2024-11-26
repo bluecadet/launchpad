@@ -8,4 +8,4 @@
 "@bluecadet/launchpad-docs": patch
 ---
 
-Include package.json in exports
+Include package.json in exports 

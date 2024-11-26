@@ -7,7 +7,6 @@
     "@bluecadet/launchpad": "2.0.0-next.3",
     "@bluecadet/launchpad-cli": "2.0.0-next.4",
     "@bluecadet/launchpad-content": "2.0.0-next.6",
-    "@bluecadet/launchpad-dashboard": "2.0.0-next.1",
     "@bluecadet/launchpad-monitor": "2.0.0-next.4",
     "@bluecadet/launchpad-scaffold": "2.0.0-next.3"
   },

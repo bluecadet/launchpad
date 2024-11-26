@@ -1,5 +1,65 @@
 # @bluecadet/launchpad-utils
 
+## 2.0.0-next.5
+
+### Patch Changes
+
+- [#185](https://github.com/bluecadet/launchpad/pull/185) [`0c3887a48977daa001abbfe0fc8d94aa3bfd6935`](https://github.com/bluecadet/launchpad/commit/0c3887a48977daa001abbfe0fc8d94aa3bfd6935) Thanks [@claytercek](https://github.com/claytercek)! - Include package.json in exports
+
+## 2.0.0-next.4
+
+### Minor Changes
+
+- [#177](https://github.com/bluecadet/launchpad/pull/177) [`a6f330947de66ba5b95abdf06f66ecfaca67bd0a`](https://github.com/bluecadet/launchpad/commit/a6f330947de66ba5b95abdf06f66ecfaca67bd0a) Thanks [@github-actions](https://github.com/apps/github-actions)! - cleanup file and console log formats
+
+### Patch Changes
+
+- [#178](https://github.com/bluecadet/launchpad/pull/178) [`f8c6ceff03b9e46871bcfb2569c7c7e510ec8758`](https://github.com/bluecadet/launchpad/commit/f8c6ceff03b9e46871bcfb2569c7c7e510ec8758) Thanks [@claytercek](https://github.com/claytercek)! - Add image transform plugins
+
+## 2.0.0-next.3
+
+### Minor Changes
+
+- [#176](https://github.com/bluecadet/launchpad/pull/176) [`1f650aad8db1c55709ae976ceb705ffac175b76e`](https://github.com/bluecadet/launchpad/commit/1f650aad8db1c55709ae976ceb705ffac175b76e) Thanks [@claytercek](https://github.com/claytercek)! - update logging
+
+- [#174](https://github.com/bluecadet/launchpad/pull/174) [`6436e938efe9fafba0aa52ea7bdefe33d5fe77e3`](https://github.com/bluecadet/launchpad/commit/6436e938efe9fafba0aa52ea7bdefe33d5fe77e3) Thanks [@claytercek](https://github.com/claytercek)! - convert configs to zod validators
+
+## 2.0.0-next.2
+
+### Patch Changes
+
+- [#170](https://github.com/bluecadet/launchpad/pull/170) [`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3) Thanks [@claytercek](https://github.com/claytercek)! - refactor to TS
+
+## 2.0.0-next.1
+
+### Major Changes
+
+- [#168](https://github.com/bluecadet/launchpad/pull/168) [`a1b057ee1f19aa61541da91715a21753583828d5`](https://github.com/bluecadet/launchpad/commit/a1b057ee1f19aa61541da91715a21753583828d5) Thanks [@claytercek](https://github.com/claytercek)! - **Plugin API and Monitor Package Updates:**
+  - Refactor `monitor` package to use `neverthrow` for error handling.
+  - Add tests for `monitor` package.
+  - Add hooks for `monitor` events.
+  - Add tests to `utils` package.
+
+## 2.0.0-next.0
+
+### Major Changes
+
+- [#164](https://github.com/bluecadet/launchpad/pull/164) [`3d40d3c3f47afe080f642b3188f5e62a529a891b`](https://github.com/bluecadet/launchpad/commit/3d40d3c3f47afe080f642b3188f5e62a529a891b) Thanks [@github-actions](https://github.com/apps/github-actions)! - **Plugin API and Content Package Updates:**
+
+  - Add basic support for Plugin API across `content`, `monitor`, and `core` packages.
+  - Implement full support for plugins in `content` package.
+  - Refactor `content` sources to be functions.
+  - Refactor `content` transforms and media-downloader to be plugins.
+  - Implement `neverthrow` for error handling in `content` package.
+  - Add unit tests for `content` package.
+  - Fully remove credentials API (superseded by dotenv config)
+
+- [#165](https://github.com/bluecadet/launchpad/pull/165) [`205157ef8a2dddf2eda14c41730604f5e80d87de`](https://github.com/bluecadet/launchpad/commit/205157ef8a2dddf2eda14c41730604f5e80d87de) Thanks [@claytercek](https://github.com/claytercek)! - **New CLI Package**:
+  - Move CLI to separate package
+  - Lazy import CLI commands to improve startup time
+  - Move config and dotenv loading and parsing to CLI package
+  - convert core package to have no code, just a shorthand for installing all sub-packages
+
 ## 1.5.2
 
 ### Patch Changes

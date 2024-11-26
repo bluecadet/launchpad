@@ -27,7 +27,6 @@ $global:LaunchpadConfig.Computer.RebootTime = "3:00"
 
 # App installs
 $global:LaunchpadConfig.InstallApps.Enabled = $true													# Install Chocolatey; Required for any of the below app packages
-# $global:LaunchpadConfig.InstallApps.Apps = "nodejs", "python", "vscode", "github-desktop", "git", "cmake", "visualstudio2022community", "visualstudio2022-workload-nativedesktop", "microsoft-build-tools", "microsoft-visual-cpp-build-tools", "visualstudio2022-workload-vctools"
 $global:LaunchpadConfig.InstallApps.Apps = "nvm", "python", "vscode", "github-desktop", "git", "cmake", "visualstudio2022buildtools", "visualstudio2022-workload-nativedesktop", "visualstudio2022-workload-vctools"
 
 $global:LaunchpadConfig.InstallApps.InstallNodeDependencies = $true				# Installs Launchpad dependencies

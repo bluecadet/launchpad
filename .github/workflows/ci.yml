@@ -1,0 +1,49 @@
+name: Main
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "packages/**"
+      - "docs/**"
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: lint
+        run: npm run lint
+
+      - name: lint dependency versions
+        run: npx sherif
+
+      - name: Validate types
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test

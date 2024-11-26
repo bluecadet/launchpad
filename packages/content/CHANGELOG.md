@@ -1,5 +1,107 @@
 # @bluecadet/launchpad-content
 
+## 2.0.0-next.8
+
+### Patch Changes
+
+- [#191](https://github.com/bluecadet/launchpad/pull/191) [`879d4de542038d5e9910de149307fb8434a04cd1`](https://github.com/bluecadet/launchpad/commit/879d4de542038d5e9910de149307fb8434a04cd1) Thanks [@claytercek](https://github.com/claytercek)! - More verbose error logging, plus better messages on source configs with unions
+
+## 2.0.0-next.7
+
+### Minor Changes
+
+- [#188](https://github.com/bluecadet/launchpad/pull/188) [`aa37868b6135cafb2b89fae11b11d261f27ff6df`](https://github.com/bluecadet/launchpad/commit/aa37868b6135cafb2b89fae11b11d261f27ff6df) Thanks [@claytercek](https://github.com/claytercek)! - Update mediaDownloader and sanityImageUrlTransform defaults
+
+### Patch Changes
+
+- [#189](https://github.com/bluecadet/launchpad/pull/189) [`6d9ae5f944e74f3bd7ca6b0c18cac7c09da01d02`](https://github.com/bluecadet/launchpad/commit/6d9ae5f944e74f3bd7ca6b0c18cac7c09da01d02) Thanks [@claytercek](https://github.com/claytercek)! - Improve contentful source compatibility with mediaDownloader
+
+## 2.0.0-next.6
+
+### Patch Changes
+
+- [#185](https://github.com/bluecadet/launchpad/pull/185) [`0c3887a48977daa001abbfe0fc8d94aa3bfd6935`](https://github.com/bluecadet/launchpad/commit/0c3887a48977daa001abbfe0fc8d94aa3bfd6935) Thanks [@claytercek](https://github.com/claytercek)! - Include package.json in exports
+
+- Updated dependencies [[`0c3887a48977daa001abbfe0fc8d94aa3bfd6935`](https://github.com/bluecadet/launchpad/commit/0c3887a48977daa001abbfe0fc8d94aa3bfd6935)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.5
+
+## 2.0.0-next.5
+
+### Minor Changes
+
+- [#178](https://github.com/bluecadet/launchpad/pull/178) [`f8c6ceff03b9e46871bcfb2569c7c7e510ec8758`](https://github.com/bluecadet/launchpad/commit/f8c6ceff03b9e46871bcfb2569c7c7e510ec8758) Thanks [@claytercek](https://github.com/claytercek)! - Add image transform plugins
+
+### Patch Changes
+
+- Updated dependencies [[`f8c6ceff03b9e46871bcfb2569c7c7e510ec8758`](https://github.com/bluecadet/launchpad/commit/f8c6ceff03b9e46871bcfb2569c7c7e510ec8758), [`a6f330947de66ba5b95abdf06f66ecfaca67bd0a`](https://github.com/bluecadet/launchpad/commit/a6f330947de66ba5b95abdf06f66ecfaca67bd0a)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.4
+
+## 2.0.0-next.4
+
+### Minor Changes
+
+- [#176](https://github.com/bluecadet/launchpad/pull/176) [`1f650aad8db1c55709ae976ceb705ffac175b76e`](https://github.com/bluecadet/launchpad/commit/1f650aad8db1c55709ae976ceb705ffac175b76e) Thanks [@claytercek](https://github.com/claytercek)! - update logging
+
+- [#174](https://github.com/bluecadet/launchpad/pull/174) [`6436e938efe9fafba0aa52ea7bdefe33d5fe77e3`](https://github.com/bluecadet/launchpad/commit/6436e938efe9fafba0aa52ea7bdefe33d5fe77e3) Thanks [@claytercek](https://github.com/claytercek)! - convert configs to zod validators
+
+### Patch Changes
+
+- Updated dependencies [[`1f650aad8db1c55709ae976ceb705ffac175b76e`](https://github.com/bluecadet/launchpad/commit/1f650aad8db1c55709ae976ceb705ffac175b76e), [`6436e938efe9fafba0aa52ea7bdefe33d5fe77e3`](https://github.com/bluecadet/launchpad/commit/6436e938efe9fafba0aa52ea7bdefe33d5fe77e3)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.3
+
+## 2.0.0-next.3
+
+### Minor Changes
+
+- [#172](https://github.com/bluecadet/launchpad/pull/172) [`5e5ae3227b5fea9ac26db74c7c2f9859312c4021`](https://github.com/bluecadet/launchpad/commit/5e5ae3227b5fea9ac26db74c7c2f9859312c4021) Thanks [@claytercek](https://github.com/claytercek)! - Refactor DataStore to be a fs proxy instead of in memory
+
+## 2.0.0-next.2
+
+### Patch Changes
+
+- [#170](https://github.com/bluecadet/launchpad/pull/170) [`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3) Thanks [@claytercek](https://github.com/claytercek)! - refactor to TS
+
+- [#171](https://github.com/bluecadet/launchpad/pull/171) [`f60543df8c24dbb2043940ce1fec52ac09036735`](https://github.com/bluecadet/launchpad/commit/f60543df8c24dbb2043940ce1fec52ac09036735) Thanks [@github-actions](https://github.com/apps/github-actions)! - fix media getting overwritten
+
+- Updated dependencies [[`1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3`](https://github.com/bluecadet/launchpad/commit/1cc1ce86b43cd34d4e531c8e88fa173edc1fcee3)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.2
+
+## 2.0.0-next.1
+
+### Minor Changes
+
+- [#166](https://github.com/bluecadet/launchpad/pull/166) [`a37a24093cedce25982a1245a78144b66c83e98a`](https://github.com/bluecadet/launchpad/commit/a37a24093cedce25982a1245a78144b66c83e98a) Thanks [@claytercek](https://github.com/claytercek)! - Fix content source/plugin exports
+
+### Patch Changes
+
+- Updated dependencies [[`a1b057ee1f19aa61541da91715a21753583828d5`](https://github.com/bluecadet/launchpad/commit/a1b057ee1f19aa61541da91715a21753583828d5)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.1
+
+## 2.0.0-next.0
+
+### Major Changes
+
+- [#164](https://github.com/bluecadet/launchpad/pull/164) [`3d40d3c3f47afe080f642b3188f5e62a529a891b`](https://github.com/bluecadet/launchpad/commit/3d40d3c3f47afe080f642b3188f5e62a529a891b) Thanks [@github-actions](https://github.com/apps/github-actions)! - **Plugin API and Content Package Updates:**
+
+  - Add basic support for Plugin API across `content`, `monitor`, and `core` packages.
+  - Implement full support for plugins in `content` package.
+  - Refactor `content` sources to be functions.
+  - Refactor `content` transforms and media-downloader to be plugins.
+  - Implement `neverthrow` for error handling in `content` package.
+  - Add unit tests for `content` package.
+  - Fully remove credentials API (superseded by dotenv config)
+
+- [#165](https://github.com/bluecadet/launchpad/pull/165) [`205157ef8a2dddf2eda14c41730604f5e80d87de`](https://github.com/bluecadet/launchpad/commit/205157ef8a2dddf2eda14c41730604f5e80d87de) Thanks [@claytercek](https://github.com/claytercek)! - **New CLI Package**:
+  - Move CLI to separate package
+  - Lazy import CLI commands to improve startup time
+  - Move config and dotenv loading and parsing to CLI package
+  - convert core package to have no code, just a shorthand for installing all sub-packages
+
+### Patch Changes
+
+- Updated dependencies [[`3d40d3c3f47afe080f642b3188f5e62a529a891b`](https://github.com/bluecadet/launchpad/commit/3d40d3c3f47afe080f642b3188f5e62a529a891b), [`205157ef8a2dddf2eda14c41730604f5e80d87de`](https://github.com/bluecadet/launchpad/commit/205157ef8a2dddf2eda14c41730604f5e80d87de)]:
+  - @bluecadet/launchpad-utils@2.0.0-next.0
+
 ## 1.14.1
 
 ### Patch Changes

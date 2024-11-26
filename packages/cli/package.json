@@ -1,0 +1,102 @@
+{
+  "name": "@bluecadet/launchpad-cli",
+  "version": "2.0.0-next.5",
+  "description": "CLI for @bluecadet/launchpad utilities",
+  "engines": {
+    "npm": ">=8.5.1",
+    "node": ">=17.5.0"
+  },
+  "type": "module",
+  "bin": {
+    "launchpad": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "author": {
+    "name": "Bluecadet",
+    "url": "https://bluecadet.com"
+  },
+  "maintainers": [
+    {
+      "name": "Benjamin Bojko",
+      "url": "https://github.com/benjaminbojko"
+    },
+    {
+      "name": "Pete Inge",
+      "url": "https://github.com/pingevt"
+    },
+    {
+      "name": "Clay Tercek",
+      "url": "https://github.com/claytercek"
+    }
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/cli",
+  "dependencies": {
+    "@bluecadet/launchpad-utils": "~2.0.0-next.5",
+    "chalk": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "neverthrow": "^8.1.1",
+    "yargs": "^17.7.2",
+    "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "@bluecadet/launchpad-content": "~2.0.0-next.8",
+    "@bluecadet/launchpad-monitor": "~2.0.0-next.4",
+    "@bluecadet/launchpad-scaffold": "~2.0.0-next.3"
+  },
+  "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@types/yargs": "^17.0.33"
+  },
+  "keywords": [
+    "bluecadet",
+    "cli",
+    "configuration-management",
+    "daemon",
+    "deploy",
+    "deployment",
+    "dev ops",
+    "devops",
+    "download-manager",
+    "exhibits",
+    "forever-monitor",
+    "forever",
+    "graceful",
+    "installations",
+    "keep process alive",
+    "log",
+    "logs",
+    "monitoring",
+    "node.js monitoring",
+    "nodemon",
+    "pm2",
+    "process configuration",
+    "process manager",
+    "production",
+    "profiling",
+    "runtime",
+    "sysadmin",
+    "tools",
+    "windows-desktop"
+  ]
+}

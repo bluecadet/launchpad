@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - develop
+    paths:
+      - "packages/**"
+      - ".changeset/**"
 
 permissions: {}
 jobs:
@@ -25,6 +28,8 @@ jobs:
         with:
           # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
           fetch-depth: 0
+          # custom token so that the changesets stuff still works with our branch protections
+          token: ${{ secrets.BC_GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -40,5 +45,5 @@ jobs:
         with:
           publish: npm run release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BC_GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

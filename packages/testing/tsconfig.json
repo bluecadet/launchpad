@@ -1,0 +1,4 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/internal.json",
+	"include": ["src"],
+}

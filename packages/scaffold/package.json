@@ -1,29 +1,23 @@
 {
   "name": "@bluecadet/launchpad-scaffold",
-  "version": "1.8.1",
+  "version": "2.0.0-next.3",
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
-  "main": "index.js",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
-    }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
-  "bin": "index.js",
   "files": [
-    "types",
-    "index.js",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "config",
     "scripts",
     "setup.bat",
     "setup.ps1"
   ],
-  "scripts": {
-    "start": "node index.js --",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"
@@ -34,8 +28,11 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.5.0",
+    "@bluecadet/launchpad-utils": "~2.0.0-next.5",
     "sudo-prompt": "^9.2.1"
+  },
+  "devDependencies": {
+    "@bluecadet/launchpad-tsconfig": "0.1.0"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/scaffold"
 }

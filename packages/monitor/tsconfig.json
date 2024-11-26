@@ -1,13 +1,11 @@
 {
-	"extends": "../../tsconfig.base.json",
-	"compilerOptions": {
-		"outDir": "types"
-	},
-	"include": ["**/*.js"],
-	"exclude": ["test"],
 	"references": [
 		{
-			"path": "../utils"
+			"path": "./tsconfig.src.json"
+		},
+		{
+			"path": "./tsconfig.test.json"
 		}
-	]
+	],
+	"files": []
 }

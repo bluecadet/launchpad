@@ -1,27 +1,21 @@
 {
   "name": "@bluecadet/launchpad-monitor",
-  "version": "1.8.0",
+  "version": "2.0.0-next.4",
   "description": "",
   "type": "module",
-  "main": "index.js",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "types/*"
-      ]
-    }
-  },
-  "bin": "index.js",
   "files": [
-    "types",
-    "index.js",
-    "lib"
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
-    "start": "node index.js",
-    "link": "npm link launchpad-utils && npm link",
-    "test": "node test/test.js",
-    "pm2": "pm2"
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
@@ -34,22 +28,25 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~1.5.0",
+    "@bluecadet/launchpad-utils": "~2.0.0-next.5",
     "auto-bind": "^5.0.1",
-    "axon": "^2.0.3",
     "chalk": "^5.0.0",
     "cross-spawn": "^7.0.3",
-    "fs-extra": "^10.0.0",
+    "neverthrow": "^8.1.1",
     "node-window-manager": "^2.2.4",
-    "p-debounce": "^4.0.0",
     "pm2": "^5.1.2",
     "semver": "^7.3.5",
-    "tail": "^2.2.4"
+    "tail": "^2.2.4",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@bluecadet/launchpad-testing": "0.1.0",
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
     "@types/cross-spawn": "^6.0.2",
     "@types/semver": "^7.5.8",
-    "@types/tail": "2.2"
+    "@types/tail": "2.2",
+    "axon": "^2.0.3",
+    "vitest": "^2.1.4"
   }
 }

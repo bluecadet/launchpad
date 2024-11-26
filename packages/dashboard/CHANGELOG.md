@@ -1,5 +1,22 @@
 # @bluecadet/launchpad-dashboard
 
+## 2.0.0
+
+### Major Changes
+
+- [#179](https://github.com/bluecadet/launchpad/pull/179) [`754ddd330f9e626b45a08bc7d6ce84f057bbb989`](https://github.com/bluecadet/launchpad/commit/754ddd330f9e626b45a08bc7d6ce84f057bbb989) Thanks [@claytercek](https://github.com/claytercek)! - **Plugin API and Content Package Updates:**
+  - Add basic support for Plugin API across `content`, `monitor`, and `core` packages.
+  - Implement full support for plugins in `content` package.
+  - Refactor `content` sources to be functions.
+  - Refactor `content` transforms and media-downloader to be plugins.
+  - Implement `neverthrow` for error handling in `content` package.
+  - Add unit tests for `content` package.
+  - Fully remove credentials API (superseded by dotenv config)
+
+### Patch Changes
+
+- [#179](https://github.com/bluecadet/launchpad/pull/179) [`a35e2b2ad94b0cbd183bb48d278cf1951b945741`](https://github.com/bluecadet/launchpad/commit/a35e2b2ad94b0cbd183bb48d278cf1951b945741) Thanks [@claytercek](https://github.com/claytercek)! - refactor to TS
+
 ## 2.0.0-next.1
 
 ### Patch Changes

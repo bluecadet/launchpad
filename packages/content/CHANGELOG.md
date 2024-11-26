@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.0.0-next.8
+
+### Patch Changes
+
+- [#191](https://github.com/bluecadet/launchpad/pull/191) [`879d4de542038d5e9910de149307fb8434a04cd1`](https://github.com/bluecadet/launchpad/commit/879d4de542038d5e9910de149307fb8434a04cd1) Thanks [@claytercek](https://github.com/claytercek)! - More verbose error logging, plus better messages on source configs with unions
+
 ## 2.0.0-next.7
 
 ### Minor Changes

@@ -1,16 +1,12 @@
 ---
 titleTemplate: 🚀 Launchpad
 ---
+<script setup>
+  import PackageHeader from './components/PackageHeader.vue'
+  import PackageCard from './components/PackageCard.vue'
+</script>
 
-<header>
-
-# 🚀 Launchpad
-
-<p class="tagline">
-  A toolkit for building and managing interactive media installations
-</p>
-
-</header>
+<PackageHeader package="launchpad"/>
 
 Launchpad provides a collection of tools designed to streamline the development, deployment, and maintenance of media installations. It handles content management, process monitoring, system configuration, and more.
 
@@ -31,15 +27,24 @@ Launchpad provides a collection of tools designed to streamline the development,
 
 ## Core Packages
 
-- [@bluecadet/launchpad-cli](./reference/cli/index.md): Command-line interface and configuration management
-- [@bluecadet/launchpad-content](./reference/content/index.md): Content pipeline and transformation tools
-- [@bluecadet/launchpad-monitor](./reference/monitor/index.md): Process monitoring and management
-- [@bluecadet/launchpad-scaffold](./reference/scaffold/index.md): Windows system configuration
+<ul class="card-grid">
+  <PackageCard package="cli" href="./reference/cli" description="Command-line interface and configuration management" />
+  <PackageCard package="content" href="./reference/content" description="Content pipeline and transformation tools" />
+  <PackageCard package="monitor" href="./reference/monitor" description="Process monitoring and management" />
+  <PackageCard package="scaffold" href="./reference/scaffold" description="Windows system configuration" />  
+</ul>
+
+<style scoped>
+  .card-grid {
+    list-style-type: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    padding: 0;
+  }
+</style>
 
 ## Quick Start
-
->[!NOTE] Tip
-> See the [Getting Started](/guides/getting-started) guide for detailed setup instructions.
 
 1. Install the packages you need:
 
@@ -72,6 +77,9 @@ export default defineConfig({
 ```bash
 npx launchpad start
 ```
+
+>[!NOTE] Tip
+> See the [Getting Started](/guides/getting-started) guide for detailed setup instructions.
 
 ---
 

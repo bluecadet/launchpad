@@ -2,8 +2,17 @@
   "name": "@bluecadet/launchpad-docs",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "devDependencies": {
-    "vitepress": "^1.4.2",
+    "@bluecadet/launchpad": "*",
+    "@bluecadet/launchpad-cli": "*",
+    "@bluecadet/launchpad-content": "*",
+    "@bluecadet/launchpad-monitor": "*",
+    "@bluecadet/launchpad-scaffold": "*"
+  },
+  "dependencies": {
+    "lucide-vue-next": "^0.461.0",
+    "vitepress": "^1.5.0",
     "vue": "^3.5.12"
   },
   "scripts": {

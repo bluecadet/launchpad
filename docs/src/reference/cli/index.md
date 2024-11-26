@@ -1,4 +1,12 @@
-# @Bluecadet/Launchpad-CLI
+---
+title: "@bluecadet/launchpad-cli"
+---
+
+<script setup>
+  import PackageHeader from '../../components/PackageHeader.vue'
+</script>
+
+<PackageHeader package="cli" />
 
 The CLI package provides a command-line interface for managing Launchpad installations. It serves as the primary entry point for running content management, process monitoring, and system configuration tasks.
 

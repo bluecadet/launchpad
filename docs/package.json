@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@bluecadet/launchpad": "2.0.0-next.5",
-    "@bluecadet/launchpad-cli": "2.0.0-next.5",
-    "@bluecadet/launchpad-content": "2.0.0-next.8",
-    "@bluecadet/launchpad-monitor": "2.0.0-next.4",
-    "@bluecadet/launchpad-scaffold": "2.0.0-next.3"
+    "@bluecadet/launchpad": "2.0.0",
+    "@bluecadet/launchpad-cli": "2.0.0",
+    "@bluecadet/launchpad-content": "2.0.0",
+    "@bluecadet/launchpad-monitor": "2.0.0",
+    "@bluecadet/launchpad-scaffold": "2.0.0"
   },
   "dependencies": {
     "lucide-vue-next": "^0.461.0",

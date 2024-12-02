@@ -16,10 +16,5 @@
   "linked": [],
   "access": "public",
   "baseBranch": "develop",
-  "updateInternalDependencies": "patch",
-  "ignore": [
-    "@bluecadet/launchpad-docs",
-    "@bluecadet/launchpad-testing",
-    "@bluecadet/launchpad-tsconfig"
-  ]
+  "updateInternalDependencies": "patch"
 }

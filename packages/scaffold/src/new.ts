@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getVersion } from "./utils/get-version.js";
 import { initScaffold } from "./init.js";
+import { promiseSpinner, spinner } from "./utils/promise-spinner.js";
 
 const FILES_TO_REMOVE = [
 	"package.json", // only needed for changesets
@@ -22,27 +23,38 @@ export async function newScaffold(options: {
 async function downloadScaffoldTemplate(dir: string, cwd: string, version: string) {
 	const tag = `@bluecadet/launchpad-scaffold@${version}`;
 
-	await downloadTemplate(`github:bluecadet/launchpad/packages/scaffold-template#${tag}`, {
-		dir: dir,
-		cwd: cwd,
+	await promiseSpinner({
+		text: "Downloading scaffold template",
+		promise: downloadTemplate(`github:bluecadet/launchpad/packages/scaffold-template#${tag}`, {
+			dir: dir,
+			cwd: cwd,
+		}),
 	});
 
 	const resolvedDir = path.resolve(cwd, dir);
 
-	for (const file of FILES_TO_REMOVE) {
-		const filePath = path.join(resolvedDir, file);
-		try {
-			await fs.unlink(filePath);
-		} catch (err) {
-			if (err instanceof Error && "code" in err && err.code === "ENOENT") {
-				// ignore
-			} else {
-				throw err;
+	const updateSpinner = spinner({ text: "Updating downloaded files" });
+
+	try {
+		for (const file of FILES_TO_REMOVE) {
+			const filePath = path.join(resolvedDir, file);
+			try {
+				await fs.unlink(filePath);
+			} catch (err) {
+				if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+					// ignore
+				} else {
+					throw err;
+				}
 			}
 		}
-	}
 
-	updateGalaxyVersion(resolvedDir, version);
+		updateGalaxyVersion(resolvedDir, version);
+		updateSpinner.succeed();
+	} catch (err) {
+		updateSpinner.fail();
+		throw new Error("Failed to update scaffold files", { cause: err });
+	}
 
 	try {
 		initScaffold({

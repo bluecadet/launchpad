@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Virtualenv } from "./utils/virtualenv.js";
-import { exec } from "node:child_process";
+import { promiseSpinner } from "./utils/promise-spinner.js";
+import chalk from "chalk";
 
 export async function initScaffold(options: {
 	dir: string;
@@ -15,13 +16,25 @@ export async function initScaffold(options: {
 
 	const venv = new Virtualenv(resolvedDir);
 
-	await venv.init();
+	await promiseSpinner({
+		text: `Checking for ${chalk.bold("virtualenv")} dependencies`,
+		promise: venv.init(),
+	});
 
-	await venv.create();
+	await promiseSpinner({
+		text: `creating ${chalk.bold("virtual environment")}`,
+		promise: venv.create(),
+	});
 
-	await upgradePip(venv);
+	await promiseSpinner({
+		text: `upgrading ${chalk.bold("pip")}`,
+		promise: upgradePip(venv),
+	});
 
-	await pipInstall(venv);
+	await promiseSpinner({
+		text: `installing python modules from ${chalk.bold("requirements.txt")}`,
+		promise: pipInstall(venv),
+	});
 }
 
 async function isValidScaffoldDir(dir: string) {

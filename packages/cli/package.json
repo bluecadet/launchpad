@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-cli",
-  "version": "2.0.0",
+  "version": "2.1.0-ansible.0",
   "description": "CLI for @bluecadet/launchpad utilities",
   "engines": {
     "npm": ">=8.5.1",
@@ -62,7 +62,7 @@
   "optionalDependencies": {
     "@bluecadet/launchpad-content": "~2.0.0",
     "@bluecadet/launchpad-monitor": "~2.0.0",
-    "@bluecadet/launchpad-scaffold": "~2.0.0"
+    "@bluecadet/launchpad-scaffold": "~2.1.0-ansible.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0",

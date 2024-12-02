@@ -1,0 +1,5 @@
+.vault_pass
+vendor/roles
+*.py[co]
+*.retry
+.venv

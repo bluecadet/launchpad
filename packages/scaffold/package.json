@@ -28,7 +28,8 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~2.0.0"
+    "@bluecadet/launchpad-utils": "~2.0.0",
+    "@bluwy/giget-core": "^0.1.2"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

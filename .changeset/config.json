@@ -2,16 +2,24 @@
   "$schema": "https://unpkg.com/@changesets/config@2.0.0/schema.json",
   "changelog": [
     "@changesets/changelog-github",
-    { "repo": "bluecadet/launchpad" }
+    {
+      "repo": "bluecadet/launchpad"
+    }
   ],
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@bluecadet/launchpad-scaffold",
+      "@bluecadet/launchpad-scaffold-*"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "develop",
   "updateInternalDependencies": "patch",
-  "privatePackages": {
-    "version": false,
-    "tag": false
-  }
+  "ignore": [
+    "@bluecadet/launchpad-docs",
+    "@bluecadet/launchpad-testing",
+    "@bluecadet/launchpad-tsconfig"
+  ]
 }

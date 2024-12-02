@@ -1,5 +1,12 @@
 # @bluecadet/launchpad
 
+## 2.0.1-ansible.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @bluecadet/launchpad-scaffold@2.1.0-ansible.1
+
 ## 2.0.1-ansible.0
 
 ### Patch Changes

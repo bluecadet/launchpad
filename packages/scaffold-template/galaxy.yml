@@ -2,4 +2,4 @@
 roles:
   - name: scaffold
     src: bluecadet.scaffold
-    version: 0.0.1
+    version: %SCAFFOLD_VERSION%

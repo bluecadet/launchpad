@@ -68,27 +68,33 @@ yargs(hideBin(process.argv))
 		return yargs
 			.usage("Usage: $0 scaffold <command> [options]")
 			.command(
-				"new",
+				"new [dir]",
 				"create a new scaffold project",
 				(yargs) =>
-					yargs.positional("dir", {
-						type: "string",
-						default: ".",
-						describe: "The directory to create the project in",
-					}),
-				() => {
-					console.log("TODO");
+					yargs
+						.positional("dir", {
+							type: "string",
+							default: ".",
+							describe: "The directory to create the project in",
+						})
+						.showHelpOnFail(false),
+				async (args) => {
+					const resolvedArgv = await args;
+					const { scaffoldNew } = await import("./commands/scaffold/new.js");
+					await scaffoldNew(resolvedArgv);
 				},
 			)
 			.command(
-				"init",
+				"init [dir]",
 				"initialize an existing scaffold project",
 				(yargs) =>
-					yargs.positional("dir", {
-						type: "string",
-						default: ".",
-						describe: "The directory to create the project in",
-					}),
+					yargs
+						.positional("dir", {
+							type: "string",
+							default: ".",
+							describe: "The directory to create the project in",
+						})
+						.showHelpOnFail(false),
 				() => {
 					console.log("TODO");
 				},
@@ -114,7 +120,6 @@ yargs(hideBin(process.argv))
 	})
 	.help("h")
 	.alias("h", "help")
-	.showHelpOnFail(true)
 	.strictCommands()
 	.demandCommand()
 	.wrap(null)

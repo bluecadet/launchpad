@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.0.0",
-    "@bluwy/giget-core": "^0.1.2"
+    "@bluwy/giget-core": "^0.1.2",
+    "lookpath": "^1.2.2"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

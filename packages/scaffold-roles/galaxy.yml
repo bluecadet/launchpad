@@ -1,0 +1,31 @@
+---
+namespace: "bluecadet"
+name: "scaffold"
+version: 2.1.0-ansible.0
+readme: README.md
+authors:
+  - Bluecadet (https://bluecadet.com)
+  - Clay Tercek (https://tercek.me)
+
+description: your collection description
+license_file: LICENSE
+tags:
+  - windows
+  - kiosk
+  - touch
+  - touchscreen
+  - museum
+  - exhibit
+  - interactive
+  
+dependencies: {}
+
+repository: http://github.com/bluecadet/launchpad
+documentation: http://bluecadet.github.io/launchpad
+homepage: http://bluecadet.github.io/launchpad
+issues: http://github.com/bluecadet/launchpad
+
+build_ignore:
+  - .gitignore
+  - package.json
+  - scripts

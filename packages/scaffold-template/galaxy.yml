@@ -1,5 +1,5 @@
 ---
-roles:
-  - name: scaffold
-    src: bluecadet.scaffold
-    version: %SCAFFOLD_VERSION%
+collections:
+  - name: https://github.com/bluecadet/launchpad.git#/packages/scaffold-roles/
+    type: git
+    version: "@bluecadet/launchpad-scaffold@%SCAFFOLD_VERSION%"

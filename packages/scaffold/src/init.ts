@@ -35,6 +35,11 @@ export async function initScaffold(options: {
 		text: `installing python modules from ${chalk.bold("requirements.txt")}`,
 		promise: pipInstall(venv),
 	});
+
+	await promiseSpinner({
+		text: `installing ansible galaxy roles/collections from ${chalk.bold("galaxy.yml")}`,
+		promise: galaxyInstall(venv),
+	});
 }
 
 async function isValidScaffoldDir(dir: string) {
@@ -70,6 +75,18 @@ async function pipInstall(venv: Virtualenv) {
 			throw new Error(result.stderr);
 		}
 	} catch (err) {
-		throw new Error("Failed to install python requirements", { cause: err });
+		throw new Error("Failed to install pip dependencies", { cause: err });
+	}
+}
+
+async function galaxyInstall(venv: Virtualenv) {
+	try {
+		const result = await venv.exec("ansible-galaxy install -r galaxy.yml");
+
+		if (result.stderr) {
+			throw new Error(result.stderr);
+		}
+	} catch (err) {
+		throw new Error("Failed to install galaxy dependencies", { cause: err });
 	}
 }

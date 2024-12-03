@@ -34,7 +34,7 @@ For example:
 git clone git@github.com:bluecadet/launchpad.git
 cd launchpad
 npm i
-cd packages/launchpad
+cd packages/cli
 npm link
 cd ../content
 npm link
@@ -45,5 +45,5 @@ npm link
 
 cd ../../my/test/project
 
-npm link @bluecadet/launchpad @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold
+npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold
 ```

@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 2.1.0-ansible.3
+
+### Minor Changes
+
+- Move ansible roles and template to scaffold package, rather than having them as separate internal packages
+
 ## 2.1.0-ansible.2
 
 ### Patch Changes

@@ -1,5 +1,4 @@
 ---
-"@bluecadet/launchpad-scaffold-template": patch
 "@bluecadet/launchpad-scaffold": patch
 ---
 

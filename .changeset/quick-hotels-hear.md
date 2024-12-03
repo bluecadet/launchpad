@@ -1,5 +1,5 @@
 ---
-"@bluecadet/launchpad-scaffold-roles": patch
+"@bluecadet/launchpad-scaffold": patch
 ---
 
 Add basic scaffold role

@@ -1,0 +1,5 @@
+---
+collections:
+  - name: https://github.com/bluecadet/launchpad.git#/packages/scaffold/roles/
+    type: git
+    version: "@bluecadet/launchpad-scaffold@%SCAFFOLD_VERSION%"

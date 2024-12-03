@@ -7,12 +7,7 @@
     }
   ],
   "commit": false,
-  "fixed": [
-    [
-      "@bluecadet/launchpad-scaffold",
-      "@bluecadet/launchpad-scaffold-*"
-    ]
-  ],
+  "fixed": [],
   "linked": [],
   "access": "public",
   "baseBranch": "develop",

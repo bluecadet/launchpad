@@ -25,7 +25,7 @@ async function downloadScaffoldTemplate(dir: string, cwd: string, version: strin
 
 	await promiseSpinner({
 		text: "Downloading scaffold template",
-		promise: downloadTemplate(`github:bluecadet/launchpad/packages/scaffold-template#${tag}`, {
+		promise: downloadTemplate(`github:bluecadet/launchpad/packages/scaffold/template#${tag}`, {
 			dir: dir,
 			cwd: cwd,
 		}),

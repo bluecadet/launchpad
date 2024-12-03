@@ -12,11 +12,7 @@
   },
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts",
-    "config",
-    "scripts",
-    "setup.bat",
-    "setup.ps1"
+    "dist/**/*.d.ts"
   ],
   "repository": {
     "type": "git",

@@ -6,7 +6,7 @@ If you are contributing a user-facing or noteworthy change to Launchpad that sho
 
 To add a changeset, run this script locally:
 
-```
+```sh
 npm run changeset
 ```
 
@@ -24,22 +24,26 @@ The [Changesets GitHub action](https://github.com/changesets/action#with-publish
 
 To release a new version of Launchpad, find the `Version Packages` PR, read it over, and merge it.
 
-The `main` branch is kept up to date with the latest releases.
-
 ## Testing Launchpad
 
-If you want to test Launchpad as a local dependency and frequently make changes, then the best way to do that is to clone launchpad and link `npm @bluecadet/launchpad` in your local project.
+If you want to test Launchpad as a local dependency and frequently make changes, then the best way to do that is to clone launchpad and the relevant packages in your project.
 
 For example:
 
-```bat
+```sh
 git clone git@github.com:bluecadet/launchpad.git
 cd launchpad
 npm i
 cd packages/launchpad
 npm link
+cd ../content
+npm link
+cd ../monitor
+npm link
+cd ../scaffold
+npm link
 
-cd ../../my-test-project
-@REM If needed: npm init
-npm link @bluecadet/launchpad --save
+cd ../../my/test/project
+
+npm link @bluecadet/launchpad @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold
 ```

@@ -57,11 +57,7 @@ async function isValidScaffoldDir(dir: string) {
 
 async function upgradePip(venv: Virtualenv) {
 	try {
-		const result = await venv.exec("python3 -m pip install --upgrade pip");
-
-		if (result.stderr) {
-			throw new Error(result.stderr);
-		}
+		await venv.exec("python3 -m pip install --upgrade pip");
 	} catch (err) {
 		throw new Error("Failed to upgrade pip", { cause: err });
 	}
@@ -69,11 +65,7 @@ async function upgradePip(venv: Virtualenv) {
 
 async function pipInstall(venv: Virtualenv) {
 	try {
-		const result = await venv.exec("pip install -r requirements.txt");
-
-		if (result.stderr) {
-			throw new Error(result.stderr);
-		}
+		await venv.exec("pip install -r requirements.txt");
 	} catch (err) {
 		throw new Error("Failed to install pip dependencies", { cause: err });
 	}
@@ -81,11 +73,7 @@ async function pipInstall(venv: Virtualenv) {
 
 async function galaxyInstall(venv: Virtualenv) {
 	try {
-		const result = await venv.exec("ansible-galaxy install -r galaxy.yml");
-
-		if (result.stderr) {
-			throw new Error(result.stderr);
-		}
+		await venv.exec("ansible-galaxy install -r galaxy.yml");
 	} catch (err) {
 		throw new Error("Failed to install galaxy dependencies", { cause: err });
 	}

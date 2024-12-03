@@ -1,5 +1,7 @@
 # @bluecadet/launchpad-scaffold-roles
 
+## 2.1.0-ansible.2
+
 ## 2.1.0-ansible.1
 
 ### Patch Changes

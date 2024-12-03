@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@bluecadet/launchpad": "2.0.1-ansible.1",
+    "@bluecadet/launchpad": "2.0.1-ansible.2",
     "@bluecadet/launchpad-cli": "2.1.0-ansible.0",
     "@bluecadet/launchpad-content": "2.0.0",
     "@bluecadet/launchpad-monitor": "2.0.0",
-    "@bluecadet/launchpad-scaffold": "2.1.0-ansible.1"
+    "@bluecadet/launchpad-scaffold": "2.1.0-ansible.2"
   },
   "dependencies": {
     "lucide-vue-next": "^0.461.0",

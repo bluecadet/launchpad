@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 2.1.0-ansible.2
+
+### Patch Changes
+
+- [`160303677ee9b932fd56d41246adccbe619e46af`](https://github.com/bluecadet/launchpad/commit/160303677ee9b932fd56d41246adccbe619e46af) Thanks [@claytercek](https://github.com/claytercek)! - Install scaffold roles via galaxy
+
 ## 2.1.0-ansible.1
 
 ## 2.1.0-ansible.0

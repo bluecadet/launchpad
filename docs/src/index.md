@@ -1,5 +1,6 @@
 ---
-titleTemplate: 🚀 Launchpad
+title: 🚀 Launchpad
+titleTemplate: ':title'
 ---
 <script setup>
   import PackageHeader from './components/PackageHeader.vue'

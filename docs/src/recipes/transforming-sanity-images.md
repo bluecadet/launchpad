@@ -70,7 +70,7 @@ export default defineConfig({
 ```
 
 >[!TIP]
->It's added _before_ the mediaDownloader (unlike the `sharp` plugin) because it modifies
+>It's added _before_ the mediaDownloader (unlike the `sharp` plugin) because it modifies the image URLs before they are downloaded. Conversely, the `sharp` plugin modifies the image files after they are downloaded.
 
 ## Available Transformations
 

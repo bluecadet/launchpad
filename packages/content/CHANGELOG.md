@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.0.1
+
+### Patch Changes
+
+- [#196](https://github.com/bluecadet/launchpad/pull/196) [`d37489707a9814755828a0fca011c61823884617`](https://github.com/bluecadet/launchpad/commit/d37489707a9814755828a0fca011c61823884617) Thanks [@claytercek](https://github.com/claytercek)! - Fix content length check in media downloader
+
 ## 2.0.0
 
 ### Major Changes

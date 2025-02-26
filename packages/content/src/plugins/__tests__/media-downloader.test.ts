@@ -100,9 +100,17 @@ describe("mediaDownloader", () => {
 						},
 					});
 				}),
+				http.head("https://example.com/size-match.jpg", () => {
+					return new HttpResponse(null, {
+						headers: {
+							"Content-Length": "4", // Matches file size
+						},
+					});
+				}),
 			);
 
-			const result = await checkCacheStatus(
+			// Test different content length
+			const differentResult = await checkCacheStatus(
 				"https://example.com/size.jpg",
 				"/downloads/size.jpg",
 				new AbortController().signal,
@@ -112,8 +120,23 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			expect(result).toBeOk();
-			expect(result._unsafeUnwrap().shouldDownload).toBe(true);
+			expect(differentResult).toBeOk();
+			expect(differentResult._unsafeUnwrap().shouldDownload).toBe(true);
+
+			// Test matching content length
+			vol.writeFileSync("/downloads/size-match.jpg", "data");
+			const matchingResult = await checkCacheStatus(
+				"https://example.com/size-match.jpg",
+				"/downloads/size-match.jpg",
+				new AbortController().signal,
+				getMediaDownloaderConfig({
+					enableIfModifiedSinceCheck: false,
+					enableContentLengthCheck: true,
+				}),
+			);
+
+			expect(matchingResult).toBeOk();
+			expect(matchingResult._unsafeUnwrap().shouldDownload).toBe(false);
 		});
 	});
 

@@ -164,7 +164,7 @@ export function checkCacheStatus(
 					if (isRemoteNew && config.enableContentLengthCheck) {
 						const remoteSize = Number.parseInt(res.headers.get("content-length") ?? "");
 						const localSize = result.stats.size;
-						isRemoteNew = isRemoteNew || remoteSize !== localSize;
+						isRemoteNew = remoteSize !== localSize;
 					}
 
 					return {

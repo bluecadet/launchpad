@@ -33,7 +33,7 @@
     "@sanity/block-content-to-markdown": "^0.0.5",
     "chalk": "^5.0.0",
     "glob": "^11.0.0",
-    "jsonpath-plus": "^10.1.0",
+    "jsonpath-plus": "^10.3.0",
     "ky": "^1.7.2",
     "markdown-it": "^14.1.0",
     "neverthrow": "^8.1.1",

@@ -41,6 +41,6 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "vitest": "^2.1.4"
+    "vitest": "^2.1.9"
   }
 }

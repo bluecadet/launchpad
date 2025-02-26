@@ -57,6 +57,6 @@
     "@types/sanitize-html": "^2.9.0",
     "memfs": "^4.14.0",
     "msw": "^2.6.6",
-    "vitest": "^2.1.4"
+    "vitest": "^2.1.9"
   }
 }

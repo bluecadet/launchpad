@@ -20,9 +20,6 @@ declare module "../content-plugin-driver.js" {
 	}
 }
 
-/**
- * @internal
- */
 export const mediaDownloaderConfigSchema = z.object({
 	/** Data keys to search for media urls. If not provided, all keys will be searched. */
 	keys: z

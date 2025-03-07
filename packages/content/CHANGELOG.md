@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.0.2
+
+### Patch Changes
+
+- [#201](https://github.com/bluecadet/launchpad/pull/201) [`ca483809c70ecaa5d7cd407143303e0c5899b0d4`](https://github.com/bluecadet/launchpad/commit/ca483809c70ecaa5d7cd407143303e0c5899b0d4) Thanks [@claytercek](https://github.com/claytercek)! - Fix mediaDownloader plugin config type missing from d.ts
+
 ## 2.0.1
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @bluecadet/launchpad-cli
 
+## 2.0.1
+
+### Patch Changes
+
+- [#206](https://github.com/bluecadet/launchpad/pull/206) [`babd99e1c76ec83c8003815f1c23653a7a122177`](https://github.com/bluecadet/launchpad/commit/babd99e1c76ec83c8003815f1c23653a7a122177) Thanks [@claytercek](https://github.com/claytercek)! - fix optional dependencies. Make them optional _peer_ dependencies instead.
+
+- Updated dependencies [[`babd99e1c76ec83c8003815f1c23653a7a122177`](https://github.com/bluecadet/launchpad/commit/babd99e1c76ec83c8003815f1c23653a7a122177)]:
+  - @bluecadet/launchpad-content@2.0.3
+
 ## 2.0.0
 
 ### Major Changes

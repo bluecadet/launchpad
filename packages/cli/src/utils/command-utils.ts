@@ -29,14 +29,14 @@ export function loadConfigAndEnv(
 
 		// Load order: .env < .env.local < .env.[override] < .env.[override].local
 		resolveEnv([
-			path.resolve(configDir, ".env"),
-			path.resolve(configDir, ".env.local"),
-			path.resolve(configDir, `.env.${argv.envCascade}`),
 			path.resolve(configDir, `.env.${argv.envCascade}.local`),
+			path.resolve(configDir, `.env.${argv.envCascade}`),
+			path.resolve(configDir, ".env.local"),
+			path.resolve(configDir, ".env"),
 		]);
 	} else {
 		// default to loading .env and .env.local in the config dir
-		resolveEnv([path.resolve(configDir, ".env"), path.resolve(configDir, ".env.local")]);
+		resolveEnv([path.resolve(configDir, ".env.local"), path.resolve(configDir, ".env")]);
 	}
 
 	return ResultAsync.fromPromise(

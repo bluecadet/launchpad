@@ -1,6 +1,6 @@
-import type pm2 from "pm2";
 import { z } from "zod";
-import { type MonitorPlugin, monitorPluginSchema } from "./core/monitor-plugin-driver.js";
+import { monitorPluginSchema } from "./core/monitor-plugin-driver.js";
+import type { StartOptions } from "pm2";
 
 const windowsApiConfigSchema = z.object({
 	/**
@@ -101,14 +101,16 @@ export type AppLogConfig = z.infer<typeof appLogConfigSchema>;
 const appConfigSchema = z.object({
 	/** pm2 configuration for this app. see https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available */
 	pm2: z
-		.object({
-			out_file: z.string().optional().describe("The file to write stdout to."),
-			error_file: z.string().optional().describe("The file to write stderr to."),
-		})
-		.passthrough()
+		.custom<StartOptions>()
+		.and(
+			z.object({
+				out_file: z.string().optional().describe("The file to write stdout to."),
+				error_file: z.string().optional().describe("The file to write stderr to."),
+			}),
+		)
 		.describe(
 			"pm2 configuration for this app. see https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available",
-		) as z.ZodType<pm2.StartOptions & { out_file?: string; error_file?: string }>,
+		),
 	/** Optional settings for moving this app's main windows to the foreground, minimize or hide them. */
 	windows: windowConfigSchema
 		.describe(

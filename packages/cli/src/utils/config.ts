@@ -2,8 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
 import chalk from "chalk";
+import { createJiti } from "jiti";
 
-const DEFAULT_CONFIG_PATHS = ["launchpad.config.js", "launchpad.config.mjs"];
+const DEFAULT_CONFIG_PATHS = [
+	"launchpad.config.js",
+	"launchpad.config.mjs",
+	"launchpad.config.ts",
+	"launchpad.config.cjs",
+	"launchpad.config.mts",
+	"launchpad.config.cts",
+];
 
 /**
  * Searches for a config file in the current and parent directories, up to a max depth of 64.
@@ -63,11 +71,13 @@ export async function loadConfigFromFile<T>(configPath: string): Promise<Partial
 	if (!configPath) {
 		return {};
 	}
+	
+	const jiti = createJiti(import.meta.url);
 
 	try {
 		// need to use fileURLToPath here for windows support (prefixes with file://)
 		const fileUrl = url.pathToFileURL(configPath);
-		return (await import(fileUrl.toString())).default;
+		return (await jiti.import(fileUrl.toString(), { default: true}));
 	} catch (err) {
 		throw new Error(`Unable to load config file '${chalk.white(configPath)}'`, { cause: err });
 	}

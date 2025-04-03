@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 2.0.1
+
+### Patch Changes
+
+- [#208](https://github.com/bluecadet/launchpad/pull/208) [`710c05e16edd27ea40c32268351555fb10ed1639`](https://github.com/bluecadet/launchpad/commit/710c05e16edd27ea40c32268351555fb10ed1639) Thanks [@claytercek](https://github.com/claytercek)! - fix monitor pm2 passthrough types
+
 ## 2.0.0
 
 ### Major Changes

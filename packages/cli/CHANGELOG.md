@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-cli
 
+## 2.0.2
+
+### Patch Changes
+
+- [#210](https://github.com/bluecadet/launchpad/pull/210) [`1138c2b7040bd05c45a4d4e3b242f73d69da1de4`](https://github.com/bluecadet/launchpad/commit/1138c2b7040bd05c45a4d4e3b242f73d69da1de4) Thanks [@claytercek](https://github.com/claytercek)! - fix dotenv cascade order
+
 ## 2.0.1
 
 ### Patch Changes

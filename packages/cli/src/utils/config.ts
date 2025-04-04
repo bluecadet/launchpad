@@ -71,13 +71,13 @@ export async function loadConfigFromFile<T>(configPath: string): Promise<Partial
 	if (!configPath) {
 		return {};
 	}
-	
+
 	const jiti = createJiti(import.meta.url);
 
 	try {
 		// need to use fileURLToPath here for windows support (prefixes with file://)
 		const fileUrl = url.pathToFileURL(configPath);
-		return (await jiti.import(fileUrl.toString(), { default: true}));
+		return await jiti.import(fileUrl.toString(), { default: true });
 	} catch (err) {
 		throw new Error(`Unable to load config file '${chalk.white(configPath)}'`, { cause: err });
 	}

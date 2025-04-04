@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.1.0
+
+### Minor Changes
+
+- [#214](https://github.com/bluecadet/launchpad/pull/214) [`806fb9a1dcedc0e359bedba7d38a47b73d712b68`](https://github.com/bluecadet/launchpad/commit/806fb9a1dcedc0e359bedba7d38a47b73d712b68) Thanks [@claytercek](https://github.com/claytercek)! - Add support for ranged sanity queries (like `*[_type == "article"][0...100]` or `*[_type == "article"][0]`)
+
 ## 2.0.3
 
 ### Patch Changes

@@ -4,10 +4,14 @@ The Launchpad CLI uses a flexible configuration system that automatically search
 
 ## Config File Search
 
-The CLI searches for config files in the following order:
+The CLI searches for config files with the following names:
 
 1. `launchpad.config.js`
 2. `launchpad.config.mjs`
+3. `launchpad.config.ts`
+4. `launchpad.config.cjs`
+5. `launchpad.config.mts`
+6. `launchpad.config.cts`
 
 The search starts in the current working directory and recursively searches up parent directories (up to 64 levels) until a config file is found.
 

@@ -29,7 +29,7 @@ npm install @bluecadet/launchpad
 1. Create a configuration file:
 
 ```js
-// launchpad.config.js
+// launchpad.config.js (or launchpad.config.ts, launchpad.config.mjs, etc.)
 import { defineConfig } from '@bluecadet/launchpad-cli';
 import { jsonSource } from '@bluecadet/launchpad-content';
 

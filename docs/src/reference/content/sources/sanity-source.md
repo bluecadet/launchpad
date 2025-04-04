@@ -74,6 +74,9 @@ An array of queries to fetch. Each query can be either:
 - A string representing a document type (e.g., `'article'` will fetch all documents of type 'article')
 - An object with a custom GROQ query and an ID for the result set
 
+> [!NOTE] Note:
+> if the query includes a range (e.g., `*[_type == "article"][0...100]` or `*[_type == "article"][0]`), the `limit` and `maxNumPages` options will be ignored, and the query will be executed as is.
+
 ### `useCdn`
 
 - **Type:** `boolean`

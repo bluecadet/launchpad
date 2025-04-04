@@ -34,7 +34,7 @@ describe("sanitySource", () => {
 			// missing projectId and apiToken
 		});
 
-		expect(result).rejects.toThrow();
+		await expect(result).rejects.toThrow();
 	});
 
 	it("should fetch data with simple type queries", async () => {
@@ -93,7 +93,7 @@ describe("sanitySource", () => {
 			useCdn: false,
 		});
 
-		const result = source.fetch(createFetchContext());
+		const result = await source.fetch(createFetchContext());
 
 		expect(result).toHaveLength(2);
 
@@ -181,7 +181,7 @@ describe("sanitySource", () => {
 
 		const result = source.fetch(createFetchContext());
 
-		expect(result[0]!.data).rejects.toThrow();
+		await expect(result[0]!.data).rejects.toThrow();
 	});
 
 	it("should respect pagination options", async () => {
@@ -226,5 +226,48 @@ describe("sanitySource", () => {
 		expect((await data.next()).value).toEqual([{ _type: "test", title: "Test Document 0" }]);
 		expect((await data.next()).value).toEqual([{ _type: "test", title: "Test Document 50" }]);
 		expect((await data.next()).done).toBe(true);
+	});
+
+	it("should support single item responses", async () => {
+		server.use(
+			http.get(
+				"https://test-project.api.sanity.io/v2021-10-21/data/query/production",
+				({ request }) => {
+					return HttpResponse.json({
+						result: { _type: "test", title: "Test Document" },
+						ms: 15,
+					});
+				},
+			),
+		);
+
+		const source = await sanitySource({
+			id: "test-sanity",
+			projectId: "test-project",
+			apiToken: "test-token",
+			queries: [
+				{
+					id: "custom1",
+					query: '*[_type == "custom"][0]',
+				},
+				{
+					id: "custom2",
+					query: '*[_type == "custom"][0..5]',
+				},
+			],
+			limit: 50,
+			mergePages: false,
+			useCdn: false,
+		});
+
+		const result = source.fetch(createFetchContext());
+		expect(result).toHaveLength(2);
+
+		const data1 = (await result[0]!.data);
+		const data2 = (await result[0]!.data);
+
+		// it should return the single item directly instead of an async iterator
+		expect(data1).toEqual({ _type: "test", title: "Test Document" });
+		expect(data2).toEqual({ _type: "test", title: "Test Document" });
 	});
 });

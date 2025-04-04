@@ -56,6 +56,15 @@ export default async function sanitySource(options: z.input<typeof sanitySourceS
 					id = query.id;
 				}
 
+				// if full query already contains a number range, no need to paginate
+				if (fullQuery.match(/\[\d+(\.\.\d+)?\]/)) {
+					ctx.logger.debug(`Query '${fullQuery}' already contains a number range. No pagination.`);
+					return {
+						id,
+						data: sanityClient.fetch<unknown>(fullQuery),
+					};
+				}
+
 				return {
 					id,
 					data: fetchPaginated({

@@ -11,7 +11,8 @@
     "dev": "tsc --build --watch",
     "docs:build": "npm run build -w @bluecadet/launchpad-docs",
     "release": "npm run build && changeset publish",
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "patch-package"
   },
   "repository": {
     "type": "git",
@@ -32,6 +33,7 @@
     "@changesets/changelog-github": "^0.4.6",
     "@changesets/cli": "^2.23.0",
     "@types/node": "^22.9.3",
+    "patch-package": "^8.0.0",
     "sherif": "^1.0.1",
     "typescript": "^5.7.2",
     "vitest": "^3.0.7"

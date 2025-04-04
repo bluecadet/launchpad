@@ -263,8 +263,8 @@ describe("sanitySource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(2);
 
-		const data1 = (await result[0]!.data);
-		const data2 = (await result[0]!.data);
+		const data1 = await result[0]!.data;
+		const data2 = await result[0]!.data;
 
 		// it should return the single item directly instead of an async iterator
 		expect(data1).toEqual({ _type: "test", title: "Test Document" });

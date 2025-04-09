@@ -36,7 +36,7 @@ export class ProcessManager {
 	}
 
 	getProcesses(): ResultAsync<pm2.ProcessDescription[], Error> {
-		return wrapPm2Function("Failed to get PM2 processes", pm2.list);
+		return wrapPm2Function("Failed to get PM2 processes", (cb) => pm2.list(cb));
 	}
 
 	startProcess(options: pm2.StartOptions): ResultAsync<pm2.ProcessDescription, Error> {
@@ -86,8 +86,10 @@ function wrapPm2Function<T>(
 }
 
 const safeDisconnect = Result.fromThrowable(
-	pm2.disconnect,
-	(error) => new Error("Failed to disconnect from PM2", { cause: error }),
+	() => pm2.disconnect(),
+	(error) => {
+		return new Error("Failed to disconnect from PM2", { cause: error })
+	},
 );
 
 function pingDaemon(): ResultAsync<boolean, Error> {

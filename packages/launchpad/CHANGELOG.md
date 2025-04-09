@@ -1,5 +1,12 @@
 # @bluecadet/launchpad
 
+## 2.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`afbe6093f444c5cf2669fa58b4c557638f6aefe7`](https://github.com/bluecadet/launchpad/commit/afbe6093f444c5cf2669fa58b4c557638f6aefe7)]:
+  - @bluecadet/launchpad-monitor@2.0.2
+
 ## 2.0.6
 
 ### Patch Changes

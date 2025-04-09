@@ -134,7 +134,7 @@ export const monitorConfigSchema = z.object({
 	/** Set this to true to delete existing PM2 processes before connecting. If you're running volatile apps or your node process might be quit unexpectedly, this can be helpful to start with a clean slate on startup. */
 	deleteExistingBeforeConnect: z
 		.boolean()
-		.default(false)
+		.default(true)
 		.describe(
 			"Set this to true to delete existing PM2 processes before connecting. If you're running volatile apps or your node process might be quit unexpectedly, this can be helpful to start with a clean slate on startup.",
 		),

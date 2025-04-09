@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-monitor
 
+## 2.0.3
+
+### Patch Changes
+
+- [#219](https://github.com/bluecadet/launchpad/pull/219) [`39f1033792dd96468311c45ddedc722dd46f8fc6`](https://github.com/bluecadet/launchpad/commit/39f1033792dd96468311c45ddedc722dd46f8fc6) Thanks [@claytercek](https://github.com/claytercek)! - Fix app logging
+
+- [#219](https://github.com/bluecadet/launchpad/pull/219) [`6d87825407cd3df23ae7e146d279e2bc37954421`](https://github.com/bluecadet/launchpad/commit/6d87825407cd3df23ae7e146d279e2bc37954421) Thanks [@claytercek](https://github.com/claytercek)! - Fix PM2 app hiding
+
 ## 2.0.2
 
 ### Patch Changes

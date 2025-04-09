@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 2.0.2
+
+### Patch Changes
+
+- [#217](https://github.com/bluecadet/launchpad/pull/217) [`afbe6093f444c5cf2669fa58b4c557638f6aefe7`](https://github.com/bluecadet/launchpad/commit/afbe6093f444c5cf2669fa58b4c557638f6aefe7) Thanks [@claytercek](https://github.com/claytercek)! - Upgrade PM2, fix broken pm2 calls.
+
 ## 2.0.1
 
 ### Patch Changes

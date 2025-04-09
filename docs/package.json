@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@bluecadet/launchpad": "2.0.6",
+    "@bluecadet/launchpad": "2.0.7",
     "@bluecadet/launchpad-cli": "2.1.0",
     "@bluecadet/launchpad-content": "2.1.0",
-    "@bluecadet/launchpad-monitor": "2.0.1",
+    "@bluecadet/launchpad-monitor": "2.0.2",
     "@bluecadet/launchpad-scaffold": "2.0.0"
   },
   "dependencies": {

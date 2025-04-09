@@ -32,6 +32,10 @@ class LaunchpadMonitor {
 		this._busManager = new BusManager(this._logger);
 		this._appManager = new AppManager(this._logger, this._processManager, this._config);
 
+		for (const appConf of this._config.apps) {
+			this._busManager.initAppLogging(appConf);
+		}
+
 		if (this._config.shutdownOnExit) {
 			onExit(() => {
 				this.shutdown();

@@ -19,10 +19,10 @@ export class AppManager {
 	startApp(appName: string): ResultAsync<pm2.ProcessDescription, Error> {
 		this.#logger.info(`Starting app '${appName}'...`);
 		return this.getAppOptions(appName)
-			.asyncAndThen((opts) => { 
+			.asyncAndThen((opts) => {
 				// @ts-expect-error - Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
 				opts.pm2.windowsHide = opts.windows.hide;
-				return this.#processManager.startProcess(opts.pm2)
+				return this.#processManager.startProcess(opts.pm2);
 			})
 			.andThen(() => this.#processManager.getProcess(appName))
 			.map((process) => {

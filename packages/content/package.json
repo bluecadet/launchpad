@@ -69,11 +69,16 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@sanity/client": "^6.4.9",
+    "@sanity/image-url": "^1.1.0",
     "@types/markdown-it": "^14.1.2",
     "@types/qs": "^6.9.7",
     "@types/sanitize-html": "^2.9.0",
+    "airtable": "^0.11.1",
+    "contentful": "^9.0.0",
     "memfs": "^4.14.0",
     "msw": "^2.6.6",
+    "sharp": "^0.33.5",
     "vitest": "^3.0.7"
   }
 }

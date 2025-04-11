@@ -34,7 +34,7 @@ Specifies which data keys to search for media URLs. If not provided, all keys wi
 ### `mediaPattern`
 
 - **Type:** `RegExp`
-- **Default:** `/https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i`
+- **Default:** `/https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)$/i`
 
 Regex pattern to match URLs for downloading.
 

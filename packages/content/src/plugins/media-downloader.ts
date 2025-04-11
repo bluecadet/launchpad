@@ -12,7 +12,7 @@ import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
 import { CacheProgressLogger, parsePluginConfig, queryOrUpdate } from "./contentPluginHelpers.js";
 
-const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)$/i;
+const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)?$/i;
 
 declare module "../content-plugin-driver.js" {
 	interface ContentHookArgs {

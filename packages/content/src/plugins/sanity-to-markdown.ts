@@ -39,9 +39,7 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 					},
 				});
 
-				ctx.logger.info(
-					`Transformed ${transformCount} Sanity blocks to markdown.`,
-				);
+				ctx.logger.info(`Transformed ${transformCount} Sanity blocks to markdown.`);
 			},
 		},
 	});

@@ -37,9 +37,7 @@ export default function sanityToPlain(options: z.input<typeof sanityToPlainSchem
 					},
 				});
 
-				ctx.logger.info(
-					`Transformed ${transformCount} Sanity blocks to plain text.`,
-				);
+				ctx.logger.info(`Transformed ${transformCount} Sanity blocks to plain text.`);
 			},
 		},
 	});

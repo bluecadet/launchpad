@@ -47,16 +47,14 @@ export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
 							md.use(markdownItItalicBold);
 							return md.renderInline(sanitizedStr);
 						}
-						
+
 						transformCount++;
 
 						return md.render(sanitizedStr);
 					},
 				});
 
-				ctx.logger.info(
-					`Transformed ${transformCount} Markdown strings.`,
-				);
+				ctx.logger.info(`Transformed ${transformCount} Markdown strings.`);
 			},
 		},
 	});

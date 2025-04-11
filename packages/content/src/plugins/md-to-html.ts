@@ -26,8 +26,11 @@ export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
 	return defineContentPlugin({
 		name: "md-to-html",
 		hooks: {
-			onContentFetchDone(ctx) {
-				return applyTransformToFiles({
+			async onContentFetchDone(ctx) {
+				let transformCount = 0;
+				ctx.logger.info("Transforming Markdown strings to HTML...");
+
+				await applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -44,10 +47,16 @@ export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
 							md.use(markdownItItalicBold);
 							return md.renderInline(sanitizedStr);
 						}
+						
+						transformCount++;
 
 						return md.render(sanitizedStr);
 					},
 				});
+
+				ctx.logger.info(
+					`Transformed ${transformCount} Markdown strings.`,
+				);
 			},
 		},
 	});

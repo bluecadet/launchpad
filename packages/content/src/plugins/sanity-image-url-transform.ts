@@ -50,8 +50,14 @@ export default function sanityImageUrlTransform(
 	return defineContentPlugin({
 		name: "sanity-to-html",
 		hooks: {
-			onContentFetchDone(ctx) {
-				return applyTransformToFiles({
+			async onContentFetchDone(ctx) {
+				let transformCount = 0;
+
+				ctx.logger.info(
+					"Transforming URLs using Sanity Image URL Transform...",
+				);
+
+				await applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -62,6 +68,7 @@ export default function sanityImageUrlTransform(
 						}
 
 						const transformedUrl = buildUrl(builder.image(content)).url();
+						transformCount++;
 
 						return {
 							...content,
@@ -69,6 +76,10 @@ export default function sanityImageUrlTransform(
 						};
 					},
 				});
+
+				ctx.logger.info(
+					`Transformed ${transformCount} URLs.`,
+				);
 			},
 		},
 	});

@@ -285,8 +285,9 @@ function getOutputFilename(inputPath: string, sharpTransform: Sharp.Sharp) {
 
 class SharpProgressLogger extends CacheProgressLogger {
 	override getFixedConsoleMessage(): string {
+		const prefix = "Transforming Images: ";
 		return (
-			`Transforming Images: ${super.getFixedConsoleMessage()}\n` +
+			`${prefix}${super.renderProgressBar(prefix.length)}\n` +
 			`Transformed: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
 		);
 	}

@@ -481,8 +481,9 @@ class QueueError extends MediaDownloaderError {
 
 class MediaDownloaderProgressLogger extends CacheProgressLogger {
 	override getFixedConsoleMessage(): string {
+		const prefix = "Syncing Media: ";
 		return (
-			`Syncing Media: ${super.getFixedConsoleMessage()}\n` +
+			`${prefix}${super.renderProgressBar(prefix.length)}\n` +
 			`Fetched: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
 		);
 	}

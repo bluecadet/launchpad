@@ -87,11 +87,14 @@ export class CacheProgressLogger extends FixedConsoleLogger {
 		this.update();
 	}
 
-	#renderProgressBar() {
+	protected renderProgressBar(additionalCharCount = 0): string {
 		const total = this.#total;
 		const fresh = this.#fresh;
 		const cached = this.#cached;
-		const BAR_LENGTH = 60;
+		const BAR_LENGTH = Math.min(
+			60,
+			process.stdout.columns ? Math.floor(process.stdout.columns - additionalCharCount) : 60,
+		);
 
 		// Calculate exact segments
 		const freshLength = Math.round((fresh / total) * BAR_LENGTH);
@@ -107,6 +110,6 @@ export class CacheProgressLogger extends FixedConsoleLogger {
 	}
 
 	override getFixedConsoleMessage(): string {
-		return `${this.#renderProgressBar()}`;
+		return `${this.renderProgressBar()}`;
 	}
 }

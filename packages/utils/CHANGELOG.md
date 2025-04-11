@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-utils
 
+## 2.0.1
+
+### Patch Changes
+
+- [#221](https://github.com/bluecadet/launchpad/pull/221) [`553bb964a52f6246d59f93ff72631cb963441dd5`](https://github.com/bluecadet/launchpad/commit/553bb964a52f6246d59f93ff72631cb963441dd5) Thanks [@claytercek](https://github.com/claytercek)! - Fix CLI flicker for fixed log items
+
 ## 2.0.0
 
 ### Major Changes

@@ -1,5 +1,18 @@
 # @bluecadet/launchpad-content
 
+## 2.1.1
+
+### Patch Changes
+
+- [#221](https://github.com/bluecadet/launchpad/pull/221) [`bd77ed9b28b080a326580fb018d6d7d76515e273`](https://github.com/bluecadet/launchpad/commit/bd77ed9b28b080a326580fb018d6d7d76515e273) Thanks [@claytercek](https://github.com/claytercek)! - media downloader: match images with url params by default
+
+- [#221](https://github.com/bluecadet/launchpad/pull/221) [`f628fa9556e17b1c8d79334eff2001ae3035a13f`](https://github.com/bluecadet/launchpad/commit/f628fa9556e17b1c8d79334eff2001ae3035a13f) Thanks [@claytercek](https://github.com/claytercek)! - Fix progress bars wrapping on small terminals
+
+- [#221](https://github.com/bluecadet/launchpad/pull/221) [`078f4ff7a484d584e37ecef10ee5a9eaebe13ded`](https://github.com/bluecadet/launchpad/commit/078f4ff7a484d584e37ecef10ee5a9eaebe13ded) Thanks [@claytercek](https://github.com/claytercek)! - Ensure all content plugins log on start and success.
+
+- Updated dependencies [[`553bb964a52f6246d59f93ff72631cb963441dd5`](https://github.com/bluecadet/launchpad/commit/553bb964a52f6246d59f93ff72631cb963441dd5)]:
+  - @bluecadet/launchpad-utils@2.0.1
+
 ## 2.1.0
 
 ### Minor Changes

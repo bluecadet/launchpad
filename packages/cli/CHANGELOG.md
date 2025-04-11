@@ -1,5 +1,14 @@
 # @bluecadet/launchpad-cli
 
+## 2.1.1
+
+### Patch Changes
+
+- [#221](https://github.com/bluecadet/launchpad/pull/221) [`8177946a5eb8c5333ef45fd0e4047a75a51de50e`](https://github.com/bluecadet/launchpad/commit/8177946a5eb8c5333ef45fd0e4047a75a51de50e) Thanks [@claytercek](https://github.com/claytercek)! - Smarter/faster config search
+
+- Updated dependencies [[`553bb964a52f6246d59f93ff72631cb963441dd5`](https://github.com/bluecadet/launchpad/commit/553bb964a52f6246d59f93ff72631cb963441dd5)]:
+  - @bluecadet/launchpad-utils@2.0.1
+
 ## 2.1.0
 
 ### Minor Changes

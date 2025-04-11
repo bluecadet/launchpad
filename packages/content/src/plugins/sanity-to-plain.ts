@@ -17,8 +17,11 @@ export default function sanityToPlain(options: z.input<typeof sanityToPlainSchem
 	return defineContentPlugin({
 		name: "sanity-to-plain",
 		hooks: {
-			onContentFetchDone(ctx) {
-				return applyTransformToFiles({
+			async onContentFetchDone(ctx) {
+				let transformCount = 0;
+				ctx.logger.info("Transforming sanity blocks to plain text...");
+
+				await applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -28,9 +31,15 @@ export default function sanityToPlain(options: z.input<typeof sanityToPlainSchem
 							throw new Error(`Content is not a valid Sanity text block: ${content}`);
 						}
 
+						transformCount++;
+
 						return content.children.map((child) => child.text).join("");
 					},
 				});
+
+				ctx.logger.info(
+					`Transformed ${transformCount} Sanity blocks to plain text.`,
+				);
 			},
 		},
 	});

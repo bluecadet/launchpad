@@ -19,8 +19,11 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 	return defineContentPlugin({
 		name: "sanity-to-markdown",
 		hooks: {
-			onContentFetchDone(ctx) {
-				return applyTransformToFiles({
+			async onContentFetchDone(ctx) {
+				let transformCount = 0;
+				ctx.logger.info("Transforming sanity blocks to markdown...");
+
+				await applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -30,9 +33,15 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 							throw new Error(`Content is not a valid Sanity text block: ${content}`);
 						}
 
+						transformCount++;
+
 						return toMarkdown(content);
 					},
 				});
+
+				ctx.logger.info(
+					`Transformed ${transformCount} Sanity blocks to markdown.`,
+				);
 			},
 		},
 	});

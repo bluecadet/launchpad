@@ -19,8 +19,11 @@ export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>
 	return defineContentPlugin({
 		name: "sanity-to-html",
 		hooks: {
-			onContentFetchDone(ctx) {
-				return applyTransformToFiles({
+			async onContentFetchDone(ctx) {
+				let transformCount = 0;
+				ctx.logger.info("Transforming sanity blocks to HTML...");
+
+				await applyTransformToFiles({
 					dataStore: ctx.data,
 					path,
 					keys,
@@ -30,9 +33,15 @@ export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>
 							throw new Error(`Content is not a valid Sanity text block: ${content}`);
 						}
 
+						transformCount++;
+
 						return toHTML(content);
 					},
 				});
+
+				ctx.logger.info(
+					`Transformed ${transformCount} Sanity blocks to HTML.`,
+				);
 			},
 		},
 	});

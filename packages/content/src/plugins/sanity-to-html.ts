@@ -39,9 +39,7 @@ export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>
 					},
 				});
 
-				ctx.logger.info(
-					`Transformed ${transformCount} Sanity blocks to HTML.`,
-				);
+				ctx.logger.info(`Transformed ${transformCount} Sanity blocks to HTML.`);
 			},
 		},
 	});

@@ -53,9 +53,7 @@ export default function sanityImageUrlTransform(
 			async onContentFetchDone(ctx) {
 				let transformCount = 0;
 
-				ctx.logger.info(
-					"Transforming URLs using Sanity Image URL Transform...",
-				);
+				ctx.logger.info("Transforming URLs using Sanity Image URL Transform...");
 
 				await applyTransformToFiles({
 					dataStore: ctx.data,
@@ -77,9 +75,7 @@ export default function sanityImageUrlTransform(
 					},
 				});
 
-				ctx.logger.info(
-					`Transformed ${transformCount} URLs.`,
-				);
+				ctx.logger.info(`Transformed ${transformCount} URLs.`);
 			},
 		},
 	});

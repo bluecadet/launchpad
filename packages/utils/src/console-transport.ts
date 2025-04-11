@@ -70,7 +70,7 @@ export class CustomConsoleTransport extends winston.transports.Console {
 			process.stdout.write(ansiEscapes.cursorShow);
 		} else {
 			const lastLineCount = lastMessage?.split("\n").length || 0;
-			process.stdout.write(ansiEscapes.eraseLines(lastLineCount) + message);  // erase last message and show new one
+			process.stdout.write(ansiEscapes.eraseLines(lastLineCount) + message); // erase last message and show new one
 		}
 
 		this.#fixedMessage = message;

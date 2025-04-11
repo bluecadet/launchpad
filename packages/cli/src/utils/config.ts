@@ -14,57 +14,44 @@ const DEFAULT_CONFIG_PATHS = [
 ];
 
 /**
- * Searches for a config file in the current and parent directories, up to a max depth of 64.
- * @returns {string | null} Absolute path to the config file or null if none can be found.
+ * Searches for all config files in the current and parent directories, up to a max depth of 64.
+ * @returns {string[]} Array of absolute paths to the config files found.
  */
 export function findConfig() {
-	for (const defaultPath of DEFAULT_CONFIG_PATHS) {
-		const resolved = findFirstFileRecursive(defaultPath);
-
-		if (resolved) {
-			console.log(`Found config '${chalk.white(resolved)}'`);
-			return resolved;
-		}
-
-		console.warn(`Could not find config with name '${chalk.white(defaultPath)}'`);
+	const configs = findAllConfigsRecursive();
+	if (configs.length > 0) {
+		console.log(`Found configs: ${configs.map((c) => chalk.white(c)).join(", ")}`);
 	}
-
-	return null;
+	return configs.length > 0 ? configs[0] : null;
 }
 
 /**
- * Searches for a file in the current and parent directories, up to a max depth of 64.
- * @returns The absolute path to the file or null if it doesn't exist.
+ * Searches for all config files in the current and parent directories, up to a max depth of 64.
+ * @returns {string[]} Array of absolute paths to the config files found.
  */
-function findFirstFileRecursive(filePath: string) {
+function findAllConfigsRecursive() {
 	const maxDepth = 64;
-
-	let absPath = filePath;
-
-	if (process.env.INIT_CWD) {
-		absPath = path.resolve(process.env.INIT_CWD, filePath);
-	} else {
-		absPath = path.resolve(filePath);
-	}
+	const foundConfigs = [];
+	let currentDir = process.env.INIT_CWD ? path.resolve(process.env.INIT_CWD) : process.cwd();
 
 	for (let i = 0; i < maxDepth; i++) {
-		if (fs.existsSync(absPath)) {
-			return absPath;
+		for (const defaultPath of DEFAULT_CONFIG_PATHS) {
+			const candidatePath = path.join(currentDir, defaultPath);
+			if (fs.existsSync(candidatePath)) {
+				foundConfigs.push(candidatePath);
+			}
 		}
 
-		const dirPath = path.dirname(absPath);
-		const filePath = path.basename(absPath);
-		const parentPath = path.resolve(dirPath, "..", filePath);
-
-		if (absPath === parentPath) {
+		const parentDir = path.resolve(currentDir, "..");
+		if (currentDir === parentDir) {
 			// Can't navigate any more levels up
 			break;
 		}
 
-		absPath = parentPath;
+		currentDir = parentDir;
 	}
 
-	return null;
+	return foundConfigs;
 }
 
 export async function loadConfigFromFile<T>(configPath: string): Promise<Partial<T>> {

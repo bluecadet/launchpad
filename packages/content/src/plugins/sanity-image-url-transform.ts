@@ -1,4 +1,3 @@
-import imageUrlBuilder from "@sanity/image-url";
 import type { ImageUrlBuilder } from "@sanity/image-url/lib/types/builder.js";
 import type {
 	SanityAsset,
@@ -36,6 +35,19 @@ const sanityImageUrlTransformSchema = z.object({
 		.describe("Function to build the image URL"),
 });
 
+
+function tryImportSanityImage() {
+	try {
+		return import("@sanity/image-url");
+	} catch (e) {
+		throw new Error(
+			'Could not find peer dependency "@sanity/image-url". Make sure you have installed it.',
+			{ cause: e },
+		);
+	}
+}
+
+
 export default function sanityImageUrlTransform(
 	options: z.input<typeof sanityImageUrlTransformSchema>,
 ) {
@@ -45,12 +57,15 @@ export default function sanityImageUrlTransform(
 		options,
 	);
 
-	const builder = imageUrlBuilder(rest);
-
 	return defineContentPlugin({
 		name: "sanity-to-html",
 		hooks: {
 			async onContentFetchDone(ctx) {
+				
+				const { default: imageUrlBuilder } = await tryImportSanityImage();
+
+				const builder = imageUrlBuilder(rest);
+
 				let transformCount = 0;
 
 				ctx.logger.info("Transforming URLs using Sanity Image URL Transform...");

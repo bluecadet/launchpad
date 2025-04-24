@@ -144,7 +144,7 @@ class LaunchpadMonitor {
 								this._pluginDriver.runHookSequential("afterAppStart", { appName: name, process }),
 							),
 					),
-				).andThen(() => this._appManager.applyWindowSettings());
+				).andThen(() => this._appManager.applyWindowSettings(validatedNames));
 			});
 	}
 

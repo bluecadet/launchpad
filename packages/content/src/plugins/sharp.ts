@@ -3,7 +3,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
 import PQueue from "p-queue";
-import Sharp from "sharp";
+import type SharpType from "sharp";
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
@@ -38,15 +38,29 @@ const sharpPluginSchema = z.object({
 		.describe("Update URLs in the content to point to the transformed images"),
 	/** The sharp transform to apply to the images. */
 	buildTransform: z
-		.function(z.tuple([z.custom<Sharp.Sharp>()]))
-		.returns(z.custom<Sharp.Sharp>())
+		.function(z.tuple([z.custom<SharpType.Sharp>()]))
+		.returns(z.custom<SharpType.Sharp>())
 		.describe("The sharp transform to apply to the images."),
 	/** The number of images to transform concurrently. Defaults to 4. */
 	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
 });
 
+
+
+function tryImportSharp() {
+	try {
+		return import("sharp");
+	} catch (e) {
+		throw new Error(
+			'Could not find peer dependency "sharp". Make sure you have installed it.',
+			{ cause: e },
+		);
+	}
+}
+
+
 async function transformImage(
-	sharpTransform: Sharp.Sharp,
+	sharpTransform: SharpType.Sharp,
 	sourceImagePath: string,
 	outputImagePath: string,
 	backupImagePath: string,
@@ -101,6 +115,8 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 		name: "sharp",
 		hooks: {
 			async onContentFetchDone(ctx) {
+				const { default: Sharp } = await tryImportSharp();
+
 				const matchingDocuments = getMatchingDocuments(ctx.data, resolvedConfig.keys);
 
 				if (matchingDocuments.isErr()) {
@@ -208,7 +224,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 	});
 }
 
-function getOutputFilename(inputPath: string, sharpTransform: Sharp.Sharp) {
+function getOutputFilename(inputPath: string, sharpTransform: SharpType.Sharp) {
 	const { dir, name, ext } = path.parse(inputPath);
 
 	// 'options' is a private property, so we need to use Object.getOwnPropertyDescriptor

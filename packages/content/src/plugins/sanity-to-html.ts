@@ -1,5 +1,3 @@
-import { toHTML } from "@portabletext/to-html";
-
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
@@ -13,6 +11,19 @@ const sanityToHtmlSchema = z.object({
 	keys: dataKeysSchema.optional(),
 });
 
+
+function tryImportPortableText() {
+	try {
+		return import("@portabletext/to-html");
+	} catch (e) {
+		throw new Error(
+			'Could not find peer dependency "@portabletext/to-html". Make sure you have installed it.',
+			{ cause: e },
+		);
+	}
+}
+
+
 export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>) {
 	const { path, keys } = parsePluginConfig("sanityToHtml", sanityToHtmlSchema, options);
 
@@ -20,6 +31,9 @@ export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>
 		name: "sanity-to-html",
 		hooks: {
 			async onContentFetchDone(ctx) {
+
+				const { toHTML } = await tryImportPortableText();
+
 				let transformCount = 0;
 				ctx.logger.info("Transforming sanity blocks to HTML...");
 

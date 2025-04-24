@@ -1,5 +1,4 @@
-// @ts-expect-error - no types from this lib
-import toMarkdown from "@sanity/block-content-to-markdown";
+
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
@@ -13,6 +12,20 @@ const sanityToMdSchema = z.object({
 	keys: dataKeysSchema.optional(),
 });
 
+
+function tryImportBlockToMd() {
+	try {
+		// @ts-expect-error - no types from this lib
+		return import("@sanity/block-content-to-markdown");
+	} catch (e) {
+		throw new Error(
+			'Could not find peer dependency "@sanity/block-content-to-markdown". Make sure you have installed it.',
+			{ cause: e },
+		);
+	}
+}
+
+
 export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 	const { path, keys } = parsePluginConfig("sanityToMd", sanityToMdSchema, options);
 
@@ -20,6 +33,8 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 		name: "sanity-to-markdown",
 		hooks: {
 			async onContentFetchDone(ctx) {
+				const { toMarkdown } = await tryImportBlockToMd();
+
 				let transformCount = 0;
 				ctx.logger.info("Transforming sanity blocks to markdown...");
 

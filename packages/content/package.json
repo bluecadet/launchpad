@@ -29,8 +29,6 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.0.1",
-    "@portabletext/to-html": "2.0.0",
-    "@sanity/block-content-to-markdown": "^0.0.5",
     "chalk": "^5.0.0",
     "glob": "^11.0.0",
     "jsonpath-plus": "^10.3.0",
@@ -43,6 +41,8 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
+    "@portabletext/to-html": "2.0.0",
+    "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^6.4.9",
     "@sanity/image-url": "^1.1.0",
     "airtable": "^0.11.1",
@@ -50,6 +50,12 @@
     "sharp": "^0.33.5"
   },
   "peerDependenciesMeta": {
+    "@portabletext/to-html": {
+      "optional": true
+    },
+    "@sanity/block-content-to-markdown": {
+      "optional": true
+    },
     "@sanity/client": {
       "optional": true
     },
@@ -69,6 +75,8 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "@portabletext/to-html": "2.0.0",
+    "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^6.4.9",
     "@sanity/image-url": "^1.1.0",
     "@types/markdown-it": "^14.1.2",

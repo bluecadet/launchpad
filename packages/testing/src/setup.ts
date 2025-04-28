@@ -2,6 +2,13 @@ import { fs, vol } from "memfs";
 import { type Result, err, ok } from "neverthrow";
 import { afterEach, expect, vi } from "vitest";
 import type { LogEntry } from "winston";
+import * as posixPath from "node:path/posix";
+
+// Mocking the `path` module to use posix paths for consistency across platforms
+vi.mock("node:path", () => ({
+	...posixPath,
+	default: posixPath,
+}));
 
 vi.mock("fs", () => ({
 	...fs,

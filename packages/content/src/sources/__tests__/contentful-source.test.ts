@@ -28,7 +28,7 @@ function createFetchContext() {
 
 describe("contentfulSource", () => {
 	it("should fail with missing delivery token when not using preview", async () => {
-		expect(
+		await expect(
 			async () =>
 				// @ts-expect-error - testing invalid options
 				await contentfulSource({
@@ -41,7 +41,7 @@ describe("contentfulSource", () => {
 	});
 
 	it("should fail with missing preview token when using preview", async () => {
-		expect(
+		await expect(
 			async () =>
 				// @ts-expect-error - testing invalid options
 				await contentfulSource({
@@ -227,7 +227,7 @@ describe("contentfulSource", () => {
 
 		const result = source.fetch(createFetchContext());
 
-		expect(result.data).rejects.toThrow();
+		await expect(result.data).rejects.toThrow();
 	});
 
 	it("should handle contentful errors array", async () => {
@@ -248,7 +248,7 @@ describe("contentfulSource", () => {
 
 		const result = source.fetch(createFetchContext());
 
-		expect(result.data).rejects.toThrow();
+		await expect(result.data).rejects.toThrow();
 	});
 
 	it("should respect content type filtering", async () => {

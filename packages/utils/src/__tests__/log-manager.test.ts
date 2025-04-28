@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "node:path/posix";
 import moment from "moment";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import winston from "winston";

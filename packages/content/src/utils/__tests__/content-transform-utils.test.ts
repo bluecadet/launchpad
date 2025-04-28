@@ -75,7 +75,7 @@ describe("content-transform-utils", () => {
 				throw new Error("Transform error");
 			};
 
-			expect(
+			await expect(
 				applyTransformToFiles({
 					dataStore,
 					path: "$.content",

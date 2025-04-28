@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "node:path/posix";
 import { vol } from "memfs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DataStore } from "../data-store.js";

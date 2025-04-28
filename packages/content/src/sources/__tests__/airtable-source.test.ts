@@ -174,7 +174,7 @@ describe("airtableSource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(1);
 
-		expect(result[0]!.data).rejects.toThrow();
+		await expect(result[0]!.data).rejects.toThrow();
 	});
 
 	it("should handle invalid key-value table data", async () => {
@@ -202,7 +202,7 @@ describe("airtableSource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(1);
 
-		expect(result[0]!.data).rejects.toThrow();
+		await expect(result[0]!.data).rejects.toThrow();
 	});
 
 	it("should handle unauthorized access", async () => {
@@ -222,6 +222,6 @@ describe("airtableSource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(1);
 
-		expect(result[0]!.data).rejects.toThrow();
+		await expect(result[0]!.data).rejects.toThrow();
 	});
 });

@@ -73,7 +73,7 @@ describe("jsonSource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(1);
 
-		expect(async () => {
+		await expect(async () => {
 			await result[0]!.data;
 		}).rejects.toThrow();
 	});
@@ -98,7 +98,7 @@ describe("jsonSource", () => {
 
 		expect(result).toHaveLength(1);
 
-		expect(async () => {
+		await expect(async () => {
 			await result[0]!.data;
 		}).rejects.toThrow();
 	});
@@ -122,14 +122,14 @@ describe("jsonSource", () => {
 
 		const promise = result[0]!.data;
 
-		expect(promise).rejects.toThrow();
-
 		// Need to run the timer and wait for the rejection
-		await vi.runAllTimersAsync();
+		vi.runAllTimersAsync();
+
+		await expect(promise).rejects.toThrow();
 	});
 
 	it("should throw on incomplete config", async () => {
 		// @ts-expect-error - incomplete config
-		expect(() => jsonSource({})).toThrow();
+		await expect(() => jsonSource({})).toThrow();
 	});
 });

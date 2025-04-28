@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "node:path/posix";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { http, HttpResponse } from "msw";

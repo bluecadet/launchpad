@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "node:path/posix";
 import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";

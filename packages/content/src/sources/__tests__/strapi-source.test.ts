@@ -28,7 +28,7 @@ function createFetchContext() {
 
 describe("strapiSource", () => {
 	it("should fail with unsupported version", async () => {
-		expect(() =>
+		await expect(() =>
 			strapiSource({
 				id: "test-strapi",
 				baseUrl: "http://localhost:1337",
@@ -278,7 +278,7 @@ describe("strapiSource", () => {
 			}),
 		);
 
-		expect(
+		await expect(
 			strapiSource({
 				id: "test-strapi",
 				version: "4",
@@ -312,6 +312,6 @@ describe("strapiSource", () => {
 		const result = source.fetch(createFetchContext());
 		expect(result).toHaveLength(1);
 
-		expect(async () => (await result[0]!.data.next()).value).rejects.toThrow();
+		await expect(async () => (await result[0]!.data.next()).value).rejects.toThrow();
 	});
 });

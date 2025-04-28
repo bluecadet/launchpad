@@ -71,7 +71,7 @@ describe("mdToHtml plugin", () => {
 		await namespace.insert("doc1", Promise.resolve({ content: { foo: "bar" } }));
 
 		const plugin = mdToHtml({ path: "$.content" });
-		expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
 			"Error applying content transform",
 		);
 	});

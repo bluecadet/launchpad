@@ -47,7 +47,6 @@ function setupTestAppManager() {
 		],
 		windowsApi: {
 			debounceDelay: 3000,
-			nodeVersion: ">=17.4.0",
 		},
 		deleteExistingBeforeConnect: false,
 		plugins: [],

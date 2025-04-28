@@ -104,7 +104,7 @@ export class AppManager {
 
 		return ResultAsync.combine(appResults).andThen((apps) => {
 			return ResultAsync.fromPromise(
-				sortWindows(apps, this.#logger, this.#config.windowsApi.nodeVersion),
+				sortWindows(apps, this.#logger),
 				(e) => new Error("Failed to sort windows", { cause: e }),
 			);
 		});

@@ -14,16 +14,6 @@ const windowsApiConfigSchema = z.object({
 		.describe(
 			"The delay until windows are ordered after launch of in ms. Defaults to 3000. If your app takes a long time to open all of its windows, set this number to a higher value to ensure it can be on top of the launchpad terminal window. Keeping this high also reduces the CPU load if apps relaunch often.",
 		),
-	/**
-	 * The minimum major node version to support window ordering. Node versions < 17 seem to have a fatal
-	 * bug with the native API, which will intermittently cause V8 to crash hard. Defaults to '>=17.4.0'.
-	 */
-	nodeVersion: z
-		.string()
-		.default(">=17.4.0")
-		.describe(
-			"The minimum major node version to support window ordering. Node versions < 17 seem to have a fatal bug with the native API, which will intermittently cause V8 to crash hard. Defaults to '>=17.4.0'.",
-		),
 });
 
 export type WindowsApiConfig = z.infer<typeof windowsApiConfigSchema>;

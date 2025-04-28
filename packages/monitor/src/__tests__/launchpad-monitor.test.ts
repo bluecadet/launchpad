@@ -58,6 +58,10 @@ function createTestMonitor(
 	};
 }
 
+vi.mock("../utils/debounce-results.ts", () => ({
+	debounceResultAsync: (fn: unknown) => fn,
+}))
+
 describe("LaunchpadMonitor", () => {
 	describe("connect", () => {
 		it("should connect to PM2 and bus", async () => {

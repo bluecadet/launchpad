@@ -2,9 +2,9 @@ import type { Logger } from "@bluecadet/launchpad-utils";
 import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import type pm2 from "pm2";
 import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";
+import { debounceResultAsync } from "../utils/debounce-results.js";
 import sortWindows from "../utils/sort-windows.js";
 import type { ProcessManager } from "./process-manager.js";
-import { debounceResultAsync } from "../utils/debounce-results.js";
 
 export class AppManager {
 	#logger: Logger;
@@ -19,7 +19,7 @@ export class AppManager {
 		this.applyWindowSettings = debounceResultAsync(
 			this.applyWindowSettings.bind(this),
 			this.#config.windowsApi.debounceDelay,
-		)
+		);
 	}
 
 	startApp(appName: string): ResultAsync<pm2.ProcessDescription, Error> {
@@ -108,8 +108,7 @@ export class AppManager {
 			});
 		});
 
-		return ResultAsync.combine(appResults)
-		.andThen((apps) => {
+		return ResultAsync.combine(appResults).andThen((apps) => {
 			return ResultAsync.fromPromise(
 				sortWindows(apps, this.#logger),
 				(e) => new Error("Failed to sort windows", { cause: e }),

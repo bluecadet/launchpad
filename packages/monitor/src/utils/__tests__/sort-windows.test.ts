@@ -1,11 +1,10 @@
 import { afterEach } from "node:test";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
-import chalk from "chalk";
 import { type Window, windowManager } from "node-window-manager";
 import semver from "semver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import sortWindows from "../sort-windows.js";
+import sortWindows, { MIN_NODE_VERSION } from "../sort-windows.js";
 
 // Mock node-window-manager
 vi.mock("node-window-manager", () => ({
@@ -46,11 +45,10 @@ describe("sortWindows", () => {
 	});
 
 	it("should check node version before proceeding", async () => {
-		const minNodeVersion = ">=18.0.0";
 		vi.spyOn(semver, "satisfies").mockReturnValueOnce(false);
 
-		await expect(sortWindows([], mockLogger, minNodeVersion)).rejects.toThrow(/Can't sort windows/);
-		expect(semver.satisfies).toHaveBeenCalledWith(process.version, minNodeVersion);
+		await expect(sortWindows([], mockLogger)).rejects.toThrow(/Can't sort windows/);
+		expect(semver.satisfies).toHaveBeenCalledWith(process.version, MIN_NODE_VERSION);
 	});
 
 	it("should handle empty apps array", async () => {

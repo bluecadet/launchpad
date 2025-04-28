@@ -60,7 +60,7 @@ function createTestMonitor(
 
 vi.mock("../utils/debounce-results.ts", () => ({
 	debounceResultAsync: (fn: unknown) => fn,
-}))
+}));
 
 describe("LaunchpadMonitor", () => {
 	describe("connect", () => {

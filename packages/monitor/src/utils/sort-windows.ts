@@ -15,10 +15,7 @@ type SortApp = {
  */
 export const MIN_NODE_VERSION = ">=17.4.0";
 
-const sortWindows = async (
-	apps: SortApp[],
-	logger: Logger
-): Promise<void> => {
+const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 	const currNodeVersion = process.version;
 	if (!semver.satisfies(currNodeVersion, MIN_NODE_VERSION)) {
 		return Promise.reject(

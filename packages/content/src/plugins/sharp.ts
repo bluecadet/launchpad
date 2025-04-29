@@ -45,19 +45,15 @@ const sharpPluginSchema = z.object({
 	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
 });
 
-
-
 function tryImportSharp() {
 	try {
 		return import("sharp");
 	} catch (e) {
-		throw new Error(
-			'Could not find peer dependency "sharp". Make sure you have installed it.',
-			{ cause: e },
-		);
+		throw new Error('Could not find peer dependency "sharp". Make sure you have installed it.', {
+			cause: e,
+		});
 	}
 }
-
 
 async function transformImage(
 	sharpTransform: SharpType.Sharp,

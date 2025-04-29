@@ -11,7 +11,6 @@ const sanityToHtmlSchema = z.object({
 	keys: dataKeysSchema.optional(),
 });
 
-
 function tryImportPortableText() {
 	try {
 		return import("@portabletext/to-html");
@@ -23,7 +22,6 @@ function tryImportPortableText() {
 	}
 }
 
-
 export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>) {
 	const { path, keys } = parsePluginConfig("sanityToHtml", sanityToHtmlSchema, options);
 
@@ -31,7 +29,6 @@ export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>
 		name: "sanity-to-html",
 		hooks: {
 			async onContentFetchDone(ctx) {
-
 				const { toHTML } = await tryImportPortableText();
 
 				let transformCount = 0;

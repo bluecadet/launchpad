@@ -1,5 +1,14 @@
 # @bluecadet/launchpad
 
+## 2.0.12
+
+### Patch Changes
+
+- [#228](https://github.com/bluecadet/launchpad/pull/228) [`68ee26ea4fe86f70a69725af507c8254da764db1`](https://github.com/bluecadet/launchpad/commit/68ee26ea4fe86f70a69725af507c8254da764db1) Thanks [@claytercek](https://github.com/claytercek)! - Forward exports in launchpad package
+
+- Updated dependencies [[`9388a031ce03050445a4023b912559dcdcc41f9d`](https://github.com/bluecadet/launchpad/commit/9388a031ce03050445a4023b912559dcdcc41f9d)]:
+  - @bluecadet/launchpad-content@2.1.3
+
 ## 2.0.11
 
 ### Patch Changes

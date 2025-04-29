@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-monitor
 
+## 2.0.5
+
+### Patch Changes
+
+- [#225](https://github.com/bluecadet/launchpad/pull/225) [`7fee5651f3f98848cad96490b7dfd8ca3966aa92`](https://github.com/bluecadet/launchpad/commit/7fee5651f3f98848cad96490b7dfd8ca3966aa92) Thanks [@claytercek](https://github.com/claytercek)! - Fix debounceDelay for applying app windowing config
+
+- [#225](https://github.com/bluecadet/launchpad/pull/225) [`2646bacc9dc4db4cc19b345a03d5384c70058811`](https://github.com/bluecadet/launchpad/commit/2646bacc9dc4db4cc19b345a03d5384c70058811) Thanks [@claytercek](https://github.com/claytercek)! - Hard code window reorder MIN_NODE_VERSION instead of making it configurable
+
 ## 2.0.4
 
 ### Patch Changes

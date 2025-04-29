@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.1.3
+
+### Patch Changes
+
+- [#228](https://github.com/bluecadet/launchpad/pull/228) [`9388a031ce03050445a4023b912559dcdcc41f9d`](https://github.com/bluecadet/launchpad/commit/9388a031ce03050445a4023b912559dcdcc41f9d) Thanks [@claytercek](https://github.com/claytercek)! - Fix broken async import for santyToMd plugin
+
 ## 2.1.2
 
 ### Patch Changes

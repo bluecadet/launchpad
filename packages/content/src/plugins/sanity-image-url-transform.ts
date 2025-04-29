@@ -35,7 +35,6 @@ const sanityImageUrlTransformSchema = z.object({
 		.describe("Function to build the image URL"),
 });
 
-
 function tryImportSanityImage() {
 	try {
 		return import("@sanity/image-url");
@@ -46,7 +45,6 @@ function tryImportSanityImage() {
 		);
 	}
 }
-
 
 export default function sanityImageUrlTransform(
 	options: z.input<typeof sanityImageUrlTransformSchema>,
@@ -61,7 +59,6 @@ export default function sanityImageUrlTransform(
 		name: "sanity-to-html",
 		hooks: {
 			async onContentFetchDone(ctx) {
-				
 				const { default: imageUrlBuilder } = await tryImportSanityImage();
 
 				const builder = imageUrlBuilder(rest);

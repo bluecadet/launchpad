@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
@@ -12,7 +11,6 @@ const sanityToMdSchema = z.object({
 	keys: dataKeysSchema.optional(),
 });
 
-
 function tryImportBlockToMd() {
 	try {
 		// @ts-expect-error - no types from this lib
@@ -24,7 +22,6 @@ function tryImportBlockToMd() {
 		);
 	}
 }
-
 
 export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 	const { path, keys } = parsePluginConfig("sanityToMd", sanityToMdSchema, options);

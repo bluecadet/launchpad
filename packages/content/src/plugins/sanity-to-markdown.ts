@@ -30,7 +30,7 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 		name: "sanity-to-markdown",
 		hooks: {
 			async onContentFetchDone(ctx) {
-				const {default: toMarkdown} = await tryImportBlockToMd();
+				const { default: toMarkdown } = await tryImportBlockToMd();
 
 				let transformCount = 0;
 				ctx.logger.info("Transforming sanity blocks to markdown...");

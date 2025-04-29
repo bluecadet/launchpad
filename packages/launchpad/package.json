@@ -19,6 +19,17 @@
     "name": "Bluecadet",
     "url": "https://bluecadet.com"
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "maintainers": [
     {
       "name": "Benjamin Bojko",

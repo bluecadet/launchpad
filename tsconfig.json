@@ -18,6 +18,9 @@
 		},
 		{
 			"path": "packages/cli"
+		},
+		{
+			"path": "packages/launchpad"
 		}
 	],
   "include": []

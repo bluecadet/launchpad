@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 2.1.2
+
+### Patch Changes
+
+- [#226](https://github.com/bluecadet/launchpad/pull/226) [`5441f0dae0913bfbd53cedb5cf4c3ea5b879e33b`](https://github.com/bluecadet/launchpad/commit/5441f0dae0913bfbd53cedb5cf4c3ea5b879e33b) Thanks [@claytercek](https://github.com/claytercek)! - Better optional dependency handling, with more descriptive error messages
+
 ## 2.1.1
 
 ### Patch Changes

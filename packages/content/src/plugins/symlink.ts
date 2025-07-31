@@ -1,10 +1,10 @@
-import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pathExists } from "../utils/file-utils.js";
 import chalk from "chalk";
+import { z } from "zod";
+import { defineContentPlugin } from "../content-plugin-driver.js";
+import { pathExists } from "../utils/file-utils.js";
+import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const symlinkSchema = z.object({
 	/** Symlink source file/directory */
@@ -38,8 +38,8 @@ export default function symlink(options: z.input<typeof symlinkSchema>) {
 					return;
 				}
 
-				const resolvedSrc = path.resolve(source);
-				const resolvedTarget = path.resolve(target);
+				const resolvedSrc = path.resolve(ctx.cwd, source);
+				const resolvedTarget = path.resolve(ctx.cwd, target);
 
 				// ensure source exists
 				const sourceExists = await pathExists(resolvedSrc);

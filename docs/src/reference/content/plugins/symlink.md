@@ -30,7 +30,7 @@ export default defineConfig({
 
 Specifies the source file or directory to create a symlink from, which can be a relative or absolute path.
 
-Relative paths are resolved against the launchpad root.
+Relative paths are resolved against the launchpad config directory.
 
 ### `target`
 
@@ -39,7 +39,7 @@ Relative paths are resolved against the launchpad root.
 
 Specifies the target file or directory to create a symlink to.
 
-Relative paths are resolved against the launchpad root.
+Relative paths are resolved against the launchpad config directory.
 
 ### `condition`
 

@@ -12,8 +12,8 @@ export default defineConfig({
     // ...
     plugins: [
       symlink({
-        source: 'path/to/source/file-or-directory',
         target: 'path/to/target/file-or-directory',
+        path: 'path/to/symlink/file-or-directory',
         condition: () => fs.existsSync('path/to/target') // Ex: only create symlink if target exists
       })
     ]
@@ -23,21 +23,21 @@ export default defineConfig({
 
 ## Options
 
-### `source`
-
-- **Type:** `string`
-- **Required**
-
-Specifies the source file or directory to create a symlink from, which can be a relative or absolute path.
-
-Relative paths are resolved against the launchpad config directory.
-
 ### `target`
 
 - **Type:** `string`
 - **Required**
 
-Specifies the target file or directory to create a symlink to.
+Specifies the target file or directory that the symlink will point to, which can be a relative or absolute path.
+
+Relative paths are resolved against the launchpad config directory.
+
+### `path`
+
+- **Type:** `string`
+- **Required**
+
+Specifies the path where the symlink will be created.
 
 Relative paths are resolved against the launchpad config directory.
 

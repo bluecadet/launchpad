@@ -3,14 +3,13 @@ import path from "node:path";
 import chalk from "chalk";
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
-import { pathExists } from "../utils/file-utils.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const symlinkSchema = z.object({
-	/** Symlink source file/directory */
-	source: z.string().describe("Symlink source file/directory"),
-	/** Symlink target directory */
-	target: z.string().describe("Symlink target file/directory"),
+	/** Symlink target (source file/directory) */
+	target: z.string().describe("Symlink target (source file/directory)"),
+	/** Symlink path (destination file/directory) */
+	path: z.string().describe("Symlink path (destination file/directory)"),
 	/** Condition to check before creating symlink */
 	condition: z
 		.union([
@@ -25,7 +24,11 @@ const symlinkSchema = z.object({
 });
 
 export default function symlink(options: z.input<typeof symlinkSchema>) {
-	const { source, target, condition } = parsePluginConfig("symlink", symlinkSchema, options);
+	const {
+		target,
+		path: symlinkPath,
+		condition,
+	} = parsePluginConfig("symlink", symlinkSchema, options);
 
 	return defineContentPlugin({
 		name: "symlink",
@@ -38,39 +41,39 @@ export default function symlink(options: z.input<typeof symlinkSchema>) {
 					return;
 				}
 
-				const resolvedSrc = path.resolve(ctx.cwd, source);
 				const resolvedTarget = path.resolve(ctx.cwd, target);
+				const resolvedPath = path.resolve(ctx.cwd, symlinkPath);
 
-				// ensure source exists
-				await fs.access(resolvedSrc).catch((e) => {
-					throw new Error(`Source directory ${chalk.gray(resolvedSrc)} does not exist.`);
+				// ensure target exists
+				await fs.access(resolvedTarget).catch((e) => {
+					throw new Error(`Target directory ${chalk.gray(resolvedTarget)} does not exist.`, {
+						cause: e,
+					});
 				});
 
-				const targetStats = await fs.lstat(resolvedTarget).catch(() => null);
+				const pathStats = await fs.lstat(resolvedPath).catch(() => null);
 
-				if (targetStats) {
-					if (targetStats.isSymbolicLink()) {
-						ctx.logger.info(
-							`target symlink ${chalk.gray(resolvedTarget)} already exists, skipping`,
-						);
+				if (pathStats) {
+					if (pathStats.isSymbolicLink()) {
+						ctx.logger.info(`symlink path ${chalk.gray(resolvedPath)} already exists, skipping`);
 						return;
 					}
 					ctx.logger.warn(
-						`target path ${chalk.gray(resolvedTarget)} exists and is not a symlink. Removing it before creating symlink.`,
+						`symlink path ${chalk.gray(resolvedPath)} exists and is not a symlink. Removing it before creating symlink.`,
 					);
-					await fs.rm(resolvedTarget, { recursive: true, force: true });
+					await fs.rm(resolvedPath, { recursive: true, force: true });
 				}
 
 				ctx.logger.info(
-					`Creating symlink from ${chalk.gray(resolvedSrc)} to ${chalk.gray(resolvedTarget)}`,
+					`Creating symlink from ${chalk.gray(resolvedTarget)} to ${chalk.gray(resolvedPath)}`,
 				);
 
 				try {
-					// create parent directory of target if it doesn't exist
-					await fs.mkdir(path.dirname(resolvedTarget), { recursive: true });
-					await fs.symlink(resolvedSrc, resolvedTarget);
+					// create parent directory of path if it doesn't exist
+					await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+					await fs.symlink(resolvedTarget, resolvedPath);
 				} catch (error) {
-					throw new Error(`Failed to create symlink ${resolvedSrc} -> ${resolvedTarget}`, {
+					throw new Error(`Failed to create symlink ${resolvedTarget} -> ${resolvedPath}`, {
 						cause: error,
 					});
 				}

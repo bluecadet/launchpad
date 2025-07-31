@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { ok, okAsync } from "neverthrow";
+import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import type { ResolvedMonitorConfig } from "../../monitor-config.js";
 import { AppManager } from "../app-manager.js";

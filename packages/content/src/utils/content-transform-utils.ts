@@ -1,6 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { type Result, ok } from "neverthrow";
+import { ok, type Result } from "neverthrow";
 import type { DataKeys, DataStore, Document } from "./data-store.js";
 
 /**

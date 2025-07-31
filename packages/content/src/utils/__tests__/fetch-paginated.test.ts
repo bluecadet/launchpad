@@ -1,5 +1,5 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fetchPaginated } from "../fetch-paginated.js";

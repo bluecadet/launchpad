@@ -1,15 +1,14 @@
 import path from "node:path";
-import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
-import { PluginDriver } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager, PluginDriver } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { Result, ResultAsync, err, ok, okAsync } from "neverthrow";
+import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import {
 	type ConfigContentSource,
 	type ContentConfig,
+	contentConfigSchema,
 	DOWNLOAD_PATH_TOKEN,
 	type ResolvedContentConfig,
 	TIMESTAMP_TOKEN,
-	contentConfigSchema,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
 import type { ContentSource } from "./sources/source.js";

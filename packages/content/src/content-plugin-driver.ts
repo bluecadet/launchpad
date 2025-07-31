@@ -1,9 +1,9 @@
 import {
 	type BaseHookContext,
+	createPluginValidator,
 	HookContextProvider,
 	type Plugin,
 	type PluginDriver,
-	createPluginValidator,
 } from "@bluecadet/launchpad-utils";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";

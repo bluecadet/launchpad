@@ -1,4 +1,4 @@
-import { ResultAsync, err, ok } from "neverthrow";
+import { ResultAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { debounceResultAsync } from "../debounce-results.js";
 

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager } from "@bluecadet/launchpad-utils";
 import * as sudo from "sudo-prompt";
 
 export function launchScaffold(parentLogger: Logger) {
@@ -18,7 +18,7 @@ export function launchScaffold(parentLogger: Logger) {
 		{
 			name: "Launchpad Scaffold",
 		},
-		(error, stdout, stderr) => {
+		(error, stdout, _stderr) => {
 			if (error) throw error;
 			console.log(stdout);
 		},

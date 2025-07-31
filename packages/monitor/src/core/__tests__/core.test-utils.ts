@@ -2,7 +2,7 @@ import type { SubEmitterSocket } from "axon";
 import { vi } from "vitest";
 
 export function createMockSubEmitterSocket() {
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: test utility
 	const listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
 	const mockSubEmitterSocket: SubEmitterSocket = {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
-import { ResultAsync, errAsync, ok, okAsync } from "neverthrow";
+import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import { type ContentHookContext, defineContentPlugin } from "../content-plugin-driver.js";
 import type { DataStore } from "../utils/data-store.js";
@@ -295,7 +295,7 @@ function setupDownloadDirectories(
 
 function cleanupAfterDownload(
 	ctx: ContentHookContext,
-	config: MediaDownloaderConfigWithDefaults,
+	_config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<void, FileSystemError> {
 	return FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
 		.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))

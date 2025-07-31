@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Logger } from "@bluecadet/launchpad-utils";
-import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";
 import { debounceResultAsync } from "../utils/debounce-results.js";

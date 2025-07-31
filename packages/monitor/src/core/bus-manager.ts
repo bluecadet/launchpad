@@ -1,6 +1,6 @@
-import { LogManager, type Logger } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager } from "@bluecadet/launchpad-utils";
 import type { SubEmitterSocket } from "axon";
-import { type Result, ResultAsync, err, ok } from "neverthrow";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";
 import { Tail } from "tail";
 import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
@@ -202,7 +202,7 @@ export class BusManager {
 		appLogger.info(data);
 	}
 
-	#handleTailError(appName: string, data: string, isTailError = false) {
+	#handleTailError(appName: string, data: string, _isTailError = false) {
 		const appLogger = LogManager.getLogger(appName, this.#logger);
 		appLogger.error(data);
 	}

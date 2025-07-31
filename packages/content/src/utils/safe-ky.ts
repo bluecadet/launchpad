@@ -1,5 +1,5 @@
-import ky, { type Input, type Options, type KyResponse, type ResponsePromise } from "ky";
-import { Err, Ok, ResultAsync, err, ok } from "neverthrow";
+import ky, { type Input, type KyResponse, type Options, type ResponsePromise } from "ky";
+import { Err, Ok, ResultAsync } from "neverthrow";
 
 export class SafeKyFetchError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

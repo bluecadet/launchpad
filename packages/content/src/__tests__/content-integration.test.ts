@@ -1,7 +1,7 @@
 import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import LaunchpadContent from "../launchpad-content.js";

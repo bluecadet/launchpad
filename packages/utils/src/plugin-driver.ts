@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { ResultAsync, okAsync } from "neverthrow";
+import { okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { Logger } from "./log-manager.js";
 import { onExit } from "./on-exit.js";
@@ -190,11 +190,11 @@ export class HookContextProvider<T extends HookSet, C> {
 		return this.#innerDriver.plugins;
 	}
 
-	protected _initialize(plugins: ReadonlyArray<Plugin<T>>): void {
+	protected _initialize(_plugins: ReadonlyArray<Plugin<T>>): void {
 		// implement in subclass
 	}
 
-	protected _getPluginContext(plugin: Plugin<T>): C {
+	protected _getPluginContext(_plugin: Plugin<T>): C {
 		throw new Error("_getPluginContext Not implemented");
 	}
 

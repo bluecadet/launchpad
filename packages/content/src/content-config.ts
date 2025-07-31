@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { type ContentPlugin, contentPluginSchema } from "./content-plugin-driver.js";
+import { contentPluginSchema } from "./content-plugin-driver.js";
 import { type ContentSource, contentSourceSchema } from "./sources/source.js";
-import plugin from "./utils/markdown-it-italic-bold.js";
 
 export const DOWNLOAD_PATH_TOKEN = "%DOWNLOAD_PATH%";
 export const TIMESTAMP_TOKEN = "%TIMESTAMP%";

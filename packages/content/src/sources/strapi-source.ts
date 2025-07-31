@@ -235,6 +235,14 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 }
 
 export default async function strapiSource(options: z.input<typeof strapiSourceSchema>) {
+	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0");
+
+	if (majorNodeVersion < 20) {
+		throw new Error(
+			`Unsupported node version ${process.versions.node}. Strapi source requires node >= 20.`,
+		);
+	}
+
 	const assembledOptions = strapiSourceSchema.parse(options);
 
 	if (assembledOptions.version !== "4" && assembledOptions.version !== "3") {

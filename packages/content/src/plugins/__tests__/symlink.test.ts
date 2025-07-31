@@ -14,7 +14,7 @@ describe("symlink plugin", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("should create symlink from source to target", async () => {
+	it("should create symlink from target to path", async () => {
 		// Setup test files
 		vol.mkdirSync("source", { recursive: true });
 		vol.writeFileSync("source/file.txt", "test content");
@@ -22,39 +22,39 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 		});
 
 		vi.spyOn(fs, "symlink");
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
-		expect(fs.symlink).toHaveBeenCalledWith(path.resolve("source"), path.resolve("target"));
+		expect(fs.symlink).toHaveBeenCalledWith(path.resolve("source"), path.resolve("destination"));
 	});
 
-	it("should throw error if source does not exist", async () => {
+	it("should throw error if target does not exist", async () => {
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "nonexistent",
-			target: "target",
+			target: "nonexistent",
+			path: "destination",
 		});
 
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Source directory");
+		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Target directory");
 	});
 
-	it("should skip if target symlink already exists", async () => {
-		// Setup source
+	it("should skip if symlink path already exists", async () => {
+		// Setup target
 		vol.mkdirSync("source", { recursive: true });
 		vol.writeFileSync("source/file.txt", "test content");
-		vol.symlinkSync("source", "target");
+		vol.symlinkSync("source", "destination");
 
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 		});
 
 		vi.spyOn(fs, "symlink");
@@ -64,30 +64,33 @@ describe("symlink plugin", () => {
 		expect(fs.symlink).not.toHaveBeenCalled();
 	});
 
-	it("should remove existing non-symlink target before creating symlink", async () => {
-		// Setup source
+	it("should remove existing non-symlink path before creating symlink", async () => {
+		// Setup target
 		vol.mkdirSync("source", { recursive: true });
 		vol.writeFileSync("source/file.txt", "test content");
-		vol.mkdirSync("target/something/else", { recursive: true });
-		vol.writeFileSync("target/something/else/file.txt", "old content");
+		vol.mkdirSync("destination/something/else", { recursive: true });
+		vol.writeFileSync("destination/something/else/file.txt", "old content");
 
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 		});
 
 		vi.spyOn(fs, "rm");
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
-		expect(fs.rm).toHaveBeenCalledWith(path.resolve("target"), { recursive: true, force: true });
+		expect(fs.rm).toHaveBeenCalledWith(path.resolve("destination"), {
+			recursive: true,
+			force: true,
+		});
 
-		expect(vol.existsSync("target")).toBe(true);
-		expect(vol.lstatSync("target").isSymbolicLink()).toBe(true);
-		expect(vol.readFileSync("target/file.txt", "utf-8")).toBe("test content");
-		expect(vol.existsSync("target/something/else")).toBe(false);
+		expect(vol.existsSync("destination")).toBe(true);
+		expect(vol.lstatSync("destination").isSymbolicLink()).toBe(true);
+		expect(vol.readFileSync("destination/file.txt", "utf-8")).toBe("test content");
+		expect(vol.existsSync("destination/something/else")).toBe(false);
 	});
 
 	it("should skip when condition is false", async () => {
@@ -97,14 +100,14 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 			condition: false,
 		});
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
-		expect(vol.existsSync("target")).not.toBe(true);
+		expect(vol.existsSync("destination")).not.toBe(true);
 	});
 
 	it("should create symlink when condition is true", async () => {
@@ -114,16 +117,16 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 			condition: true,
 		});
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
-		expect(vol.existsSync("target")).toBe(true);
-		expect(vol.lstatSync("target").isSymbolicLink()).toBe(true);
-		expect(vol.readFileSync("target/file.txt", "utf-8")).toBe("test content");
+		expect(vol.existsSync("destination")).toBe(true);
+		expect(vol.lstatSync("destination").isSymbolicLink()).toBe(true);
+		expect(vol.readFileSync("destination/file.txt", "utf-8")).toBe("test content");
 	});
 
 	it("should handle function condition that returns boolean", async () => {
@@ -134,8 +137,8 @@ describe("symlink plugin", () => {
 
 		const conditionFn = vi.fn().mockReturnValue(true);
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 			condition: conditionFn,
 		});
 
@@ -143,9 +146,9 @@ describe("symlink plugin", () => {
 
 		expect(conditionFn).toHaveBeenCalled();
 
-		expect(vol.existsSync("target")).toBe(true);
-		expect(vol.lstatSync("target").isSymbolicLink()).toBe(true);
-		expect(vol.readFileSync("target/file.txt", "utf-8")).toBe("test content");
+		expect(vol.existsSync("destination")).toBe(true);
+		expect(vol.lstatSync("destination").isSymbolicLink()).toBe(true);
+		expect(vol.readFileSync("destination/file.txt", "utf-8")).toBe("test content");
 	});
 
 	it("should handle function condition that returns promise", async () => {
@@ -156,15 +159,15 @@ describe("symlink plugin", () => {
 
 		const conditionFn = vi.fn().mockResolvedValueOnce(false);
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 			condition: conditionFn,
 		});
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
 		expect(conditionFn).toHaveBeenCalled();
-		expect(vol.existsSync("target")).not.toBe(true);
+		expect(vol.existsSync("destination")).not.toBe(true);
 	});
 
 	it("should throw error if symlink creation fails", async () => {
@@ -177,31 +180,31 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: "source",
-			target: "target",
+			target: "source",
+			path: "destination",
 		});
 
 		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Failed to create symlink");
 	});
 
 	it("should handle absolute paths", async () => {
-		const absoluteSource = "/absolute/source";
-		const absoluteTarget = "/absolute/target";
+		const absoluteTarget = "/absolute/source";
+		const absolutePath = "/absolute/destination";
 
-		vol.mkdirSync(absoluteSource, { recursive: true });
-		vol.writeFileSync(path.join(absoluteSource, "file.txt"), "test content");
+		vol.mkdirSync(absoluteTarget, { recursive: true });
+		vol.writeFileSync(path.join(absoluteTarget, "file.txt"), "test content");
 
 		const ctx = await createTestPluginContext();
 
 		const plugin = symlink({
-			source: absoluteSource,
 			target: absoluteTarget,
+			path: absolutePath,
 		});
 
 		await plugin.hooks.onContentFetchDone(ctx);
 
-		expect(vol.existsSync("/absolute/target")).toBe(true);
-		expect(vol.lstatSync("/absolute/target").isSymbolicLink()).toBe(true);
-		expect(vol.readFileSync("/absolute/target/file.txt", "utf-8")).toBe("test content");
+		expect(vol.existsSync("/absolute/destination")).toBe(true);
+		expect(vol.lstatSync("/absolute/destination").isSymbolicLink()).toBe(true);
+		expect(vol.readFileSync("/absolute/destination/file.txt", "utf-8")).toBe("test content");
 	});
 });

@@ -26,8 +26,27 @@ function createFetchContext() {
 	};
 }
 
-describe("strapiSource", () => {
-	it("should fail with unsupported version", async () => {
+const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!);
+
+describe.runIf(majorNodeVersion < 20)("strapiSource - unsupported", () => {
+	it("should fail with unsupported node version", async () => {
+		await expect(() =>
+			strapiSource({
+				id: "test-strapi",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "password",
+				version: "4",
+				queries: ["test-content"],
+			}),
+		).rejects.toThrowError(
+			`Unsupported node version ${process.versions.node}. Strapi source requires node >= 20.`,
+		);
+	});
+});
+
+describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
+	it("should fail with unsupported strapi API version", async () => {
 		await expect(() =>
 			strapiSource({
 				id: "test-strapi",
@@ -38,7 +57,22 @@ describe("strapiSource", () => {
 				version: "5",
 				queries: ["test-content"],
 			}),
-		).rejects.toThrow();
+		).rejects.toThrowErrorMatchingInlineSnapshot(`
+			[ZodError: [
+			  {
+			    "received": "5",
+			    "code": "invalid_enum_value",
+			    "options": [
+			      "3",
+			      "4"
+			    ],
+			    "path": [
+			      "version"
+			    ],
+			    "message": "Invalid enum value. Expected '3' | '4', received '5'"
+			  }
+			]]
+		`);
 	});
 
 	describe("Strapi v4", () => {

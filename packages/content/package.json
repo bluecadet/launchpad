@@ -21,6 +21,9 @@
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "author": "Bluecadet",
   "license": "ISC",
   "bugs": {

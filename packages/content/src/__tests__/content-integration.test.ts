@@ -1,4 +1,4 @@
-import path from "node:path/posix";
+import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
@@ -66,7 +66,7 @@ describe("Content Integration", () => {
 			expect(result).toBeOk();
 
 			// Check if markdown was converted to HTML
-			const articlePath = path.join("/downloads", "blog", "article.json");
+			const articlePath = path.resolve("/downloads", "blog", "article.json");
 			expect(vol.existsSync(articlePath)).toBe(true);
 			const article = JSON.parse(vol.readFileSync(articlePath, "utf8").toString());
 			expect(article.content).toContain("<h1>Hello World</h1>");
@@ -75,7 +75,7 @@ describe("Content Integration", () => {
 			// Check if media was downloaded
 			const mediaFiles = ["gallery1.jpg", "gallery2.jpg"];
 			for (const file of mediaFiles) {
-				const mediaPath = path.join("/downloads", "blog", file);
+				const mediaPath = path.resolve("/downloads", "blog", file);
 				expect(vol.existsSync(mediaPath)).toBe(true);
 				expect(vol.readFileSync(mediaPath, "utf8")).toBe("fake image data");
 			}
@@ -146,7 +146,7 @@ describe("Content Integration", () => {
 
 			expect(result).toBeOk();
 
-			const articlePath = path.join("/downloads", "cms", "article.json");
+			const articlePath = path.resolve("/downloads", "cms", "article.json");
 			expect(vol.existsSync(articlePath)).toBe(true);
 
 			const article = JSON.parse(vol.readFileSync(articlePath, "utf8").toString());
@@ -213,8 +213,8 @@ describe("Content Integration", () => {
 			expect(result).toBeOk();
 
 			// Check if shared media was downloaded only once and is accessible from both sources
-			const mediaPath1 = path.join("/downloads", "source1", "shared.jpg");
-			const mediaPath2 = path.join("/downloads", "source2", "shared.jpg");
+			const mediaPath1 = path.resolve("/downloads", "source1", "shared.jpg");
+			const mediaPath2 = path.resolve("/downloads", "source2", "shared.jpg");
 
 			expect(vol.existsSync(mediaPath1)).toBe(true);
 			expect(vol.existsSync(mediaPath2)).toBe(true);

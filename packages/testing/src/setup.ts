@@ -1,14 +1,8 @@
-import * as posixPath from "node:path/posix";
-import { fs, vol } from "memfs";
+import path from "node:path";
+import { fs } from "memfs";
 import { type Result, err, ok } from "neverthrow";
-import { afterEach, beforeAll, expect, vi } from "vitest";
+import { expect, vi } from "vitest";
 import type { LogEntry } from "winston";
-
-// Mocking the `path` module to use posix paths for consistency across platforms
-vi.mock("node:path", () => ({
-	...posixPath,
-	default: posixPath,
-}));
 
 vi.mock("fs", () => ({
 	...fs,
@@ -141,6 +135,28 @@ expect.extend({
 			message: () => "Expected result to be an error",
 			expected: err(undefined),
 			actual: result,
+		};
+	},
+
+	toMatchPath: (received: string, expected: string) => {
+		// resolve both paths to ensure they are normalized for the current platform
+		const normalizedReceived = path.resolve(received);
+		const normalizedExpected = path.resolve(expected);
+
+		if (normalizedReceived === normalizedExpected) {
+			return {
+				pass: true,
+				message: () =>
+					`Expected paths not to match:\n  Received: ${normalizedReceived}\n  Expected: ${normalizedExpected}`,
+			};
+		}
+
+		return {
+			pass: false,
+			message: () =>
+				`Expected paths to match:\n  Received: ${normalizedReceived}\n  Expected: ${normalizedExpected}\n  Original received: ${received}\n  Original expected: ${expected}`,
+			expected: normalizedExpected,
+			actual: normalizedReceived,
 		};
 	},
 });

@@ -36,7 +36,7 @@ function findAllConfigsRecursive() {
 
 	for (let i = 0; i < maxDepth; i++) {
 		for (const defaultPath of DEFAULT_CONFIG_PATHS) {
-			const candidatePath = path.join(currentDir, defaultPath);
+			const candidatePath = path.resolve(currentDir, defaultPath);
 			if (fs.existsSync(candidatePath)) {
 				foundConfigs.push(candidatePath);
 			}

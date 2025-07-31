@@ -3,6 +3,7 @@ import "vitest";
 interface CustomMatchers<R = unknown> {
 	toBeOk: () => R;
 	toBeErr: () => R;
+	toMatchPath: (expected: string) => R;
 }
 
 declare module "vitest" {

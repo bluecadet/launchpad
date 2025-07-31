@@ -32,7 +32,7 @@ export default defineConfig({
         pm2: {
           name: "webapp-browser",
           // Path to Chromium (adjust for your environment)
-          cwd: path.join(homedir(), "AppData/Local/Chromium/Application"), 
+          cwd: path.resolve(homedir(), "AppData/Local/Chromium/Application"), 
           script: "chrome.exe",
           args: "--kiosk --incognito --disable-pinch --overscroll-history-navgation=0 --enable-auto-reload --autoplay-policy=no-user-gesture-required http://localhost:8080"
         },

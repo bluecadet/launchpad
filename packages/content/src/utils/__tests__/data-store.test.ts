@@ -1,4 +1,4 @@
-import path from "node:path/posix";
+import path from "node:path";
 import { vol } from "memfs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DataStore } from "../data-store.js";
@@ -27,7 +27,7 @@ describe("SingleDocument", () => {
 		expect(docResult).toBeOk();
 
 		const fileContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.json"),
 			"utf-8",
 		);
 		expect(JSON.parse(fileContent.toString())).toEqual({ content: "test content" });
@@ -51,13 +51,13 @@ describe("SingleDocument", () => {
 		}));
 
 		const originalContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.original.json"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.original.json"),
 			"utf-8",
 		);
 		expect(JSON.parse(originalContent.toString())).toEqual({ content: "original content" });
 
 		const modifiedContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.json"),
 			"utf-8",
 		);
 		expect(JSON.parse(modifiedContent.toString())).toEqual({ content: "modified content" });
@@ -80,7 +80,7 @@ describe("SingleDocument", () => {
 		);
 
 		const fileContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.json"),
 			"utf-8",
 		);
 		expect(JSON.parse(fileContent.toString())).toEqual({
@@ -101,13 +101,13 @@ describe("SingleDocument", () => {
 		);
 
 		const fileContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.json"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.json"),
 			"utf-8",
 		);
 		expect(JSON.parse(fileContent.toString())).toMatchObject({ content: "test content A" });
 
 		const extensionFileContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.extension"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.extension"),
 			"utf-8",
 		);
 		expect(JSON.parse(extensionFileContent.toString())).toMatchObject({
@@ -115,7 +115,7 @@ describe("SingleDocument", () => {
 		});
 
 		const extensionExtensionFileContent = await vol.readFileSync(
-			path.join(TEST_DIR, "test-namespace", "test-doc.extension.extension"),
+			path.resolve(TEST_DIR, "test-namespace", "test-doc.extension.extension"),
 			"utf-8",
 		);
 		expect(JSON.parse(extensionExtensionFileContent.toString())).toMatchObject({
@@ -161,7 +161,7 @@ describe("BatchDocument", () => {
 		for (let i = 0; i < items.length; i++) {
 			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
 			const content = await vol.readFileSync(
-				path.join(TEST_DIR, "test-namespace", filename),
+				path.resolve(TEST_DIR, "test-namespace", filename),
 				"utf-8",
 			);
 			expect(JSON.parse(content.toString())).toEqual(items[i]);
@@ -192,7 +192,7 @@ describe("BatchDocument", () => {
 		for (let i = 0; i < items.length; i++) {
 			const filename = `test-doc-${i.toString().padStart(2, "0")}.json`;
 			const content = await vol.readFileSync(
-				path.join(TEST_DIR, "test-namespace", filename),
+				path.resolve(TEST_DIR, "test-namespace", filename),
 				"utf-8",
 			);
 			expect(JSON.parse(content.toString())).toEqual({
@@ -219,7 +219,7 @@ describe("DataStore", () => {
 		const result = await store.createNamespace("test-namespace");
 		expect(result).toBeOk();
 
-		const exists = await vol.existsSync(path.join(TEST_DIR, "test-namespace"));
+		const exists = await vol.existsSync(path.resolve(TEST_DIR, "test-namespace"));
 		expect(exists).toBe(true);
 	});
 

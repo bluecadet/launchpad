@@ -1,8 +1,7 @@
-import path from "node:path/posix";
+import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { contentConfigSchema } from "../content-config.js";
 import { ContentError, type ContentPlugin } from "../content-plugin-driver.js";
 import LaunchpadContent from "../launchpad-content.js";
 import { defineSource } from "../sources/source.js";
@@ -15,9 +14,9 @@ describe("LaunchpadContent", () => {
 
 	const createBasicConfig = (plugins: ContentPlugin[] = []) => {
 		return {
-			downloadPath: "/downloads",
-			tempPath: "/temp",
-			backupPath: "/backups",
+			downloadPath: "downloads",
+			tempPath: "temp",
+			backupPath: "backups",
 			sources: [
 				defineSource({
 					id: "test",
@@ -44,7 +43,7 @@ describe("LaunchpadContent", () => {
 
 			expect(result).toBeOk();
 
-			const filePath = path.join("/downloads", "test", "doc1.json");
+			const filePath = path.resolve("/downloads", "test", "doc1.json");
 			expect(vol.existsSync(filePath)).toBe(true);
 			expect(vol.readFileSync(filePath, "utf8")).toBe(JSON.stringify({ hello: "world" }));
 		});
@@ -146,7 +145,7 @@ describe("LaunchpadContent", () => {
 		it("should handle download path token replacement", () => {
 			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
 			const path = content._getDetokenizedPath("/path/to/%DOWNLOAD_PATH%/file", "/downloads");
-			expect(path).toBe("/path/to/downloads/file");
+			expect(path).toMatchPath("/path/to/downloads/file");
 		});
 
 		it("should handle timestamp token replacement", () => {
@@ -156,28 +155,59 @@ describe("LaunchpadContent", () => {
 
 			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
 			const path = content._getDetokenizedPath("/path/to/%TIMESTAMP%/file", "/downloads");
-			expect(path).toMatch("/path/to/2024-01-02_00-00-00/file");
+			expect(path).toMatchPath("/path/to/2024-01-02_00-00-00/file");
 			vi.useRealTimers();
 		});
-	});
 
-	describe("cwd parameter", () => {
 		it("should use the provided cwd for path resolution", () => {
 			const content = new LaunchpadContent(createBasicConfig(), createMockLogger(), "/some/cwd");
-			expect(content.getDownloadPath("/path/to/file")).toBe("/some/cwd/downloads/path/to/file");
-			expect(content.getTempPath("/path/to/file")).toBe("/some/cwd/temp/path/to/file");
-			expect(content.getBackupPath("/path/to/file")).toBe("/some/cwd/backups/path/to/file");
+			expect(content.getDownloadPath()).toMatchPath("/some/cwd/downloads");
+			expect(content.getDownloadPath("source-id")).toMatchPath("/some/cwd/downloads/source-id");
+			expect(content.getTempPath()).toMatchPath("/some/cwd/temp");
+			expect(content.getTempPath("source-id")).toMatchPath("/some/cwd/temp/source-id");
+			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
+				"/some/cwd/temp/plugin-name/source-id",
+			);
+			expect(content.getBackupPath("source-id")).toMatchPath("/some/cwd/backups/source-id");
+			expect(content.getBackupPath()).toMatchPath("/some/cwd/backups");
 		});
 
 		it("should default to process.cwd() if no cwd is provided", () => {
-			const cwd = process.cwd();
-
 			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			expect(content.getDownloadPath("/path/to/file")).toBe(
-				path.join(cwd, "downloads/path/to/file"),
+
+			expect(content.getDownloadPath()).toMatchPath("downloads");
+			expect(content.getDownloadPath("source-id")).toMatchPath("downloads/source-id");
+			expect(content.getTempPath()).toMatchPath("temp");
+			expect(content.getTempPath("source-id")).toMatchPath("temp/source-id");
+			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
+				"temp/plugin-name/source-id",
 			);
-			expect(content.getTempPath("/path/to/file")).toBe(path.join(cwd, "temp/path/to/file"));
-			expect(content.getBackupPath("/path/to/file")).toBe(path.join(cwd, "backups/path/to/file"));
+			expect(content.getBackupPath("source-id")).toMatchPath("backups/source-id");
+			expect(content.getBackupPath()).toMatchPath("backups");
+		});
+
+		it("should support absolute path parameters", () => {
+			// even though cwd is set, absolute paths should still work
+			const content = new LaunchpadContent(
+				{
+					downloadPath: "/absolute/downloads",
+					tempPath: "/absolute/temp",
+					backupPath: "/absolute/backups",
+					sources: [],
+				},
+				createMockLogger(),
+				"/some/cwd",
+			);
+
+			expect(content.getDownloadPath()).toMatchPath("/absolute/downloads");
+			expect(content.getDownloadPath("source-id")).toMatchPath("/absolute/downloads/source-id");
+			expect(content.getTempPath()).toMatchPath("/absolute/temp");
+			expect(content.getTempPath("source-id")).toMatchPath("/absolute/temp/source-id");
+			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
+				"/absolute/temp/plugin-name/source-id",
+			);
+			expect(content.getBackupPath("source-id")).toMatchPath("/absolute/backups/source-id");
+			expect(content.getBackupPath()).toMatchPath("/absolute/backups");
 		});
 	});
 });

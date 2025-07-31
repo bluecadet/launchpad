@@ -227,9 +227,9 @@ class LaunchpadContent {
 
 	getDownloadPath(sourceId?: string): string {
 		if (sourceId) {
-			return path.resolve(path.join(this._cwd, this._config.downloadPath, sourceId));
+			return path.resolve(this._cwd, this._config.downloadPath, sourceId);
 		}
-		return path.resolve(path.join(this._cwd, this._config.downloadPath));
+		return path.resolve(this._cwd, this._config.downloadPath);
 	}
 
 	getTempPath(sourceId?: string, pluginName?: string): string {
@@ -238,14 +238,14 @@ class LaunchpadContent {
 		let detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 
 		if (pluginName) {
-			detokenizedPath = path.resolve(path.join(this._cwd, detokenizedPath, pluginName));
+			detokenizedPath = path.resolve(this._cwd, detokenizedPath, pluginName);
 		}
 
 		if (sourceId) {
-			detokenizedPath = path.resolve(path.join(this._cwd, detokenizedPath, sourceId));
+			detokenizedPath = path.resolve(this._cwd, detokenizedPath, sourceId);
 		}
 
-		return detokenizedPath;
+		return path.resolve(this._cwd, detokenizedPath);
 	}
 
 	getBackupPath(sourceId?: string): string {
@@ -253,9 +253,9 @@ class LaunchpadContent {
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 		if (sourceId) {
-			return path.resolve(path.join(this._cwd, detokenizedPath, sourceId));
+			return path.resolve(path.resolve(this._cwd, detokenizedPath, sourceId));
 		}
-		return path.resolve(path.join(this._cwd, detokenizedPath));
+		return path.resolve(path.resolve(this._cwd, detokenizedPath));
 	}
 
 	_createSourcesFromConfig(
@@ -359,7 +359,7 @@ class LaunchpadContent {
 		if (innerTokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
 			innerTokenizedPath = innerTokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);
 		}
-		return path.resolve(innerTokenizedPath);
+		return path.join(innerTokenizedPath);
 	}
 }
 

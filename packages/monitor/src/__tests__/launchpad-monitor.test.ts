@@ -262,7 +262,7 @@ describe("LaunchpadMonitor", () => {
 			);
 
 			expect(monitor._cwd).toBe(cwd);
-			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatch(
+			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
 				"/test/cwd/app/cwd",
 			);
 		});
@@ -274,7 +274,7 @@ describe("LaunchpadMonitor", () => {
 			});
 
 			expect(monitor._cwd).toBe(process.cwd());
-			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatch(
+			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
 				"/app/cwd",
 			);
 		});

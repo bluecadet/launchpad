@@ -1,3 +1,4 @@
+import path from "node:path";
 import { vol } from "memfs";
 import type Sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -89,7 +90,7 @@ describe("sharp", () => {
 			});
 
 			await expect(plugin.hooks.onContentFetchDone!(ctx)).rejects.toThrow(
-				"Input file '/download/test/nonexistent.jpg' does not exist",
+				`Input file '${path.resolve("/download/test/nonexistent.jpg")}' does not exist`,
 			);
 		});
 

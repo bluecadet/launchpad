@@ -135,7 +135,7 @@ class SingleDocument<T = unknown> extends Document<T> {
 	constructor(directory: string, id: string) {
 		super(id);
 		const filename = id.includes(".") ? id : `${id}.json`;
-		this.#path = path.join(directory, filename);
+		this.#path = path.resolve(directory, filename);
 	}
 
 	async initialize(data: T | Promise<T>) {
@@ -340,7 +340,7 @@ class Namespace {
 
 	constructor(parentDirectory: string, id: string) {
 		this.#id = id;
-		this.#directory = path.join(parentDirectory, id);
+		this.#directory = path.resolve(parentDirectory, id);
 	}
 
 	get id() {

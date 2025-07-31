@@ -43,9 +43,9 @@ export function removeFilesFromDir(
 	exclude: string[] = [],
 ): ResultAsync<void, FileUtilsError> {
 	// Glob expects posix paths
-	const globPath = path.join(dirPath, "**/*").replaceAll(path.sep, path.posix.sep);
+	const globPath = path.resolve(dirPath, "**/*").replaceAll(path.sep, path.posix.sep);
 	const excludePaths = exclude.map((pattern) =>
-		path.join(dirPath, pattern).replaceAll(path.sep, path.posix.sep),
+		path.resolve(dirPath, pattern).replaceAll(path.sep, path.posix.sep),
 	);
 
 	return ResultAsync.fromPromise(
@@ -200,7 +200,7 @@ export function copyDir(
 		)
 		.andThen((entries) =>
 			ResultAsync.combine(
-				entries.map((entry) => copy(path.join(src, entry), path.join(dest, entry), options)),
+				entries.map((entry) => copy(path.resolve(src, entry), path.resolve(dest, entry), options)),
 			),
 		)
 		.map(() => undefined);

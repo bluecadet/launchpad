@@ -24,16 +24,17 @@ export async function createTestPluginContext({
 		data,
 		logger,
 		abortSignal: new AbortController().signal,
+		cwd: "/",
 		paths: {
 			getDownloadPath: vi
 				.fn()
-				.mockImplementation((sourceId?: string) => path.join("/download", sourceId || "")),
+				.mockImplementation((sourceId?: string) => path.resolve("download", sourceId || "")),
 			getTempPath: vi
 				.fn()
-				.mockImplementation((sourceId?: string) => path.join("/temp", sourceId || "")),
+				.mockImplementation((sourceId?: string) => path.resolve("temp", sourceId || "")),
 			getBackupPath: vi
 				.fn()
-				.mockImplementation((sourceId?: string) => path.join("/backup", sourceId || "")),
+				.mockImplementation((sourceId?: string) => path.resolve("backup", sourceId || "")),
 		},
 		contentOptions: contentConfigSchema.parse(baseOptions),
 	};

@@ -158,12 +158,15 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 							if (!sourceUrls.has(val)) {
 								sourceUrls.add(val);
 
-								const fullInputPath = path.join(ctx.paths.getDownloadPath(source.namespaceId), val);
-								const fullOutputPath = path.join(
+								const fullInputPath = path.resolve(
+									ctx.paths.getDownloadPath(source.namespaceId),
+									val,
+								);
+								const fullOutputPath = path.resolve(
 									ctx.paths.getTempPath(source.namespaceId),
 									newLocalPath,
 								);
-								const fullBackupPath = path.join(
+								const fullBackupPath = path.resolve(
 									ctx.paths.getBackupPath(source.namespaceId),
 									newLocalPath,
 								);

@@ -354,8 +354,8 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 						const tasks = mediaItems.map((mediaItem) => {
 							const destDir = ctx.paths.getTempPath(mediaItem.sourceId);
 							const backupDir = ctx.paths.getBackupPath(mediaItem.sourceId);
-							const destPath = path.join(destDir, mediaItem.localPath);
-							const backupPath = path.join(backupDir, mediaItem.localPath);
+							const destPath = path.resolve(destDir, mediaItem.localPath);
+							const backupPath = path.resolve(backupDir, mediaItem.localPath);
 
 							const task = ({ signal }: { signal?: AbortSignal }) =>
 								downloadMedia(

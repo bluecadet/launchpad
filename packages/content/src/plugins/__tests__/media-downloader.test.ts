@@ -1,4 +1,4 @@
-import path from "node:path/posix";
+import path from "node:path";
 import { vol } from "memfs";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -316,7 +316,7 @@ describe("mediaDownloader", () => {
 			// Check all files were downloaded
 			const expectedFiles = ["1.jpg", "2.jpg", "3.jpg"];
 			for (const file of expectedFiles) {
-				const filePath = path.join(ctx.paths.getDownloadPath(), "test", file);
+				const filePath = path.resolve(ctx.paths.getDownloadPath(), "test", file);
 				expect(vol.existsSync(filePath)).toBe(true);
 				expect(vol.readFileSync(filePath, "utf8")).toBe("media content");
 			}
@@ -349,11 +349,11 @@ describe("mediaDownloader", () => {
 			await plugin.hooks.onContentFetchDone!(ctx);
 
 			// Success file should exist
-			const successPath = path.join(ctx.paths.getDownloadPath(), "test", "success.jpg");
+			const successPath = path.resolve(ctx.paths.getDownloadPath(), "test", "success.jpg");
 			expect(vol.existsSync(successPath)).toBe(true);
 
 			// Error file should not exist
-			const errorPath = path.join(ctx.paths.getDownloadPath(), "test", "error.jpg");
+			const errorPath = path.resolve(ctx.paths.getDownloadPath(), "test", "error.jpg");
 			expect(vol.existsSync(errorPath)).toBe(false);
 		});
 	});

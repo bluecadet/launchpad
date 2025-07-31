@@ -179,7 +179,7 @@ class SingleDocument<T = unknown> extends Document<T> {
 
 	async #write(data: T, handle?: fs.FileHandle) {
 		const writeHandle = handle ?? (await this.#getHandle());
-		const dataStr = JSON.stringify(data);
+		const dataStr = JSON.stringify(data, null, 2); // pretty print JSON
 		const buffer = Buffer.from(dataStr, "utf-8");
 		await writeHandle.truncate(0); // truncate the file to 0 bytes
 		await writeHandle.write(buffer, 0, buffer.length, 0);

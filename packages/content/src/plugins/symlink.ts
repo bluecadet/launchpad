@@ -42,12 +42,11 @@ export default function symlink(options: z.input<typeof symlinkSchema>) {
 				const resolvedTarget = path.resolve(ctx.cwd, target);
 
 				// ensure source exists
-				const sourceExists = await pathExists(resolvedSrc);
-				if (!sourceExists) {
+				await fs.access(resolvedSrc).catch((e) => {
 					throw new Error(`Source directory ${chalk.gray(resolvedSrc)} does not exist.`);
-				}
+				});
 
-				const targetStats = await fs.stat(resolvedTarget).catch(() => null);
+				const targetStats = await fs.lstat(resolvedTarget).catch(() => null);
 
 				if (targetStats) {
 					if (targetStats.isSymbolicLink()) {
@@ -67,6 +66,8 @@ export default function symlink(options: z.input<typeof symlinkSchema>) {
 				);
 
 				try {
+					// create parent directory of target if it doesn't exist
+					await fs.mkdir(path.dirname(resolvedTarget), { recursive: true });
 					await fs.symlink(resolvedSrc, resolvedTarget);
 				} catch (error) {
 					throw new Error(`Failed to create symlink ${resolvedSrc} -> ${resolvedTarget}`, {

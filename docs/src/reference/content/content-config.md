@@ -29,6 +29,8 @@ See [Content Plugin Reference](./plugins/index.md) for available plugins and usa
 
 Base directory path where downloaded files are stored. Can be absolute or relative path.
 
+Relative paths are resolved against the directory of the launchpad configuration.
+
 ### `tempPath`
 
 - **Type:** `string`
@@ -36,12 +38,16 @@ Base directory path where downloaded files are stored. Can be absolute or relati
 
 Temporary directory path used during content processing. The `%TIMESTAMP%` token is replaced with current timestamp.
 
+Relative paths are resolved against the directory of the launchpad configuration.
+
 ### `backupPath`
 
 - **Type:** `string`
 - **Default:** `.backup/%TIMESTAMP%/`
 
 Directory path where existing content is backed up before processing new downloads. Critical for recovery if downloads fail.
+
+Relative paths are resolved against the directory of the launchpad configuration.
 
 ### `keep`
 

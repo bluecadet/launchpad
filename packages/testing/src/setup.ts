@@ -1,7 +1,7 @@
 import * as posixPath from "node:path/posix";
 import { fs, vol } from "memfs";
 import { type Result, err, ok } from "neverthrow";
-import { afterEach, expect, vi } from "vitest";
+import { afterEach, beforeAll, expect, vi } from "vitest";
 import type { LogEntry } from "winston";
 
 // Mocking the `path` module to use posix paths for consistency across platforms
@@ -107,6 +107,8 @@ vi.mock("winston-daily-rotate-file", async () => {
 		default: undefined,
 	};
 });
+
+process.chdir("/");
 
 // neverthrow expect helpers
 expect.extend({

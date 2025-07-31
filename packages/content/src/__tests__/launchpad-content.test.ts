@@ -160,4 +160,24 @@ describe("LaunchpadContent", () => {
 			vi.useRealTimers();
 		});
 	});
+
+	describe("cwd parameter", () => {
+		it("should use the provided cwd for path resolution", () => {
+			const content = new LaunchpadContent(createBasicConfig(), createMockLogger(), "/some/cwd");
+			expect(content.getDownloadPath("/path/to/file")).toBe("/some/cwd/downloads/path/to/file");
+			expect(content.getTempPath("/path/to/file")).toBe("/some/cwd/temp/path/to/file");
+			expect(content.getBackupPath("/path/to/file")).toBe("/some/cwd/backups/path/to/file");
+		});
+
+		it("should default to process.cwd() if no cwd is provided", () => {
+			const cwd = process.cwd();
+
+			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
+			expect(content.getDownloadPath("/path/to/file")).toBe(
+				path.join(cwd, "downloads/path/to/file"),
+			);
+			expect(content.getTempPath("/path/to/file")).toBe(path.join(cwd, "temp/path/to/file"));
+			expect(content.getBackupPath("/path/to/file")).toBe(path.join(cwd, "backups/path/to/file"));
+		});
+	});
 });

@@ -6,18 +6,19 @@ import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/c
 export function content(argv: LaunchpadArgv) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error, console))
-		.andThen(initializeLogger)
-		.andThen(({ config, rootLogger }) => {
-			return importLaunchpadContent()
-				.andThen(({ default: LaunchpadContent }) => {
-					if (!config.content) {
-						return err(new ConfigError("No content config found in your config file."));
-					}
+		.andThen(({ dir, config }) => {
+			return initializeLogger(config, dir).asyncAndThen((rootLogger) => {
+				return importLaunchpadContent()
+					.andThen(({ default: LaunchpadContent }) => {
+						if (!config.content) {
+							return err(new ConfigError("No content config found in your config file."));
+						}
 
-					const contentInstance = new LaunchpadContent(config.content, rootLogger);
-					return contentInstance.download();
-				})
-				.orElse((error) => handleFatalError(error, rootLogger));
+						const contentInstance = new LaunchpadContent(config.content, rootLogger, dir);
+						return contentInstance.download();
+					})
+					.orElse((error) => handleFatalError(error, rootLogger));
+			});
 		});
 }
 

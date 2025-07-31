@@ -24,6 +24,7 @@ export class PluginError extends Error {
 export interface BaseHookContext {
 	logger: Logger;
 	abortSignal: AbortSignal;
+	cwd: string;
 }
 
 export type HookSet = Record<
@@ -65,13 +66,15 @@ export default class PluginDriver<T extends HookSet> {
 	readonly #baseHookContexts = new Map<Plugin<T>, BaseHookContext>();
 	readonly #baseLogger: Logger;
 	readonly #abortController = new AbortController();
+	readonly #cwd: string;
 
 	get plugins(): ReadonlyArray<Plugin<T>> {
 		return this.#plugins;
 	}
 
-	constructor(baseLogger: Logger, plugins?: Plugin<T>[]) {
-		this.#baseLogger = baseLogger;
+	constructor({ logger, cwd }: { logger: Logger; cwd?: string }, plugins?: Plugin<T>[]) {
+		this.#baseLogger = logger;
+		this.#cwd = cwd || process.cwd();
 
 		if (plugins) {
 			this.add(plugins);
@@ -90,6 +93,7 @@ export default class PluginDriver<T extends HookSet> {
 			this.#baseHookContexts.set(plugin, {
 				logger: this.#baseLogger.child({ module: `plugin:${plugin.name}` }),
 				abortSignal: this.#abortController.signal,
+				cwd: this.#cwd,
 			});
 		}
 	}

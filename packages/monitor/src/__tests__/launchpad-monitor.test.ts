@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
 import type { MonitorPlugin } from "../core/monitor-plugin-driver.js";
 import LaunchpadMonitor from "../launchpad-monitor.js";
+import type { MonitorConfig } from "../monitor-config.js";
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined
@@ -30,7 +31,7 @@ const mockPlugin = {
 } as MonitorPlugin;
 
 function createTestMonitor(
-	config = {
+	config: MonitorConfig = {
 		apps: [
 			{
 				pm2: {
@@ -41,9 +42,10 @@ function createTestMonitor(
 		],
 		plugins: [mockPlugin],
 	},
+	cwd?: string,
 ) {
 	const rootLogger = createMockLogger();
-	const monitor = new LaunchpadMonitor(config, rootLogger);
+	const monitor = new LaunchpadMonitor(config, rootLogger, cwd);
 	const monitorLogger = rootLogger.children.get("monitor");
 
 	if (!monitorLogger) {
@@ -54,7 +56,7 @@ function createTestMonitor(
 		monitor,
 		rootLogger,
 		monitorLogger,
-		plugin: config.plugins[0] as MonitorPlugin,
+		plugin: config.plugins![0] as MonitorPlugin,
 	};
 }
 
@@ -245,6 +247,36 @@ describe("LaunchpadMonitor", () => {
 			expect(plugin.hooks.beforeShutdown).toHaveBeenCalledWith(expect.any(Object), {
 				code: exitCode,
 			});
+		});
+	});
+
+	describe("cwd handling", () => {
+		it("should use provided cwd for app paths", () => {
+			const cwd = "/test/cwd";
+			const { monitor } = createTestMonitor(
+				{
+					apps: [{ pm2: { name: "test-app", script: "test.js", cwd: "app/cwd" } }],
+					plugins: [mockPlugin],
+				},
+				cwd,
+			);
+
+			expect(monitor._cwd).toBe(cwd);
+			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatch(
+				"/test/cwd/app/cwd",
+			);
+		});
+
+		it("should default to process.cwd() if no cwd is provided", () => {
+			const { monitor } = createTestMonitor({
+				apps: [{ pm2: { name: "test-app", script: "test.js", cwd: "app/cwd" } }],
+				plugins: [mockPlugin],
+			});
+
+			expect(monitor._cwd).toBe(process.cwd());
+			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatch(
+				"/app/cwd",
+			);
 		});
 	});
 });

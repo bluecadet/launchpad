@@ -92,6 +92,7 @@ const myPlugin = {
         logger,       // Plugin-specific logging
         paths,        // Helper functions for paths
         abortSignal   // Check if process is stopping
+        cwd,          // The launchpad configuration directory
       } = ctx;
 
       // Example: Log number of documents

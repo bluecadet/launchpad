@@ -89,9 +89,11 @@ export class LogManager {
 	static _instance: LogManager | null = null;
 	private _config: ResolvedLogConfig;
 	private _rootLogger: WinstonLogger;
+	private _cwd: string;
 
-	constructor(config: LogConfig = {}) {
+	constructor(config: LogConfig = {}, cwd: string = process.cwd()) {
 		this._config = logConfigSchema.parse(config);
+		this._cwd = cwd;
 
 		const { format: consoleFormat, ...rest } = this._config;
 
@@ -144,9 +146,9 @@ export class LogManager {
 		return LogManager._instance;
 	}
 
-	static configureRootLogger(config?: LogConfig): WinstonLogger {
+	static configureRootLogger(config?: LogConfig, cwd?: string): WinstonLogger {
 		if (LogManager._instance === null) {
-			LogManager._instance = new LogManager(config);
+			LogManager._instance = new LogManager(config, cwd);
 		} else {
 			LogManager._instance._rootLogger.warn("Root logger already configured. Ignoring.");
 		}
@@ -177,7 +179,7 @@ export class LogManager {
 			output = output.replace(DATE_KEY, dateStr);
 			output = slugify(output);
 			output = output + this._config.fileOptions.extension;
-			output = path.join(this._config.fileOptions.dirname, output);
+			output = path.resolve(this._cwd, this._config.fileOptions.dirname, output);
 		}
 		return output;
 	}

@@ -67,6 +67,7 @@ type CombinedContentHookContext = {
   contentOptions: ResolvedContentConfig;
   logger: Logger;
   abortSignal: AbortSignal;
+  cwd: string;
   paths: {
     getDownloadPath: (source?: string) => string;
     getTempPath: (source?: string) => string;
@@ -97,3 +98,7 @@ A plugin-specific logger.
 ### `abortSignal`
 
 Signals the launchpad process is aborting. Triggered on exception or manual quit.
+
+### `cwd`
+
+The current working directory of the launchpad configuration. This is useful for resolving paths relative to the configuration files.

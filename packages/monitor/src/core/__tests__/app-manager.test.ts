@@ -1,3 +1,4 @@
+import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { ok, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
@@ -5,7 +6,29 @@ import type { ResolvedMonitorConfig } from "../../monitor-config.js";
 import { AppManager } from "../app-manager.js";
 import { ProcessManager } from "../process-manager.js";
 
-function setupTestAppManager() {
+function setupTestAppManager(
+	apps: ResolvedMonitorConfig["apps"] = [
+		{
+			pm2: {
+				name: "test-app",
+				script: "test.js",
+				cwd: "app/cwd",
+			},
+			windows: {
+				foreground: false,
+				minimize: false,
+				hide: false,
+			},
+			logging: {
+				logToLaunchpadDir: true,
+				mode: "bus",
+				showStdout: true,
+				showStderr: true,
+			},
+		},
+	],
+	cwd = process.cwd(),
+) {
 	const mockLogger = createMockLogger();
 	const processManager = new ProcessManager(mockLogger);
 
@@ -26,25 +49,7 @@ function setupTestAppManager() {
 	vi.spyOn(processManager, "deleteAllProcesses");
 
 	const mockConfig = {
-		apps: [
-			{
-				pm2: {
-					name: "test-app",
-					script: "test.js",
-				},
-				windows: {
-					foreground: false,
-					minimize: false,
-					hide: false,
-				},
-				logging: {
-					logToLaunchpadDir: true,
-					mode: "bus",
-					showStdout: true,
-					showStderr: true,
-				},
-			},
-		],
+		apps,
 		windowsApi: {
 			debounceDelay: 3000,
 		},
@@ -53,7 +58,7 @@ function setupTestAppManager() {
 		shutdownOnExit: true,
 	} as ResolvedMonitorConfig;
 
-	const appManager = new AppManager(mockLogger, processManager, mockConfig);
+	const appManager = new AppManager(mockLogger, processManager, mockConfig, cwd);
 
 	return {
 		appManager,
@@ -148,7 +153,18 @@ describe("AppManager", () => {
 			const { appManager, mockConfig } = setupTestAppManager();
 			const result = await appManager.getAppOptions("test-app");
 			expect(result.isOk()).toBe(true);
-			expect(result._unsafeUnwrap()).toEqual(mockConfig.apps[0]);
+
+			const resolvedCWD = path.resolve(process.cwd(), mockConfig.apps[0]?.pm2.cwd!);
+
+			const expectedOptions = {
+				...mockConfig.apps[0],
+				pm2: {
+					...mockConfig.apps[0]!.pm2,
+					cwd: resolvedCWD,
+				},
+			};
+
+			expect(result._unsafeUnwrap()).toEqual(expectedOptions);
 		});
 
 		it("should throw for invalid app name", async () => {
@@ -158,6 +174,22 @@ describe("AppManager", () => {
 			expect(result._unsafeUnwrapErr().message).toContain(
 				"No app found with the name 'invalid-app'",
 			);
+		});
+	});
+
+	describe("cwd handling", () => {
+		it("should resolve pm2 cwd relative to the manager's cwd", () => {
+			const { appManager } = setupTestAppManager(undefined, "/passed/cwd");
+			const appOptions = appManager.getAppOptions("test-app")._unsafeUnwrap();
+			expect(appOptions.pm2.cwd).toBeDefined();
+			expect(appOptions.pm2.cwd).toEqual(path.resolve("/passed/cwd", "app/cwd"));
+		});
+
+		it("should use default cwd if not specified in config", () => {
+			const { appManager } = setupTestAppManager();
+			const appOptions = appManager.getAppOptions("test-app")._unsafeUnwrap();
+			expect(appOptions.pm2.cwd).toBeDefined();
+			expect(appOptions.pm2.cwd).toEqual(path.resolve(process.cwd(), "app/cwd"));
 		});
 	});
 });

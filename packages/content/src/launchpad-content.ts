@@ -24,9 +24,12 @@ class LaunchpadContent {
 	_rawSources: ConfigContentSource[];
 	_startDatetime = new Date();
 	_dataStore: DataStore;
+	_cwd: string;
 
-	constructor(config: ContentConfig, parentLogger: Logger) {
+	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
 		this._config = contentConfigSchema.parse(config);
+
+		this._cwd = cwd;
 
 		this._logger = LogManager.getLogger("content", parentLogger);
 
@@ -35,7 +38,10 @@ class LaunchpadContent {
 		// create all sources
 		this._rawSources = this._config.sources;
 
-		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
+		const basePluginDriver = new PluginDriver(
+			{ logger: this._logger, cwd: this._cwd },
+			this._config.plugins,
+		);
 
 		this._pluginDriver = new ContentPluginDriver(basePluginDriver, {
 			dataStore: this._dataStore,
@@ -221,9 +227,9 @@ class LaunchpadContent {
 
 	getDownloadPath(sourceId?: string): string {
 		if (sourceId) {
-			return path.resolve(path.join(this._config.downloadPath, sourceId));
+			return path.resolve(path.join(this._cwd, this._config.downloadPath, sourceId));
 		}
-		return path.resolve(this._config.downloadPath);
+		return path.resolve(path.join(this._cwd, this._config.downloadPath));
 	}
 
 	getTempPath(sourceId?: string, pluginName?: string): string {
@@ -232,11 +238,11 @@ class LaunchpadContent {
 		let detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 
 		if (pluginName) {
-			detokenizedPath = path.join(detokenizedPath, pluginName);
+			detokenizedPath = path.resolve(path.join(this._cwd, detokenizedPath, pluginName));
 		}
 
 		if (sourceId) {
-			detokenizedPath = path.join(detokenizedPath, sourceId);
+			detokenizedPath = path.resolve(path.join(this._cwd, detokenizedPath, sourceId));
 		}
 
 		return detokenizedPath;
@@ -247,9 +253,9 @@ class LaunchpadContent {
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 		if (sourceId) {
-			return path.join(detokenizedPath, sourceId);
+			return path.resolve(path.join(this._cwd, detokenizedPath, sourceId));
 		}
-		return detokenizedPath;
+		return path.resolve(path.join(this._cwd, detokenizedPath));
 	}
 
 	_createSourcesFromConfig(

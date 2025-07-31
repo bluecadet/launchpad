@@ -11,7 +11,7 @@ import { resolveEnv } from "./env.js";
 
 export function loadConfigAndEnv(
 	argv: LaunchpadArgv,
-): ResultAsync<ResolvedLaunchpadOptions, ConfigError> {
+): ResultAsync<{ dir: string; config: ResolvedLaunchpadOptions }, ConfigError> {
 	const configPath = argv.config ?? findConfig();
 
 	if (!configPath) {
@@ -45,13 +45,13 @@ export function loadConfigAndEnv(
 			new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`, {
 				cause: e,
 			}),
-	).map((config) => resolveLaunchpadConfig(config));
+	).map((config) => ({ dir: configDir, config: resolveLaunchpadConfig(config) }));
 }
 
-export function initializeLogger(config: ResolvedLaunchpadOptions) {
-	const rootLogger = LogManager.configureRootLogger(config.logging);
+export function initializeLogger(config: ResolvedLaunchpadOptions, cwd?: string) {
+	const rootLogger = LogManager.configureRootLogger(config.logging, cwd);
 
-	return ok({ config, rootLogger });
+	return ok(rootLogger);
 }
 
 export function handleFatalError(error: Error, rootLogger: Logger | Console): never {

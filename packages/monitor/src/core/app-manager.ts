@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import { type Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -10,11 +11,18 @@ export class AppManager {
 	#logger: Logger;
 	#processManager: ProcessManager;
 	#config: ResolvedMonitorConfig;
+	#cwd: string;
 
-	constructor(logger: Logger, processManager: ProcessManager, config: ResolvedMonitorConfig) {
+	constructor(
+		logger: Logger,
+		processManager: ProcessManager,
+		config: ResolvedMonitorConfig,
+		cwd: string = process.cwd(),
+	) {
 		this.#logger = logger;
 		this.#processManager = processManager;
 		this.#config = config;
+		this.#cwd = cwd;
 
 		this.applyWindowSettings = debounceResultAsync(
 			this.applyWindowSettings.bind(this),
@@ -80,7 +88,18 @@ export class AppManager {
 		if (!options) {
 			return err(new Error(`No app found with the name '${appName}'`));
 		}
-		return ok(options);
+		return ok(this.#updateConfigCWD(options));
+	}
+
+	#updateConfigCWD(appConfig: ResolvedAppConfig): ResolvedAppConfig {
+		return {
+			...appConfig,
+			pm2: {
+				...appConfig.pm2,
+				// Ensure the cwd is resolved relative to the manager's cwd
+				cwd: appConfig.pm2.cwd ? path.resolve(this.#cwd, appConfig.pm2.cwd) : undefined,
+			},
+		};
 	}
 
 	applyWindowSettings(appNames: string[] = []): ResultAsync<void, Error> {

@@ -38,7 +38,7 @@ describe("MonitorPluginDriver", () => {
 			},
 		};
 
-		const basePluginDriver = new PluginDriver(mockLogger, [mockPlugin]);
+		const basePluginDriver = new PluginDriver({ logger: mockLogger }, [mockPlugin]);
 		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: mockMonitor });
 	});
 

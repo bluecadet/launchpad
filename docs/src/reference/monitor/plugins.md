@@ -85,6 +85,7 @@ type CombinedMonitorHookContext = {
   monitor: LaunchpadMonitor;
   logger: Logger;
   abortSignal: AbortSignal;
+  cwd: string;
 };
 ```
 
@@ -99,3 +100,7 @@ A plugin-specific logger for recording events and errors.
 ### `abortSignal`
 
 Signals when the monitor process is shutting down, allowing plugins to handle cleanup.
+
+### `cwd`
+
+The current working directory of the monitor configuration. This is useful for resolving paths relative to the configuration files.

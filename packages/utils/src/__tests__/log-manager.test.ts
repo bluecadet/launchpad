@@ -117,17 +117,20 @@ describe("LogManager", () => {
 
 	describe("getFilePath", () => {
 		it("should generate correct file paths", () => {
-			const manager = new LogManager({
-				fileOptions: {
-					dirname: "test-logs",
-					extension: ".log",
+			const manager = new LogManager(
+				{
+					fileOptions: {
+						dirname: "test-logs",
+						extension: ".log",
+					},
 				},
-			});
+				"/some/cwd",
+			);
 
 			const dateStr = moment().format("YYYY-MM-DD");
 			const filePath = manager.getFilePath("test-type");
 
-			expect(filePath).toBe(path.join("test-logs", `${dateStr}-test-type.log`));
+			expect(filePath).toBe(path.resolve("/some/cwd/test-logs", `${dateStr}-test-type.log`));
 		});
 
 		it("should return templated paths when requested", () => {

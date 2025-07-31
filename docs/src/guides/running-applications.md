@@ -58,7 +58,7 @@ npx launchpad monitor start
 
 - `name`: Unique identifier for your application
 - `script`: Path to your executable or script
-- `cwd`: Working directory for your application
+- `cwd`: Working directory for your application. Relative paths are resolved against the current working directory of the launchpad configuration.
 
 ### Advanced Settings
 

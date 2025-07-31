@@ -22,15 +22,17 @@ class LaunchpadMonitor {
 	_appManager: AppManager;
 	_pluginDriver: MonitorPluginDriver;
 	_isShuttingDown = false;
+	_cwd: string;
 
-	constructor(config: MonitorConfig, parentLogger: Logger) {
+	constructor(config: MonitorConfig, parentLogger: Logger, cwd = process.cwd()) {
 		autoBind(this);
 		this._logger = LogManager.getLogger("monitor", parentLogger);
 		this._config = monitorConfigSchema.parse(config);
+		this._cwd = cwd;
 
 		this._processManager = new ProcessManager(this._logger);
 		this._busManager = new BusManager(this._logger);
-		this._appManager = new AppManager(this._logger, this._processManager, this._config);
+		this._appManager = new AppManager(this._logger, this._processManager, this._config, cwd);
 
 		for (const appConf of this._config.apps) {
 			this._busManager.initAppLogging(appConf);
@@ -42,7 +44,10 @@ class LaunchpadMonitor {
 			});
 		}
 
-		const basePluginDriver = new PluginDriver(this._logger, this._config.plugins);
+		const basePluginDriver = new PluginDriver(
+			{ logger: this._logger, cwd: this._cwd },
+			this._config.plugins,
+		);
 		this._pluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: this });
 	}
 

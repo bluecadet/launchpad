@@ -2,8 +2,7 @@ import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import { vol } from "memfs";
-import { vi } from "vitest";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 import { type ContentConfig, contentConfigSchema } from "../../content-config.js";
 import { DataStore } from "../../utils/data-store.js";
 
@@ -17,7 +16,11 @@ afterEach(() => {
 export async function createTestPluginContext({
 	baseOptions = {},
 	logger = createMockLogger(),
-}: { namespaces?: string[]; baseOptions?: ContentConfig; logger?: Logger } = {}) {
+}: {
+	namespaces?: string[];
+	baseOptions?: ContentConfig;
+	logger?: Logger;
+} = {}) {
 	const data = new DataStore("/");
 
 	return {

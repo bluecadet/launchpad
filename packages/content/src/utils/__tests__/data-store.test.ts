@@ -148,7 +148,7 @@ describe("BatchDocument", () => {
 			{ id: 3, content: "third" },
 		];
 
-		const doc = await namespace.insert(
+		const _doc = await namespace.insert(
 			"test-doc",
 			(async function* () {
 				for (const item of items) {

@@ -1,5 +1,5 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../../utils/data-store.js";
@@ -230,15 +230,12 @@ describe("sanitySource", () => {
 
 	it("should support single item responses", async () => {
 		server.use(
-			http.get(
-				"https://test-project.api.sanity.io/v2021-10-21/data/query/production",
-				({ request }) => {
-					return HttpResponse.json({
-						result: { _type: "test", title: "Test Document" },
-						ms: 15,
-					});
-				},
-			),
+			http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", () => {
+				return HttpResponse.json({
+					result: { _type: "test", title: "Test Document" },
+					ms: 15,
+				});
+			}),
 		);
 
 		const source = await sanitySource({

@@ -15,12 +15,12 @@ describe("ProcessManager", () => {
 		processManager = new ProcessManager(mockLogger);
 
 		// Setup PM2 mock implementations
-		pm2.connect = vi.fn().mockImplementation((force, cb) => cb(null));
+		pm2.connect = vi.fn().mockImplementation((_force, cb) => cb(null));
 		pm2.disconnect = vi.fn();
 		pm2.list = vi.fn().mockImplementation((cb) => cb(null, []));
-		pm2.start = vi.fn().mockImplementation((options, cb) => cb(null, {}));
-		pm2.stop = vi.fn().mockImplementation((name, cb) => cb(null, {}));
-		pm2.delete = vi.fn().mockImplementation((name, cb) => cb(null, {}));
+		pm2.start = vi.fn().mockImplementation((_options, cb) => cb(null, {}));
+		pm2.stop = vi.fn().mockImplementation((_name, cb) => cb(null, {}));
+		pm2.delete = vi.fn().mockImplementation((_name, cb) => cb(null, {}));
 		// @ts-ignore - this is a private api, so throws a type error
 		pm2.Client = {
 			// eslint-disable-next-line n/no-callback-literal

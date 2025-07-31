@@ -55,7 +55,7 @@ export default defineConfig({
 	},
 
 	// add canonical link to head
-	transformPageData(pageData, ctx) {
+	transformPageData(pageData, _ctx) {
 		const canonicalUrl = `https://bluecadet.github.io/launchpad/${pageData.relativePath}`
 			.replace(/index\.md$/, "")
 			.replace(/\.md$/, ".html");

@@ -52,7 +52,7 @@ export class FetchLogger extends FixedConsoleLogger {
 					[NO_TTY]: true,
 				},
 			);
-		} catch (e) {
+		} catch (_e) {
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			this.#fetches.get(sourceId)?.set(documentId, { state: "rejected", duration });

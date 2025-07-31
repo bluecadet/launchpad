@@ -101,11 +101,11 @@ class StrapiVersionUtils {
 		this.logger = logger;
 	}
 
-	buildUrl(query: StrapiObjectQuery, pagination?: StrapiPagination): string {
+	buildUrl(_query: StrapiObjectQuery, _pagination?: StrapiPagination): string {
 		throw new Error("Not implemented");
 	}
 
-	hasPaginationParams(query: StrapiObjectQuery): boolean {
+	hasPaginationParams(_query: StrapiObjectQuery): boolean {
 		throw new Error("Not implemented");
 	}
 
@@ -117,7 +117,7 @@ class StrapiVersionUtils {
 		return result;
 	}
 
-	canFetchMore(result: unknown): boolean {
+	canFetchMore(_result: unknown): boolean {
 		throw new Error("Not implemented");
 	}
 

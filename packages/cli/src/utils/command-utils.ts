@@ -1,7 +1,7 @@
 import path from "node:path";
-import { LogManager, type Logger, NO_TTY, TTY_FIXED_END } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager, TTY_FIXED_END } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { ResultAsync, err, errAsync, ok } from "neverthrow";
+import { errAsync, ok, ResultAsync } from "neverthrow";
 import { ZodError } from "zod";
 import type { LaunchpadArgv } from "../cli.js";
 import { ConfigError } from "../errors.js";

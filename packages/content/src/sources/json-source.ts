@@ -1,6 +1,5 @@
 import chalk from "chalk";
 import ky from "ky";
-import { okAsync } from "neverthrow";
 import { z } from "zod";
 import { defineSource } from "./source.js";
 

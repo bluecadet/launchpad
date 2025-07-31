@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
-import path, { resolve } from "node:path";
+import path from "node:path";
 import { JSONPath } from "jsonpath-plus";
-import { Result, ResultAsync, err, errAsync, ok, okAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import { ensureDir } from "./file-utils.js";
 

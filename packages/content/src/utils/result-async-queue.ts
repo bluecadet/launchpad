@@ -1,6 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { Result, ResultAsync, err, ok } from "neverthrow";
+import { ok, Result, ResultAsync } from "neverthrow";
 import PQueue from "p-queue";
 
 type ResultAsyncTaskOptions = {
@@ -39,10 +39,10 @@ export default class ResultAsyncQueue {
 		tasks: Array<ResultAsyncTask<TaskResultType, TaskErrorType>>,
 		options: { logger: Logger; abortOnError?: boolean },
 	): ResultAsync<Array<TaskResultType>, Array<TaskErrorType>> {
-		let wrappedTasks = tasks;
+		let _wrappedTasks = tasks;
 
 		if (options.abortOnError) {
-			wrappedTasks = tasks.map((task) => {
+			_wrappedTasks = tasks.map((task) => {
 				return (...args) =>
 					task(...args).mapErr((e) => {
 						this.queue.clear();

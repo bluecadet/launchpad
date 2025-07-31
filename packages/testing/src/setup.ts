@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fs } from "memfs";
-import { type Result, err, ok } from "neverthrow";
+import { err, ok, type Result } from "neverthrow";
 import { expect, vi } from "vitest";
 import type { LogEntry } from "winston";
 
@@ -39,11 +39,11 @@ vi.mock("pm2", () => {
 	return {
 		default: {
 			list: vi.fn().mockImplementation((cb) => cb(null, [])),
-			start: vi.fn().mockImplementation((options, cb) => cb(null, {})),
-			stop: vi.fn().mockImplementation((name, cb) => cb(null, {})),
-			connect: vi.fn().mockImplementation((force, cb) => cb(null)),
+			start: vi.fn().mockImplementation((_options, cb) => cb(null, {})),
+			stop: vi.fn().mockImplementation((_name, cb) => cb(null, {})),
+			connect: vi.fn().mockImplementation((_force, cb) => cb(null)),
 			disconnect: vi.fn().mockImplementation(() => undefined),
-			delete: vi.fn().mockImplementation((name, cb) => {
+			delete: vi.fn().mockImplementation((_name, cb) => {
 				cb(null, {});
 			}),
 			launchBus: vi.fn().mockImplementation((cb) =>
@@ -89,7 +89,7 @@ vi.mock("winston-daily-rotate-file", async () => {
 	const { default: Transport } = await import("winston-transport");
 
 	class DummyTransport extends Transport {
-		override log(info: LogEntry) {
+		override log(_info: LogEntry) {
 			// do nothing
 		}
 	}

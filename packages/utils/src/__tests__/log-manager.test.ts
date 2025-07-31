@@ -7,7 +7,7 @@ import { LogManager } from "../log-manager.js";
 // we don't want to actually log anything to the console during tests
 const consoleLogSpy = vi
 	.spyOn(winston.transports.Console.prototype, "log")
-	.mockImplementation((info, cb) => {
+	.mockImplementation((_info, cb) => {
 		if (cb && typeof cb === "function") cb();
 	});
 
@@ -54,7 +54,7 @@ describe("LogManager", () => {
 		});
 
 		it("should create child loggers with module names", () => {
-			const logger = LogManager.configureRootLogger();
+			const _logger = LogManager.configureRootLogger();
 			const childLogger = LogManager.getLogger("test-module");
 
 			expect(childLogger).toBeDefined();

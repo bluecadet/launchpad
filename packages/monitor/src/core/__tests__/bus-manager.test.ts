@@ -1,6 +1,6 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import pm2 from "pm2";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BusManager } from "../bus-manager.js";
 import { createMockSubEmitterSocket } from "./core.test-utils.js";
 
@@ -24,7 +24,7 @@ describe("BusManager", () => {
 
 	describe("connect", () => {
 		it("should connect to PM2 bus successfully", async () => {
-			const { busManager, mockSubEmitterSocket, emit } = buildTestBusManager();
+			const { busManager, mockSubEmitterSocket } = buildTestBusManager();
 
 			const result = await busManager.connect();
 
@@ -48,7 +48,7 @@ describe("BusManager", () => {
 
 	describe("disconnect", () => {
 		it("should disconnect from PM2 bus successfully", async () => {
-			const { busManager, mockSubEmitterSocket, emit } = buildTestBusManager();
+			const { busManager, mockSubEmitterSocket } = buildTestBusManager();
 
 			await busManager.connect();
 			const result = await busManager.disconnect();

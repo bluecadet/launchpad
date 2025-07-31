@@ -4,7 +4,7 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import { defineContentPlugin } from "../content-plugin-driver.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
-import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
+import { dataKeysSchema } from "../utils/data-store.js";
 import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
 

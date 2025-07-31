@@ -1,10 +1,10 @@
 import {
 	type BaseHookContext,
+	createPluginValidator,
 	HookContextProvider,
 	type Plugin,
 	type PluginDriver,
 } from "@bluecadet/launchpad-utils";
-import { createPluginValidator } from "@bluecadet/launchpad-utils";
 import type pm2 from "pm2";
 import type LaunchpadMonitor from "../launchpad-monitor.js";
 

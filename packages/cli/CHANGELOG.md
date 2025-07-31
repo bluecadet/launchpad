@@ -1,5 +1,20 @@
 # @bluecadet/launchpad-cli
 
+## 2.2.0
+
+### Minor Changes
+
+- [#233](https://github.com/bluecadet/launchpad/pull/233) [`1ab527da451473120a923023a758eea0371f80de`](https://github.com/bluecadet/launchpad/commit/1ab527da451473120a923023a758eea0371f80de) Thanks [@claytercek](https://github.com/claytercek)! - Support absolute or relative paths in launchpad config.
+
+- [#233](https://github.com/bluecadet/launchpad/pull/233) [`2a26a087fe7e364e04e213e8da2f9af04aa067fc`](https://github.com/bluecadet/launchpad/commit/2a26a087fe7e364e04e213e8da2f9af04aa067fc) Thanks [@claytercek](https://github.com/claytercek)! - Resolve all paths relative to the launchpad config directory when run from the CLI
+
+### Patch Changes
+
+- Updated dependencies [[`d494f7a15a380502f47490045b6c96ae3da0ae14`](https://github.com/bluecadet/launchpad/commit/d494f7a15a380502f47490045b6c96ae3da0ae14), [`1ab527da451473120a923023a758eea0371f80de`](https://github.com/bluecadet/launchpad/commit/1ab527da451473120a923023a758eea0371f80de), [`2a26a087fe7e364e04e213e8da2f9af04aa067fc`](https://github.com/bluecadet/launchpad/commit/2a26a087fe7e364e04e213e8da2f9af04aa067fc), [`df1308167461c0b0b08af6b79a723035930e9f9a`](https://github.com/bluecadet/launchpad/commit/df1308167461c0b0b08af6b79a723035930e9f9a)]:
+  - @bluecadet/launchpad-content@2.2.0
+  - @bluecadet/launchpad-monitor@2.1.0
+  - @bluecadet/launchpad-utils@2.1.0
+
 ## 2.1.1
 
 ### Patch Changes

@@ -45,7 +45,7 @@ describe("LaunchpadContent", () => {
 
 			const filePath = path.resolve("/downloads", "test", "doc1.json");
 			expect(vol.existsSync(filePath)).toBe(true);
-			expect(vol.readFileSync(filePath, "utf8")).toBe(JSON.stringify({ hello: "world" }));
+			expect(vol.readFileSync(filePath, "utf8")).toBe(JSON.stringify({ hello: "world" }, null, 2));
 		});
 
 		it("should respect keep patterns when clearing directories", async () => {

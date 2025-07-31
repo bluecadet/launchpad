@@ -158,6 +158,7 @@ export default defineConfig({
 										text: "sanityImageUrlTransform",
 										link: "/reference/content/plugins/sanity-image-url-transform",
 									},
+									{ text: "symlink", link: "/reference/content/plugins/symlink" },
 								],
 							},
 							{ text: "DataStore", link: "/reference/content/data-store" },

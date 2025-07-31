@@ -1,5 +1,11 @@
 <script setup lang="ts">
-const _props = defineProps<{
+import { GitCommitVertical, Github, Hexagon, Logs } from "lucide-vue-next";
+
+import { data as packageVersions } from "./package-versions.data.js";
+
+console.log(packageVersions);
+
+const props = defineProps<{
 	package: "string";
 }>();
 </script>

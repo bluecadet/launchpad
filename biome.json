@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/src/**/*.ts", "**/docs/**/*.ts", "**/docs/**/*.mts", "**/docs/**/*.vue"]
+		"includes": ["**/src/**/*.ts", "**/docs/**/*.ts", "**/docs/**/*.mts"]
 	},
 	"formatter": {
 		"enabled": true,

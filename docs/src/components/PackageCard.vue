@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const _props = defineProps<{
+import { data as packageVersions } from "./package-versions.data.js";
+
+const props = defineProps<{
 	package: "string";
 	href: "string";
 	description: "string";

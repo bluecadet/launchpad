@@ -204,7 +204,7 @@ describe("mediaDownloader", () => {
 				ctx.data,
 				getMediaDownloaderConfig({ mediaPattern: /\.(jpg|png)$/i }),
 				"",
-				"$..*[?(@.match(/\\.(jpg|png)$/i))]",
+				["$..*[?(@.match(/\\.(jpg|png)$/i))]"],
 			);
 
 			expect(urls).toMatchObject([
@@ -230,12 +230,43 @@ describe("mediaDownloader", () => {
 				ctx.data,
 				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url" }),
 				"",
-				"$..*[?(@.url)].url",
+				["$..*[?(@.url)].url"],
 			);
 
 			expect(urls).toMatchObject([
 				{ url: "https://example.com/1.jpg", sourceId: "test" },
 				{ url: "https://example.com/2.jpg", sourceId: "test" },
+			]);
+		});
+
+		it("should support multiple query paths", async () => {
+			const ctx = await createTestPluginContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc1",
+				Promise.resolve({
+					media: {
+						hero: "https://example.com/hero.jpg",
+						gallery: [{ url: "https://example.com/1.jpg" }, { url: "https://example.com/2.jpg" }],
+					},
+					images: ["https://example.com/3.jpg", "https://example.com/4.png"],
+				}),
+			);
+
+			const urls = await findMediaUrls(
+				ctx.data,
+				getMediaDownloaderConfig({
+					matchPath: ["$..*[?(@.url)].url", "$..images[*]"],
+				}),
+				"",
+				["$..*[?(@.url)].url", "$..images[*]"],
+			);
+
+			expect(urls).toMatchObject([
+				{ url: "https://example.com/1.jpg", sourceId: "test" },
+				{ url: "https://example.com/2.jpg", sourceId: "test" },
+				{ url: "https://example.com/3.jpg", sourceId: "test" },
+				{ url: "https://example.com/4.png", sourceId: "test" },
 			]);
 		});
 
@@ -256,7 +287,7 @@ describe("mediaDownloader", () => {
 				ctx.data,
 				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url", updatePaths: false }),
 				"",
-				"$..*[?(@.url)].url",
+				["$..*[?(@.url)].url"],
 			);
 
 			// Verify original data was modified to use relative paths
@@ -271,7 +302,7 @@ describe("mediaDownloader", () => {
 				ctx.data,
 				getMediaDownloaderConfig({ matchPath: "$..*[?(@.url)].url", updatePaths: true }),
 				"",
-				"$..*[?(@.url)].url",
+				["$..*[?(@.url)].url"],
 			);
 
 			// Verify original data was modified to use relative paths

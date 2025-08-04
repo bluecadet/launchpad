@@ -40,10 +40,10 @@ Regex pattern to match URLs for downloading.
 
 ### `matchPath`
 
-- **Type:** `string`
+- **Type:** `string | string[]`
 - **Default:** `undefined`
 
-JSONPath-Plus compatible path to match URLs. Overrides `mediaPattern` if provided.
+JSONPath-Plus compatible path(s) to match URLs. Overrides `mediaPattern` if provided.
 
 ### `maxConcurrent`
 

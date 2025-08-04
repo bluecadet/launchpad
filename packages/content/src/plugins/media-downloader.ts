@@ -33,7 +33,9 @@ export const mediaDownloaderConfigSchema = z.object({
 		.default(DEFAULT_MEDIA_PATTERN),
 	/** JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`. */
 	matchPath: z
-		.string()
+		.union(
+			[z.string(), z.array(z.string())], // Allow single string or array of strings
+		)
 		.optional()
 		.describe(
 			"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
@@ -238,7 +240,7 @@ export async function findMediaUrls(
 	dataStore: DataStore,
 	options: MediaDownloaderConfigWithDefaults,
 	encodeChars: string,
-	queryJsonPath: string,
+	queryJsonPaths: string[],
 ) {
 	const returnUrls: MediaDownload[] = [];
 	const filteredResult = dataStore.filter(options.keys);
@@ -253,28 +255,30 @@ export async function findMediaUrls(
 	for (const source of filteredResult.value) {
 		const uniqueUrlSet = new Set();
 
-		await queryOrUpdate({
-			documents: source.documents,
-			queryJsonPath,
-			update: options.updatePaths,
-			callback: async (val: unknown) => {
-				if (typeof val !== "string") {
-					throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
-				}
+		for (const queryJsonPath of queryJsonPaths) {
+			await queryOrUpdate({
+				documents: source.documents,
+				queryJsonPath,
+				update: options.updatePaths,
+				callback: async (val: unknown) => {
+					if (typeof val !== "string") {
+						throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
+					}
 
-				const localPath = transformFn(localFilePathFromUrl(val)).replace(
-					encodeRegex,
-					encodeURIComponent,
-				);
+					const localPath = transformFn(localFilePathFromUrl(val)).replace(
+						encodeRegex,
+						encodeURIComponent,
+					);
 
-				if (!uniqueUrlSet.has(val)) {
-					uniqueUrlSet.add(val);
-					returnUrls.push({ url: val, sourceId: source.namespaceId, localPath });
-				}
+					if (!uniqueUrlSet.has(val)) {
+						uniqueUrlSet.add(val);
+						returnUrls.push({ url: val, sourceId: source.namespaceId, localPath });
+					}
 
-				return localPath;
-			},
-		});
+					return localPath;
+				},
+			});
+		}
 	}
 
 	return returnUrls;
@@ -330,6 +334,8 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 				const queryJsonPath =
 					configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
 
+				const queryJsonPathArray = Array.isArray(queryJsonPath) ? queryJsonPath : [queryJsonPath];
+
 				return setupDownloadDirectories(ctx, configWithDefaults)
 					.andThen(() =>
 						ResultAsync.fromPromise(
@@ -337,7 +343,7 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 								ctx.data,
 								configWithDefaults,
 								ctx.contentOptions.encodeChars,
-								queryJsonPath,
+								queryJsonPathArray,
 							),
 							(err) => new MediaDownloaderError("Failed to find media urls", err),
 						),

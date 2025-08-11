@@ -20,9 +20,12 @@ afterAll(() => {
 afterEach(() => server.resetHandlers());
 
 function createFetchContext() {
+	const abortController = new AbortController();
 	return {
 		logger: createMockLogger(),
 		dataStore: new DataStore("/"),
+		abortSignal: abortController.signal,
+		_abortController: abortController,
 	};
 }
 
@@ -347,5 +350,82 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		expect(result).toHaveLength(1);
 
 		await expect(async () => (await result[0]!.data.next()).value).rejects.toThrow();
+	});
+
+	it("should cancel request on abortSignal", async () => {
+		const ctx = createFetchContext();
+
+		server.use(
+			http.post("http://localhost:1337/auth/local", () => {
+				return HttpResponse.json({ jwt: "test-token" });
+			}),
+			http.get("http://localhost:1337/api/custom-content", async ({ request }) => {
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				const url = new URL(request.url);
+				expect(url.searchParams.get("filters[type][$eq]")).toBe("test");
+				expect(url.searchParams.get("sort[0]")).toBe("createdAt:desc");
+
+				if (url.searchParams.get("pagination[page]") === "2") {
+					return HttpResponse.json({
+						data: [],
+						meta: {
+							pagination: { page: 2, pageSize: 100, pageCount: 1, total: 0 },
+						},
+					});
+				}
+
+				return HttpResponse.json({
+					data: [
+						{
+							id: 1,
+							attributes: {
+								title: "Custom Content",
+								type: "test",
+							},
+						},
+					],
+					meta: {
+						pagination: {
+							page: 1,
+							pageSize: 100,
+							pageCount: 1,
+							total: 1,
+						},
+					},
+				});
+			}),
+		);
+
+		const source = await strapiSource({
+			id: "test-strapi",
+			version: "4",
+			baseUrl: "http://localhost:1337",
+			identifier: "test@example.com",
+			password: "password",
+			queries: [
+				{
+					contentType: "custom-content",
+					params: {
+						"filters[type][$eq]": "test",
+						"sort[0]": "createdAt:desc",
+					},
+				},
+			],
+		});
+
+		const result = source.fetch(ctx);
+
+		const promise = result[0]!.data.next();
+
+		const abortReason = "Some abort reason";
+
+		// Abort the request after a short delay
+		setTimeout(() => {
+			ctx._abortController.abort(abortReason);
+		}, 100);
+
+		vi.runAllTimersAsync();
+
+		await expect(promise).rejects.toThrowError(abortReason);
 	});
 });

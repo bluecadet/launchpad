@@ -286,6 +286,7 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 										headers: {
 											Authorization: `Bearer ${token}`,
 										},
+										signal: ctx.abortSignal,
 									},
 								)
 								.json();

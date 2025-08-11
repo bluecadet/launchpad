@@ -20,10 +20,14 @@ export default function jsonSource(options: z.input<typeof jsonSourceSchema>) {
 		fetch: (ctx) => {
 			return Object.entries(parsedOptions.files).map(([key, url]) => {
 				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
-
 				return {
 					id: key,
-					data: ky.get(url, { timeout: parsedOptions.maxTimeout }).json(),
+					data: ky
+						.get(url, {
+							timeout: parsedOptions.maxTimeout,
+							signal: ctx.abortSignal,
+						})
+						.json(),
 				};
 			});
 		},

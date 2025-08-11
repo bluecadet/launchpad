@@ -20,9 +20,12 @@ afterAll(() => {
 afterEach(() => server.resetHandlers());
 
 function createFetchContext() {
+	const abortController = new AbortController();
 	return {
 		logger: createMockLogger(),
 		dataStore: new DataStore("/"),
+		abortSignal: abortController.signal,
+		_abortController: abortController,
 	};
 }
 
@@ -126,6 +129,45 @@ describe("jsonSource", () => {
 		vi.runAllTimersAsync();
 
 		await expect(promise).rejects.toThrow();
+	});
+
+	it("should throw on incomplete config", async () => {
+		// @ts-expect-error - incomplete config
+		await expect(() => jsonSource({})).toThrow();
+	});
+
+	it("should cancel request on abortSignal", async () => {
+		const ctx = createFetchContext();
+
+		server.use(
+			http.get("https://api.example.com/slow", async () => {
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				return HttpResponse.json({ key: "value" });
+			}),
+		);
+
+		const source = await jsonSource({
+			id: "test-json-timeout",
+			files: {
+				"slow.json": "https://api.example.com/slow",
+			},
+			maxTimeout: 200,
+		});
+
+		const result = source.fetch(ctx);
+
+		const promise = result[0]!.data;
+
+		const abortReason = "Some abort reason";
+
+		// Abort the request after a short delay
+		setTimeout(() => {
+			ctx._abortController.abort(abortReason);
+		}, 100);
+
+		vi.runAllTimersAsync();
+
+		await expect(promise).rejects.toThrowError(abortReason);
 	});
 
 	it("should throw on incomplete config", async () => {

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { type Logger, LogManager, PluginDriver } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager, onExit, PluginDriver } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import {
@@ -23,6 +23,7 @@ class LaunchpadContent {
 	_rawSources: ConfigContentSource[];
 	_startDatetime = new Date();
 	_dataStore: DataStore;
+	_abortController = new AbortController();
 	_cwd: string;
 
 	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
@@ -36,6 +37,10 @@ class LaunchpadContent {
 
 		// create all sources
 		this._rawSources = this._config.sources;
+
+		onExit(() => {
+			this._abortController.abort();
+		});
 
 		const basePluginDriver = new PluginDriver(
 			{ logger: this._logger, cwd: this._cwd },
@@ -307,6 +312,7 @@ class LaunchpadContent {
 		const initializedFetch = source.fetch({
 			logger: sourceLogger,
 			dataStore: this._dataStore,
+			abortSignal: this._abortController.signal,
 		});
 
 		const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];

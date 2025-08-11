@@ -20,9 +20,12 @@ afterAll(() => {
 afterEach(() => server.resetHandlers());
 
 function createFetchContext() {
+	const abortController = new AbortController();
 	return {
 		logger: createMockLogger(),
 		dataStore: new DataStore("/"),
+		abortSignal: abortController.signal,
+		_abortController: abortController,
 	};
 }
 
@@ -266,5 +269,49 @@ describe("sanitySource", () => {
 		// it should return the single item directly instead of an async iterator
 		expect(data1).toEqual({ _type: "test", title: "Test Document" });
 		expect(data2).toEqual({ _type: "test", title: "Test Document" });
+	});
+
+	it("should cancel request on abortSignal", async () => {
+		const ctx = createFetchContext();
+
+		server.use(
+			http.get("https://test-project.api.sanity.io/v2021-10-21/data/query/production", async () => {
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				return HttpResponse.json({
+					result: { _type: "test", title: "Test Document" },
+					ms: 2000,
+				});
+			}),
+		);
+
+		const source = await sanitySource({
+			id: "test-sanity",
+			projectId: "test-project",
+			apiToken: "test-token",
+			queries: [
+				{
+					id: "custom1",
+					query: '*[_type == "custom"][0]',
+				},
+			],
+			limit: 50,
+			mergePages: false,
+			useCdn: false,
+		});
+
+		const result = source.fetch(ctx);
+
+		const promise = result[0]!.data;
+
+		const abortReason = "Some abort reason";
+
+		// Abort the request after a short delay
+		setTimeout(() => {
+			ctx._abortController.abort(abortReason);
+		}, 50);
+
+		vi.runAllTimersAsync();
+
+		await expect(promise).rejects.toThrowError(abortReason);
 	});
 });

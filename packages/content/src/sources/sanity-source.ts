@@ -61,7 +61,13 @@ export default async function sanitySource(options: z.input<typeof sanitySourceS
 					ctx.logger.debug(`Query '${fullQuery}' already contains a number range. No pagination.`);
 					return {
 						id,
-						data: sanityClient.fetch<unknown>(fullQuery),
+						data: sanityClient.fetch<unknown>(
+							fullQuery,
+							{},
+							{
+								signal: ctx.abortSignal,
+							},
+						),
 					};
 				}
 
@@ -77,7 +83,13 @@ export default async function sanitySource(options: z.input<typeof sanitySourceS
 							const q = `${fullQuery}[${params.offset}..${params.offset + params.limit - 1}]`;
 
 							try {
-								return sanityClient.fetch<unknown>(q);
+								return sanityClient.fetch<unknown>(
+									q,
+									{},
+									{
+										signal: ctx.abortSignal,
+									},
+								);
 							} catch (e) {
 								throw new Error(`Could not fetch page with query: '${q}'`, { cause: e });
 							}

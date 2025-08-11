@@ -14,6 +14,10 @@ export type FetchContext = {
 	 * Data store instance
 	 */
 	dataStore: DataStore;
+	/**
+	 * Signals the launchpad process is aborting. Triggered on exception or manual quit.
+	 */
+	abortSignal: AbortSignal;
 };
 
 function asyncIterableSchema<T = unknown>(): z.ZodType<AsyncIterable<T>> {

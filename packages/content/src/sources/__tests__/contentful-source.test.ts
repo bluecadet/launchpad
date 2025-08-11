@@ -20,9 +20,12 @@ afterAll(() => {
 afterEach(() => server.resetHandlers());
 
 function createFetchContext() {
+	const abortController = new AbortController();
 	return {
 		logger: createMockLogger(),
 		dataStore: new DataStore("/"),
+		abortSignal: abortController.signal,
+		_abortController: abortController,
 	};
 }
 

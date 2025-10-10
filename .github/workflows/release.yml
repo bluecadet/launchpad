@@ -50,10 +50,10 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Add scaffold zip to release
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '@bluecadet/launchpad-scaffold')
+        if: steps.changesets.outputs.published == 'true'
         run: |
-          # Extract the version of scaffold from publishedPackages
-          SCAFFOLD_VERSION=$(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | select(.name == "@bluecadet/launchpad-scaffold") | .version')
+          # Extract the version of @bluecadet/launchpad from publishedPackages (always published)
+          LAUNCHPAD_VERSION=$(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | select(.name == "@bluecadet/launchpad") | .version')
           
           # Create zip file with specific files and directories
           cd packages/scaffold
@@ -64,13 +64,13 @@ jobs:
             config/
           cd ../..
 
-          # Upload the zip to the @bluecadet/launchpad-scaffold release
-          gh release upload "@bluecadet/launchpad-scaffold@${SCAFFOLD_VERSION}" "launchpad-scaffold-standalone.zip"
+          # Upload the zip to the @bluecadet/launchpad release
+          gh release upload "@bluecadet/launchpad@${LAUNCHPAD_VERSION}" "launchpad-scaffold-standalone.zip"
 
-          # Also upload to @bluecadet/launchpad release if it was published
-          if echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -e '.[] | select(.name == "@bluecadet/launchpad")' > /dev/null; then
-            LAUNCHPAD_VERSION=$(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | select(.name == "@bluecadet/launchpad") | .version')
-            gh release upload "@bluecadet/launchpad@${LAUNCHPAD_VERSION}" "launchpad-scaffold-standalone.zip"
+          # Also upload to @bluecadet/launchpad-scaffold release if it was published
+          if echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -e '.[] | select(.name == "@bluecadet/launchpad-scaffold")' > /dev/null; then
+            SCAFFOLD_VERSION=$(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | select(.name == "@bluecadet/launchpad-scaffold") | .version')
+            gh release upload "@bluecadet/launchpad-scaffold@${SCAFFOLD_VERSION}" "launchpad-scaffold-standalone.zip"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.BC_GITHUB_TOKEN }}

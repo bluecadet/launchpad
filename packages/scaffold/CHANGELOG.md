@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-scaffold
 
+## 2.0.2
+
+### Patch Changes
+
+- [#241](https://github.com/bluecadet/launchpad/pull/241) [`3d4b02d77055dea4bbc775a4c94cac8ea8783649`](https://github.com/bluecadet/launchpad/commit/3d4b02d77055dea4bbc775a4c94cac8ea8783649) Thanks [@claytercek](https://github.com/claytercek)! - Update scaffold documentation and release pipeline.
+
 ## 2.0.1
 
 ### Patch Changes

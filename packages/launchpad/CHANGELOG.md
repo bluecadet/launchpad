@@ -1,5 +1,14 @@
 # @bluecadet/launchpad
 
+## 2.0.14
+
+### Patch Changes
+
+- Updated dependencies [[`308f7b9f970716f64e43ecb588ea8619785b8169`](https://github.com/bluecadet/launchpad/commit/308f7b9f970716f64e43ecb588ea8619785b8169), [`391b5abb9c4af86226b10358e8ad5631c55476e8`](https://github.com/bluecadet/launchpad/commit/391b5abb9c4af86226b10358e8ad5631c55476e8), [`3d4b02d77055dea4bbc775a4c94cac8ea8783649`](https://github.com/bluecadet/launchpad/commit/3d4b02d77055dea4bbc775a4c94cac8ea8783649)]:
+  - @bluecadet/launchpad-content@2.3.0
+  - @bluecadet/launchpad-scaffold@2.0.2
+  - @bluecadet/launchpad-cli@2.2.1
+
 ## 2.0.13
 
 ### Patch Changes

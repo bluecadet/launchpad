@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-content
 
+## 2.3.0
+
+### Minor Changes
+
+- [#239](https://github.com/bluecadet/launchpad/pull/239) [`308f7b9f970716f64e43ecb588ea8619785b8169`](https://github.com/bluecadet/launchpad/commit/308f7b9f970716f64e43ecb588ea8619785b8169) Thanks [@claytercek](https://github.com/claytercek)! - Send abortsignal to sources on content exit. Implemented for json, sanity, and strapi sources.
+
+- [#237](https://github.com/bluecadet/launchpad/pull/237) [`391b5abb9c4af86226b10358e8ad5631c55476e8`](https://github.com/bluecadet/launchpad/commit/391b5abb9c4af86226b10358e8ad5631c55476e8) Thanks [@claytercek](https://github.com/claytercek)! - Support multiple paths in media downloader content plugin.
+
 ## 2.2.0
 
 ### Minor Changes

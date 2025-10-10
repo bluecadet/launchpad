@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-cli",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "CLI for @bluecadet/launchpad utilities",
   "engines": {
     "npm": ">=8.5.1",
@@ -61,7 +61,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@bluecadet/launchpad-content": "~2.2.0",
+    "@bluecadet/launchpad-content": "~2.3.0",
     "@bluecadet/launchpad-monitor": "~2.1.0",
     "@bluecadet/launchpad-scaffold": "~2.0.0"
   },

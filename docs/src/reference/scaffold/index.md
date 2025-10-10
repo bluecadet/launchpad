@@ -31,11 +31,27 @@ The scaffold package is a specialized toolset for configuring Windows systems in
 
 ## Installation
 
-```bash
-npm install @bluecadet/launchpad-scaffold
+### Standalone
+
+Download the latest scaffold-standalone ZIP from [GitHub Releases](https://github.com/bluecadet/launchpad/releases) and extract it to your desired location. Then run the setup script as administrator:
+
+```batch
+setup.bat
 ```
 
-## Basic Usage
+### NPM (Node.js Required)
+
+If you already have Node.js and npm installed on your system:
+
+```bash
+npm install @bluecadet/launchpad-scaffold
+npx launchpad scaffold
+```
+
+> [!NOTE] Note:
+> The scaffold package primarily consists of PowerShell scripts and batch files. The npm package provides minimal JavaScript adapters to enable programmatic usage through the JavaScript API shown below.
+
+## JavaScript API Usage
 
 ```typescript
 import { launchScaffold } from '@bluecadet/launchpad-scaffold';

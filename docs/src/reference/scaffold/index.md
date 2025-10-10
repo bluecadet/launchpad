@@ -33,7 +33,7 @@ The scaffold package is a specialized toolset for configuring Windows systems in
 
 ### Standalone
 
-Download the latest scaffold-standalone ZIP from [GitHub Releases](https://github.com/bluecadet/launchpad/releases) and extract it to your desired location. Then run the setup script as administrator:
+Download the latest scaffold-standalone ZIP from [GitHub Releases](https://github.com/bluecadet/launchpad/releases/latest) and extract it to your desired location. Then run the setup script as administrator:
 
 ```batch
 setup.bat

@@ -49,7 +49,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Add scaffold zip to release
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '@@bluecadet/launchpad-scaffold')
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '@bluecadet/launchpad-scaffold')
         run: |
           # Extract the version of scaffold from publishedPackages
           SCAFFOLD_VERSION=$(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[] | select(.name == "@bluecadet/launchpad-scaffold") | .version')

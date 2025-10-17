@@ -454,7 +454,7 @@ class LaunchpadContent
 						// Emit document:write event on success
 						// Construct the file path (Documents don't expose their path)
 						const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
-						const filePath = this.getDownloadPath(source.id) + "/" + filename;
+						const filePath = `${this.getDownloadPath(source.id)}/${filename}`;
 						this._eventBus?.emit("content:document:write", {
 							sourceId: source.id,
 							documentId: req.id,

@@ -69,7 +69,6 @@ await launchScaffold(logger);
 - Windows 10 or Windows 11
 - Administrative privileges
 - PowerShell execution enabled
-- Node.js 18 or higher
 
 ## Configuration
 
@@ -86,18 +85,13 @@ The scaffold package uses a combination of:
 - Requires elevated privileges
 - Modifies system settings
 - Changes Windows configurations
-- Alters user permissions
 
 ## Limitations
 
 - Windows-only support
-- Some features require specific Windows versions
 - Certain settings may require additional manual configuration
-- Windows 11 has limited support for some kiosk features
 
 ## Error Handling
 
 - Provides detailed logs of all operations
 - Fails gracefully with clear error messages
-- Supports rollback of critical changes
-- Includes diagnostic information for troubleshooting

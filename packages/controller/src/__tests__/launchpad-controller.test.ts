@@ -261,7 +261,7 @@ describe("LaunchpadController", () => {
 
 		it("should pass through command execution errors", async () => {
 			const controller = new LaunchpadController({}, rootLogger);
-			const error = new Error("Command failed");
+			const _error = new Error("Command failed");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 			controller.registerSubsystem("test", { executeCommand });
 

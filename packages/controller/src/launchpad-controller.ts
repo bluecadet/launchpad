@@ -30,7 +30,7 @@ export class LaunchpadController {
 	private _abortController = new AbortController();
 	private _isStarted = false;
 
-	constructor(config: ControllerConfig, logger: Logger, mode: ControllerMode = "task") {
+	constructor(_config: ControllerConfig, logger: Logger, mode: ControllerMode = "task") {
 		this._mode = mode;
 		this._logger = LogManager.getLogger("controller", logger);
 

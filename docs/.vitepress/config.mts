@@ -130,6 +130,8 @@ export default defineConfig({
 						link: "/reference/content",
 						items: [
 							{ text: "Content Config", link: "/reference/content/content-config" },
+							{ text: "Events", link: "/reference/content/events" },
+							{ text: "DataStore", link: "/reference/content/data-store" },
 							{
 								text: "Sources",
 								link: "/reference/content/sources",
@@ -161,7 +163,6 @@ export default defineConfig({
 									{ text: "symlink", link: "/reference/content/plugins/symlink" },
 								],
 							},
-							{ text: "DataStore", link: "/reference/content/data-store" },
 						],
 					},
 					{
@@ -169,8 +170,14 @@ export default defineConfig({
 						link: "/reference/monitor",
 						items: [
 							{ text: "Monitor Config", link: "/reference/monitor/monitor-config" },
+							{ text: "Events", link: "/reference/monitor/events" },
 							{ text: "Plugins", link: "/reference/monitor/plugins" },
 						],
+					},
+					{
+						text: "Controller",
+						link: "/reference/controller",
+						items: [{ text: "Events", link: "/reference/controller/events" }],
 					},
 					{
 						text: "Scaffold",

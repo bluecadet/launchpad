@@ -30,9 +30,10 @@ Launchpad provides a collection of tools designed to streamline the development,
 
 <ul class="card-grid">
   <PackageCard package="cli" href="./reference/cli" description="Command-line interface and configuration management" />
+  <PackageCard package="controller" href="./reference/controller" description="Central orchestration and event system" />
   <PackageCard package="content" href="./reference/content" description="Content pipeline and transformation tools" />
   <PackageCard package="monitor" href="./reference/monitor" description="Process monitoring and management" />
-  <PackageCard package="scaffold" href="./reference/scaffold" description="Windows system configuration" />  
+  <PackageCard package="scaffold" href="./reference/scaffold" description="Windows system configuration" />
 </ul>
 
 <style scoped>

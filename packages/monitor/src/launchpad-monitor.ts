@@ -1,19 +1,37 @@
-import { type Logger, LogManager, onExit, PluginDriver } from "@bluecadet/launchpad-utils";
+import {
+	type CommandExecutor,
+	type Disconnectable,
+	type EventBus,
+	type EventBusAware,
+	type Logger,
+	LogManager,
+	onExit,
+	PluginDriver,
+	type StateProvider,
+} from "@bluecadet/launchpad-utils";
 import autoBind from "auto-bind";
 import { spawn } from "cross-spawn";
-import { okAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
 import { MonitorPluginDriver } from "./core/monitor-plugin-driver.js";
 import { ProcessManager } from "./core/process-manager.js";
+import type { MonitorCommand } from "./monitor-commands.js";
 import {
 	type MonitorConfig,
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
+import type { MonitorState } from "./monitor-state.js";
 
-class LaunchpadMonitor {
+class LaunchpadMonitor
+	implements
+		EventBusAware,
+		Disconnectable,
+		CommandExecutor<MonitorCommand>,
+		StateProvider<MonitorState>
+{
 	_config: ResolvedMonitorConfig;
 	_logger: Logger;
 	_processManager: ProcessManager;
@@ -22,6 +40,8 @@ class LaunchpadMonitor {
 	_pluginDriver: MonitorPluginDriver;
 	_isShuttingDown = false;
 	_cwd: string;
+	_eventBus?: EventBus;
+	_state: MonitorState;
 
 	constructor(config: MonitorConfig, parentLogger: Logger, cwd = process.cwd()) {
 		autoBind(this);
@@ -37,6 +57,14 @@ class LaunchpadMonitor {
 			this._busManager.initAppLogging(appConf);
 		}
 
+		// Initialize state
+		this._state = {
+			isConnected: false,
+			isShuttingDown: false,
+			totalApps: this._config.apps.length,
+			appNames: this._config.apps.map((app) => app.pm2.name || "unnamed"),
+		};
+
 		if (this._config.shutdownOnExit) {
 			onExit(() => {
 				this.shutdown();
@@ -48,6 +76,58 @@ class LaunchpadMonitor {
 			this._config.plugins,
 		);
 		this._pluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: this });
+	}
+
+	/**
+	 * Inject EventBus for controller integration.
+	 * When EventBus is present, the monitor system will emit lifecycle events.
+	 */
+	setEventBus(eventBus: EventBus): void {
+		this._eventBus = eventBus;
+	}
+
+	/**
+	 * Get the current state of the monitor system.
+	 */
+	getState(): MonitorState {
+		return this._state;
+	}
+
+	/**
+	 * Execute a command on the monitor subsystem.
+	 * This is called by the controller's CommandDispatcher.
+	 */
+	executeCommand(command: MonitorCommand): ResultAsync<unknown, Error> {
+		switch (command.type) {
+			case "monitor.connect":
+				return this.connect(command.ensureDaemonOwnership ?? true);
+
+			case "monitor.disconnect":
+				return this.disconnect();
+
+			case "monitor.start":
+				return this.start(command.appNames ?? null);
+
+			case "monitor.stop":
+				return this.stop(command.appNames ?? null);
+
+			case "monitor.restart":
+				// Restart is stop + start
+				return this.stop(command.appNames ?? null).andThen(() =>
+					this.start(command.appNames ?? null),
+				);
+
+			case "monitor.shutdown":
+				return this.shutdown(command.exitCode);
+
+			default: {
+				// TypeScript exhaustiveness check
+				const exhaustiveCheck: never = command;
+				return errAsync(
+					new Error(`Unknown monitor command type: ${(exhaustiveCheck as MonitorCommand).type}`),
+				);
+			}
+		}
 	}
 
 	/**
@@ -64,6 +144,9 @@ class LaunchpadMonitor {
 	 * @param ensureDaemonOwnership This will kill the existing PM2 daemon if it's already running.
 	 */
 	connect(ensureDaemonOwnership = true): ResultAsync<void, Error> {
+		// Emit start event
+		this._eventBus?.emit("monitor:connect:start", {});
+
 		return this._pluginDriver
 			.runHookSequential("beforeConnect")
 			.andThen(() => this._busManager.disconnect())
@@ -81,7 +164,20 @@ class LaunchpadMonitor {
 			.andThen(() => {
 				return this._busManager.connect();
 			})
-			.andThrough(() => this._pluginDriver.runHookSequential("afterConnect"));
+			.andThrough(() => this._pluginDriver.runHookSequential("afterConnect"))
+			.andTee(() => {
+				// Update state and emit success event
+				this._state.isConnected = true;
+				this._state.lastConnect = new Date();
+				this._eventBus?.emit("monitor:connect:done", {
+					appCount: this._config.apps.length,
+				});
+			})
+			.orElse((error) => {
+				// Emit error event
+				this._eventBus?.emit("monitor:connect:error", { error });
+				return errAsync(error);
+			});
 	}
 
 	/**
@@ -104,6 +200,9 @@ class LaunchpadMonitor {
 	disconnect(): ResultAsync<void, Error> {
 		this._logger.info("Disconnecting from PM2");
 
+		// Emit start event
+		this._eventBus?.emit("monitor:disconnect:start", {});
+
 		return this._pluginDriver
 			.runHookSequential("beforeDisconnect")
 			.andThen(() => this._busManager.disconnect())
@@ -115,7 +214,13 @@ class LaunchpadMonitor {
 				}
 				return okAsync(undefined);
 			})
-			.andThrough(() => this._pluginDriver.runHookSequential("afterDisconnect"));
+			.andThrough(() => this._pluginDriver.runHookSequential("afterDisconnect"))
+			.andTee(() => {
+				// Update state and emit success event
+				this._state.isConnected = false;
+				this._state.lastDisconnect = new Date();
+				this._eventBus?.emit("monitor:disconnect:done", {});
+			});
 	}
 
 	/**

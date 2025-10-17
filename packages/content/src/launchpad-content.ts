@@ -1,7 +1,17 @@
 import path from "node:path";
-import { type Logger, LogManager, onExit, PluginDriver } from "@bluecadet/launchpad-utils";
+import {
+	type CommandExecutor,
+	type EventBus,
+	type EventBusAware,
+	type Logger,
+	LogManager,
+	onExit,
+	PluginDriver,
+	type StateProvider,
+} from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import type { ContentCommand } from "./content-commands.js";
 import {
 	type ConfigContentSource,
 	type ContentConfig,
@@ -11,12 +21,15 @@ import {
 	TIMESTAMP_TOKEN,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
+import type { ContentState } from "./content-state.js";
 import type { ContentSource } from "./sources/source.js";
 import { DataStore } from "./utils/data-store.js";
 import { FetchLogger } from "./utils/fetch-logger.js";
 import * as FileUtils from "./utils/file-utils.js";
 
-class LaunchpadContent {
+class LaunchpadContent
+	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentState>
+{
 	_config: ResolvedContentConfig;
 	_logger: Logger;
 	_pluginDriver: ContentPluginDriver;
@@ -25,6 +38,8 @@ class LaunchpadContent {
 	_dataStore: DataStore;
 	_abortController = new AbortController();
 	_cwd: string;
+	_eventBus?: EventBus;
+	_state: ContentState;
 
 	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
 		this._config = contentConfigSchema.parse(config);
@@ -37,6 +52,13 @@ class LaunchpadContent {
 
 		// create all sources
 		this._rawSources = this._config.sources;
+
+		// Initialize state
+		this._state = {
+			isFetching: false,
+			totalSources: this._rawSources.length,
+			downloadPath: this._config.downloadPath,
+		};
 
 		onExit(() => {
 			this._abortController.abort();
@@ -58,6 +80,70 @@ class LaunchpadContent {
 		});
 	}
 
+	/**
+	 * Inject EventBus for controller integration.
+	 * When EventBus is present, the content system will emit lifecycle events.
+	 */
+	setEventBus(eventBus: EventBus): void {
+		this._eventBus = eventBus;
+	}
+
+	/**
+	 * Get the current state of the content system.
+	 */
+	getState(): ContentState {
+		return this._state;
+	}
+
+	/**
+	 * Execute a command on the content subsystem.
+	 * This is called by the controller's CommandDispatcher.
+	 */
+	executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
+		switch (command.type) {
+			case "content.fetch": {
+				// TODO: Filter sources if specified in command.sources
+				// For now, fetch all sources (filtering requires awaiting promises)
+				return this.start(null).mapErr((e) => e as Error);
+			}
+
+			case "content.clear": {
+				// Convert source IDs to ContentSource objects
+				return this._createSourcesFromConfig(this._rawSources)
+					.andThen((sources) =>
+						this.clear(sources, {
+							temp: command.temp ?? true,
+							backups: command.backups ?? true,
+							downloads: command.downloads ?? true,
+						}),
+					)
+					.mapErr((e) => e as Error);
+			}
+
+			case "content.backup": {
+				return this._createSourcesFromConfig(this._rawSources)
+					.andThen((sources) => this.backup(sources))
+					.mapErr((e) => e as Error);
+			}
+
+			case "content.restore": {
+				return this._createSourcesFromConfig(this._rawSources)
+					.andThen((sources) => this.restore(sources, command.removeBackups ?? true))
+					.mapErr((e) => e as Error);
+			}
+
+			default: {
+				// TypeScript exhaustiveness check
+				const exhaustiveCheck: never = command;
+				return ResultAsync.fromSafePromise(
+					Promise.reject(
+						new Error(`Unknown content command type: ${(exhaustiveCheck as ContentCommand).type}`),
+					),
+				);
+			}
+		}
+	}
+
 	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
 		const inputSources = rawSources || this._rawSources;
 		if (!inputSources || inputSources.length <= 0) {
@@ -66,6 +152,13 @@ class LaunchpadContent {
 		}
 
 		this._startDatetime = new Date();
+
+		// Update state and emit event (sources are resolved later, so we can't include IDs yet)
+		this._state.isFetching = true;
+		this._state.lastFetchStart = this._startDatetime;
+		this._eventBus?.emit("content:fetch:start", {
+			timestamp: this._startDatetime,
+		});
 
 		return this._createSourcesFromConfig(inputSources)
 			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
@@ -90,9 +183,27 @@ class LaunchpadContent {
 							(e) => new ContentError("Failed to close data store", { cause: e }),
 						),
 					)
+					.andTee(() => {
+						// Update state and emit success event
+						this._state.isFetching = false;
+						this._state.lastFetchSuccess = new Date();
+						this._eventBus?.emit("content:fetch:done", {
+							sources: sources.map((s) => s.id),
+							totalFiles: 0, // TODO: Track file count
+							duration: Date.now() - this._startDatetime.getTime(),
+						});
+					})
 					.orElse((e) => {
 						this._pluginDriver.runHookSequential("onContentFetchError", e);
 						this._logger.error("Error in content fetch process:", e);
+
+						// Update state and emit error event
+						this._state.isFetching = false;
+						this._state.lastFetchError = new Date();
+						this._eventBus?.emit("content:fetch:error", {
+							error: e as Error,
+						});
+
 						if (backupAndRestore) {
 							this._logger.info("Restoring from backup...");
 							return this.restore(sources).andThen(() => {

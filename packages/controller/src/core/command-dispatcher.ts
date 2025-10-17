@@ -1,5 +1,5 @@
 import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils";
-import { errAsync, type ResultAsync } from "neverthrow";
+import { errAsync, type Result, type ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 
 /**
@@ -28,7 +28,7 @@ export class CommandDispatcher {
 	 * Dispatch a command to the appropriate subsystem.
 	 * The command is treated generically here - type safety is enforced at the subsystem level.
 	 */
-	async dispatch(command: BaseCommand): Promise<ResultAsync<unknown, Error>> {
+	dispatch(command: BaseCommand): ResultAsync<unknown, Error> {
 		// 1. Extract subsystem name from command type (e.g., "content.fetch" -> "content")
 		const subsystemName = command.type.split(".")[0];
 		if (!subsystemName) {
@@ -64,20 +64,23 @@ export class CommandDispatcher {
 
 		// 5. Delegate to subsystem's executeCommand method
 		// The subsystem receives the command with its specific type and enforces type safety
-		const result = await subsystem.executeCommand(command);
+		const result = subsystem.executeCommand(command);
 
-		// 6. Emit "after" event
-		if (result.isOk()) {
-			this._eventBus.emit("command:success", {
-				commandType: command.type,
-				result: result.value,
-			});
-		} else {
-			this._eventBus.emit("command:error", {
-				commandType: command.type,
-				error: result.error,
-			});
-		}
+		// 6. Emit "after" event based on result
+		result.match(
+			(value) => {
+				this._eventBus.emit("command:success", {
+					commandType: command.type,
+					result: value,
+				});
+			},
+			(error) => {
+				this._eventBus.emit("command:error", {
+					commandType: command.type,
+					error,
+				});
+			},
+		);
 
 		return result;
 	}

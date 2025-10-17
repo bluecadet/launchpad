@@ -5,7 +5,7 @@
 
 import { LaunchpadController } from "@bluecadet/launchpad-controller";
 import type { BaseCommand, Logger, Subsystem } from "@bluecadet/launchpad-utils";
-import { ResultAsync } from "neverthrow";
+import type { ResultAsync } from "neverthrow";
 
 /**
  * Execute a command through the controller in task mode.
@@ -29,14 +29,9 @@ export function executeViaController(
 	// Register subsystem
 	controller.registerSubsystem(subsystemName, subsystemInstance);
 
-	// Start controller
-	return ResultAsync.fromPromise(controller.start(), (e) => e as Error).andThen(() => {
-		// Execute command
-		return ResultAsync.fromPromise(controller.executeCommand(command), (e) => e as Error).andThen(
-			(result) => {
-				// Stop controller
-				return ResultAsync.fromPromise(controller.stop(), (e) => e as Error).map(() => result);
-			},
-		);
-	});
+	// Start controller, execute command, then stop
+	return controller
+		.start()
+		.andThen(() => controller.executeCommand(command))
+		.andThen((result) => controller.stop().map(() => result));
 }

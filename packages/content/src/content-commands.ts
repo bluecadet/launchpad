@@ -4,7 +4,6 @@
  */
 
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
-import type { ConfigContentSource } from "./content-config.js";
 
 /**
  * Fetch content from all or specific sources

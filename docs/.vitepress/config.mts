@@ -184,7 +184,7 @@ export default defineConfig({
 		socialLinks: [{ icon: "github", link: "https://github.com/bluecadet/launchpad" }],
 
 		editLink: {
-			pattern: "https://github.com/bluecadet/launchpad/edit/develop/docs/:path",
+			pattern: "https://github.com/bluecadet/launchpad/edit/develop/docs/src/:path",
 			text: "Edit this page on GitHub",
 		},
 

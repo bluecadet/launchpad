@@ -4,13 +4,8 @@
 		"outDir": "dist",
 		"rootDir": "src"
 	},
-	"include": [
-		"src/**/*.ts"
-	],
-	"exclude": [
-		"**/*.test.ts",
-		"**/__tests__/*"
-	],
+	"include": ["src/**/*.ts"],
+	"exclude": ["**/*.test.ts", "**/__tests__/*"],
 	"references": [
 		{
 			"path": "../utils/tsconfig.src.json"
@@ -26,9 +21,6 @@
 		},
 		{
 			"path": "../content/tsconfig.src.json"
-		},
-		{
-			"path": "../cli/tsconfig.src.json"
 		}
 	]
 }

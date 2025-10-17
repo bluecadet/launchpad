@@ -2,6 +2,7 @@ import { err, ResultAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
+import { executeViaController } from "../utils/controller-utils.js";
 
 export function content(argv: LaunchpadArgv) {
 	return loadConfigAndEnv(argv)
@@ -15,7 +16,14 @@ export function content(argv: LaunchpadArgv) {
 						}
 
 						const contentInstance = new LaunchpadContent(config.content, rootLogger, dir);
-						return contentInstance.download();
+
+						// Execute via controller in task mode
+						return executeViaController(
+							"content",
+							contentInstance,
+							{ type: "content.fetch" },
+							rootLogger,
+						);
 					})
 					.orElse((error) => handleFatalError(error, rootLogger));
 			});

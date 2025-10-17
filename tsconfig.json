@@ -5,7 +5,7 @@
 			"path": "packages/utils/tsconfig.src.json"
 		},
 		{
-			"path": "packages/dashboard"
+			"path": "packages/controller/tsconfig.src.json"
 		},
 		{
 			"path": "packages/monitor/tsconfig.src.json"

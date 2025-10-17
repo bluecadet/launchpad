@@ -5,6 +5,15 @@ export {
 	TTY_FIXED_END,
 	TTY_ONLY,
 } from "./console-transport.js";
+export type {
+	BaseCommand,
+	CommandExecutor,
+	Disconnectable,
+	EventBus,
+	EventBusAware,
+	StateProvider,
+	Subsystem,
+} from "./controller-interfaces.js";
 export type { LogConfig, Logger } from "./log-manager.js";
 export { LogManager, logConfigSchema } from "./log-manager.js";
 export { onExit } from "./on-exit.js";

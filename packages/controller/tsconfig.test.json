@@ -1,0 +1,19 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"compilerOptions": {
+		"outDir": "dist-test",
+		"rootDir": "."
+	},
+	"include": [
+		"src/**/*.test.ts",
+		"src/**/__tests__/**/*.ts"
+	],
+	"references": [
+		{
+			"path": "./tsconfig.src.json"
+		},
+		{
+			"path": "../utils/tsconfig.src.json"
+		}
+	]
+}

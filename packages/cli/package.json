@@ -22,7 +22,8 @@
     "dist/**/*.d.ts"
   ],
   "scripts": {
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "test": "vitest"
   },
   "repository": {
     "type": "git",

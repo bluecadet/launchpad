@@ -1,0 +1,48 @@
+{
+  "name": "@bluecadet/launchpad-controller",
+  "version": "0.1.0",
+  "description": "Controller layer for Launchpad with multi-interface support",
+  "type": "module",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./transports/ipc": {
+      "types": "./dist/transports/ipc.d.ts",
+      "default": "./dist/transports/ipc.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Bluecadet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/controller",
+  "dependencies": {
+    "@bluecadet/launchpad-utils": "~2.1.0",
+    "neverthrow": "^8.1.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@bluecadet/launchpad-testing": "0.1.0",
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "vitest": "^3.0.7"
+  }
+}

@@ -51,7 +51,7 @@
   "dependencies": {
     "@bluecadet/launchpad-cli": "2.2.1",
     "@bluecadet/launchpad-content": "2.3.0",
-    "@bluecadet/launchpad-dashboard": "2.0.0",
+    "@bluecadet/launchpad-controller": "0.1.0",
     "@bluecadet/launchpad-monitor": "2.1.0",
     "@bluecadet/launchpad-scaffold": "2.0.2"
   },

@@ -146,6 +146,7 @@ export class EventBus extends EventEmitter implements IEventBus {
 		if (!event) {
 			// Clear wildcard handlers
 			this._anyHandlers.clear();
+			return super.removeAllListeners();
 		}
 		return super.removeAllListeners(event);
 	}

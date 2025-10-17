@@ -97,7 +97,7 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		}
 
-		this._logger.info(`Starting controller in ${this._mode} mode`);
+		this._logger.debug(`Starting controller in ${this._mode} mode`);
 
 		// Initialize command dispatcher with registered subsystems
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._subsystems);
@@ -108,7 +108,7 @@ export class LaunchpadController {
 		// }
 
 		this._isStarted = true;
-		this._logger.info("Controller started");
+		this._logger.debug("Controller started");
 
 		return okAsync(undefined);
 	}
@@ -122,7 +122,7 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		}
 
-		this._logger.info("Stopping controller");
+		this._logger.debug("Stopping controller");
 
 		// Abort any pending operations
 		this._abortController.abort();
@@ -141,7 +141,7 @@ export class LaunchpadController {
 		}
 
 		this._isStarted = false;
-		this._logger.info("Controller stopped");
+		this._logger.debug("Controller stopped");
 
 		return okAsync(undefined);
 	}

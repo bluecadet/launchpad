@@ -1,0 +1,230 @@
+import type { Subsystem } from "@bluecadet/launchpad-utils";
+import { describe, expect, it } from "vitest";
+import { StateStore } from "../state-store.js";
+
+describe("StateStore", () => {
+	describe("constructor", () => {
+		it("should initialize with default system state", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const systemState = store.getSystemState();
+			expect(systemState.version).toBe("0.1.0");
+			expect(systemState.mode).toBe("task");
+			expect(systemState.startTime).toBeInstanceOf(Date);
+		});
+	});
+
+	describe("getState", () => {
+		it("should return aggregated state with system and subsystems", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const state = store.getState();
+
+			expect(state).toHaveProperty("system");
+			expect(state).toHaveProperty("subsystems");
+			expect(state.system).toHaveProperty("version");
+			expect(state.system).toHaveProperty("mode");
+			expect(state.system).toHaveProperty("startTime");
+		});
+
+		it("should aggregate state from subsystems with getState", () => {
+			const mockContentState = { isFetching: true, totalSources: 3 };
+			const mockMonitorState = { isConnected: true, totalApps: 5 };
+
+			const contentSubsystem: Subsystem = {
+				getState: () => mockContentState,
+			};
+
+			const monitorSubsystem: Subsystem = {
+				getState: () => mockMonitorState,
+			};
+
+			const subsystems = new Map<string, Subsystem>([
+				["content", contentSubsystem],
+				["monitor", monitorSubsystem],
+			]);
+
+			const store = new StateStore(subsystems);
+			const state = store.getState();
+
+			expect(state.subsystems.content).toEqual(mockContentState);
+			expect(state.subsystems.monitor).toEqual(mockMonitorState);
+		});
+
+		it("should skip subsystems without getState method", () => {
+			const subsystemWithState: Subsystem = {
+				getState: () => ({ value: "has-state" }),
+			};
+
+			const subsystemWithoutState: Subsystem = {
+				// No getState method
+			};
+
+			const subsystems = new Map<string, Subsystem>([
+				["with-state", subsystemWithState],
+				["without-state", subsystemWithoutState],
+			]);
+
+			const store = new StateStore(subsystems);
+			const state = store.getState();
+
+			expect(state.subsystems["with-state"]).toEqual({ value: "has-state" });
+			expect(state.subsystems["without-state"]).toBeUndefined();
+		});
+
+		it("should return empty subsystems object when no subsystems registered", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const state = store.getState();
+
+			expect(state.subsystems).toEqual({});
+		});
+	});
+
+	describe("getSubsystemState", () => {
+		it("should return state for specific subsystem", () => {
+			const mockState = { value: "test-state" };
+			const subsystem: Subsystem = {
+				getState: () => mockState,
+			};
+
+			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const state = store.getSubsystemState("test");
+
+			expect(state).toEqual(mockState);
+		});
+
+		it("should return undefined for non-existent subsystem", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const state = store.getSubsystemState("non-existent");
+
+			expect(state).toBeUndefined();
+		});
+
+		it("should return undefined for subsystem without getState", () => {
+			const subsystem: Subsystem = {
+				// No getState method
+			};
+
+			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const state = store.getSubsystemState("test");
+
+			expect(state).toBeUndefined();
+		});
+
+		it("should support typed state retrieval", () => {
+			type TestState = { count: number; name: string };
+
+			const mockState: TestState = { count: 42, name: "test" };
+			const subsystem: Subsystem = {
+				getState: () => mockState,
+			};
+
+			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const state = store.getSubsystemState<TestState>("test");
+
+			// TypeScript should infer the type
+			expect(state?.count).toBe(42);
+			expect(state?.name).toBe("test");
+		});
+	});
+
+	describe("getSystemState", () => {
+		it("should return system-level state", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const systemState = store.getSystemState();
+
+			expect(systemState).toHaveProperty("version");
+			expect(systemState).toHaveProperty("mode");
+			expect(systemState).toHaveProperty("startTime");
+		});
+	});
+
+	describe("setSystemState", () => {
+		it("should update system state property", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			store.setSystemState("mode", "persistent");
+
+			const systemState = store.getSystemState();
+			expect(systemState.mode).toBe("persistent");
+		});
+
+		it("should update startTime", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			const newDate = new Date("2024-01-01");
+			store.setSystemState("startTime", newDate);
+
+			const systemState = store.getSystemState();
+			expect(systemState.startTime).toBe(newDate);
+		});
+
+		it("should update version", () => {
+			const subsystems = new Map<string, Subsystem>();
+			const store = new StateStore(subsystems);
+
+			store.setSystemState("version", "1.0.0");
+
+			const systemState = store.getSystemState();
+			expect(systemState.version).toBe("1.0.0");
+		});
+	});
+
+	describe("pull-based state aggregation", () => {
+		it("should query subsystems on demand, not via subscriptions", () => {
+			let callCount = 0;
+			const subsystem: Subsystem = {
+				getState: () => {
+					callCount++;
+					return { callCount };
+				},
+			};
+
+			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			// State should not be queried until getState is called
+			expect(callCount).toBe(0);
+
+			store.getState();
+			expect(callCount).toBe(1);
+
+			store.getState();
+			expect(callCount).toBe(2);
+		});
+
+		it("should always return current state from subsystems", () => {
+			let counter = 0;
+			const subsystem: Subsystem = {
+				getState: () => ({ value: counter++ }),
+			};
+
+			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const state1 = store.getState();
+			const state2 = store.getState();
+			const state3 = store.getState();
+
+			expect(state1.subsystems.test).toEqual({ value: 0 });
+			expect(state2.subsystems.test).toEqual({ value: 1 });
+			expect(state3.subsystems.test).toEqual({ value: 2 });
+		});
+	});
+});

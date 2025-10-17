@@ -1,6 +1,6 @@
 import type { BaseCommand, Logger, Subsystem } from "@bluecadet/launchpad-utils";
 import { LogManager } from "@bluecadet/launchpad-utils";
-import { okAsync, type ResultAsync } from "neverthrow";
+import { okAsync, ResultAsync } from "neverthrow";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import type { ControllerConfig, ControllerMode } from "./core/controller-config.js";
 import { EventBus } from "./core/event-bus.js";
@@ -92,7 +92,7 @@ export class LaunchpadController {
 	 * Start the controller.
 	 * Initializes the command dispatcher and starts transports (if persistent mode).
 	 */
-	async start(): Promise<ResultAsync<void, Error>> {
+	start(): ResultAsync<void, Error> {
 		if (this._isStarted) {
 			return okAsync(undefined);
 		}
@@ -104,7 +104,7 @@ export class LaunchpadController {
 
 		// Phase 2: Start transports in persistent mode
 		// if (this._mode === 'persistent' && this._transports.length > 0) {
-		//   await this._startTransports();
+		//   return this._startTransports();
 		// }
 
 		this._isStarted = true;
@@ -117,7 +117,7 @@ export class LaunchpadController {
 	 * Stop the controller.
 	 * Disconnects subsystems, stops transports, and aborts pending operations.
 	 */
-	async stop(): Promise<ResultAsync<void, Error>> {
+	stop(): ResultAsync<void, Error> {
 		if (!this._isStarted) {
 			return okAsync(undefined);
 		}
@@ -129,21 +129,23 @@ export class LaunchpadController {
 
 		// Phase 2: Stop transports
 		// if (this._transports.length > 0) {
-		//   await this._stopTransports();
+		//   return this._stopTransports().map(() => { ... });
 		// }
 
 		// Disconnect subsystems (if they implement Disconnectable)
-		for (const [name, subsystem] of this._subsystems) {
+		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
 			if (subsystem.disconnect) {
 				this._logger.debug(`Disconnecting subsystem '${name}'`);
-				await subsystem.disconnect();
+				return subsystem.disconnect();
 			}
-		}
+			return okAsync(undefined);
+		});
 
-		this._isStarted = false;
-		this._logger.debug("Controller stopped");
-
-		return okAsync(undefined);
+		return ResultAsync.combine(disconnectResults).map(() => {
+			this._isStarted = false;
+			this._logger.debug("Controller stopped");
+			return undefined;
+		});
 	}
 
 	/**
@@ -153,7 +155,7 @@ export class LaunchpadController {
 	 * The controller treats commands generically - type safety is enforced
 	 * at the subsystem level via CommandExecutor<TCommand>.
 	 */
-	async executeCommand(command: BaseCommand): Promise<ResultAsync<unknown, Error>> {
+	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
 		if (!this._isStarted) {
 			throw new Error("Controller must be started before executing commands");
 		}

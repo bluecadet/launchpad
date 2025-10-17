@@ -22,4 +22,5 @@ export {
 	createPluginValidator,
 	default as PluginDriver,
 	HookContextProvider,
+	PluginError,
 } from "./plugin-driver.js";

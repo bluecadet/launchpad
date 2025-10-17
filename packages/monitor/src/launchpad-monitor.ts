@@ -84,6 +84,7 @@ class LaunchpadMonitor
 	 */
 	setEventBus(eventBus: EventBus): void {
 		this._eventBus = eventBus;
+		this._appManager.setEventBus(eventBus);
 	}
 
 	/**
@@ -113,9 +114,38 @@ class LaunchpadMonitor
 
 			case "monitor.restart":
 				// Restart is stop + start
-				return this.stop(command.appNames ?? null).andThen(() =>
-					this.start(command.appNames ?? null),
-				);
+				// Emit restart event for each app
+				return this._appManager
+					.validateAppNames(command.appNames ?? null)
+					.asyncAndThen((validatedNames) => {
+						for (const appName of validatedNames) {
+							this._eventBus?.emit("monitor:app:restart", { appName });
+						}
+						return this.stop(command.appNames ?? null).andThen(() =>
+							this.start(command.appNames ?? null).andTee(() => {
+								// Emit restarted event for each app
+								for (const appName of validatedNames) {
+									// Get process info to include in event
+									this._appManager.getAppProcess(appName, true).match(
+										(process: pm2.ProcessDescription) => {
+											// Note: PM2 types don't expose pm_id, so we cast to access it
+											const pm2Id = (process.pm2_env as { pm_id?: number })?.pm_id;
+											if (pm2Id !== undefined && process.pid !== undefined) {
+												this._eventBus?.emit("monitor:app:restarted", {
+													appName,
+													pm2Id,
+													pid: process.pid,
+												});
+											}
+										},
+										() => {
+											// Ignore errors when getting process info for event
+										},
+									);
+								}
+							}),
+						);
+					});
 
 			case "monitor.shutdown":
 				return this.shutdown(command.exitCode);

@@ -1,5 +1,5 @@
 ---
-title: 🚀 Launchpad
+title: Launchpad
 titleTemplate: ':title'
 ---
 <script setup>

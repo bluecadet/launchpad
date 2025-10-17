@@ -1,10 +1,13 @@
 import {
 	type BaseHookContext,
 	createPluginValidator,
+	type EventBus,
 	HookContextProvider,
 	type Plugin,
 	type PluginDriver,
+	type PluginError,
 } from "@bluecadet/launchpad-utils";
+import type { ResultAsync } from "neverthrow";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
 
@@ -63,6 +66,7 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 		getTempPath: (source?: string, pluginName?: string) => string;
 		getBackupPath: (source?: string) => string;
 	};
+	#eventBus?: EventBus;
 
 	constructor(
 		wrappee: PluginDriver<ContentHooks>,
@@ -86,6 +90,10 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 		this.#pathGetters = paths;
 	}
 
+	setEventBus(eventBus: EventBus): void {
+		this.#eventBus = eventBus;
+	}
+
 	override _getPluginContext(plugin: ContentPlugin) {
 		return {
 			data: this.#dataStore,
@@ -97,5 +105,43 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 				getTempPath: (source?: string) => this.#pathGetters.getTempPath(source, plugin.name),
 			},
 		};
+	}
+
+	override runHookSequential<K extends keyof ContentHooks>(
+		hookName: K,
+		...additionalArgs: Parameters<ContentHooks[K]> extends [unknown, ...infer R] ? R : never
+	): ResultAsync<void, PluginError> {
+		// Get all plugins that have this hook
+		const pluginsWithHook = this.plugins.filter((p) => p.hooks[hookName]);
+
+		// Run each plugin's hook sequentially with event emissions
+		let result = super.runHookSequential(hookName, ...additionalArgs);
+
+		// Wrap with event emissions if we have an EventBus
+		if (this.#eventBus && pluginsWithHook.length > 0) {
+			for (const plugin of pluginsWithHook) {
+				const startTime = Date.now();
+				this.#eventBus.emit("content:plugin:start", {
+					pluginName: plugin.name,
+				});
+
+				result = result
+					.andTee(() => {
+						this.#eventBus?.emit("content:plugin:done", {
+							pluginName: plugin.name,
+							duration: Date.now() - startTime,
+						});
+					})
+					.orElse((error) => {
+						this.#eventBus?.emit("content:plugin:error", {
+							pluginName: plugin.name,
+							error,
+						});
+						throw error;
+					});
+			}
+		}
+
+		return result;
 	}
 }

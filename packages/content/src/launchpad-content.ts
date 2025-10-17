@@ -86,6 +86,7 @@ class LaunchpadContent
 	 */
 	setEventBus(eventBus: EventBus): void {
 		this._eventBus = eventBus;
+		this._pluginDriver.setEventBus(eventBus);
 	}
 
 	/**
@@ -400,12 +401,29 @@ class LaunchpadContent
 
 		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
 			.andThen(() =>
-				Result.combine(sources.map((source) => this._getSourceFetchPromises(source, fetchLogger))),
+				Result.combine(
+					sources.map((source) => {
+						// Emit source:start event
+						this._eventBus?.emit("content:source:start", {
+							sourceId: source.id,
+							sourceType: (source as { type?: string }).type || "unknown",
+						});
+
+						return this._getSourceFetchPromises(source, fetchLogger);
+					}),
+				),
 			)
 			.andThen((fetchPromises) => {
 				return ResultAsync.combine(fetchPromises.flat());
 			})
 			.andTee(() => {
+				// Emit source:done events for each source
+				for (const source of sources) {
+					this._eventBus?.emit("content:source:done", {
+						sourceId: source.id,
+						documentCount: 0, // TODO: Track actual document count
+					});
+				}
 				fetchLogger.close();
 				this._logger.info("Fetch completed.");
 			})
@@ -430,9 +448,28 @@ class LaunchpadContent
 
 		return this._dataStore.namespace(source.id).andThen((namespace) => {
 			const promises = fetchAsArray.map((req) => {
-				const insertResultAsync = namespace.safeInsert(req.id, req.data).mapErr((e) => {
-					return new ContentError(`Failed to write data for ${req.id}`, e);
-				});
+				const insertResultAsync = namespace
+					.safeInsert(req.id, req.data)
+					.andTee(() => {
+						// Emit document:write event on success
+						// Construct the file path (Documents don't expose their path)
+						const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
+						const filePath = this.getDownloadPath(source.id) + "/" + filename;
+						this._eventBus?.emit("content:document:write", {
+							sourceId: source.id,
+							documentId: req.id,
+							path: filePath,
+						});
+					})
+					.mapErr((e) => {
+						// Emit document:error event on failure
+						this._eventBus?.emit("content:document:error", {
+							sourceId: source.id,
+							documentId: req.id,
+							error: e,
+						});
+						return new ContentError(`Failed to write data for ${req.id}`, e);
+					});
 
 				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
 

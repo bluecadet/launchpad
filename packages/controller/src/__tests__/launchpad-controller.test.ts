@@ -7,28 +7,40 @@ import { LaunchpadController } from "../launchpad-controller.js";
 describe("LaunchpadController", () => {
 	const rootLogger = createMockLogger();
 
+	function createController(mode?: "task" | "persistent") {
+		return new LaunchpadController(
+			{
+				pidFile: "./pid",
+				socketPath: "./socket",
+			},
+			rootLogger,
+			"/test",
+			mode,
+		);
+	}
+
 	describe("constructor", () => {
 		it("should create controller in task mode by default", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 
 			expect(controller.getMode()).toBe("task");
 		});
 
 		it("should create controller in specified mode", () => {
-			const controller = new LaunchpadController({}, rootLogger, "persistent");
+			const controller = createController("persistent");
 
 			expect(controller.getMode()).toBe("persistent");
 		});
 
 		it("should initialize state with correct mode", () => {
-			const controller = new LaunchpadController({}, rootLogger, "persistent");
+			const controller = createController("persistent");
 			const state = controller.getState();
 
 			expect(state.system.mode).toBe("persistent");
 		});
 
 		it("should not be started after construction", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 
 			expect(controller.isStarted()).toBe(false);
 		});
@@ -36,7 +48,7 @@ describe("LaunchpadController", () => {
 
 	describe("registerSubsystem", () => {
 		it("should register a subsystem", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 			const subsystem: Subsystem = {};
 
 			controller.registerSubsystem("test", subsystem);
@@ -46,7 +58,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should inject EventBus if subsystem implements EventBusAware", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 			const setEventBus = vi.fn();
 			const subsystem: Subsystem = { setEventBus };
 
@@ -56,7 +68,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should not inject EventBus if subsystem does not implement EventBusAware", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 			const subsystem: Subsystem = {}; // No setEventBus method
 
 			// Should not throw
@@ -64,7 +76,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should throw error when registering after controller is started", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController("task");
 			await controller.start();
 
 			const subsystem: Subsystem = {};
@@ -75,7 +87,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should allow registering multiple subsystems", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const subsystem1: Subsystem = {};
 			const subsystem2: Subsystem = {};
 
@@ -89,7 +101,7 @@ describe("LaunchpadController", () => {
 
 	describe("getSubsystem", () => {
 		it("should return registered subsystem", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const subsystem: Subsystem = {};
 
 			controller.registerSubsystem("test", subsystem);
@@ -98,7 +110,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should return undefined for non-existent subsystem", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			expect(controller.getSubsystem("non-existent")).toBeUndefined();
 		});
@@ -106,14 +118,14 @@ describe("LaunchpadController", () => {
 
 	describe("hasSubsystem", () => {
 		it("should return true for registered subsystem", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			controller.registerSubsystem("test", {});
 
 			expect(controller.hasSubsystem("test")).toBe(true);
 		});
 
 		it("should return false for non-existent subsystem", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			expect(controller.hasSubsystem("non-existent")).toBe(false);
 		});
@@ -121,7 +133,7 @@ describe("LaunchpadController", () => {
 
 	describe("getSubsystemNames", () => {
 		it("should return array of subsystem names", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			controller.registerSubsystem("content", {});
 			controller.registerSubsystem("monitor", {});
@@ -132,7 +144,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should return empty array when no subsystems registered", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			expect(controller.getSubsystemNames()).toEqual([]);
 		});
@@ -140,7 +152,7 @@ describe("LaunchpadController", () => {
 
 	describe("start", () => {
 		it("should start the controller", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			const result = await controller.start();
 
@@ -149,7 +161,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should be idempotent - multiple starts should succeed", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			const result1 = await controller.start();
 			const result2 = await controller.start();
@@ -160,7 +172,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should initialize command dispatcher", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 			controller.registerSubsystem("test", { executeCommand });
 
@@ -177,7 +189,7 @@ describe("LaunchpadController", () => {
 
 	describe("stop", () => {
 		it("should stop the controller", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			await controller.start();
 
 			const result = await controller.stop();
@@ -187,7 +199,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should be idempotent - multiple stops should succeed", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			await controller.start();
 
 			const result1 = await controller.stop();
@@ -199,7 +211,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should disconnect subsystems that implement Disconnectable", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const disconnect = vi.fn().mockReturnValue(okAsync(undefined));
 			controller.registerSubsystem("test", { disconnect });
 
@@ -210,7 +222,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should skip disconnecting subsystems without disconnect method", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			controller.registerSubsystem("test", {}); // No disconnect method
 
 			await controller.start();
@@ -221,7 +233,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should abort pending operations", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			await controller.start();
 
 			const signal = controller.getAbortSignal();
@@ -235,7 +247,7 @@ describe("LaunchpadController", () => {
 
 	describe("executeCommand", () => {
 		it("should execute command through dispatcher", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("result"));
 			controller.registerSubsystem("test", { executeCommand });
 
@@ -250,7 +262,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should throw error when controller not started", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			const command: BaseCommand = { type: "test.command" };
 
@@ -260,7 +272,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should pass through command execution errors", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const _error = new Error("Command failed");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 			controller.registerSubsystem("test", { executeCommand });
@@ -276,8 +288,8 @@ describe("LaunchpadController", () => {
 
 	describe("getMode", () => {
 		it("should return current mode", () => {
-			const controller1 = new LaunchpadController({}, rootLogger, "task");
-			const controller2 = new LaunchpadController({}, rootLogger, "persistent");
+			const controller1 = createController("task");
+			const controller2 = createController("persistent");
 
 			expect(controller1.getMode()).toBe("task");
 			expect(controller2.getMode()).toBe("persistent");
@@ -286,7 +298,7 @@ describe("LaunchpadController", () => {
 
 	describe("getState", () => {
 		it("should return aggregated state", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const subsystem: Subsystem = {
 				getState: () => ({ value: "test-state" }),
 			};
@@ -302,7 +314,7 @@ describe("LaunchpadController", () => {
 
 	describe("getEventBus", () => {
 		it("should return EventBus instance", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			const eventBus = controller.getEventBus();
 
@@ -314,7 +326,7 @@ describe("LaunchpadController", () => {
 
 	describe("getAbortSignal", () => {
 		it("should return AbortSignal for controller lifecycle", () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			const signal = controller.getAbortSignal();
 
@@ -323,7 +335,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should abort signal when controller stops", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const signal = controller.getAbortSignal();
 
 			await controller.start();
@@ -335,7 +347,7 @@ describe("LaunchpadController", () => {
 
 	describe("integration", () => {
 		it("should coordinate multiple subsystems through controller", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 
 			// Setup subsystems
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-done"));
@@ -358,7 +370,7 @@ describe("LaunchpadController", () => {
 		});
 
 		it("should emit events and aggregate state across subsystems", async () => {
-			const controller = new LaunchpadController({}, rootLogger);
+			const controller = createController();
 			const eventBus = controller.getEventBus();
 			const events: string[] = [];
 

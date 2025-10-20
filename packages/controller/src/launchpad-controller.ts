@@ -1,9 +1,11 @@
+import path from "node:path";
 import type { BaseCommand, Logger, Subsystem } from "@bluecadet/launchpad-utils";
-import { LogManager } from "@bluecadet/launchpad-utils";
-import { okAsync, ResultAsync } from "neverthrow";
+import { LogManager, onExit } from "@bluecadet/launchpad-utils";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import type { ControllerConfig, ControllerMode } from "./core/controller-config.js";
 import { EventBus } from "./core/event-bus.js";
+import { deletePidFile, getDaemonPid, writePidFile } from "./core/pid-manager.js";
 import { StateStore } from "./core/state-store.js";
 import type { Transport } from "./core/transport.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
@@ -26,6 +28,7 @@ import { createIPCTransport } from "./transports/ipc-transport.js";
 export class LaunchpadController {
 	private _config: ControllerConfig;
 	private _mode: ControllerMode;
+	private _baseDir: string;
 	private _logger: Logger;
 	private _eventBus: EventBus;
 	private _stateStore: StateStore;
@@ -36,9 +39,15 @@ export class LaunchpadController {
 	private _ipcTransport: Transport | null = null;
 	// Future: private _transports: Transport[] = [];
 
-	constructor(config: ControllerConfig, logger: Logger, mode: ControllerMode = "task") {
+	constructor(
+		config: ControllerConfig,
+		logger: Logger,
+		baseDir: string,
+		mode: ControllerMode = "task",
+	) {
 		this._config = config;
 		this._mode = mode;
+		this._baseDir = baseDir;
 		this._logger = LogManager.getLogger("controller", logger);
 
 		// Core components (always created in both modes)
@@ -93,6 +102,7 @@ export class LaunchpadController {
 	/**
 	 * Start the controller.
 	 * Initializes the command dispatcher and starts IPC transport (if persistent mode).
+	 * In persistent mode, also manages PID file lifecycle.
 	 */
 	start(): ResultAsync<void, Error> {
 		if (this._isStarted) {
@@ -106,8 +116,28 @@ export class LaunchpadController {
 
 		// Start IPC transport in persistent mode (built-in infrastructure)
 		if (this._mode === "persistent") {
+			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
+			const socketPath = path.resolve(this._baseDir, this._config.socketPath);
+
+			// Check if daemon already running
+			const daemonPidResult = getDaemonPid(pidFile);
+			if (daemonPidResult.isOk() && daemonPidResult.value !== null) {
+				return errAsync(new Error(`Controller already running with PID ${daemonPidResult.value}`));
+			}
+
+			// Write PID file
+			const writePidResult = writePidFile(pidFile, process.pid);
+			if (writePidResult.isErr()) {
+				return errAsync(writePidResult.error);
+			}
+
+			// Register cleanup handlers to remove PID file on exit
+			onExit(() => {
+				deletePidFile(pidFile);
+			});
+
 			this._ipcTransport = createIPCTransport({
-				socketPath: this._config.socketPath,
+				socketPath,
 			});
 
 			const transportContext = {
@@ -126,7 +156,7 @@ export class LaunchpadController {
 		}
 
 		// Future: Start optional transports
-		// if (this._transports.length > 0) {
+		// if (this._mode === "persistent" && this._transports.length > 0) {
 		//   return this._startTransports();
 		// }
 
@@ -138,7 +168,8 @@ export class LaunchpadController {
 
 	/**
 	 * Stop the controller.
-	 * Stops IPC transport, disconnects subsystems, and aborts pending operations.
+	 * Stops IPC transport, disconnects subsystems, aborts pending operations,
+	 * and cleans up PID file (in persistent mode).
 	 */
 	stop(): ResultAsync<void, Error> {
 		if (!this._isStarted) {
@@ -174,6 +205,12 @@ export class LaunchpadController {
 		});
 
 		return ResultAsync.combine([transportStopPromise, ...disconnectResults]).map(() => {
+			// Clean up PID file in persistent mode
+			if (this._mode === "persistent") {
+				const pidFile = path.resolve(this._baseDir, this._config.pidFile);
+				deletePidFile(pidFile);
+			}
+
 			this._isStarted = false;
 			this._ipcTransport = null;
 			this._logger.debug("Controller stopped");

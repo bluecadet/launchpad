@@ -11,7 +11,7 @@ import {
 	LaunchpadController,
 } from "@bluecadet/launchpad-controller";
 import type { Logger } from "@bluecadet/launchpad-utils";
-import { errAsync, ResultAsync } from "neverthrow";
+import { errAsync, type ResultAsync } from "neverthrow";
 
 export class DaemonNotRunningError extends Error {
 	constructor() {
@@ -92,15 +92,6 @@ export function withDaemonOrController<T>(
 			return result.andTee(() => controller.stop());
 		}
 
-		// Persistent mode: block forever after commands complete
-		return result.andThen(() => {
-			logger.info("Controller running in persistent mode. Press Ctrl+C to stop.");
-			// Block forever - process stays alive until killed
-			return ResultAsync.fromSafePromise<T, Error>(
-				new Promise<T>(() => {
-					// Never resolves
-				}),
-			);
-		});
+		return result;
 	});
 }

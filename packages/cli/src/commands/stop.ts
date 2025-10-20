@@ -1,7 +1,7 @@
 import path from "node:path";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller";
+import { LogManager } from "@bluecadet/launchpad-utils";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
-import { LogManager } from "../../../utils/src/log-manager.js";
 import type { LaunchpadArgv } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import { DaemonNotRunningError, withDaemon } from "../utils/controller-execution.js";

@@ -12,7 +12,13 @@ export { controllerConfigSchema } from "./core/controller-config.js";
 // Event bus
 export type { LaunchpadEvents } from "./core/event-bus.js";
 export { EventBus } from "./core/event-bus.js";
-
+export {
+	deletePidFile,
+	getDaemonPid,
+	isProcessRunning,
+	readPidFile,
+	writePidFile,
+} from "./core/pid-manager.js";
 // State store
 export type {
 	LaunchpadState,

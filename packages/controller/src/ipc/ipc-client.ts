@@ -4,7 +4,7 @@
  */
 
 import net from "node:net";
-import { err, ok, type Result } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 
 export class IPCClient {
@@ -22,28 +22,31 @@ export class IPCClient {
 	/**
 	 * Connect to the IPC socket
 	 */
-	async connect(socketPath: string): Promise<Result<void, Error>> {
-		return new Promise((resolve) => {
-			this._socket = net.createConnection(socketPath, () => {
-				resolve(ok(undefined));
-			});
+	connect(socketPath: string): ResultAsync<void, Error> {
+		return ResultAsync.fromPromise(
+			new Promise<void>((resolve, reject) => {
+				this._socket = net.createConnection(socketPath, () => {
+					resolve();
+				});
 
-			this._socket.on("error", (error) => {
-				resolve(err(new Error(`Failed to connect to IPC socket: ${error.message}`)));
-			});
+				this._socket.on("error", (error) => {
+					reject(new Error(`Failed to connect to IPC socket: ${error.message}`));
+				});
 
-			this._socket.on("data", (data) => {
-				this._handleData(data);
-			});
+				this._socket.on("data", (data) => {
+					this._handleData(data);
+				});
 
-			this._socket.on("close", () => {
-				// Reject all pending requests
-				for (const request of this._pendingRequests.values()) {
-					request.reject(new Error("Socket closed"));
-				}
-				this._pendingRequests.clear();
-			});
-		});
+				this._socket.on("close", () => {
+					// Reject all pending requests
+					for (const request of this._pendingRequests.values()) {
+						request.reject(new Error("Socket closed"));
+					}
+					this._pendingRequests.clear();
+				});
+			}),
+			(e) => e as Error,
+		);
 	}
 
 	/**
@@ -59,62 +62,86 @@ export class IPCClient {
 	/**
 	 * Query the controller's current state
 	 */
-	async queryState(): Promise<Result<unknown, Error>> {
+	queryState(): ResultAsync<unknown, Error> {
 		const message: IPCMessage = {
 			type: "query-state",
 			id: this._generateId(),
 		};
 
-		return this._sendMessage(message).then((response) => {
+		return this._sendMessage(message).andThen((response) => {
 			if (response.type === "state") {
-				return ok(response.data);
+				return okAsync(response.data);
 			}
 			if (response.type === "error") {
-				return err(new Error(response.message));
+				return errAsync(new Error(response.message));
 			}
-			return err(new Error("Unexpected response type"));
+			return errAsync(new Error("Unexpected response type"));
+		});
+	}
+
+	/**
+	 * Execute a command on the controller
+	 */
+	executeCommand(command: unknown): ResultAsync<unknown, Error> {
+		const message: IPCMessage = {
+			type: "execute-command",
+			id: this._generateId(),
+			data: command,
+		};
+
+		return this._sendMessage(message).andThen((response) => {
+			if (response.type === "result") {
+				return okAsync(response.data);
+			}
+			if (response.type === "error") {
+				return errAsync(new Error(response.message));
+			}
+			return errAsync(new Error("Unexpected response type"));
 		});
 	}
 
 	/**
 	 * Send shutdown command to the controller
 	 */
-	async shutdown(): Promise<Result<void, Error>> {
+	shutdown(): ResultAsync<void, Error> {
 		const message: IPCMessage = {
 			type: "shutdown",
 			id: this._generateId(),
 		};
 
-		return this._sendMessage(message).then((response) => {
+		return this._sendMessage(message).andThen((response) => {
 			if (response.type === "ack") {
-				return ok(undefined);
+				return okAsync(undefined);
 			}
 			if (response.type === "error") {
-				return err(new Error(response.message));
+				return errAsync(new Error(response.message));
 			}
-			return err(new Error("Unexpected response type"));
+			return errAsync(new Error("Unexpected response type"));
 		});
 	}
 
 	/**
 	 * Send a message and wait for response
 	 */
-	private async _sendMessage(message: IPCMessage): Promise<IPCResponse> {
+	private _sendMessage(message: IPCMessage): ResultAsync<IPCResponse, Error> {
 		if (!this._socket) {
-			throw new Error("Not connected to IPC socket");
+			return errAsync(new Error("Not connected to IPC socket"));
 		}
 
-		return new Promise((resolve, reject) => {
-			this._pendingRequests.set(message.id, { resolve, reject });
+		return ResultAsync.fromPromise(
+			new Promise<IPCResponse>((resolve, reject) => {
+				this._pendingRequests.set(message.id, { resolve, reject });
 
-			const data = JSON.stringify(message) + "\n";
-			this._socket!.write(data, (error) => {
-				if (error) {
-					this._pendingRequests.delete(message.id);
-					reject(new Error(`Failed to send message: ${error.message}`));
-				}
-			});
-		});
+				const data = JSON.stringify(message) + "\n";
+				this._socket!.write(data, (error) => {
+					if (error) {
+						this._pendingRequests.delete(message.id);
+						reject(new Error(`Failed to send message: ${error.message}`));
+					}
+				});
+			}),
+			(e) => e as Error,
+		);
 	}
 
 	/**

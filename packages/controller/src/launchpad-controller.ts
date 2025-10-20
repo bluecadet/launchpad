@@ -63,10 +63,6 @@ export class LaunchpadController {
 	 * If the subsystem implements EventBusAware, the EventBus will be injected.
 	 */
 	registerSubsystem(name: string, instance: Subsystem): void {
-		if (this._isStarted) {
-			throw new Error(`Cannot register subsystem '${name}' after controller has started`);
-		}
-
 		this._subsystems.set(name, instance);
 
 		// Type-safe EventBus injection (optional interface)
@@ -131,11 +127,6 @@ export class LaunchpadController {
 				return errAsync(writePidResult.error);
 			}
 
-			// Register cleanup handlers to remove PID file on exit
-			onExit(() => {
-				deletePidFile(pidFile);
-			});
-
 			this._ipcTransport = createIPCTransport({
 				socketPath,
 			});
@@ -147,6 +138,12 @@ export class LaunchpadController {
 				commandDispatcher: this._commandDispatcher,
 				stateStore: this._stateStore,
 			};
+
+			// Register cleanup handlers to remove PID file on exit and close transports
+			onExit(() => {
+				deletePidFile(pidFile);
+				this._ipcTransport?.stop(transportContext);
+			});
 
 			return this._ipcTransport.start(transportContext).map(() => {
 				this._isStarted = true;

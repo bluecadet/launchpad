@@ -17,13 +17,16 @@ export type IPCTransportOptions = {
 	socketPath: string;
 };
 
-export type IPCMessage = { type: "query-state"; id: string } | { type: "shutdown"; id: string };
-// Future: | { type: 'command'; id: string; command: BaseCommand }
+export type IPCMessage =
+	| { type: "query-state"; id: string }
+	| { type: "shutdown"; id: string }
+	| { type: "execute-command"; id: string; data: unknown };
 // Future: | { type: 'subscribe'; id: string; patterns: string[] }
 
 export type IPCResponse =
 	| { id: string; type: "state"; data: unknown }
 	| { id: string; type: "ack" }
+	| { id: string; type: "result"; data: unknown }
 	| { id: string; type: "error"; message: string };
 // Future: | { id: string; type: 'event'; event: string; data: unknown }
 
@@ -190,7 +193,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
  * Handle an IPC message
  */
 function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportContext): void {
-	const { logger, stateStore } = ctx;
+	const { logger, stateStore, commandDispatcher } = ctx;
 
 	switch (message.type) {
 		case "query-state": {
@@ -205,6 +208,27 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 				logger.error(`Failed to get state: ${e}`);
 				sendError(socket, message.id, `Failed to get state: ${e}`);
 			}
+			break;
+		}
+
+		case "execute-command": {
+			logger.info("Received execute-command via IPC");
+			const resultAsync = commandDispatcher.dispatch(message.data as { type: string });
+
+			// Use neverthrow's match to handle Result
+			resultAsync.match(
+				(value) => {
+					sendResponse(socket, {
+						id: message.id,
+						type: "result",
+						data: value,
+					});
+				},
+				(error) => {
+					logger.error(`Command execution failed: ${error.message}`);
+					sendError(socket, message.id, error.message);
+				},
+			);
 			break;
 		}
 

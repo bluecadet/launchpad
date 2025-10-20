@@ -506,6 +506,15 @@ export class DataStore {
 	}
 
 	/**
+	 * Clear all namespaces and documents from the data store.
+	 * Does not delete any files on disk.
+	 * @internal
+	 */
+	_clear() {
+		this.#namespaces.clear();
+	}
+
+	/**
 	 * Get lists of documents matching the passed DataKeys grouped by namespace.
 	 * @param ids A list containing a combination of namespace ids, and namespace/document id tuples. If not provided, all documents will be matched.
 	 */

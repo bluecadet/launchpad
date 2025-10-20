@@ -146,6 +146,10 @@ class LaunchpadContent
 	}
 
 	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
+		// Clear data store before starting fetch
+		// Ensures no stale data remains from previous runs
+		this._dataStore._clear();
+
 		const inputSources = rawSources || this._rawSources;
 		if (!inputSources || inputSources.length <= 0) {
 			this._logger.warn(chalk.yellow("No sources found to download"));

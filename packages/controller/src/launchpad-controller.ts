@@ -5,6 +5,8 @@ import { CommandDispatcher } from "./core/command-dispatcher.js";
 import type { ControllerConfig, ControllerMode } from "./core/controller-config.js";
 import { EventBus } from "./core/event-bus.js";
 import { StateStore } from "./core/state-store.js";
+import type { Transport } from "./core/transport.js";
+import { createIPCTransport } from "./transports/ipc-transport.js";
 
 /**
  * LaunchpadController is the central orchestrator for Launchpad.
@@ -14,13 +16,15 @@ import { StateStore } from "./core/state-store.js";
  * - State management via event subscriptions
  * - Command dispatching to subsystems
  * - Subsystem lifecycle management
- * - Transport management (Phase 2)
+ * - IPC transport for daemon communication (persistent mode)
+ * - Optional transports (WebSocket, OSC, etc.) - Future
  *
  * Modes:
  * - Task mode: Ephemeral controller for single commands (no transports)
- * - Persistent mode: Long-running controller with transports (Phase 2)
+ * - Persistent mode: Long-running controller with IPC transport enabled
  */
 export class LaunchpadController {
+	private _config: ControllerConfig;
 	private _mode: ControllerMode;
 	private _logger: Logger;
 	private _eventBus: EventBus;
@@ -29,8 +33,11 @@ export class LaunchpadController {
 	private _subsystems = new Map<string, Subsystem>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
+	private _ipcTransport: Transport | null = null;
+	// Future: private _transports: Transport[] = [];
 
-	constructor(_config: ControllerConfig, logger: Logger, mode: ControllerMode = "task") {
+	constructor(config: ControllerConfig, logger: Logger, mode: ControllerMode = "task") {
+		this._config = config;
 		this._mode = mode;
 		this._logger = LogManager.getLogger("controller", logger);
 
@@ -38,11 +45,6 @@ export class LaunchpadController {
 		this._eventBus = new EventBus();
 		this._stateStore = new StateStore(this._subsystems);
 		this._stateStore.setSystemState("mode", mode);
-
-		// Phase 2: Instantiate transports in persistent mode
-		// if (mode === 'persistent') {
-		//   this._transports = config.transports.map(createTransport);
-		// }
 	}
 
 	/**
@@ -90,7 +92,7 @@ export class LaunchpadController {
 
 	/**
 	 * Start the controller.
-	 * Initializes the command dispatcher and starts transports (if persistent mode).
+	 * Initializes the command dispatcher and starts IPC transport (if persistent mode).
 	 */
 	start(): ResultAsync<void, Error> {
 		if (this._isStarted) {
@@ -102,8 +104,29 @@ export class LaunchpadController {
 		// Initialize command dispatcher with registered subsystems
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._subsystems);
 
-		// Phase 2: Start transports in persistent mode
-		// if (this._mode === 'persistent' && this._transports.length > 0) {
+		// Start IPC transport in persistent mode (built-in infrastructure)
+		if (this._mode === "persistent") {
+			this._ipcTransport = createIPCTransport({
+				socketPath: this._config.socketPath,
+			});
+
+			const transportContext = {
+				logger: this._logger,
+				abortSignal: this._abortController.signal,
+				eventBus: this._eventBus,
+				commandDispatcher: this._commandDispatcher,
+				stateStore: this._stateStore,
+			};
+
+			return this._ipcTransport.start(transportContext).map(() => {
+				this._isStarted = true;
+				this._logger.debug("Controller started with IPC transport");
+				return undefined;
+			});
+		}
+
+		// Future: Start optional transports
+		// if (this._transports.length > 0) {
 		//   return this._startTransports();
 		// }
 
@@ -115,7 +138,7 @@ export class LaunchpadController {
 
 	/**
 	 * Stop the controller.
-	 * Disconnects subsystems, stops transports, and aborts pending operations.
+	 * Stops IPC transport, disconnects subsystems, and aborts pending operations.
 	 */
 	stop(): ResultAsync<void, Error> {
 		if (!this._isStarted) {
@@ -124,13 +147,22 @@ export class LaunchpadController {
 
 		this._logger.debug("Stopping controller");
 
-		// Abort any pending operations
+		// Abort any pending operations (triggers transport cleanup via abortSignal)
 		this._abortController.abort();
 
-		// Phase 2: Stop transports
-		// if (this._transports.length > 0) {
-		//   return this._stopTransports().map(() => { ... });
-		// }
+		// Stop IPC transport if it was started
+		const transportStopPromise = this._ipcTransport
+			? this._ipcTransport.stop({
+					logger: this._logger,
+					abortSignal: this._abortController.signal,
+					eventBus: this._eventBus,
+					commandDispatcher: this._commandDispatcher,
+					stateStore: this._stateStore,
+				})
+			: okAsync(undefined);
+
+		// Future: Stop optional transports
+		// const transportsStopPromises = this._transports.map(t => t.stop(ctx));
 
 		// Disconnect subsystems (if they implement Disconnectable)
 		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
@@ -141,8 +173,9 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		});
 
-		return ResultAsync.combine(disconnectResults).map(() => {
+		return ResultAsync.combine([transportStopPromise, ...disconnectResults]).map(() => {
 			this._isStarted = false;
+			this._ipcTransport = null;
 			this._logger.debug("Controller stopped");
 			return undefined;
 		});

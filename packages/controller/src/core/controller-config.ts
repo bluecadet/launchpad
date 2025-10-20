@@ -7,11 +7,24 @@ export type ControllerMode = "task" | "persistent";
 
 /**
  * Controller configuration schema
- * In Phase 1, this is minimal. Phase 2 will add transport configuration.
  */
 export const controllerConfigSchema = z
 	.object({
-		// Future: transports array will go here in Phase 2
+		/**
+		 * Path to store the daemon PID file (for persistent mode)
+		 * Relative paths are resolved relative to the config file directory
+		 * @default ".launchpad/launchpad.pid"
+		 */
+		pidFile: z.string().default(".launchpad/launchpad.pid"),
+
+		/**
+		 * Path for the IPC socket (for persistent mode communication)
+		 * Relative paths are resolved relative to the config file directory
+		 * @default ".launchpad/launchpad.sock"
+		 */
+		socketPath: z.string().default(".launchpad/launchpad.sock"),
+
+		// Future: transports array will go here in Phase 2+
 	})
 	.optional()
 	.default({});

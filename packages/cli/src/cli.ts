@@ -25,7 +25,7 @@ yargs(hideBin(process.argv))
 		type: "string",
 	})
 	.command("start", "Starts launchpad controller.", async ({ argv }) => {
-		const resolvedArgv = (await argv) as LaunchpadArgv & { daemon?: boolean; d?: boolean };
+		const resolvedArgv = await argv;
 		const { start } = await import("./commands/start.js");
 		await start(resolvedArgv);
 	})

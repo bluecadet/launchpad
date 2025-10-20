@@ -24,26 +24,27 @@ yargs(hideBin(process.argv))
 			"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 		type: "string",
 	})
-	.command("start", "Starts launchpad by updating content and starting apps.", async ({ argv }) => {
-		const resolvedArgv = await argv;
+	.command("start", "Starts launchpad controller.", async ({ argv }) => {
+		const resolvedArgv = (await argv) as LaunchpadArgv & { daemon?: boolean; d?: boolean };
 		const { start } = await import("./commands/start.js");
 		await start(resolvedArgv);
 	})
-	.command(
-		"stop",
-		"Stops launchpad by stopping apps and killing any existing PM2 instance.",
-		async ({ argv }) => {
-			const resolvedArgv = await argv;
-			const { stop } = await import("./commands/stop.js");
-			await stop(resolvedArgv);
-		},
-	)
-	.command("content", "Only download content.", async ({ argv }) => {
+	.command("stop", "Stops launchpad controller gracefully.", async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { stop } = await import("./commands/stop.js");
+		await stop(resolvedArgv);
+	})
+	.command("status", "Show the status of the launchpad controller.", async ({ argv }) => {
+		const resolvedArgv = await argv;
+		const { status } = await import("./commands/status.js");
+		await status(resolvedArgv);
+	})
+	.command("content", "Run content fetch process.", async ({ argv }) => {
 		const resolvedArgv = await argv;
 		const { content } = await import("./commands/content.js");
 		await content(resolvedArgv);
 	})
-	.command("monitor", "Only start apps.", async ({ argv }) => {
+	.command("monitor", "Run monitor process.", async ({ argv }) => {
 		const resolvedArgv = await argv;
 		const { monitor } = await import("./commands/monitor.js");
 		await monitor(resolvedArgv);

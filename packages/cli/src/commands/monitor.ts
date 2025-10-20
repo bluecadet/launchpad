@@ -1,43 +1,42 @@
-import { LaunchpadController } from "@bluecadet/launchpad-controller";
-import { err, ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
+import { withDaemonOrController } from "../utils/controller-execution.js";
 
 export function monitor(argv: LaunchpadArgv) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error, console))
 		.andThen(({ dir, config }) => {
 			return initializeLogger(config, dir).asyncAndThen((rootLogger) => {
-				return importLaunchpadMonitor()
-					.andThen(({ default: LaunchpadMonitor }) => {
-						if (!config.monitor) {
-							return err(new ConfigError("No monitor config found in your config file."));
-						}
+				if (!config.monitor) {
+					return errAsync(new ConfigError("No monitor config found in your config file."));
+				}
 
-						const monitorInstance = new LaunchpadMonitor(config.monitor, rootLogger, dir);
+				// saving a reference here for type safety
+				// as config.monitor is possibly undefined later in the callbacks
+				const configMonitor = config.monitor;
 
-						// Create controller in task mode
-						const controller = new LaunchpadController({}, rootLogger, "task");
-						controller.registerSubsystem("monitor", monitorInstance);
+				return withDaemonOrController(dir, config.controller, rootLogger, {
+					mode: "persistent",
+					ifDaemon: (client) => {
+						// Daemon is running - just send commands via IPC
+						return client
+							.executeCommand({ type: "monitor.connect" })
+							.andThen(() => client.executeCommand({ type: "monitor.start" }));
+					},
+					otherwise: (controller) => {
+						// No daemon - need to instantiate subsystem and register it
+						return importLaunchpadMonitor().andThen(({ default: LaunchpadMonitor }) => {
+							const monitorInstance = new LaunchpadMonitor(configMonitor, rootLogger, dir);
+							controller.registerSubsystem("monitor", monitorInstance);
 
-						// Start controller and execute commands
-						return ResultAsync.fromPromise(controller.start(), (e) => e as Error)
-							.andThen(() =>
-								ResultAsync.fromPromise(
-									controller.executeCommand({ type: "monitor.connect" }),
-									(e) => e as Error,
-								),
-							)
-							.andThen(() =>
-								ResultAsync.fromPromise(
-									controller.executeCommand({ type: "monitor.start" }),
-									(e) => e as Error,
-								),
-							);
-						// Note: Controller is not stopped for monitor since apps need to keep running
-					})
-					.orElse((error) => handleFatalError(error, rootLogger));
+							return controller
+								.executeCommand({ type: "monitor.connect" })
+								.andThen(() => controller.executeCommand({ type: "monitor.start" }));
+						});
+					},
+				}).orElse((error) => handleFatalError(error, rootLogger));
 			});
 		});
 }

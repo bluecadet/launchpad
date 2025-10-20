@@ -4,6 +4,7 @@
  */
 
 import net from "node:net";
+import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 
@@ -82,7 +83,7 @@ export class IPCClient {
 	/**
 	 * Execute a command on the controller
 	 */
-	executeCommand(command: unknown): ResultAsync<unknown, Error> {
+	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
 		const message: IPCMessage = {
 			type: "execute-command",
 			id: this._generateId(),

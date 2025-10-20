@@ -1,5 +1,3 @@
-// Main controller class
-
 // Command dispatcher
 export { CommandDispatcher } from "./core/command-dispatcher.js";
 

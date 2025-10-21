@@ -1,6 +1,5 @@
 import { fork } from "node:child_process";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -8,9 +7,6 @@ import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/c
 import { withDaemonOrController } from "../utils/controller-execution.js";
 import { importLaunchpadContent } from "./content.js";
 import { importLaunchpadMonitor } from "./monitor.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export function start(argv: GlobalLaunchpadArgs & { detach?: boolean }): ResultAsync<void, Error> {
 	// If detach mode is requested, fork the process
@@ -34,41 +30,41 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 			// Fork the CLI process to run the same command without --detach / -d flags
 			const child = fork(mod as string, args, {
 				detached: true,
-				stdio: "ignore",
+				stdio: ["ignore", "pipe", "pipe", "ipc"], // Ignore stdin, pipe stdout/stderr, keep IPC channel
 				env: {
 					...process.env,
 					LAUNCHPAD_IS_DETACHED: "1", // Indicate to the child process that it's detached
 				},
 			});
 
+			// Pipe child's stdout and stderr to the parent process for logging.
+			// This will be closed once the child signals it's ready.
+			child.stdout?.pipe(process.stdout);
+			child.stderr?.pipe(process.stderr);
+
 			child.on("error", (error) => {
 				reject(error);
-			});
-
-			child.on("exit", (code) => {
-				reject(new Error(`Detached process exited with code ${code}`));
 			});
 
 			child.on("message", (message) => {
 				if (message === "ready") {
 					// Child process is ready
 					child.unref(); // Allow the parent to exit independently
-					child.disconnect();
-
+					child.disconnect(); // Close IPC channel
 					resolve();
 				} else {
 					console.log("Unknown message from detached process:", message);
 				}
 			});
+
+			child.on("exit", (code) => {
+				reject(new Error(`Detached process exited with code ${code}`));
+			});
 		}),
 		(error) => error as Error,
-	)
-		.andTee(() => {
-			console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
-		})
-		.orElse((error) => {
-			handleFatalError(error, console);
-		});
+	).andTee(() => {
+		console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
+	});
 }
 
 function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
@@ -93,6 +89,18 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 							process.title = "launchpad";
 							// disconnect from parent process to fully detach
 							process.send?.("ready");
+							process.stdout.end();
+							process.stderr.end();
+
+							// TODO: figure out a less hacky way to do this
+
+							// Redirect stdout and stderr to /dev/null to prevent any output
+							// from causing errors due to closed streams
+							const devNullStream = fs.createWriteStream("/dev/null");
+							// @ts-ignore
+							process.stdout.write = devNullStream.write.bind(devNullStream);
+							// @ts-ignore
+							process.stderr.write = devNullStream.write.bind(devNullStream);
 						}
 
 						return okAsync<void, Error>(undefined)

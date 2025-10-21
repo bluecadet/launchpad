@@ -7,6 +7,7 @@ export type SystemState = {
 	startTime: Date;
 	version: string;
 	mode: "task" | "persistent";
+	[key: string]: unknown;
 };
 
 /**
@@ -88,6 +89,6 @@ export class StateStore {
 	 * @internal
 	 */
 	setSystemState(key: keyof SystemState, value: unknown): void {
-		(this._systemState as any)[key] = value;
+		this._systemState[key] = value;
 	}
 }

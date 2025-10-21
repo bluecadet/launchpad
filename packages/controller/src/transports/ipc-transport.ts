@@ -41,7 +41,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 		id: "ipc",
 
 		start(ctx: TransportContext): ResultAsync<void, Error> {
-			const { logger, stateStore, abortSignal } = ctx;
+			const { logger, abortSignal } = ctx;
 			const { socketPath } = options;
 
 			const promise = new Promise<void>((resolve, reject) => {
@@ -258,8 +258,8 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
  */
 function sendResponse(socket: net.Socket, response: IPCResponse): void {
 	try {
-		socket.write(JSON.stringify(response) + "\n");
-	} catch (e) {
+		socket.write(`${JSON.stringify(response)}\n`);
+	} catch (_e) {
 		// Socket may be closed, ignore
 	}
 }

@@ -69,6 +69,19 @@ describe("LaunchpadContent", () => {
 			// old.json should be removed
 			expect(vol.existsSync("/downloads/test/old.json")).toBe(false);
 		});
+
+		it("should clear data store between runs", async () => {
+			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
+			const result = await content.download();
+			expect(result).toBeOk();
+
+			expect(content._dataStore.allDocuments()).toHaveLength(0);
+
+			// Run download again to ensure no residual data
+			const result2 = await content.download();
+			expect(result2).toBeOk();
+			expect(content._dataStore.allDocuments()).toHaveLength(0);
+		});
 	});
 
 	describe("plugin system", () => {
@@ -208,6 +221,122 @@ describe("LaunchpadContent", () => {
 			);
 			expect(content.getBackupPath("source-id")).toMatchPath("/absolute/backups/source-id");
 			expect(content.getBackupPath()).toMatchPath("/absolute/backups");
+		});
+	});
+
+	describe("executeCommand", () => {
+		it("should allow a single command to execute", async () => {
+			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result).toBeOk();
+		});
+
+		it("should reject concurrent fetch commands with ContentError", async () => {
+			const slowSource = defineSource({
+				id: "slow-source",
+				fetch: () => {
+					return [
+						{
+							id: "slow-doc",
+							data: new Promise((resolve) => {
+								setTimeout(() => {
+									resolve({ data: "slow" });
+								}, 100);
+							}),
+						},
+					];
+				},
+			});
+
+			const content = new LaunchpadContent(
+				{
+					...createBasicConfig(),
+					sources: [slowSource],
+				},
+				createMockLogger(),
+			);
+
+			// First command takes time
+			const firstCommand = content.executeCommand({
+				type: "content.fetch",
+			});
+
+			// Try second command immediately (will be rejected because first is in progress)
+			const secondCommand = content.executeCommand({
+				type: "content.fetch",
+			});
+
+			const [firstResult, secondResult] = await Promise.all([firstCommand, secondCommand]);
+
+			expect(firstResult).toBeOk();
+			expect(secondResult).toBeErr();
+			expect(secondResult._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
+			expect(secondResult._unsafeUnwrapErr().message).toContain(
+				"A content command is already in progress",
+			);
+		});
+
+		it("should reject concurrent clear commands with ContentError", async () => {
+			const slowSource = defineSource({
+				id: "slow-source",
+				fetch: () => {
+					return [
+						{
+							id: "slow-doc",
+							data: new Promise((resolve) => {
+								setTimeout(() => {
+									resolve({ data: "slow" });
+								}, 100);
+							}),
+						},
+					];
+				},
+			});
+
+			const content = new LaunchpadContent(
+				{
+					...createBasicConfig(),
+					sources: [slowSource],
+				},
+				createMockLogger(),
+			);
+
+			// Start a fetch
+			const fetchCommand = content.executeCommand({
+				type: "content.fetch",
+			});
+
+			// Try to execute clear while fetch is in progress
+			const clearCommand = content.executeCommand({
+				type: "content.clear",
+			});
+
+			const [fetchResult, clearResult] = await Promise.all([fetchCommand, clearCommand]);
+
+			expect(fetchResult).toBeOk();
+			expect(clearResult).toBeErr();
+			expect(clearResult._unsafeUnwrapErr().message).toContain(
+				"A content command is already in progress",
+			);
+		});
+
+		it("should allow sequential commands to execute after first completes", async () => {
+			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
+
+			const result1 = await content.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result1).toBeOk();
+
+			const result2 = await content.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result2).toBeOk();
 		});
 	});
 });

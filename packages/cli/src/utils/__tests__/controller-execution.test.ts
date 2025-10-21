@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { ControllerConfig } from "@bluecadet/launchpad-controller";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { fs } from "memfs";
@@ -56,7 +57,7 @@ describe("controller-execution", () => {
 
 			expect(result.isOk()).toBe(true);
 			expect(result._unsafeUnwrap()).toBe("result");
-			expect(mockClient.connect).toHaveBeenCalledWith(`${baseDir}/socket`);
+			expect(mockClient.connect).toHaveBeenCalledWith(path.resolve(baseDir, "socket"));
 			expect(operation).toHaveBeenCalledWith(mockClient, 12345);
 			expect(mockClient.disconnect).toHaveBeenCalled();
 		});

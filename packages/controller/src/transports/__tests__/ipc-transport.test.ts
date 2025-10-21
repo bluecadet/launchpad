@@ -434,7 +434,7 @@ describe("ipc-transport", () => {
 			const response = JSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("error");
-			expect((response as any).message).toContain("Failed to get state");
+			expect((response as any).message).toContain("Failed to get controller state");
 		});
 	});
 

@@ -1,5 +1,6 @@
 import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils";
 import { errAsync, type ResultAsync } from "neverthrow";
+import { CommandExecutionError } from "../errors.js";
 import type { EventBus } from "./event-bus.js";
 
 /**
@@ -28,11 +29,13 @@ export class CommandDispatcher {
 	 * Dispatch a command to the appropriate subsystem.
 	 * The command is treated generically here - type safety is enforced at the subsystem level.
 	 */
-	dispatch(command: BaseCommand): ResultAsync<unknown, Error> {
+	dispatch(command: BaseCommand): ResultAsync<unknown, CommandExecutionError> {
 		// 1. Extract subsystem name from command type (e.g., "content.fetch" -> "content")
 		const subsystemName = command.type.split(".")[0];
 		if (!subsystemName) {
-			const error = new Error(`Invalid command type: ${command.type}`);
+			const error = new CommandExecutionError(`Invalid command type: ${command.type}`, {
+				commandType: command.type,
+			});
 			this._eventBus.emit("command:error", { commandType: command.type, error });
 			return errAsync(error);
 		}
@@ -41,9 +44,9 @@ export class CommandDispatcher {
 
 		// 2. Check if subsystem is registered
 		if (!subsystem) {
-			const error = new Error(
-				`Subsystem '${subsystemName}' not available. ` +
-					`Install @bluecadet/launchpad-${subsystemName} to use this command.`,
+			const error = new CommandExecutionError(
+				`Subsystem '${subsystemName}' not available. Install @bluecadet/launchpad-${subsystemName} to use this command.`,
+				{ commandType: command.type },
 			);
 			this._eventBus.emit("command:error", { commandType: command.type, error });
 			return errAsync(error);
@@ -51,9 +54,9 @@ export class CommandDispatcher {
 
 		// 3. Check if subsystem implements CommandExecutor
 		if (!subsystem.executeCommand) {
-			const error = new Error(
-				`Subsystem '${subsystemName}' does not support command execution. ` +
-					"The subsystem must implement the CommandExecutor interface.",
+			const error = new CommandExecutionError(
+				`Subsystem '${subsystemName}' does not support command execution. The subsystem must implement the CommandExecutor interface.`,
+				{ commandType: command.type },
 			);
 			this._eventBus.emit("command:error", { commandType: command.type, error });
 			return errAsync(error);
@@ -66,7 +69,7 @@ export class CommandDispatcher {
 		// The subsystem receives the command with its specific type and enforces type safety
 		const result = subsystem.executeCommand(command);
 
-		// 6. Emit "after" event based on result
+		// 6. Emit "after" event based on result and wrap any subsystem errors
 		result.match(
 			(value) => {
 				this._eventBus.emit("command:success", {
@@ -75,13 +78,28 @@ export class CommandDispatcher {
 				});
 			},
 			(error) => {
+				const wrappedError =
+					error instanceof CommandExecutionError
+						? error
+						: new CommandExecutionError("Subsystem command execution failed", {
+								cause: error instanceof Error ? error : new Error(String(error)),
+								commandType: command.type,
+							});
 				this._eventBus.emit("command:error", {
 					commandType: command.type,
-					error,
+					error: wrappedError,
 				});
 			},
 		);
 
-		return result;
+		// Return result with type-safe error (subsystem may return generic Error, we map it)
+		return result.mapErr((error) =>
+			error instanceof CommandExecutionError
+				? error
+				: new CommandExecutionError("Subsystem command execution failed", {
+						cause: error instanceof Error ? error : new Error(String(error)),
+						commandType: command.type,
+					}),
+		);
 	}
 }

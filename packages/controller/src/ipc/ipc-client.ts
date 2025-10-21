@@ -6,6 +6,7 @@
 import net from "node:net";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
 import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 
 export class IPCClient {
@@ -15,15 +16,16 @@ export class IPCClient {
 		string,
 		{
 			resolve: (response: IPCResponse) => void;
-			reject: (error: Error) => void;
+			reject: (error: IPCConnectionError | IPCMessageError | IPCTimeoutError) => void;
 		}
 	>();
 	private _nextId = 0;
+	private static readonly DEFAULT_TIMEOUT_MS = 5000;
 
 	/**
 	 * Connect to the IPC socket
 	 */
-	connect(socketPath: string): ResultAsync<void, Error> {
+	connect(socketPath: string): ResultAsync<void, IPCConnectionError> {
 		return ResultAsync.fromPromise(
 			new Promise<void>((resolve, reject) => {
 				this._socket = net.createConnection(socketPath, () => {
@@ -31,7 +33,11 @@ export class IPCClient {
 				});
 
 				this._socket.on("error", (error) => {
-					reject(new Error(`Failed to connect to IPC socket: ${error.message}`));
+					reject(
+						new IPCConnectionError(`Failed to connect to IPC socket at "${socketPath}"`, {
+							cause: error instanceof Error ? error : new Error(String(error)),
+						}),
+					);
 				});
 
 				this._socket.on("data", (data) => {
@@ -41,12 +47,15 @@ export class IPCClient {
 				this._socket.on("close", () => {
 					// Reject all pending requests
 					for (const request of this._pendingRequests.values()) {
-						request.reject(new Error("Socket closed"));
+						request.reject(new IPCConnectionError("Socket closed unexpectedly"));
 					}
 					this._pendingRequests.clear();
 				});
 			}),
-			(e) => e as Error,
+			(e) =>
+				new IPCConnectionError("IPC connection failed", {
+					cause: e instanceof Error ? e : new Error(String(e)),
+				}),
 		);
 	}
 
@@ -63,7 +72,7 @@ export class IPCClient {
 	/**
 	 * Query the controller's current state
 	 */
-	queryState(): ResultAsync<unknown, Error> {
+	queryState(): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
 		const message: IPCMessage = {
 			type: "query-state",
 			id: this._generateId(),
@@ -74,16 +83,16 @@ export class IPCClient {
 				return okAsync(response.data);
 			}
 			if (response.type === "error") {
-				return errAsync(new Error(response.message));
+				return errAsync(new IPCMessageError(`Controller error: ${response.message}`));
 			}
-			return errAsync(new Error("Unexpected response type"));
+			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
 	}
 
 	/**
 	 * Execute a command on the controller
 	 */
-	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
+	executeCommand(command: BaseCommand): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
 		const message: IPCMessage = {
 			type: "execute-command",
 			id: this._generateId(),
@@ -95,16 +104,16 @@ export class IPCClient {
 				return okAsync(response.data);
 			}
 			if (response.type === "error") {
-				return errAsync(new Error(response.message));
+				return errAsync(new IPCMessageError(`Command error: ${response.message}`));
 			}
-			return errAsync(new Error("Unexpected response type"));
+			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
 	}
 
 	/**
 	 * Send shutdown command to the controller
 	 */
-	shutdown(): ResultAsync<void, Error> {
+	shutdown(): ResultAsync<void, IPCConnectionError | IPCMessageError> {
 		const message: IPCMessage = {
 			type: "shutdown",
 			id: this._generateId(),
@@ -115,33 +124,61 @@ export class IPCClient {
 				return okAsync(undefined);
 			}
 			if (response.type === "error") {
-				return errAsync(new Error(response.message));
+				return errAsync(new IPCMessageError(`Shutdown error: ${response.message}`));
 			}
-			return errAsync(new Error("Unexpected response type"));
+			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
 	}
 
 	/**
 	 * Send a message and wait for response
 	 */
-	private _sendMessage(message: IPCMessage): ResultAsync<IPCResponse, Error> {
+	private _sendMessage(
+		message: IPCMessage,
+	): ResultAsync<IPCResponse, IPCConnectionError | IPCMessageError> {
 		if (!this._socket) {
-			return errAsync(new Error("Not connected to IPC socket"));
+			return errAsync(new IPCConnectionError("Not connected to IPC socket"));
 		}
 
 		return ResultAsync.fromPromise(
 			new Promise<IPCResponse>((resolve, reject) => {
-				this._pendingRequests.set(message.id, { resolve, reject });
+				const timeoutHandle = setTimeout(() => {
+					this._pendingRequests.delete(message.id);
+					reject(
+						new IPCTimeoutError(
+							`IPC request timed out after ${IPCClient.DEFAULT_TIMEOUT_MS}ms`,
+							IPCClient.DEFAULT_TIMEOUT_MS,
+						),
+					);
+				}, IPCClient.DEFAULT_TIMEOUT_MS);
+
+				this._pendingRequests.set(message.id, {
+					resolve: (response) => {
+						clearTimeout(timeoutHandle);
+						resolve(response);
+					},
+					reject,
+				});
 
 				const data = `${JSON.stringify(message)}\n`;
 				this._socket?.write(data, (error) => {
 					if (error) {
+						clearTimeout(timeoutHandle);
 						this._pendingRequests.delete(message.id);
-						reject(new Error(`Failed to send message: ${error.message}`));
+						reject(
+							new IPCConnectionError("Failed to send IPC message", {
+								cause: error instanceof Error ? error : new Error(String(error)),
+							}),
+						);
 					}
 				});
 			}),
-			(e) => e as Error,
+			(e) =>
+				e instanceof IPCConnectionError || e instanceof IPCTimeoutError
+					? e
+					: new IPCMessageError("Failed to process IPC response", {
+							cause: e instanceof Error ? e : new Error(String(e)),
+						}),
 		);
 	}
 
@@ -166,8 +203,18 @@ export class IPCClient {
 					this._pendingRequests.delete(response.id);
 					request.resolve(response);
 				}
-			} catch (_e) {
-				// Ignore malformed messages
+			} catch (e) {
+				// Reject all pending requests with parse error
+				// This shouldn't happen with well-formed messages, but we need to handle it
+				const error = e instanceof Error ? e : new Error(String(e));
+				for (const request of this._pendingRequests.values()) {
+					request.reject(
+						new IPCMessageError("Failed to parse IPC response", {
+							cause: error,
+						}),
+					);
+				}
+				this._pendingRequests.clear();
 			}
 		}
 	}

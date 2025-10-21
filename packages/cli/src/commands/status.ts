@@ -2,6 +2,7 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
+import chalk from "chalk";
 import { okAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
@@ -19,7 +20,7 @@ export function status(argv: LaunchpadArgv) {
 						const state = stateValue as any;
 
 						// Pretty print the state
-						console.log("Launchpad Status:");
+						console.log(chalk.bold("Launchpad Status:"));
 
 						if (state.system?.startTime) {
 							const uptime = Date.now() - new Date(state.system.startTime).getTime();
@@ -28,23 +29,24 @@ export function status(argv: LaunchpadArgv) {
 
 						// Monitor status
 						if (state.monitor) {
-							console.log("\nMonitor:");
-							console.log(`  Connected: ${state.monitor.connected ? "Yes" : "No"}`);
+							console.log(`\n${chalk.bold("Monitor:")}`);
+							console.log(
+								`  Connected: ${state.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
+							);
 							if (state.monitor.pm2Version) {
 								console.log(`  PM2 Version: ${state.monitor.pm2Version}`);
 							}
 
 							// Apps
 							if (state.monitor.apps && Object.keys(state.monitor.apps).length > 0) {
-								console.log("\nApps:");
+								console.log(`\n${chalk.bold("Apps:")}`);
 								for (const [appName, appStatus] of Object.entries(state.monitor.apps)) {
 									// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
 									const app = appStatus as any;
 									const icon = app.status === "online" ? "●" : "○";
-									const statusColor = app.status === "online" ? "\x1b[32m" : "\x1b[31m";
-									const reset = "\x1b[0m";
+									const statusColor = app.status === "online" ? chalk.green : chalk.red;
 									console.log(
-										`  ${statusColor}${icon}${reset} ${appName}: ${app.status}${app.pid ? ` (PID: ${app.pid})` : ""}`,
+										`  ${statusColor(icon)} ${appName}: ${statusColor(app.status)}${app.pid ? ` (PID: ${app.pid})` : ""}`,
 									);
 								}
 							}
@@ -52,9 +54,11 @@ export function status(argv: LaunchpadArgv) {
 
 						// Content status
 						if (state.content) {
-							console.log("\nContent:");
+							console.log(`\n${chalk.bold("Content:")}`);
 							console.log(`  Last Fetch: ${state.content.lastFetch || "Never"}`);
-							console.log(`  In Progress: ${state.content.inProgress ? "Yes" : "No"}`);
+							console.log(
+								`  In Progress: ${state.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
+							);
 						}
 
 						return okAsync(state);
@@ -62,8 +66,8 @@ export function status(argv: LaunchpadArgv) {
 			});
 		})
 		.mapErr(() => {
-			console.error("Launchpad is not running");
-			console.error("Start it with: launchpad start");
+			console.error(chalk.red("Launchpad is not running"));
+			console.error(`Start it with: ${chalk.cyan("launchpad start")}`);
 			process.exit(1);
 		});
 }

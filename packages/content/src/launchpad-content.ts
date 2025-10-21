@@ -10,7 +10,7 @@ import {
 	type StateProvider,
 } from "@bluecadet/launchpad-utils";
 import chalk from "chalk";
-import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
 	type ConfigContentSource,
@@ -40,6 +40,7 @@ class LaunchpadContent
 	_cwd: string;
 	_eventBus?: EventBus;
 	_state: ContentState;
+	_commandInProgress = false;
 
 	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
 		this._config = contentConfigSchema.parse(config);
@@ -105,51 +106,74 @@ class LaunchpadContent
 			case "content.fetch": {
 				// TODO: Filter sources if specified in command.sources
 				// For now, fetch all sources (filtering requires awaiting promises)
-				return this.start(null).mapErr((e) => e as Error);
+				return this._singleCommandGuard(() => this.start(null).mapErr((e) => e as Error));
 			}
 
 			case "content.clear": {
 				// Convert source IDs to ContentSource objects
-				return this._createSourcesFromConfig(this._rawSources)
-					.andThen((sources) =>
-						this.clear(sources, {
-							temp: command.temp ?? true,
-							backups: command.backups ?? true,
-							downloads: command.downloads ?? true,
-						}),
-					)
-					.mapErr((e) => e as Error);
+				return this._singleCommandGuard(() =>
+					this._createSourcesFromConfig(this._rawSources)
+						.andThen((sources) =>
+							this.clear(sources, {
+								temp: command.temp ?? true,
+								backups: command.backups ?? true,
+								downloads: command.downloads ?? true,
+							}),
+						)
+						.mapErr((e) => e as Error),
+				);
 			}
 
 			case "content.backup": {
-				return this._createSourcesFromConfig(this._rawSources)
-					.andThen((sources) => this.backup(sources))
-					.mapErr((e) => e as Error);
+				return this._singleCommandGuard(() =>
+					this._createSourcesFromConfig(this._rawSources)
+						.andThen((sources) => this.backup(sources))
+						.mapErr((e) => e as Error),
+				);
 			}
 
 			case "content.restore": {
-				return this._createSourcesFromConfig(this._rawSources)
-					.andThen((sources) => this.restore(sources, command.removeBackups ?? true))
-					.mapErr((e) => e as Error);
+				return this._singleCommandGuard(() =>
+					this._createSourcesFromConfig(this._rawSources)
+						.andThen((sources) => this.restore(sources, command.removeBackups ?? true))
+						.mapErr((e) => e as Error),
+				);
 			}
 
 			default: {
-				// TypeScript exhaustiveness check
-				const exhaustiveCheck: never = command;
 				return ResultAsync.fromSafePromise(
 					Promise.reject(
-						new Error(`Unknown content command type: ${(exhaustiveCheck as ContentCommand).type}`),
+						new Error(`Unknown content command type: ${(command as ContentCommand).type}`),
 					),
 				);
 			}
 		}
 	}
 
-	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
-		// Clear data store before starting fetch
-		// Ensures no stale data remains from previous runs
-		this._dataStore._clear();
+	private _singleCommandGuard<T, E>(
+		action: () => ResultAsync<T, E>,
+	): ResultAsync<T, E | ContentError> {
+		if (this._commandInProgress) {
+			return errAsync(
+				new ContentError(
+					"A content command is already in progress. Please wait for it to complete.",
+				),
+			);
+		}
 
+		this._commandInProgress = true;
+
+		// regardless of success or failure, clear the in-progress flag
+		return action()
+			.andTee(() => {
+				this._commandInProgress = false;
+			})
+			.orTee(() => {
+				this._commandInProgress = false;
+			});
+	}
+
+	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
 		const inputSources = rawSources || this._rawSources;
 		if (!inputSources || inputSources.length <= 0) {
 			this._logger.warn(chalk.yellow("No sources found to download"));
@@ -197,6 +221,10 @@ class LaunchpadContent
 							totalFiles: 0, // TODO: Track file count
 							duration: Date.now() - this._startDatetime.getTime(),
 						});
+
+						// Clear data store before subsequent runs
+						// Ensures no stale data remains
+						this._dataStore._clear();
 					})
 					.orElse((e) => {
 						this._pluginDriver.runHookSequential("onContentFetchError", e);

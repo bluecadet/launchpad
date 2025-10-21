@@ -1,12 +1,65 @@
+import { type ChildProcess, fork } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
-import { okAsync, type ResultAsync } from "neverthrow";
+import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 import { importLaunchpadContent } from "./content.js";
 import { importLaunchpadMonitor } from "./monitor.js";
 
-export function start(argv: LaunchpadArgv) {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export function start(argv: LaunchpadArgv): ResultAsync<void, Error> {
+	// If detach mode is requested, fork the process
+	if (argv.detach) {
+		return startDetached(argv);
+	}
+
+	// Otherwise, run in foreground
+	return startForeground(argv);
+}
+
+function startDetached(_argv: LaunchpadArgv): ResultAsync<void, Error> {
+	return fromPromise(
+		new Promise<ChildProcess>((resolve, reject) => {
+			// Fork the CLI process to run the start command without --detach
+			const child = fork(join(__dirname, "../../dist/cli.js"), ["start"], {
+				detached: true,
+				stdio: "ignore",
+			});
+
+			let resolved = false;
+
+			child.on("error", (error) => {
+				if (!resolved) {
+					resolved = true;
+					reject(new Error(`Failed to start launchpad in background: ${error.message}`));
+				}
+			});
+
+			child.on("exit", (code) => {
+				if (!resolved) {
+					resolved = true;
+					if (code === 0) {
+						console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
+						resolve(child);
+					} else {
+						reject(new Error(`Failed to start launchpad in background (exit code: ${code})`));
+					}
+				}
+			});
+		}),
+		(error) => error as Error,
+	).andThen((childProcess) => {
+		childProcess.unref(); // Allow the parent to exit independently
+		return ok();
+	});
+}
+
+function startForeground(argv: LaunchpadArgv): ResultAsync<void, Error> {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error, console))
 		.andThen(({ dir, config }) => {
@@ -23,7 +76,7 @@ export function start(argv: LaunchpadArgv) {
 						process.exit(1);
 					},
 					otherwise: (controller) => {
-						return okAsync()
+						return okAsync<void, Error>(undefined)
 							.andTee(() => {
 								// Dynamically import and register content if configured
 								if (config.content) {
@@ -58,7 +111,7 @@ export function start(argv: LaunchpadArgv) {
 									}
 								}
 
-								return resultChain;
+								return resultChain.map(() => undefined);
 							})
 							.andTee(() => {
 								rootLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");

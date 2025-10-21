@@ -1,4 +1,4 @@
-import { err, errAsync, ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";

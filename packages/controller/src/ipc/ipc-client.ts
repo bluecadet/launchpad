@@ -133,8 +133,8 @@ export class IPCClient {
 			new Promise<IPCResponse>((resolve, reject) => {
 				this._pendingRequests.set(message.id, { resolve, reject });
 
-				const data = JSON.stringify(message) + "\n";
-				this._socket!.write(data, (error) => {
+				const data = `${JSON.stringify(message)}\n`;
+				this._socket?.write(data, (error) => {
 					if (error) {
 						this._pendingRequests.delete(message.id);
 						reject(new Error(`Failed to send message: ${error.message}`));
@@ -166,7 +166,7 @@ export class IPCClient {
 					this._pendingRequests.delete(response.id);
 					request.resolve(response);
 				}
-			} catch (e) {
+			} catch (_e) {
 				// Ignore malformed messages
 			}
 		}

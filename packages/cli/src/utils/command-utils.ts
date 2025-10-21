@@ -43,7 +43,7 @@ export function loadConfigAndEnv(
 		loadConfigFromFile(configPath),
 		(e) =>
 			new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`, {
-				cause: e,
+				cause: e instanceof Error ? e : new Error(String(e)),
 			}),
 	).map((config) => ({ dir: configDir, config: resolveLaunchpadConfig(config) }));
 }

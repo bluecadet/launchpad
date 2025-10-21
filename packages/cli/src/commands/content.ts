@@ -45,7 +45,7 @@ export function importLaunchpadContent(): ResultAsync<
 		(e: unknown) =>
 			new ImportError(
 				'Could not find module "@bluecadet/launchpad-content". Make sure you have installed it.',
-				{ cause: e },
+				{ cause: e instanceof Error ? e : new Error(String(e)) },
 			),
 	);
 }

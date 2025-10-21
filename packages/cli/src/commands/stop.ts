@@ -4,7 +4,11 @@ import { LogManager } from "@bluecadet/launchpad-utils";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { LaunchpadArgv } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
-import { DaemonNotRunningError, withDaemon } from "../utils/controller-execution.js";
+import {
+	DaemonNotRunningError,
+	IPCConnectionError,
+	withDaemon,
+} from "../utils/controller-execution.js";
 import { importLaunchpadMonitor } from "./monitor.js";
 
 /**
@@ -32,6 +36,9 @@ export function stop(argv: LaunchpadArgv) {
 						// IPC shutdown didn't work - fall back to SIGTERM
 						console.log("Process still running, sending SIGTERM...");
 						return safeKill(pid, "SIGTERM")
+							.mapErr(
+								(e) => new IPCConnectionError("Failed to stop process via signal", { cause: e }),
+							)
 							.asyncAndThen(() => wait(2000))
 							.andThen(() => {
 								if (!isProcessRunning(pid)) {
@@ -42,10 +49,14 @@ export function stop(argv: LaunchpadArgv) {
 
 								// Still running - force kill
 								console.log("Process did not stop gracefully, sending SIGKILL...");
-								return safeKill(pid, "SIGKILL").map(() => {
-									deletePidFile(pidFile);
-									console.log("Launchpad force stopped");
-								});
+								return safeKill(pid, "SIGKILL")
+									.mapErr(
+										(e) => new IPCConnectionError("Failed to force kill process", { cause: e }),
+									)
+									.map(() => {
+										deletePidFile(pidFile);
+										console.log("Launchpad force stopped");
+									});
 							});
 					});
 			}).orElse((e) => {
@@ -82,6 +93,7 @@ function safeKill(pid: number, signal: NodeJS.Signals): Result<void, Error> {
 		process.kill(pid, signal);
 		return ok();
 	} catch (e) {
-		return err(new Error(`Failed to send ${signal} to process ${pid}: ${e}`));
+		const cause = e instanceof Error ? e : new Error(String(e));
+		return err(new Error(`Failed to send ${signal} to process ${pid}`, { cause }));
 	}
 }

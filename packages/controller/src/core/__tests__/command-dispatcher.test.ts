@@ -76,10 +76,13 @@ describe("CommandDispatcher", () => {
 
 			await dispatcher.dispatch(command);
 
-			expect(emitSpy).toHaveBeenCalledWith("command:error", {
-				commandType: "content.fetch",
-				error,
-			});
+			expect(emitSpy).toHaveBeenCalledWith(
+				"command:error",
+				expect.objectContaining({
+					commandType: "content.fetch",
+					error: expect.any(Error),
+				}),
+			);
 		});
 
 		it("should return error when subsystem not found", async () => {
@@ -207,7 +210,10 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch(command);
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr()).toBe(customError);
+			// Error is wrapped in CommandExecutionError with the original error as cause
+			const error = result._unsafeUnwrapErr();
+			expect(error.message).toContain("Subsystem command execution failed");
+			expect(error.cause).toBe(customError);
 		});
 
 		it("should handle multiple subsystems correctly", async () => {

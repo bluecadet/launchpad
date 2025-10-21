@@ -67,7 +67,7 @@ describe("IPCClient", () => {
 			const result = await client.connect("/test/socket");
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Failed to connect");
+			expect(result._unsafeUnwrapErr().message).toContain("IPC connection failed");
 		});
 
 		it("should handle socket data events", async () => {

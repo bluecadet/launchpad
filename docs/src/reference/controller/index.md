@@ -16,8 +16,9 @@ The controller package provides a central orchestration layer for managing Launc
 - **Event Bus**: Type-safe event system with declaration merging
 - **State Management**: Aggregated state from all subsystems
 - **Command Dispatching**: Route commands to appropriate subsystems
-- **Task Mode**: Ephemeral controller instances for CLI operations
-- **Persistent Mode**: Long-running controller for advanced use cases (coming soon)
+- **Task Mode**: Ephemeral controller instances for one-off CLI operations
+- **Persistent Mode**: Long-running controller with IPC socket for CLI integration
+- **IPC Communication**: Type-safe command execution and state queries over Unix sockets
 
 ## Installation
 
@@ -137,24 +138,35 @@ interface Disconnectable {
 
 ## Usage Modes
 
-### Task Mode (Current)
+### Task Mode
 Ephemeral controller instances for one-off operations:
 
-1. Create controller
+1. Create controller in task mode
 2. Register subsystems
 3. Start controller
 4. Execute command(s)
 5. Stop controller
 
-This is how the CLI currently uses the controller for `launchpad content` and `launchpad monitor` commands.
+This mode is used when no persistent controller is running, allowing the CLI to operate independently.
 
-### Persistent Mode (Future)
-Long-running controller for advanced scenarios:
+### Persistent Mode
+Long-running controller that stays active to handle multiple commands:
 
-- HTTP/WebSocket API server
-- Interactive dashboard
-- Multi-user coordination
-- Real-time monitoring
+- Started with `launchpad start` (optionally detached with `-d`)
+- Opens IPC socket for inter-process communication
+- Stores PID in a file for tracking
+- Handles multiple CLI commands without reinitializing
+- Gracefully shuts down with `launchpad stop`
+
+Subsequent `launchpad` commands (content, monitor, status) detect the running controller and communicate with it via IPC instead of creating ephemeral instances.
+
+#### Benefits
+
+- **Faster command execution**: No initialization overhead for subsequent commands
+- **Shared state**: All commands operate against the same controller instance
+- **Detached mode**: Can run in background with `-d` flag
+- **IPC protocol**: Type-safe command execution and state queries
+- **Graceful shutdown**: Multi-stage shutdown with IPC fallbacks (SIGTERM → SIGKILL)
 
 ## Type Safety
 

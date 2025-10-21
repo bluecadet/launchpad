@@ -25,10 +25,11 @@ The CLI package provides a command-line interface for managing Launchpad install
   - Type-safe config validation
 
 - **Flexible Commands**:
-  - `start`: Full launchpad startup (content + apps)
-  - `stop`: Graceful shutdown of all processes
-  - `content`: Content-only operations
-  - `monitor`: Process monitoring operations
+  - `start`: Launch persistent controller (optional detached mode)
+  - `stop`: Graceful shutdown of controller
+  - `status`: Query running controller state
+  - `content`: Content fetch operations (via IPC or ephemeral)
+  - `monitor`: App monitoring operations (via IPC or ephemeral)
   - `scaffold`: System configuration (Windows)
 
 ## Installation

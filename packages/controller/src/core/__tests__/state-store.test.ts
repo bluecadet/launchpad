@@ -158,7 +158,7 @@ describe("StateStore", () => {
 			const subsystems = new Map<string, Subsystem>();
 			const store = new StateStore(subsystems);
 
-			store.setSystemState("mode", "persistent");
+			(store as any).setSystemState("mode", "persistent");
 
 			const systemState = store.getSystemState();
 			expect(systemState.mode).toBe("persistent");
@@ -169,7 +169,7 @@ describe("StateStore", () => {
 			const store = new StateStore(subsystems);
 
 			const newDate = new Date("2024-01-01");
-			store.setSystemState("startTime", newDate);
+			(store as any).setSystemState("startTime", newDate);
 
 			const systemState = store.getSystemState();
 			expect(systemState.startTime).toBe(newDate);
@@ -179,7 +179,7 @@ describe("StateStore", () => {
 			const subsystems = new Map<string, Subsystem>();
 			const store = new StateStore(subsystems);
 
-			store.setSystemState("version", "1.0.0");
+			(store as any).setSystemState("version", "1.0.0");
 
 			const systemState = store.getSystemState();
 			expect(systemState.version).toBe("1.0.0");

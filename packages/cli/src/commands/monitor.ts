@@ -1,10 +1,10 @@
 import { errAsync, ResultAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 
-export function monitor(argv: LaunchpadArgv) {
+export function monitor(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error, console))
 		.andThen(({ dir, config }) => {

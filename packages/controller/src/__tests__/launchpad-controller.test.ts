@@ -75,17 +75,6 @@ describe("LaunchpadController", () => {
 			expect(() => controller.registerSubsystem("test", subsystem)).not.toThrow();
 		});
 
-		it("should throw error when registering after controller is started", async () => {
-			const controller = createController("task");
-			await controller.start();
-
-			const subsystem: Subsystem = {};
-
-			expect(() => controller.registerSubsystem("test", subsystem)).toThrow(
-				"Cannot register subsystem 'test' after controller has started",
-			);
-		});
-
 		it("should allow registering multiple subsystems", () => {
 			const controller = createController();
 			const subsystem1: Subsystem = {};

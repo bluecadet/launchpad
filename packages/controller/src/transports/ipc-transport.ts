@@ -9,8 +9,15 @@
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { ResultAsync } from "neverthrow";
+import { err, ok, ResultAsync } from "neverthrow";
 import type { Transport, TransportContext } from "../core/transport.js";
+import {
+	CommandExecutionError,
+	IPCConnectionError,
+	IPCMessageError,
+	StateAccessError,
+	TransportError,
+} from "../errors.js";
 
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
@@ -40,7 +47,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 	return {
 		id: "ipc",
 
-		start(ctx: TransportContext): ResultAsync<void, Error> {
+		start(ctx: TransportContext): ResultAsync<void, TransportError> {
 			const { logger, abortSignal } = ctx;
 			const { socketPath } = options;
 
@@ -50,14 +57,26 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 					try {
 						fs.unlinkSync(socketPath);
 					} catch (e) {
-						return reject(new Error(`Failed to clean up existing socket: ${e}`));
+						return reject(
+							new TransportError("Failed to clean up existing socket", {
+								cause: e instanceof Error ? e : new Error(String(e)),
+							}),
+						);
 					}
 				}
 
 				// Ensure directory exists
-				const dir = path.dirname(socketPath);
-				if (!fs.existsSync(dir)) {
-					fs.mkdirSync(dir, { recursive: true });
+				try {
+					const dir = path.dirname(socketPath);
+					if (!fs.existsSync(dir)) {
+						fs.mkdirSync(dir, { recursive: true });
+					}
+				} catch (e) {
+					return reject(
+						new TransportError("Failed to create socket directory", {
+							cause: e instanceof Error ? e : new Error(String(e)),
+						}),
+					);
 				}
 
 				// Create server
@@ -81,8 +100,13 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 								const message = JSON.parse(line) as IPCMessage;
 								handleMessage(message, socket, ctx);
 							} catch (e) {
-								logger.error(`Failed to parse IPC message: ${e}`);
-								sendError(socket, "unknown", "Invalid JSON");
+								const error = e instanceof Error ? e : new Error(String(e));
+								logger.error(`Failed to parse IPC message: ${error.message}`);
+								sendError(
+									socket,
+									"unknown",
+									new IPCMessageError("Invalid JSON in IPC message", { cause: error }),
+								);
 							}
 						}
 					});
@@ -99,8 +123,9 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 				});
 
 				server.on("error", (error) => {
-					logger.error(`IPC server error: ${error.message}`);
-					reject(error);
+					const err = error instanceof Error ? error : new Error(String(error));
+					logger.error(`IPC server error: ${err.message}`);
+					reject(new TransportError("Failed to start IPC server", { cause: err }));
 				});
 
 				server.listen(socketPath, () => {
@@ -140,11 +165,14 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 
 			return ResultAsync.fromPromise(
 				promise,
-				(e) => new Error(`Failed to start IPC transport: ${e}`),
+				(e) =>
+					new TransportError("Failed to start IPC transport", {
+						cause: e instanceof Error ? e : new Error(String(e)),
+					}),
 			);
 		},
 
-		stop(ctx: TransportContext): ResultAsync<void, Error> {
+		stop(ctx: TransportContext): ResultAsync<void, TransportError> {
 			const { logger } = ctx;
 			const { socketPath } = options;
 
@@ -163,7 +191,11 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 				server.close((err) => {
 					if (err) {
 						logger.error(`Error closing IPC server: ${err.message}`);
-						return reject(err);
+						return reject(
+							new TransportError("Failed to close IPC server", {
+								cause: err instanceof Error ? err : new Error(String(err)),
+							}),
+						);
 					}
 
 					// Clean up socket file
@@ -183,7 +215,10 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 
 			return ResultAsync.fromPromise(
 				promise,
-				(e) => new Error(`Failed to stop IPC transport: ${e}`),
+				(e) =>
+					new TransportError("Failed to stop IPC transport", {
+						cause: e instanceof Error ? e : new Error(String(e)),
+					}),
 			);
 		},
 	};
@@ -205,8 +240,13 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 					data: state,
 				});
 			} catch (e) {
-				logger.error(`Failed to get state: ${e}`);
-				sendError(socket, message.id, `Failed to get state: ${e}`);
+				const error = e instanceof Error ? e : new Error(String(e));
+				logger.error(`Failed to get state: ${error.message}`);
+				sendError(
+					socket,
+					message.id,
+					new StateAccessError("Failed to get controller state", { cause: error }),
+				);
 			}
 			break;
 		}
@@ -226,7 +266,13 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 				},
 				(error) => {
 					logger.error(`Command execution failed: ${error.message}`);
-					sendError(socket, message.id, error.message);
+					sendError(
+						socket,
+						message.id,
+						new CommandExecutionError("IPC command execution failed", {
+							cause: error instanceof Error ? error : new Error(String(error)),
+						}),
+					);
 				},
 			);
 			break;
@@ -248,7 +294,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 		}
 
 		default: {
-			sendError(socket, "unknown", "Unknown message type");
+			sendError(socket, "unknown", new IPCMessageError("Unknown message type"));
 		}
 	}
 }
@@ -267,7 +313,9 @@ function sendResponse(socket: net.Socket, response: IPCResponse): void {
 /**
  * Send an error response to the client
  */
-function sendError(socket: net.Socket, id: string, message: string): void {
+function sendError(socket: net.Socket, id: string, error: Error): void {
+	const causedByMsg = error.cause instanceof Error ? `${error.cause.message}` : "";
+	const message = causedByMsg ? `${error.message}: ${causedByMsg}` : error.message;
 	sendResponse(socket, {
 		id,
 		type: "error",

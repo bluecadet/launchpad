@@ -12,12 +12,9 @@ import {
 } from "@bluecadet/launchpad-controller";
 import type { Logger } from "@bluecadet/launchpad-utils";
 import { errAsync, type ResultAsync } from "neverthrow";
+import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
 
-export class DaemonNotRunningError extends Error {
-	constructor() {
-		super("Daemon is not running");
-	}
-}
+export { DaemonNotRunningError, IPCConnectionError };
 
 /**
  * Execute a function with a connected IPC client if daemon is running.
@@ -27,8 +24,8 @@ export class DaemonNotRunningError extends Error {
 export function withDaemon<T>(
 	baseDir: string,
 	controllerConfig: ControllerConfig,
-	operation: (client: IPCClient, pid: number) => ResultAsync<T, Error>,
-): ResultAsync<T, Error | DaemonNotRunningError> {
+	operation: (client: IPCClient, pid: number) => ResultAsync<T, IPCConnectionError>,
+): ResultAsync<T, DaemonNotRunningError | IPCConnectionError> {
 	const pidFile = path.resolve(baseDir, controllerConfig.pidFile);
 	const socketPath = path.resolve(baseDir, controllerConfig.socketPath);
 

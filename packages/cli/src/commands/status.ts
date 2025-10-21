@@ -12,57 +12,54 @@ export function status(argv: LaunchpadArgv) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
 			return withDaemon(dir, config.controller, (client) => {
-				return client
-					.queryState()
-					.mapErr((e) => e as Error)
-					.andThen((stateValue) => {
-						// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
-						const state = stateValue as any;
+				return client.queryState().andThen((stateValue) => {
+					// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
+					const state = stateValue as any;
 
-						// Pretty print the state
-						console.log(chalk.bold("Launchpad Status:"));
+					// Pretty print the state
+					console.log(chalk.bold("Launchpad Status:"));
 
-						if (state.system?.startTime) {
-							const uptime = Date.now() - new Date(state.system.startTime).getTime();
-							console.log(`  Uptime: ${formatUptime(uptime)}`);
+					if (state.system?.startTime) {
+						const uptime = Date.now() - new Date(state.system.startTime).getTime();
+						console.log(`  Uptime: ${formatUptime(uptime)}`);
+					}
+
+					// Monitor status
+					if (state.monitor) {
+						console.log(`\n${chalk.bold("Monitor:")}`);
+						console.log(
+							`  Connected: ${state.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
+						);
+						if (state.monitor.pm2Version) {
+							console.log(`  PM2 Version: ${state.monitor.pm2Version}`);
 						}
 
-						// Monitor status
-						if (state.monitor) {
-							console.log(`\n${chalk.bold("Monitor:")}`);
-							console.log(
-								`  Connected: ${state.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
-							);
-							if (state.monitor.pm2Version) {
-								console.log(`  PM2 Version: ${state.monitor.pm2Version}`);
-							}
-
-							// Apps
-							if (state.monitor.apps && Object.keys(state.monitor.apps).length > 0) {
-								console.log(`\n${chalk.bold("Apps:")}`);
-								for (const [appName, appStatus] of Object.entries(state.monitor.apps)) {
-									// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
-									const app = appStatus as any;
-									const icon = app.status === "online" ? "●" : "○";
-									const statusColor = app.status === "online" ? chalk.green : chalk.red;
-									console.log(
-										`  ${statusColor(icon)} ${appName}: ${statusColor(app.status)}${app.pid ? ` (PID: ${app.pid})` : ""}`,
-									);
-								}
+						// Apps
+						if (state.monitor.apps && Object.keys(state.monitor.apps).length > 0) {
+							console.log(`\n${chalk.bold("Apps:")}`);
+							for (const [appName, appStatus] of Object.entries(state.monitor.apps)) {
+								// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
+								const app = appStatus as any;
+								const icon = app.status === "online" ? "●" : "○";
+								const statusColor = app.status === "online" ? chalk.green : chalk.red;
+								console.log(
+									`  ${statusColor(icon)} ${appName}: ${statusColor(app.status)}${app.pid ? ` (PID: ${app.pid})` : ""}`,
+								);
 							}
 						}
+					}
 
-						// Content status
-						if (state.content) {
-							console.log(`\n${chalk.bold("Content:")}`);
-							console.log(`  Last Fetch: ${state.content.lastFetch || "Never"}`);
-							console.log(
-								`  In Progress: ${state.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
-							);
-						}
+					// Content status
+					if (state.content) {
+						console.log(`\n${chalk.bold("Content:")}`);
+						console.log(`  Last Fetch: ${state.content.lastFetch || "Never"}`);
+						console.log(
+							`  In Progress: ${state.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
+						);
+					}
 
-						return okAsync(state);
-					});
+					return okAsync(state);
+				});
 			});
 		})
 		.mapErr(() => {

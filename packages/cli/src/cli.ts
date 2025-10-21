@@ -9,6 +9,7 @@ export type LaunchpadArgv = {
 	config?: string;
 	env?: (string | number)[];
 	envCascade?: string;
+	detach?: boolean;
 };
 
 yargs(hideBin(process.argv))
@@ -24,11 +25,23 @@ yargs(hideBin(process.argv))
 			"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 		type: "string",
 	})
-	.command("start", "Starts launchpad controller.", async ({ argv }) => {
-		const resolvedArgv = await argv;
-		const { start } = await import("./commands/start.js");
-		await start(resolvedArgv);
-	})
+	.command(
+		"start",
+		"Starts launchpad controller.",
+		(yargs) => {
+			return yargs.option("detach", {
+				alias: "d",
+				describe: "Run in the background (detached mode)",
+				type: "boolean",
+				default: false,
+			});
+		},
+		async ({ argv }) => {
+			const resolvedArgv = await argv;
+			const { start } = await import("./commands/start.js");
+			await start(resolvedArgv as LaunchpadArgv);
+		},
+	)
 	.command("stop", "Stops launchpad controller gracefully.", async ({ argv }) => {
 		const resolvedArgv = await argv;
 		const { stop } = await import("./commands/stop.js");

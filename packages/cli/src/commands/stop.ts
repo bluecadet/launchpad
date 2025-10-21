@@ -72,7 +72,7 @@ export function stop(argv: LaunchpadArgv) {
 }
 
 // wait helper wrapped in ResultAsync
-function wait(ms: number): ResultAsync<void, never> {
+export function wait(ms: number): ResultAsync<void, never> {
 	return ResultAsync.fromSafePromise(new Promise((resolve) => setTimeout(resolve, ms)));
 }
 

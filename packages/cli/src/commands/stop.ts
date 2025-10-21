@@ -2,7 +2,7 @@ import path from "node:path";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller";
 import { LogManager } from "@bluecadet/launchpad-utils";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import {
 	DaemonNotRunningError,
@@ -15,7 +15,7 @@ import { importLaunchpadMonitor } from "./monitor.js";
  * Stop command - Gracefully stop the persistent controller via IPC,
  * with SIGTERM and SIGKILL fallbacks if IPC fails.
  */
-export function stop(argv: LaunchpadArgv) {
+export function stop(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
 			const pidFile = path.resolve(dir, config.controller.pidFile);

@@ -4,11 +4,11 @@
 
 import chalk from "chalk";
 import { okAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
 
-export function status(argv: LaunchpadArgv) {
+export function status(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
 			return withDaemon(dir, config.controller, (client) => {

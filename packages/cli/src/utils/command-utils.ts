@@ -3,14 +3,14 @@ import { type Logger, LogManager, TTY_FIXED_END } from "@bluecadet/launchpad-uti
 import chalk from "chalk";
 import { errAsync, ok, ResultAsync } from "neverthrow";
 import { ZodError } from "zod";
-import type { LaunchpadArgv } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
 import { findConfig, loadConfigFromFile } from "./config.js";
 import { resolveEnv } from "./env.js";
 
 export function loadConfigAndEnv(
-	argv: LaunchpadArgv,
+	argv: GlobalLaunchpadArgs,
 ): ResultAsync<{ dir: string; config: ResolvedLaunchpadOptions }, ConfigError> {
 	const configPath = argv.config ?? findConfig();
 
@@ -62,8 +62,10 @@ export function handleFatalError(error: Error, rootLogger: Logger | Console): ne
 function logFullErrorChain(logger: Logger | Console, error: Error) {
 	let currentError: Error | undefined = error;
 
-	// clear any fixed messages
-	logger.info("", { [TTY_FIXED_END]: true });
+	// clear any fixed messages if this is not just a console
+	if ("child" in logger) {
+		logger.info("", { [TTY_FIXED_END]: true });
+	}
 
 	logger.error("");
 	logger.error(`${chalk.red.bold("Full error chain:")}`);

@@ -1,9 +1,9 @@
-import { type ChildProcess, fork } from "node:child_process";
-import { dirname, join } from "node:path";
+import { fork } from "node:child_process";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../cli.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 import { importLaunchpadContent } from "./content.js";
@@ -12,7 +12,7 @@ import { importLaunchpadMonitor } from "./monitor.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function start(argv: LaunchpadArgv): ResultAsync<void, Error> {
+export function start(argv: GlobalLaunchpadArgs & { detach?: boolean }): ResultAsync<void, Error> {
 	// If detach mode is requested, fork the process
 	if (argv.detach) {
 		return startDetached(argv);
@@ -22,44 +22,56 @@ export function start(argv: LaunchpadArgv): ResultAsync<void, Error> {
 	return startForeground(argv);
 }
 
-function startDetached(_argv: LaunchpadArgv): ResultAsync<void, Error> {
+function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	return fromPromise(
-		new Promise<ChildProcess>((resolve, reject) => {
-			// Fork the CLI process to run the start command without --detach
-			const child = fork(join(__dirname, "../../dist/cli.js"), ["start"], {
+		new Promise<void>((resolve, reject) => {
+			const filteredArgv = process.argv
+				.slice(1) // Skip the first argument (node executable)
+				.filter((arg) => arg !== "--detach" && arg !== "-d"); // Remove detach flags
+
+			const [mod, ...args] = filteredArgv;
+
+			// Fork the CLI process to run the same command without --detach / -d flags
+			const child = fork(mod as string, args, {
 				detached: true,
 				stdio: "ignore",
+				env: {
+					...process.env,
+					LAUNCHPAD_IS_DETACHED: "1", // Indicate to the child process that it's detached
+				},
 			});
 
-			let resolved = false;
-
 			child.on("error", (error) => {
-				if (!resolved) {
-					resolved = true;
-					reject(new Error(`Failed to start launchpad in background: ${error.message}`));
-				}
+				reject(error);
 			});
 
 			child.on("exit", (code) => {
-				if (!resolved) {
-					resolved = true;
-					if (code === 0) {
-						console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
-						resolve(child);
-					} else {
-						reject(new Error(`Failed to start launchpad in background (exit code: ${code})`));
-					}
+				reject(new Error(`Detached process exited with code ${code}`));
+			});
+
+			child.on("message", (message) => {
+				if (message === "ready") {
+					// Child process is ready
+					child.unref(); // Allow the parent to exit independently
+					child.disconnect();
+
+					resolve();
+				} else {
+					console.log("Unknown message from detached process:", message);
 				}
 			});
 		}),
 		(error) => error as Error,
-	).andThen((childProcess) => {
-		childProcess.unref(); // Allow the parent to exit independently
-		return ok();
-	});
+	)
+		.andTee(() => {
+			console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
+		})
+		.orElse((error) => {
+			handleFatalError(error, console);
+		});
 }
 
-function startForeground(argv: LaunchpadArgv): ResultAsync<void, Error> {
+function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error, console))
 		.andThen(({ dir, config }) => {
@@ -76,30 +88,41 @@ function startForeground(argv: LaunchpadArgv): ResultAsync<void, Error> {
 						process.exit(1);
 					},
 					otherwise: (controller) => {
+						if (process.env.LAUNCHPAD_IS_DETACHED === "1") {
+							// set to launchpad for easier identification in process lists
+							process.title = "launchpad";
+							// disconnect from parent process to fully detach
+							process.send?.("ready");
+						}
+
 						return okAsync<void, Error>(undefined)
-							.andTee(() => {
+							.andThrough(() => {
 								// Dynamically import and register content if configured
 								if (config.content) {
 									startupCommands.push({ type: "content.fetch" });
 
 									const contentConfig = config.content;
-									return importLaunchpadContent().andTee(({ default: LaunchpadContent }) => {
+									return importLaunchpadContent().andThen(({ default: LaunchpadContent }) => {
 										const contentInstance = new LaunchpadContent(contentConfig, rootLogger, dir);
 										controller.registerSubsystem("content", contentInstance);
+										return ok();
 									});
 								}
+								return ok();
 							})
-							.andTee(() => {
+							.andThrough(() => {
 								// Dynamically import and register monitor if configured
 								if (config.monitor) {
 									startupCommands.push({ type: "monitor.connect" }, { type: "monitor.start" });
 
 									const monitorConfig = config.monitor;
-									return importLaunchpadMonitor().andTee(({ default: LaunchpadMonitor }) => {
+									return importLaunchpadMonitor().andThen(({ default: LaunchpadMonitor }) => {
 										const monitorInstance = new LaunchpadMonitor(monitorConfig, rootLogger, dir);
 										controller.registerSubsystem("monitor", monitorInstance);
+										return ok();
 									});
 								}
+								return ok();
 							})
 							.andThen(() => {
 								let resultChain: ResultAsync<unknown, Error> = okAsync(undefined);

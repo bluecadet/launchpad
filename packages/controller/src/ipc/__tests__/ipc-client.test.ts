@@ -1,8 +1,8 @@
 import net from "node:net";
-import SuperJSON from "superjson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IPCResponse } from "../../transports/ipc-transport.js";
 import { IPCClient } from "../ipc-client.js";
+import { IPCSerializer } from "../ipc-serializer.js";
 
 type Cb = (...args: any[]) => void;
 
@@ -127,7 +127,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "task" } },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -147,7 +147,7 @@ describe("IPCClient", () => {
 				type: "error",
 				error: new Error("Failed to get state"),
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -168,7 +168,7 @@ describe("IPCClient", () => {
 				type: "unexpected",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -197,7 +197,7 @@ describe("IPCClient", () => {
 				type: "result",
 				data: { status: "success" },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await commandPromise;
 
@@ -217,7 +217,7 @@ describe("IPCClient", () => {
 				type: "error",
 				error: new Error("Command failed"),
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await commandPromise;
 
@@ -240,7 +240,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await commandPromise;
 
@@ -255,7 +255,7 @@ describe("IPCClient", () => {
 
 			// Get the message that was sent
 			const sentMessage = mockSocket.write.mock.calls[0][0];
-			const parsedMessage = SuperJSON.parse(sentMessage.trim()) as any;
+			const parsedMessage = IPCSerializer.deserialize(sentMessage.trim()) as any;
 
 			expect(parsedMessage.type).toBe("execute-command");
 			expect(parsedMessage.data).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
@@ -281,7 +281,7 @@ describe("IPCClient", () => {
 				id: "msg-0",
 				type: "ack",
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await shutdownPromise;
 
@@ -301,7 +301,7 @@ describe("IPCClient", () => {
 				type: "error",
 				error: new Error("Shutdown failed"),
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await shutdownPromise;
 
@@ -322,7 +322,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response)}\n`));
 
 			const result = await shutdownPromise;
 
@@ -357,7 +357,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "persistent" } },
 			};
-			const data = `${SuperJSON.stringify(response1)}\n${SuperJSON.stringify(response2)}\n`;
+			const data = `${IPCSerializer.serialize(response1)}\n${IPCSerializer.serialize(response2)}\n`;
 			dataHandler(Buffer.from(data));
 
 			const result1 = await query1Promise;
@@ -381,7 +381,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "task" } },
 			};
-			dataHandler(Buffer.from(SuperJSON.stringify(response)));
+			dataHandler(Buffer.from(IPCSerializer.serialize(response)));
 
 			// Message should not be processed yet
 			// Send the rest of the message with newline
@@ -416,7 +416,7 @@ describe("IPCClient", () => {
 				data: { system: { mode: "task" } },
 			};
 			// Send empty line then valid message
-			dataHandler(Buffer.from(`\n${SuperJSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`\n${IPCSerializer.serialize(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -455,7 +455,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { first: true },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response1)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response1)}\n`));
 
 			// Respond to second query
 			const response2: IPCResponse = {
@@ -463,7 +463,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { second: true },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(response2)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(response2)}\n`));
 
 			const result1 = await query1Promise;
 			const result2 = await query2Promise;
@@ -486,7 +486,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { mode: "task" },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(queryResponse)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(queryResponse)}\n`));
 
 			// Respond to command
 			const commandResponse: IPCResponse = {
@@ -494,7 +494,7 @@ describe("IPCClient", () => {
 				type: "result",
 				data: { executed: true },
 			};
-			dataHandler(Buffer.from(`${SuperJSON.stringify(commandResponse)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(commandResponse)}\n`));
 
 			const queryResult = await queryPromise;
 			const commandResult = await commandPromise;

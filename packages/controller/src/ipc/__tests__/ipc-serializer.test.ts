@@ -100,6 +100,17 @@ describe("IPCSerializer", () => {
 			expect(((deserialized.cause as Error).cause as Error).message).toBe("Root cause");
 		});
 
+		it("should include stacktrace on nested errors", () => {
+			const cause = new Error("Root cause");
+			const error = new Error("Top level error", { cause: cause });
+
+			const serialized = IPCSerializer.serialize(error);
+			const deserialized = IPCSerializer.deserialize(serialized) as Error;
+
+			expect(deserialized.stack).toBe(error.stack);
+			expect((deserialized.cause as Error).stack).toBe(cause.stack);
+		});
+
 		it("should handle TypeError and other error types", () => {
 			const errors = [
 				new TypeError("Type mismatch"),

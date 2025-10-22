@@ -145,7 +145,8 @@ describe("ipc-transport", () => {
 			// Check that response was written (should be called once with string)
 			expect(mockSocket.write).toHaveBeenCalledTimes(1);
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			expect(writtenData).toContain('"type":"state"');
+			const parsed = IPCSerializer.deserialize(writtenData) as IPCResponse;
+			expect(parsed.type).toBe("state");
 		});
 
 		it("should return state from stateStore for query-state", async () => {

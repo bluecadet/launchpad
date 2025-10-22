@@ -10,15 +10,14 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { ResultAsync } from "neverthrow";
-import superjson from "superjson";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
-	IPCConnectionError,
 	IPCMessageError,
 	StateAccessError,
 	TransportError,
 } from "../errors.js";
+import { IPCSerializer } from "../ipc/ipc-serializer.js";
 
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
@@ -98,7 +97,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 							if (!line.trim()) continue;
 
 							try {
-								const message = superjson.parse(line) as IPCMessage;
+								const message = IPCSerializer.deserialize(line) as IPCMessage;
 								handleMessage(message, socket, ctx);
 							} catch (e) {
 								const error = e instanceof Error ? e : new Error(String(e));
@@ -305,7 +304,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
  */
 function sendResponse(socket: net.Socket, response: IPCResponse): void {
 	try {
-		socket.write(`${superjson.stringify(response)}\n`);
+		socket.write(`${IPCSerializer.serialize(response)}\n`);
 	} catch (_e) {
 		// Socket may be closed, ignore
 	}

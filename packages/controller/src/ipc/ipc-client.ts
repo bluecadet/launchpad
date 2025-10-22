@@ -6,9 +6,9 @@
 import net from "node:net";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import SuperJSON from "superjson";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
 import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
+import { IPCSerializer } from "./ipc-serializer.js";
 
 export class IPCClient {
 	private _socket: net.Socket | null = null;
@@ -165,7 +165,7 @@ export class IPCClient {
 					reject,
 				});
 
-				const data = `${SuperJSON.stringify(message)}\n`;
+				const data = `${IPCSerializer.serialize(message)}\n`;
 				this._socket?.write(data, (error) => {
 					if (error) {
 						clearTimeout(timeoutHandle);
@@ -201,7 +201,7 @@ export class IPCClient {
 			if (!line.trim()) continue;
 
 			try {
-				const response = SuperJSON.parse(line) as IPCResponse;
+				const response = IPCSerializer.deserialize(line) as IPCResponse;
 				const request = this._pendingRequests.get(response.id);
 
 				if (request) {

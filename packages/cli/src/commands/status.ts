@@ -25,19 +25,22 @@ export function status(argv: GlobalLaunchpadArgs) {
 					}
 
 					// Monitor status
-					if (state.monitor) {
+					if (state.subsystems.monitor) {
 						console.log(`\n${chalk.bold("Monitor:")}`);
 						console.log(
-							`  Connected: ${state.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
+							`  Connected: ${state.subsystems.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
 						);
-						if (state.monitor.pm2Version) {
-							console.log(`  PM2 Version: ${state.monitor.pm2Version}`);
+						if (state.subsystems.monitor.pm2Version) {
+							console.log(`  PM2 Version: ${state.subsystems.monitor.pm2Version}`);
 						}
 
 						// Apps
-						if (state.monitor.apps && Object.keys(state.monitor.apps).length > 0) {
+						if (
+							state.subsystems.monitor.apps &&
+							Object.keys(state.subsystems.monitor.apps).length > 0
+						) {
 							console.log(`\n${chalk.bold("Apps:")}`);
-							for (const [appName, appStatus] of Object.entries(state.monitor.apps)) {
+							for (const [appName, appStatus] of Object.entries(state.subsystems.monitor.apps)) {
 								// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
 								const app = appStatus as any;
 								const icon = app.status === "online" ? "●" : "○";
@@ -50,11 +53,11 @@ export function status(argv: GlobalLaunchpadArgs) {
 					}
 
 					// Content status
-					if (state.content) {
+					if (state.subsystems.content) {
 						console.log(`\n${chalk.bold("Content:")}`);
-						console.log(`  Last Fetch: ${state.content.lastFetch || "Never"}`);
+						console.log(`  Last Fetch: ${state.subsystems.content.lastFetch || "Never"}`);
 						console.log(
-							`  In Progress: ${state.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
+							`  In Progress: ${state.subsystems.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
 						);
 					}
 

@@ -1,15 +1,13 @@
 /**
  * IPC Transport for Unix socket communication.
  * Enables CLI commands to communicate with persistent controller.
- *
- * Phase 2: Minimal implementation for status queries and shutdown.
- * Future: Add event streaming and command forwarding.
  */
 
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { ResultAsync } from "neverthrow";
+import type { LaunchpadEvents } from "../core/event-bus.js";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
@@ -28,14 +26,20 @@ export type IPCMessage =
 	| { type: "query-state"; id: string }
 	| { type: "shutdown"; id: string }
 	| { type: "execute-command"; id: string; data: unknown };
-// Future: | { type: 'subscribe'; id: string; patterns: string[] }
 
 export type IPCResponse =
 	| { id: string; type: "state"; data: unknown }
 	| { id: string; type: "ack" }
 	| { id: string; type: "result"; data: unknown }
 	| { id: string; type: "error"; error: Error };
-// Future: | { id: string; type: 'event'; event: string; data: unknown }
+
+export type IPCEvent = {
+	[K in keyof LaunchpadEvents]: {
+		type: "event";
+		name: K;
+		data: LaunchpadEvents[K];
+	};
+}[keyof LaunchpadEvents];
 
 /**
  * Create an IPC transport
@@ -131,22 +135,27 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 				server.listen(socketPath, () => {
 					logger.info(`IPC transport listening at ${socketPath}`);
 
-					// Future: Subscribe to EventBus for event streaming
-					// const handleEvent = (event: string, data: unknown) => {
-					//   const message = JSON.stringify({ type: 'event', event, data }) + '\n';
-					//   clients.forEach(client => {
-					//     try {
-					//       client.write(message);
-					//     } catch (e) {
-					//       logger.error(`Failed to write to IPC client: ${e}`);
-					//     }
-					//   });
-					// };
-					// eventBus.onAny(handleEvent);
+					// Subscribe to EventBus for event streaming with type-safe handler
+					const handleEvent = <K extends keyof LaunchpadEvents>(
+						event: K,
+						data: LaunchpadEvents[K],
+					) => {
+						// Fully type-safe: event and data are correlated via the generic
+						const message = createIPCEvent(event, data);
+						const serialized = `${IPCSerializer.serialize(message)}\n`;
+						clients.forEach((client) => {
+							try {
+								client.write(serialized);
+							} catch (e) {
+								logger.debug(`Failed to write event to IPC client: ${e}`);
+							}
+						});
+					};
+					ctx.eventBus.onAny(handleEvent);
 
 					// Cleanup on abort
 					abortSignal.addEventListener("abort", () => {
-						// Future: eventBus.offAny(handleEvent);
+						ctx.eventBus.offAny(handleEvent);
 						clients.forEach((client) => client.end());
 						server?.close();
 						if (fs.existsSync(socketPath)) {
@@ -297,6 +306,21 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 			sendError(socket, "unknown", new IPCMessageError("Unknown message type"));
 		}
 	}
+}
+
+/**
+ * Create a type-safe IPC event message
+ * Helper function ensures the event name and data are correctly correlated
+ */
+function createIPCEvent<K extends keyof LaunchpadEvents>(
+	name: K,
+	data: LaunchpadEvents[K],
+): IPCEvent {
+	return {
+		type: "event",
+		name,
+		data,
+	} as IPCEvent;
 }
 
 /**

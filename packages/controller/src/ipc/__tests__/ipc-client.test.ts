@@ -1,6 +1,6 @@
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IPCResponse } from "../../transports/ipc-transport.js";
+import type { IPCEvent, IPCResponse } from "../../transports/ipc-transport.js";
 import { IPCClient } from "../ipc-client.js";
 import { IPCSerializer } from "../ipc-serializer.js";
 
@@ -501,6 +501,219 @@ describe("IPCClient", () => {
 
 			expect(queryResult._unsafeUnwrap()).toEqual({ mode: "task" });
 			expect(commandResult._unsafeUnwrap()).toEqual({ executed: true });
+		});
+	});
+
+	describe("event handling", () => {
+		it("should emit events to registered listeners", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.on("command:start", handler);
+
+			// Simulate event from server
+			const dataHandler = socketListeners.data![0]!;
+			const event: IPCEvent = {
+				type: "event",
+				name: "command:start",
+				data: { commandType: "test.command" },
+			};
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+
+			// Handler should be called with event data
+			expect(handler).toHaveBeenCalledWith({ commandType: "test.command" });
+		});
+
+		it("should support multiple listeners for the same event", async () => {
+			await client.connect("/test/socket");
+
+			const handler1 = vi.fn();
+			const handler2 = vi.fn();
+			client.on("command:success", handler1);
+			client.on("command:success", handler2);
+
+			const dataHandler = socketListeners.data![0]!;
+			const event: IPCEvent = {
+				type: "event",
+				name: "command:success",
+				data: { commandType: "test.command", result: { value: 42 } },
+			};
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+
+			expect(handler1).toHaveBeenCalledWith({
+				commandType: "test.command",
+				result: { value: 42 },
+			});
+			expect(handler2).toHaveBeenCalledWith({
+				commandType: "test.command",
+				result: { value: 42 },
+			});
+		});
+
+		it("should support once() for single-fire listeners", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.once("system:shutdown", handler);
+
+			const dataHandler = socketListeners.data![0]!;
+			const event: IPCEvent = {
+				type: "event",
+				name: "system:shutdown",
+				data: { code: 0 },
+			};
+
+			// Emit event twice
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+
+			// Handler should only be called once
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith({ code: 0 });
+		});
+
+		it("should support off() to unsubscribe from events", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.on("command:error", handler);
+			client.off("command:error", handler);
+
+			const dataHandler = socketListeners.data![0]!;
+			const event: IPCEvent = {
+				type: "event",
+				name: "command:error",
+				data: { commandType: "test.command", error: new Error("Test error") },
+			};
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+
+			// Handler should not be called after unsubscribing
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should support onAny() for wildcard listeners", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.onAny(handler);
+
+			const dataHandler = socketListeners.data![0]!;
+
+			// Emit multiple events
+			const event1: IPCEvent = {
+				type: "event",
+				name: "command:start",
+				data: { commandType: "cmd1" },
+			};
+			const event2: IPCEvent = {
+				type: "event",
+				name: "command:success",
+				data: { commandType: "cmd1", result: { value: 42 } },
+			};
+
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event1)}\n`));
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event2)}\n`));
+
+			// Handler should be called for both events with event name and data
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenNthCalledWith(1, "command:start", {
+				commandType: "cmd1",
+			});
+			expect(handler).toHaveBeenNthCalledWith(2, "command:success", {
+				commandType: "cmd1",
+				result: { value: 42 },
+			});
+		});
+
+		it("should support offAny() to unsubscribe from wildcard listeners", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.onAny(handler);
+			client.offAny(handler);
+
+			const dataHandler = socketListeners.data![0]!;
+			const event: IPCEvent = {
+				type: "event",
+				name: "command:start",
+				data: { commandType: "test" },
+			};
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(event)}\n`));
+
+			// Handler should not be called after unsubscribing
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it("should handle mixed request-response and event messages", async () => {
+			await client.connect("/test/socket");
+
+			const queryPromise = client.queryState();
+			const eventHandler = vi.fn();
+			client.on("command:success", eventHandler);
+
+			const dataHandler = socketListeners.data![0]!;
+
+			// Send event and response mixed
+			const event: IPCEvent = {
+				type: "event",
+				name: "command:success",
+				data: { commandType: "test.command", result: { success: true } },
+			};
+			const response: IPCResponse = {
+				id: "msg-0",
+				type: "state",
+				data: { system: { mode: "task" } },
+			};
+
+			const data = `${IPCSerializer.serialize(event)}\n${IPCSerializer.serialize(response)}\n`;
+			dataHandler(Buffer.from(data));
+
+			const result = await queryPromise;
+
+			// Both event listener and query response should work correctly
+			expect(eventHandler).toHaveBeenCalledWith({
+				commandType: "test.command",
+				result: { success: true },
+			});
+			expect(result.isOk()).toBe(true);
+			expect(result._unsafeUnwrap()).toEqual({ system: { mode: "task" } });
+		});
+
+		it("should handle multiple events in sequence", async () => {
+			await client.connect("/test/socket");
+
+			const handler = vi.fn();
+			client.on("command:start", handler);
+
+			const dataHandler = socketListeners.data![0]!;
+
+			// Send multiple events
+			const event1: IPCEvent = {
+				type: "event",
+				name: "command:start",
+				data: {
+					commandType: "lorem",
+				},
+			};
+			const event2: IPCEvent = {
+				type: "event",
+				name: "command:start",
+				data: {
+					commandType: "ipsum",
+				},
+			};
+
+			dataHandler(
+				Buffer.from(`${IPCSerializer.serialize(event1)}\n${IPCSerializer.serialize(event2)}\n`),
+			);
+
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenNthCalledWith(1, {
+				commandType: "lorem",
+			});
+			expect(handler).toHaveBeenNthCalledWith(2, {
+				commandType: "ipsum",
+			});
 		});
 	});
 });

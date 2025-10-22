@@ -38,6 +38,7 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
     "neverthrow": "^8.1.1",
+    "superjson": "^2.2.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

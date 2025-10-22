@@ -9,7 +9,8 @@
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { err, ok, ResultAsync } from "neverthrow";
+import { ResultAsync } from "neverthrow";
+import superjson from "superjson";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
@@ -34,7 +35,7 @@ export type IPCResponse =
 	| { id: string; type: "state"; data: unknown }
 	| { id: string; type: "ack" }
 	| { id: string; type: "result"; data: unknown }
-	| { id: string; type: "error"; message: string };
+	| { id: string; type: "error"; error: Error };
 // Future: | { id: string; type: 'event'; event: string; data: unknown }
 
 /**
@@ -97,7 +98,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 							if (!line.trim()) continue;
 
 							try {
-								const message = JSON.parse(line) as IPCMessage;
+								const message = superjson.parse(line) as IPCMessage;
 								handleMessage(message, socket, ctx);
 							} catch (e) {
 								const error = e instanceof Error ? e : new Error(String(e));
@@ -304,7 +305,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
  */
 function sendResponse(socket: net.Socket, response: IPCResponse): void {
 	try {
-		socket.write(`${JSON.stringify(response)}\n`);
+		socket.write(`${superjson.stringify(response)}\n`);
 	} catch (_e) {
 		// Socket may be closed, ignore
 	}
@@ -314,11 +315,9 @@ function sendResponse(socket: net.Socket, response: IPCResponse): void {
  * Send an error response to the client
  */
 function sendError(socket: net.Socket, id: string, error: Error): void {
-	const causedByMsg = error.cause instanceof Error ? `${error.cause.message}` : "";
-	const message = causedByMsg ? `${error.message}: ${causedByMsg}` : error.message;
 	sendResponse(socket, {
 		id,
 		type: "error",
-		message,
+		error: error,
 	});
 }

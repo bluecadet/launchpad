@@ -1,4 +1,5 @@
 import net from "node:net";
+import SuperJSON from "superjson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IPCResponse } from "../../transports/ipc-transport.js";
 import { IPCClient } from "../ipc-client.js";
@@ -126,7 +127,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "task" } },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -144,14 +145,15 @@ describe("IPCClient", () => {
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
-				message: "Failed to get state",
+				error: new Error("Failed to get state"),
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await queryPromise;
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Failed to get state");
+			expect(result._unsafeUnwrapErr().message).toContain("Controller error");
+			expect(result._unsafeUnwrapErr().cause!.message).toContain("Failed to get state");
 		});
 
 		it("should return error for unexpected response type", async () => {
@@ -166,7 +168,7 @@ describe("IPCClient", () => {
 				type: "unexpected",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -195,7 +197,7 @@ describe("IPCClient", () => {
 				type: "result",
 				data: { status: "success" },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await commandPromise;
 
@@ -213,14 +215,17 @@ describe("IPCClient", () => {
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
-				message: "Command failed",
+				error: new Error("Command failed"),
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await commandPromise;
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Command failed");
+			expect(result._unsafeUnwrapErr().message).toContain(
+				"Error dispatching command: content.fetch",
+			);
+			expect(result._unsafeUnwrapErr().cause!.message).toContain("Command failed");
 		});
 
 		it("should return error for unexpected response type", async () => {
@@ -235,7 +240,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await commandPromise;
 
@@ -250,7 +255,7 @@ describe("IPCClient", () => {
 
 			// Get the message that was sent
 			const sentMessage = mockSocket.write.mock.calls[0][0];
-			const parsedMessage = JSON.parse(sentMessage.trim());
+			const parsedMessage = SuperJSON.parse(sentMessage.trim()) as any;
 
 			expect(parsedMessage.type).toBe("execute-command");
 			expect(parsedMessage.data).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
@@ -276,7 +281,7 @@ describe("IPCClient", () => {
 				id: "msg-0",
 				type: "ack",
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await shutdownPromise;
 
@@ -294,14 +299,15 @@ describe("IPCClient", () => {
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
-				message: "Shutdown failed",
+				error: new Error("Shutdown failed"),
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await shutdownPromise;
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Shutdown failed");
+			expect(result._unsafeUnwrapErr().message).toContain("Shutdown error");
+			expect(result._unsafeUnwrapErr().cause!.message).toContain("Shutdown failed");
 		});
 
 		it("should return error for unexpected response type", async () => {
@@ -316,7 +322,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: {},
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response)}\n`));
 
 			const result = await shutdownPromise;
 
@@ -351,7 +357,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "persistent" } },
 			};
-			const data = `${JSON.stringify(response1)}\n${JSON.stringify(response2)}\n`;
+			const data = `${SuperJSON.stringify(response1)}\n${SuperJSON.stringify(response2)}\n`;
 			dataHandler(Buffer.from(data));
 
 			const result1 = await query1Promise;
@@ -375,7 +381,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { system: { mode: "task" } },
 			};
-			dataHandler(Buffer.from(JSON.stringify(response)));
+			dataHandler(Buffer.from(SuperJSON.stringify(response)));
 
 			// Message should not be processed yet
 			// Send the rest of the message with newline
@@ -410,7 +416,7 @@ describe("IPCClient", () => {
 				data: { system: { mode: "task" } },
 			};
 			// Send empty line then valid message
-			dataHandler(Buffer.from(`\n${JSON.stringify(response)}\n`));
+			dataHandler(Buffer.from(`\n${SuperJSON.stringify(response)}\n`));
 
 			const result = await queryPromise;
 
@@ -449,7 +455,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { first: true },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response1)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response1)}\n`));
 
 			// Respond to second query
 			const response2: IPCResponse = {
@@ -457,7 +463,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { second: true },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(response2)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(response2)}\n`));
 
 			const result1 = await query1Promise;
 			const result2 = await query2Promise;
@@ -480,7 +486,7 @@ describe("IPCClient", () => {
 				type: "state",
 				data: { mode: "task" },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(queryResponse)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(queryResponse)}\n`));
 
 			// Respond to command
 			const commandResponse: IPCResponse = {
@@ -488,7 +494,7 @@ describe("IPCClient", () => {
 				type: "result",
 				data: { executed: true },
 			};
-			dataHandler(Buffer.from(`${JSON.stringify(commandResponse)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(commandResponse)}\n`));
 
 			const queryResult = await queryPromise;
 			const commandResult = await commandPromise;

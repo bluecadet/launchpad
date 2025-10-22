@@ -6,6 +6,7 @@
 import net from "node:net";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import SuperJSON from "superjson";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
 import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 
@@ -83,7 +84,7 @@ export class IPCClient {
 				return okAsync(response.data);
 			}
 			if (response.type === "error") {
-				return errAsync(new IPCMessageError(`Controller error: ${response.message}`));
+				return errAsync(new IPCMessageError("Controller error", { cause: response.error }));
 			}
 			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
@@ -104,7 +105,11 @@ export class IPCClient {
 				return okAsync(response.data);
 			}
 			if (response.type === "error") {
-				return errAsync(new IPCMessageError(`Command error: ${response.message}`));
+				return errAsync(
+					new IPCMessageError(`Error dispatching command: ${command.type}`, {
+						cause: response.error,
+					}),
+				);
 			}
 			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
@@ -124,7 +129,7 @@ export class IPCClient {
 				return okAsync(undefined);
 			}
 			if (response.type === "error") {
-				return errAsync(new IPCMessageError(`Shutdown error: ${response.message}`));
+				return errAsync(new IPCMessageError("Shutdown error", { cause: response.error }));
 			}
 			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
@@ -160,7 +165,7 @@ export class IPCClient {
 					reject,
 				});
 
-				const data = `${JSON.stringify(message)}\n`;
+				const data = `${SuperJSON.stringify(message)}\n`;
 				this._socket?.write(data, (error) => {
 					if (error) {
 						clearTimeout(timeoutHandle);
@@ -196,7 +201,7 @@ export class IPCClient {
 			if (!line.trim()) continue;
 
 			try {
-				const response = JSON.parse(line) as IPCResponse;
+				const response = SuperJSON.parse(line) as IPCResponse;
 				const request = this._pendingRequests.get(response.id);
 
 				if (request) {

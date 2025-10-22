@@ -2,6 +2,7 @@ import net from "node:net";
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
+import SuperJSON from "superjson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Transport, TransportContext } from "../../core/transport.js";
 import { createIPCTransport, type IPCMessage, type IPCResponse } from "../ipc-transport.js";
@@ -139,7 +140,7 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			// Check that response was written (should be called once with string)
 			expect(mockSocket.write).toHaveBeenCalledTimes(1);
@@ -162,11 +163,11 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			// Extract the response that was written
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("state");
 			expect((response as any).data).toEqual(testState);
@@ -185,7 +186,7 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			// Give async operation time to complete
 			await new Promise((resolve) => setTimeout(resolve, 10));
@@ -208,12 +209,12 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("result");
 			expect((response as any).data).toEqual({ result: "success" });
@@ -234,11 +235,11 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			// Should send ack
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("ack");
 
@@ -259,10 +260,10 @@ describe("ipc-transport", () => {
 
 			// Should send error response
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("error");
-			expect((response as any).message).toContain("Invalid JSON");
+			expect((response as any).error.message).toContain("Invalid JSON");
 		});
 
 		it("should ignore empty lines", async () => {
@@ -277,7 +278,7 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`\n${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`\n${SuperJSON.stringify(message)}\n`));
 
 			// Should still process the valid message
 			expect(mockSocket.write).toHaveBeenCalled();
@@ -300,7 +301,9 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message1)}\n${JSON.stringify(message2)}\n`));
+			dataHandler(
+				Buffer.from(`${SuperJSON.stringify(message1)}\n${SuperJSON.stringify(message2)}\n`),
+			);
 
 			// Should send two responses
 			expect(mockSocket.write).toHaveBeenCalledTimes(2);
@@ -401,15 +404,16 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as IPCResponse;
 
 			expect(response.type).toBe("error");
-			expect((response as any).message).toContain("Command failed");
+			expect((response as any).error.message).toContain("IPC command execution failed");
+			expect((response as any).error.cause!.message).toContain("Command failed");
 		});
 
 		it("should handle stateStore errors", async () => {
@@ -428,13 +432,13 @@ describe("ipc-transport", () => {
 			};
 
 			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${JSON.stringify(message)}\n`));
+			dataHandler(Buffer.from(`${SuperJSON.stringify(message)}\n`));
 
 			const writtenData = mockSocket.write.mock.calls[0]![0]!;
-			const response = JSON.parse(writtenData) as IPCResponse;
+			const response = SuperJSON.parse(writtenData) as any;
 
 			expect(response.type).toBe("error");
-			expect((response as any).message).toContain("Failed to get controller state");
+			expect(response.error.message).toContain("Failed to get controller state");
 		});
 	});
 

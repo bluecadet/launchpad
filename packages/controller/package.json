@@ -37,8 +37,8 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/controller",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
+    "devalue": "^5.4.2",
     "neverthrow": "^8.1.1",
-    "superjson": "^2.2.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -6,13 +6,16 @@
 import net from "node:net";
 import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import type { LaunchpadEvents } from "../core/event-bus.js";
+import { EventBus } from "../core/event-bus.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
-import type { IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
+import type { IPCEvent, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "./ipc-serializer.js";
 
 export class IPCClient {
 	private _socket: net.Socket | null = null;
 	private _buffer = "";
+	private _eventBus = new EventBus();
 	private _pendingRequests = new Map<
 		string,
 		{
@@ -68,6 +71,54 @@ export class IPCClient {
 			this._socket.end();
 			this._socket = null;
 		}
+	}
+
+	/**
+	 * Subscribe to an event with type-safe handler.
+	 * Events are emitted by the controller and streamed to all connected clients.
+	 */
+	on<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this {
+		this._eventBus.on(event, handler);
+		return this;
+	}
+
+	/**
+	 * Unsubscribe from an event
+	 */
+	off(event: string, handler: (data: unknown) => void): this {
+		this._eventBus.off(event, handler);
+		return this;
+	}
+
+	/**
+	 * Subscribe to an event once (auto-unsubscribes after first emission)
+	 */
+	once<K extends keyof LaunchpadEvents>(
+		event: K,
+		handler: (data: LaunchpadEvents[K]) => void,
+	): this {
+		this._eventBus.once(event, handler);
+		return this;
+	}
+
+	/**
+	 * Subscribe to all events with a wildcard handler with full type safety
+	 */
+	onAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this {
+		this._eventBus.onAny(handler);
+		return this;
+	}
+
+	/**
+	 * Unsubscribe a wildcard handler
+	 */
+	offAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this {
+		this._eventBus.offAny(handler);
+		return this;
 	}
 
 	/**
@@ -201,7 +252,16 @@ export class IPCClient {
 			if (!line.trim()) continue;
 
 			try {
-				const response = IPCSerializer.deserialize(line) as IPCResponse;
+				const message = IPCSerializer.deserialize(line) as IPCResponse | IPCEvent;
+
+				// Handle events (no id field)
+				if (message.type === "event") {
+					this._eventBus.emit(message.name as keyof LaunchpadEvents, message.data);
+					continue;
+				}
+
+				// Handle request-response messages (has id field)
+				const response = message as IPCResponse;
 				const request = this._pendingRequests.get(response.id);
 
 				if (request) {

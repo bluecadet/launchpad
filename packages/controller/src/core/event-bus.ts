@@ -100,16 +100,22 @@ export class EventBus extends EventEmitter implements IEventBus {
 	 * Subscribe to all events with a wildcard handler.
 	 * The handler receives both the event name and data.
 	 */
-	onAny(handler: (event: string, data: unknown) => void): this {
-		this._anyHandlers.add(handler);
+	onAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this {
+		// Cast to internal handler type - the type safety is enforced at the call site
+		this._anyHandlers.add(handler as (event: string, data: unknown) => void);
 		return this;
 	}
 
 	/**
 	 * Unsubscribe a wildcard handler
 	 */
-	offAny(handler: (event: string, data: unknown) => void): this {
-		this._anyHandlers.delete(handler);
+	offAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this {
+		// Cast to internal handler type - the type safety is enforced at the call site
+		this._anyHandlers.delete(handler as (event: string, data: unknown) => void);
 		return this;
 	}
 
@@ -117,7 +123,10 @@ export class EventBus extends EventEmitter implements IEventBus {
 	 * Subscribe to events matching a regular expression pattern.
 	 * Useful for subscribing to event namespaces like /^content:.*$/
 	 */
-	onPattern(pattern: RegExp, handler: (event: string, data: unknown) => void): void {
+	onPattern(
+		pattern: RegExp,
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): void {
 		this.onAny((event, data) => {
 			if (pattern.test(event)) {
 				handler(event, data);

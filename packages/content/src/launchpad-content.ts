@@ -54,9 +54,9 @@ class LaunchpadContent
 		// create all sources
 		this._rawSources = this._config.sources;
 
-		// Initialize state
+		// Initialize state with empty sources (will be populated when sources are resolved)
 		this._state = {
-			isFetching: false,
+			sources: {},
 			totalSources: this._rawSources.length,
 			downloadPath: this._config.downloadPath,
 		};
@@ -182,14 +182,19 @@ class LaunchpadContent
 
 		this._startDatetime = new Date();
 
-		// Update state and emit event (sources are resolved later, so we can't include IDs yet)
-		this._state.isFetching = true;
-		this._state.lastFetchStart = this._startDatetime;
 		this._eventBus?.emit("content:fetch:start", {
 			timestamp: this._startDatetime,
 		});
 
 		return this._createSourcesFromConfig(inputSources)
+			.andTee((resolvedSources) => {
+				// Initialize and update state for each source being fetched
+				for (const source of resolvedSources) {
+					const sourceState = this._getOrInitializeSourceState(source.id);
+					sourceState.isFetching = true;
+					sourceState.lastFetchStart = this._startDatetime;
+				}
+			})
 			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
 			.andThen((sources) => {
 				const backupAndRestore = this._config.backupAndRestore;
@@ -213,9 +218,14 @@ class LaunchpadContent
 						),
 					)
 					.andTee(() => {
-						// Update state and emit success event
-						this._state.isFetching = false;
-						this._state.lastFetchSuccess = new Date();
+						// Update state for each source and emit success event
+						const now = new Date();
+						for (const source of sources) {
+							const sourceState = this._getOrInitializeSourceState(source.id);
+							sourceState.isFetching = false;
+							sourceState.lastFetchSuccess = now;
+						}
+
 						this._eventBus?.emit("content:fetch:done", {
 							sources: sources.map((s) => s.id),
 							totalFiles: 0, // TODO: Track file count
@@ -230,9 +240,14 @@ class LaunchpadContent
 						this._pluginDriver.runHookSequential("onContentFetchError", e);
 						this._logger.error("Error in content fetch process:", e);
 
-						// Update state and emit error event
-						this._state.isFetching = false;
-						this._state.lastFetchError = new Date();
+						// Update state for each source and emit error event
+						const now = new Date();
+						for (const source of sources) {
+							const sourceState = this._getOrInitializeSourceState(source.id);
+							sourceState.isFetching = false;
+							sourceState.lastFetchError = now;
+						}
+
 						this._eventBus?.emit("content:fetch:error", {
 							error: e as Error,
 						});
@@ -430,18 +445,22 @@ class LaunchpadContent
 		);
 
 		const fetchLogger = new FetchLogger(this._logger);
+		const documentCountBySource = new Map<string, number>();
 
 		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
 			.andThen(() =>
 				Result.combine(
 					sources.map((source) => {
+						// Initialize document count for this source
+						documentCountBySource.set(source.id, 0);
+
 						// Emit source:start event
 						this._eventBus?.emit("content:source:start", {
 							sourceId: source.id,
 							sourceType: (source as { type?: string }).type || "unknown",
 						});
 
-						return this._getSourceFetchPromises(source, fetchLogger);
+						return this._getSourceFetchPromises(source, fetchLogger, documentCountBySource);
 					}),
 				),
 			)
@@ -449,11 +468,14 @@ class LaunchpadContent
 				return ResultAsync.combine(fetchPromises.flat());
 			})
 			.andTee(() => {
-				// Emit source:done events for each source
+				// Emit source:done events for each source and update state
 				for (const source of sources) {
+					const documentCount = documentCountBySource.get(source.id) || 0;
+					const sourceState = this._getOrInitializeSourceState(source.id);
+					sourceState.lastDocumentCount = documentCount;
 					this._eventBus?.emit("content:source:done", {
 						sourceId: source.id,
-						documentCount: 0, // TODO: Track actual document count
+						documentCount,
 					});
 				}
 				fetchLogger.close();
@@ -467,7 +489,11 @@ class LaunchpadContent
 			.map(() => undefined); // return void instead of void[];
 	}
 
-	_getSourceFetchPromises(source: ContentSource, fetchLogger: FetchLogger) {
+	_getSourceFetchPromises(
+		source: ContentSource,
+		fetchLogger: FetchLogger,
+		documentCountBySource: Map<string, number>,
+	) {
 		const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
 
 		const initializedFetch = source.fetch({
@@ -487,6 +513,8 @@ class LaunchpadContent
 						// Construct the file path (Documents don't expose their path)
 						const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
 						const filePath = `${this.getDownloadPath(source.id)}/${filename}`;
+						// Increment document count for this source
+						documentCountBySource.set(source.id, (documentCountBySource.get(source.id) || 0) + 1);
 						this._eventBus?.emit("content:document:write", {
 							sourceId: source.id,
 							documentId: req.id,
@@ -510,6 +538,16 @@ class LaunchpadContent
 
 			return ok(promises);
 		});
+	}
+
+	private _getOrInitializeSourceState(sourceId: string) {
+		if (!this._state.sources[sourceId]) {
+			this._state.sources[sourceId] = {
+				id: sourceId,
+				isFetching: false,
+			};
+		}
+		return this._state.sources[sourceId];
 	}
 
 	_clearDir(

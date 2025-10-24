@@ -12,10 +12,7 @@ export function status(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
 			return withDaemon(dir, config.controller, (client) => {
-				return client.queryState().andThen((stateValue) => {
-					// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
-					const state = stateValue as any;
-
+				return client.queryState().andThen((state) => {
 					// Pretty print the state
 					console.log(chalk.bold("Launchpad Status:"));
 
@@ -28,11 +25,8 @@ export function status(argv: GlobalLaunchpadArgs) {
 					if (state.subsystems.monitor) {
 						console.log(`\n${chalk.bold("Monitor:")}`);
 						console.log(
-							`  Connected: ${state.subsystems.monitor.connected ? chalk.green("Yes") : chalk.red("No")}`,
+							`  Connected: ${state.subsystems.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}`,
 						);
-						if (state.subsystems.monitor.pm2Version) {
-							console.log(`  PM2 Version: ${state.subsystems.monitor.pm2Version}`);
-						}
 
 						// Apps
 						if (
@@ -41,12 +35,10 @@ export function status(argv: GlobalLaunchpadArgs) {
 						) {
 							console.log(`\n${chalk.bold("Apps:")}`);
 							for (const [appName, appStatus] of Object.entries(state.subsystems.monitor.apps)) {
-								// biome-ignore lint/suspicious/noExplicitAny: TODO: improve typing, add some type guards
-								const app = appStatus as any;
-								const icon = app.status === "online" ? "●" : "○";
-								const statusColor = app.status === "online" ? chalk.green : chalk.red;
+								const icon = appStatus.status === "online" ? "●" : "○";
+								const statusColor = appStatus.status === "online" ? chalk.green : chalk.red;
 								console.log(
-									`  ${statusColor(icon)} ${appName}: ${statusColor(app.status)}${app.pid ? ` (PID: ${app.pid})` : ""}`,
+									`  ${statusColor(icon)} ${appName}: ${statusColor(appStatus.status)}${appStatus.pid ? ` (PID: ${appStatus.pid})` : ""}`,
 								);
 							}
 						}
@@ -55,9 +47,9 @@ export function status(argv: GlobalLaunchpadArgs) {
 					// Content status
 					if (state.subsystems.content) {
 						console.log(`\n${chalk.bold("Content:")}`);
-						console.log(`  Last Fetch: ${state.subsystems.content.lastFetch || "Never"}`);
+						console.log(`  Last Fetch: ${state.subsystems.content.lastFetchStart || "Never"}`);
 						console.log(
-							`  In Progress: ${state.subsystems.content.inProgress ? chalk.yellow("Yes") : chalk.green("No")}`,
+							`  In Progress: ${state.subsystems.content.isFetching ? chalk.yellow("Yes") : chalk.green("No")}`,
 						);
 					}
 

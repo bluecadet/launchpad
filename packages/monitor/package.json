@@ -12,6 +12,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./state": {
+      "types": "./dist/monitor-state.d.ts",
+      "default": "./dist/monitor-state.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

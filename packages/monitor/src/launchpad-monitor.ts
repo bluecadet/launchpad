@@ -61,8 +61,7 @@ class LaunchpadMonitor
 		this._state = {
 			isConnected: false,
 			isShuttingDown: false,
-			totalApps: this._config.apps.length,
-			appNames: this._config.apps.map((app) => app.pm2.name || "unnamed"),
+			apps: {},
 		};
 
 		if (this._config.shutdownOnExit) {
@@ -128,8 +127,7 @@ class LaunchpadMonitor
 									// Get process info to include in event
 									this._appManager.getAppProcess(appName, true).match(
 										(process: pm2.ProcessDescription) => {
-											// Note: PM2 types don't expose pm_id, so we cast to access it
-											const pm2Id = (process.pm2_env as { pm_id?: number })?.pm_id;
+											const pm2Id = process.pm_id;
 											if (pm2Id !== undefined && process.pid !== undefined) {
 												this._eventBus?.emit("monitor:app:restarted", {
 													appName,
@@ -279,9 +277,27 @@ class LaunchpadMonitor
 						this._pluginDriver
 							.runHookSequential("beforeAppStart", { appName: name })
 							.andThen(() => this._appManager.startApp(name))
-							.andThrough((process) =>
-								this._pluginDriver.runHookSequential("afterAppStart", { appName: name, process }),
-							),
+							.andThrough((process) => {
+								// Update state with app startup info
+								this._state.apps[name] = {
+									status: "online",
+									pid: process.pid,
+									pm2Id: process.pm_id,
+									lastStart: new Date(),
+								};
+								return this._pluginDriver.runHookSequential("afterAppStart", {
+									appName: name,
+									process,
+								});
+							})
+							.orElse((error) => {
+								// Update state with error info
+								this._state.apps[name] = {
+									status: "errored",
+									lastError: new Date(),
+								};
+								return errAsync(error);
+							}),
 					),
 				).andThen(() => this._appManager.applyWindowSettings(validatedNames));
 			});
@@ -305,9 +321,15 @@ class LaunchpadMonitor
 					this._pluginDriver
 						.runHookSequential("beforeAppStop", { appName: name })
 						.andThen(() => this._appManager.stopApp(name))
-						.andThrough(() =>
-							this._pluginDriver.runHookSequential("afterAppStop", { appName: name }),
-						),
+						.andThrough(() => {
+							// Update state with app stop info
+							if (this._state.apps[name]) {
+								this._state.apps[name].status = "offline";
+								this._state.apps[name].lastStop = new Date();
+								this._state.apps[name].pid = undefined;
+							}
+							return this._pluginDriver.runHookSequential("afterAppStop", { appName: name });
+						}),
 				),
 			).map(() => undefined);
 		});

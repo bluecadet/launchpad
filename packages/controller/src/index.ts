@@ -22,6 +22,7 @@ export {
 // State store
 export type {
 	LaunchpadState,
+	SubsystemsState,
 	SystemState,
 } from "./core/state-store.js";
 export { StateStore } from "./core/state-store.js";

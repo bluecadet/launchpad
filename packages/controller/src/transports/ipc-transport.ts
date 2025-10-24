@@ -8,6 +8,7 @@ import net from "node:net";
 import path from "node:path";
 import { ResultAsync } from "neverthrow";
 import type { LaunchpadEvents } from "../core/event-bus.js";
+import type { LaunchpadState } from "../core/state-store.js";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
@@ -28,7 +29,7 @@ export type IPCMessage =
 	| { type: "execute-command"; id: string; data: unknown };
 
 export type IPCResponse =
-	| { id: string; type: "state"; data: unknown }
+	| { id: string; type: "state"; data: LaunchpadState }
 	| { id: string; type: "ack" }
 	| { id: string; type: "result"; data: unknown }
 	| { id: string; type: "error"; error: Error };

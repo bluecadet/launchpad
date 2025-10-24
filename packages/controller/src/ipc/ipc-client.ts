@@ -8,6 +8,7 @@ import type { BaseCommand } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { LaunchpadEvents } from "../core/event-bus.js";
 import { EventBus } from "../core/event-bus.js";
+import type { LaunchpadState } from "../core/state-store.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
 import type { IPCEvent, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "./ipc-serializer.js";
@@ -124,7 +125,7 @@ export class IPCClient {
 	/**
 	 * Query the controller's current state
 	 */
-	queryState(): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
+	queryState(): ResultAsync<LaunchpadState, IPCConnectionError | IPCMessageError> {
 		const message: IPCMessage = {
 			type: "query-state",
 			id: this._generateId(),

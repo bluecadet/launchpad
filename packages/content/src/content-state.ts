@@ -17,3 +17,9 @@ export type ContentState = {
 	/** Download path */
 	downloadPath: string;
 };
+
+declare module "@bluecadet/launchpad-controller" {
+	interface SubsystemsState {
+		content: ContentState;
+	}
+}

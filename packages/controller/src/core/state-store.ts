@@ -1,5 +1,8 @@
 import type { Subsystem } from "@bluecadet/launchpad-utils";
 
+// biome-ignore lint/suspicious/noEmptyInterface: will be extended by subsystems via declaration merging
+export interface SubsystemsState {}
+
 /**
  * System-level state (controller-owned)
  */
@@ -16,7 +19,7 @@ export type SystemState = {
  */
 export type LaunchpadState = {
 	system: SystemState;
-	subsystems: Record<string, unknown>;
+	subsystems: Partial<SubsystemsState>;
 };
 
 /**

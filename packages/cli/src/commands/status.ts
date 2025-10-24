@@ -47,10 +47,25 @@ export function status(argv: GlobalLaunchpadArgs) {
 					// Content status
 					if (state.subsystems.content) {
 						console.log(`\n${chalk.bold("Content:")}`);
-						console.log(`  Last Fetch: ${state.subsystems.content.lastFetchStart || "Never"}`);
-						console.log(
-							`  In Progress: ${state.subsystems.content.isFetching ? chalk.yellow("Yes") : chalk.green("No")}`,
-						);
+						const sources = state.subsystems.content.sources;
+						if (sources && Object.keys(sources).length > 0) {
+							for (const [sourceId, sourceState] of Object.entries(sources)) {
+								const statusIcon = sourceState.isFetching ? chalk.yellow("●") : chalk.green("○");
+								console.log(`  ${statusIcon} ${sourceId}`);
+								if (sourceState.lastFetchStart) {
+									console.log(`    Last Fetch Started: ${sourceState.lastFetchStart}`);
+								}
+								if (sourceState.lastFetchSuccess) {
+									console.log(`    Last Fetch Successful: ${sourceState.lastFetchSuccess}`);
+								}
+								if (sourceState.lastFetchError) {
+									console.log(`    Last Fetch Error: ${sourceState.lastFetchError}`);
+								}
+								if (sourceState.lastDocumentCount !== undefined) {
+									console.log(`    Documents: ${sourceState.lastDocumentCount}`);
+								}
+							}
+						}
 					}
 
 					return okAsync(state);

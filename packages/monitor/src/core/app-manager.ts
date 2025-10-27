@@ -54,8 +54,7 @@ export class AppManager {
 				this.#logger.info(`...app '${appName}' was started.`);
 
 				// Emit started event with process info
-				// Note: PM2 types don't expose pm_id, so we cast to access it
-				const pm2Id = (process.pm2_env as { pm_id?: number })?.pm_id;
+				const pm2Id = process.pm_id;
 				if (pm2Id !== undefined && process.pid !== undefined) {
 					this.#eventBus?.emit("monitor:app:started", {
 						appName,
@@ -89,8 +88,7 @@ export class AppManager {
 				this.#logger.info(`...app '${appName}' was stopped.`);
 
 				// Emit stopped event with process info
-				// Note: PM2 types don't expose pm_id, so we cast to access it
-				const pm2Id = (process.pm2_env as { pm_id?: number })?.pm_id;
+				const pm2Id = process.pm_id;
 				if (pm2Id !== undefined) {
 					this.#eventBus?.emit("monitor:app:stopped", {
 						appName,

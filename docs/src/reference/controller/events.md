@@ -20,8 +20,8 @@ const eventBus = controller.getEventBus();
 
 // ✅ Type-safe - TypeScript knows the exact payload shape
 eventBus.on('content:fetch:done', (data) => {
-  console.log(`Fetched ${data.totalFiles} files from ${data.sources.length} sources`);
-  // data is typed as: { sources: string[], totalFiles: number, duration: number }
+  console.log(`Fetched ${data.sources.length} sources`);
+  // data is typed as: { sources: string[] }
 });
 ```
 

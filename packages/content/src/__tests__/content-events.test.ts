@@ -24,7 +24,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -37,6 +37,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -56,7 +58,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -69,6 +71,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -82,8 +86,6 @@ describe("Content Event Emissions", () => {
 			}>("content:fetch:done");
 			expect(doneEvents).toHaveLength(1);
 			expect(doneEvents[0]!.sources).toEqual(["test"]);
-			expect(doneEvents[0]!.totalFiles).toBeGreaterThanOrEqual(0); // May be 0 depending on implementation
-			expect(doneEvents[0]!.duration).toBeGreaterThanOrEqual(0);
 		});
 
 		it("should emit content:fetch:error on download failure", async () => {
@@ -93,7 +95,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -106,6 +108,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -129,7 +133,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -142,6 +146,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -157,13 +163,9 @@ describe("Content Event Emissions", () => {
 			expect(startEvents[0]!.sourceType).toBe("unknown"); // Sources don't have type property yet
 
 			// Check done event
-			const doneEvents = eventBus.getEventsOfType<{ sourceId: string; documentCount: number }>(
-				"content:source:done",
-			);
+			const doneEvents = eventBus.getEventsOfType<{ sourceId: string }>("content:source:done");
 			expect(doneEvents).toHaveLength(1);
 			expect(doneEvents[0]!.sourceId).toBe("test-source");
-			// Document count may vary based on internal implementation
-			expect(doneEvents[0]!.documentCount).toBeGreaterThanOrEqual(0);
 		});
 
 		it("should emit error event on source failure", async () => {
@@ -173,7 +175,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -186,6 +188,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -212,7 +216,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -233,6 +237,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -258,7 +264,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -271,6 +277,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -299,7 +307,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -313,6 +321,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -350,7 +360,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -369,6 +379,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -397,7 +409,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -417,6 +429,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -438,7 +452,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -451,6 +465,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			const eventBus = createMockEventBus();
 			content.setEventBus(eventBus);
@@ -488,7 +504,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const contentResult = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -501,6 +517,8 @@ describe("Content Event Emissions", () => {
 				},
 				createMockLogger(),
 			);
+			expect(contentResult).toBeOk();
+			const content = contentResult._unsafeUnwrap();
 
 			// Do not set eventBus - should still work
 			await expect(content.download()).resolves.toBeOk();

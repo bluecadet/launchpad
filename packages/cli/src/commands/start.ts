@@ -113,7 +113,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 									return importLaunchpadContent().andThen(({ default: LaunchpadContent }) => {
 										const contentInstance = new LaunchpadContent(contentConfig, rootLogger, dir);
 										controller.registerSubsystem("content", contentInstance);
-										return ok();
+										return contentInstance.loadSources();
 									});
 								}
 								return ok();

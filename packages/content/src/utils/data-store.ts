@@ -451,8 +451,8 @@ class Namespace {
 }
 
 /**
- * In-memory data store for content. Used to store content during the fetch process,
- * and to provide an easy api for content transforms before writing to disk.
+ * File system abstraction for interacting with content. Used to store content during the fetch process,
+ * and to provide an easy api for transforming and querying written content without needing to load everything into memory.
  */
 export class DataStore {
 	#namespaces = new Map<string, Namespace>();

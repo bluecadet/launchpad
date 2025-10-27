@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { glob } from "glob";
 import { okAsync, ResultAsync } from "neverthrow";
+import type { ContentError } from "../index.js";
 
 export class FileUtilsError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -213,5 +214,50 @@ export function copyFile(src: string, dest: string): ResultAsync<void, FileUtils
 	return ResultAsync.fromPromise(
 		fs.promises.copyFile(src, dest),
 		(e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e }),
+	);
+}
+
+/**
+ * Clear files from a directory.
+ * Optionally respects keep patterns and removes empty directories.
+ */
+export function clearDir(
+	dirPath: string,
+	options: {
+		keepPatterns?: string[];
+		ignoreKeep?: boolean;
+		removeIfEmpty?: boolean;
+	} = {},
+): ResultAsync<void, FileUtilsError> {
+	return pathExists(dirPath)
+		.andThen((exists) => {
+			if (!exists) {
+				return okAsync(undefined);
+			}
+
+			return removeFilesFromDir(dirPath, options.ignoreKeep ? undefined : options.keepPatterns);
+		})
+		.andThen(() => {
+			if (options.removeIfEmpty) {
+				return removeDirIfEmpty(dirPath);
+			}
+			return okAsync(undefined);
+		})
+		.mapErr((e) => new FileUtilsError(`Failed to clear directory: ${dirPath}`, { cause: e }));
+}
+
+/**
+ * Clear directories and optionally remove parent if empty.
+ */
+export function clearDirs(
+	dirPaths: string[],
+	options: {
+		keepPatterns?: string[];
+		ignoreKeep?: boolean;
+		removeIfEmpty?: boolean;
+	} = {},
+): ResultAsync<void, FileUtilsError> {
+	return ResultAsync.combine(dirPaths.map((dirPath) => clearDir(dirPath, options))).map(
+		() => undefined,
 	);
 }

@@ -18,8 +18,6 @@ declare module "@bluecadet/launchpad-controller" {
 
 		"content:fetch:done": {
 			sources: string[];
-			totalFiles: number;
-			duration: number;
 		};
 
 		"content:fetch:error": {
@@ -35,7 +33,6 @@ declare module "@bluecadet/launchpad-controller" {
 
 		"content:source:done": {
 			sourceId: string;
-			documentCount: number;
 		};
 
 		"content:source:error": {

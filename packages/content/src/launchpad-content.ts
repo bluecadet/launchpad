@@ -9,11 +9,9 @@ import {
 	PluginDriver,
 	type StateProvider,
 } from "@bluecadet/launchpad-utils";
-import chalk from "chalk";
-import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
-	type ConfigContentSource,
 	type ContentConfig,
 	contentConfigSchema,
 	DOWNLOAD_PATH_TOKEN,
@@ -21,45 +19,48 @@ import {
 	TIMESTAMP_TOKEN,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
-import type { ContentState } from "./content-state.js";
+import type { ContentPhase, ContentStateSnapshot, SourceFetchState } from "./content-state.js";
+import {
+	backupStage,
+	cleanupStage,
+	clearOldDataStage,
+	doneHooksStage,
+	errorRecoveryStage,
+	type FetchStageContext,
+	fetchSourcesStage,
+	finalizingStage,
+	setupHooksStage,
+} from "./fetching/fetch-stages.js";
 import type { ContentSource } from "./sources/source.js";
 import { DataStore } from "./utils/data-store.js";
-import { FetchLogger } from "./utils/fetch-logger.js";
 import * as FileUtils from "./utils/file-utils.js";
 
 class LaunchpadContent
-	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentState>
+	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentStateSnapshot>
 {
-	_config: ResolvedContentConfig;
-	_logger: Logger;
-	_pluginDriver: ContentPluginDriver;
-	_rawSources: ConfigContentSource[];
-	_startDatetime = new Date();
-	_dataStore: DataStore;
-	_abortController = new AbortController();
-	_cwd: string;
-	_eventBus?: EventBus;
-	_state: ContentState;
-	_commandInProgress = false;
+	private _config: ResolvedContentConfig;
+	private _logger: Logger;
+	private _pluginDriver: ContentPluginDriver;
+	private _sourceRegistry: Map<string, ContentSource> = new Map();
+	private _startDatetime = new Date();
+	private _abortController = new AbortController();
+	private _cwd: string;
+	private _eventBus?: EventBus;
+	private _commandInProgress = false;
+	private _initialized = false;
+	// TODO: Consider making DataStore per-fetch instead of per-instance
+	private _dataStore: DataStore;
+
+	// Simple inline state tracking
+	private _currentPhase: ContentPhase = { phase: "idle" };
+	private _sourceStates: Record<string, SourceFetchState> = {};
+	private _totalSources = 0;
 
 	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
 		this._config = contentConfigSchema.parse(config);
-
 		this._cwd = cwd;
-
 		this._logger = LogManager.getLogger("content", parentLogger);
-
 		this._dataStore = new DataStore(this._config.downloadPath);
-
-		// create all sources
-		this._rawSources = this._config.sources;
-
-		// Initialize state with empty sources (will be populated when sources are resolved)
-		this._state = {
-			sources: {},
-			totalSources: this._rawSources.length,
-			downloadPath: this._config.downloadPath,
-		};
 
 		onExit(() => {
 			this._abortController.abort();
@@ -82,6 +83,64 @@ class LaunchpadContent
 	}
 
 	/**
+	 * Shorthand to create the LaunchpadContent instance and load sources.
+	 * Returns a ResultAsync that resolves to the initialized instance.
+	 */
+	static init(
+		...args: ConstructorParameters<typeof LaunchpadContent>
+	): ResultAsync<LaunchpadContent, ContentError> {
+		const instance = new LaunchpadContent(...args);
+		return instance.loadSources().map(() => instance);
+	}
+
+	/**
+	 * Initialize the content system with sources.
+	 * Must be called before fetch/clear operations.
+	 * Sources are registered and resolved here.
+	 */
+	loadSources(): ResultAsync<void, ContentError> {
+		const inputSources = this._config.sources;
+
+		if (!inputSources || inputSources.length === 0) {
+			this._logger.warn("No sources configured");
+			return okAsync(undefined);
+		}
+
+		// Resolve any promise-based sources
+		return ResultAsync.fromPromise(
+			Promise.all(inputSources.map((s) => Promise.resolve(s))),
+			(error) => new ContentError("Failed to resolve sources", { cause: error }),
+		)
+			.andThen((resolvedSources) => {
+				// Register sources in the registry
+				for (const source of resolvedSources) {
+					if (this._sourceRegistry.has(source.id)) {
+						return err(
+							new ContentError(`Duplicate source ID detected during loadSources: ${source.id}`),
+						);
+					}
+					this._sourceRegistry.set(source.id, source);
+				}
+
+				// Initialize source states
+				const sourceIds = resolvedSources.map((s) => s.id);
+				this._totalSources = sourceIds.length;
+				this._sourceStates = {};
+				for (const sourceId of sourceIds) {
+					this._sourceStates[sourceId] = { state: "pending" };
+				}
+				this._initialized = true;
+
+				this._logger.info(`Initialized ${sourceIds.length} source(s)`);
+				return ok(undefined);
+			})
+			.orElse((e) => {
+				this._pluginDriver.runHookSequential("onSetupError", e);
+				return err(e);
+			});
+	}
+
+	/**
 	 * Inject EventBus for controller integration.
 	 * When EventBus is present, the content system will emit lifecycle events.
 	 */
@@ -91,10 +150,75 @@ class LaunchpadContent
 	}
 
 	/**
-	 * Get the current state of the content system.
+	 * Get immutable snapshot of the current state of the content system.
 	 */
-	getState(): ContentState {
-		return this._state;
+	getState(): ContentStateSnapshot {
+		return Object.freeze({
+			timestamp: new Date(),
+			phase: this._currentPhase,
+			sources: Object.freeze({ ...this._sourceStates }),
+			totalSources: this._totalSources,
+			downloadPath: this._config.downloadPath,
+		});
+	}
+
+	/**
+	 * Advance to the next phase (called by stages during pipeline execution).
+	 * Phase transitions happen linearly through the pipeline.
+	 */
+	private _setPhase(newPhase: ContentPhase): void {
+		this._currentPhase = newPhase;
+	}
+
+	/**
+	 * Mark a source as successfully completed.
+	 */
+	private _markSourceSuccess(sourceId: string, finishedAt: Date): void {
+		const state = this._sourceStates[sourceId];
+		if (state && state.state === "fetching") {
+			const startTime = state.startTime;
+			const duration = finishedAt.getTime() - startTime.getTime();
+			this._sourceStates[sourceId] = {
+				state: "success",
+				startTime,
+				finishedAt,
+				duration,
+			};
+		}
+	}
+
+	/**
+	 * Mark a source as failed.
+	 */
+	private _markSourceError(sourceId: string, error: Error): void {
+		const state = this._sourceStates[sourceId];
+		if (state) {
+			const startTime = state.state === "fetching" ? state.startTime : undefined;
+			this._sourceStates[sourceId] = {
+				state: "error",
+				error,
+				startTime,
+				attemptedAt: new Date(),
+				restored: false,
+			};
+		}
+	}
+
+	/**
+	 * Mark a source as restored after error recovery.
+	 */
+	private _markSourceRestored(sourceId: string): void {
+		const state = this._sourceStates[sourceId];
+		if (state && state.state === "error") {
+			state.restored = true;
+		}
+	}
+
+	/**
+	 * Reset state to idle and all sources to pending for next fetch.
+	 */
+	private _resetState(): void {
+		this._currentPhase = { phase: "idle" };
 	}
 
 	/**
@@ -104,39 +228,19 @@ class LaunchpadContent
 	executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
 		switch (command.type) {
 			case "content.fetch": {
-				// TODO: Filter sources if specified in command.sources
-				// For now, fetch all sources (filtering requires awaiting promises)
-				return this._singleCommandGuard(() => this.start(null).mapErr((e) => e as Error));
+				// Fetch uses sourceIds from command, or all registered sources
+				return this._singleCommandGuard(() =>
+					this.start(command.sources).mapErr((e) => e as Error),
+				);
 			}
 
 			case "content.clear": {
-				// Convert source IDs to ContentSource objects
 				return this._singleCommandGuard(() =>
-					this._createSourcesFromConfig(this._rawSources)
-						.andThen((sources) =>
-							this.clear(sources, {
-								temp: command.temp ?? true,
-								backups: command.backups ?? true,
-								downloads: command.downloads ?? true,
-							}),
-						)
-						.mapErr((e) => e as Error),
-				);
-			}
-
-			case "content.backup": {
-				return this._singleCommandGuard(() =>
-					this._createSourcesFromConfig(this._rawSources)
-						.andThen((sources) => this.backup(sources))
-						.mapErr((e) => e as Error),
-				);
-			}
-
-			case "content.restore": {
-				return this._singleCommandGuard(() =>
-					this._createSourcesFromConfig(this._rawSources)
-						.andThen((sources) => this.restore(sources, command.removeBackups ?? true))
-						.mapErr((e) => e as Error),
+					this.clear(command.sources, {
+						temp: command.temp ?? true,
+						backups: command.backups ?? true,
+						downloads: command.downloads ?? true,
+					}).mapErr((e) => e as Error),
 				);
 			}
 
@@ -173,140 +277,110 @@ class LaunchpadContent
 			});
 	}
 
-	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
-		const inputSources = rawSources || this._rawSources;
-		if (!inputSources || inputSources.length <= 0) {
-			this._logger.warn(chalk.yellow("No sources found to download"));
+	/**
+	 * Fetch content from the specified sources.
+	 * Sources must be registered via loadSources() first.
+	 *
+	 * @param sourceIds - Source IDs to fetch from. If not specified, fetches all registered sources.
+	 */
+	start(sourceIds?: Array<string> | null): ResultAsync<void, ContentError> {
+		if (!this._initialized) {
+			return errAsync(
+				new ContentError(
+					"Content system not initialized. Call loadSources() first or use the static init() method.",
+				),
+			);
+		}
+
+		const idsToFetch = sourceIds || this._sourceRegistry.keys();
+		if (!idsToFetch) {
+			this._logger.warn("No sources to fetch");
 			return okAsync(undefined);
+		}
+
+		// Reset state at the start of a new fetch
+		this._resetState();
+
+		const resolvedSources: ContentSource[] = [];
+
+		for (const sourceId of idsToFetch) {
+			const source = this._sourceRegistry.get(sourceId);
+			if (source) {
+				resolvedSources.push(source);
+			} else {
+				this._logger.error(
+					`Source not registered with ID: ${sourceId}. Did you forget to call loadSources()?`,
+				);
+				return errAsync(new ContentError(`Source not registered with ID: ${sourceId}`));
+			}
 		}
 
 		this._startDatetime = new Date();
 
-		this._eventBus?.emit("content:fetch:start", {
-			timestamp: this._startDatetime,
-		});
+		// Emit fetch start event
+		this._eventBus?.emit("content:fetch:start", { timestamp: this._startDatetime });
 
-		return this._createSourcesFromConfig(inputSources)
-			.andTee((resolvedSources) => {
-				// Initialize and update state for each source being fetched
-				for (const source of resolvedSources) {
-					const sourceState = this._getOrInitializeSourceState(source.id);
-					sourceState.isFetching = true;
-					sourceState.lastFetchStart = this._startDatetime;
-				}
-			})
-			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
-			.andThen((sources) => {
-				const backupAndRestore = this._config.backupAndRestore;
-				const backupProcess = backupAndRestore ? this.backup(sources) : okAsync(undefined);
+		// Create fetch stage context with fresh DataStore
+		const context: FetchStageContext = {
+			pluginDriver: this._pluginDriver,
+			dataStore: this._dataStore,
+			logger: this._logger,
+			eventBus: this._eventBus,
+			config: this._config,
+			cwd: this._cwd,
+			abortSignal: this._abortController.signal,
+			getDownloadPath: this.getDownloadPath.bind(this),
+			getTempPath: this.getTempPath.bind(this),
+			getBackupPath: this.getBackupPath.bind(this),
+			sources: resolvedSources,
+		};
 
-				return backupProcess
-					.andTee(() => this._logger.info("Clearing download directory"))
-					.andThen(() =>
-						this.clear(sources, {
-							temp: false,
-							backups: false,
-							downloads: true,
-						}),
-					)
-					.andThen(() => this._fetchSources(sources))
-					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
-					.andThen(() =>
-						ResultAsync.fromPromise(
-							this._dataStore.close(),
-							(e) => new ContentError("Failed to close data store", { cause: e }),
-						),
-					)
-					.andTee(() => {
-						// Update state for each source and emit success event
-						const now = new Date();
-						for (const source of sources) {
-							const sourceState = this._getOrInitializeSourceState(source.id);
-							sourceState.isFetching = false;
-							sourceState.lastFetchSuccess = now;
-						}
-
-						this._eventBus?.emit("content:fetch:done", {
-							sources: sources.map((s) => s.id),
-							totalFiles: 0, // TODO: Track file count
-							duration: Date.now() - this._startDatetime.getTime(),
-						});
-
-						// Clear data store before subsequent runs
-						// Ensures no stale data remains
-						this._dataStore._clear();
-					})
-					.orElse((e) => {
-						this._pluginDriver.runHookSequential("onContentFetchError", e);
-						this._logger.error("Error in content fetch process:", e);
-
-						// Update state for each source and emit error event
-						const now = new Date();
-						for (const source of sources) {
-							const sourceState = this._getOrInitializeSourceState(source.id);
-							sourceState.isFetching = false;
-							sourceState.lastFetchError = now;
-						}
-
-						this._eventBus?.emit("content:fetch:error", {
-							error: e as Error,
-						});
-
-						if (backupAndRestore) {
-							this._logger.info("Restoring from backup...");
-							return this.restore(sources).andThen(() => {
-								return err(
-									new ContentError("Failed to download content. Restored from backup.", {
-										cause: e,
-									}),
-								);
-							});
-						}
-						return err(e);
-					})
-					.andTee(() =>
-						this._logger.info("Content fetch complete. Clearing temp and backup directories."),
-					)
-					.andThen(() =>
-						this.clear(sources, {
-							temp: true,
-							backups: backupAndRestore,
-							downloads: false,
-						}),
-					);
-			});
+		// Execute fetch pipeline with resolved sources
+		return this._executeFetchPipeline(context);
 	}
 
 	/**
-	 * Alias for start(source)
+	 * Alias for start()
 	 */
-	download(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
-		return this.start(rawSources);
+	download(sourceIds?: string[] | null): ResultAsync<void, ContentError> {
+		return this.start(sourceIds);
 	}
 
 	/**
 	 * Clears all cached content except for files that match config.keep.
-	 * @param sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
+	 * @param sourceIds - Source IDs to clear. If not specified, clears all registered sources.
 	 */
 	clear(
-		sources: ContentSource[] = [],
+		sourceIds?: string[] | null,
 		{ temp = true, backups = true, downloads = true, removeIfEmpty = true } = {},
 	): ResultAsync<void, ContentError> {
+		const idsToClear = sourceIds || Array.from(this._sourceRegistry.keys());
+
+		if (!idsToClear || idsToClear.length === 0) {
+			this._logger.info("No sources to clear");
+			return okAsync(undefined);
+		}
+
 		return ResultAsync.combine(
-			sources.map((source) => {
+			idsToClear.map((sourceId) => {
 				const tasks = [] as ResultAsync<void, ContentError>[];
 				if (temp) {
 					tasks.push(
-						this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }),
+						FileUtils.clearDir(this.getTempPath(sourceId), { removeIfEmpty, ignoreKeep: true }),
 					);
 				}
 				if (backups) {
 					tasks.push(
-						this._clearDir(this.getBackupPath(source.id), { removeIfEmpty, ignoreKeep: true }),
+						FileUtils.clearDir(this.getBackupPath(sourceId), { removeIfEmpty, ignoreKeep: true }),
 					);
 				}
 				if (downloads) {
-					tasks.push(this._clearDir(this.getDownloadPath(source.id), { removeIfEmpty }));
+					tasks.push(
+						FileUtils.clearDir(this.getDownloadPath(sourceId), {
+							removeIfEmpty,
+							keepPatterns: this._config.keep,
+						}),
+					);
 				}
 				return ResultAsync.combine(tasks);
 			}),
@@ -320,72 +394,8 @@ class LaunchpadContent
 				}
 				return ResultAsync.combine(tasks);
 			})
-			.map(() => undefined) // return void instead of void[]
+			.map(() => undefined)
 			.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
-	}
-
-	/**
-	 * Backs up all downloads of source to a separate backup dir.
-	 */
-	backup(sources: ContentSource[] = []): ResultAsync<void, ContentError> {
-		this._logger.info("Backing up downloads...");
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const downloadPath = this.getDownloadPath(source.id);
-				const backupPath = this.getBackupPath(source.id);
-
-				return FileUtils.pathExists(downloadPath).andThen((exists) => {
-					if (!exists) {
-						this._logger.warn(
-							`Skipping backup for ${source.id}: No downloads found at ${downloadPath}`,
-						);
-						return ok(undefined);
-					}
-					this._logger.info(`Backing up source: ${source.id}`);
-					return FileUtils.copy(downloadPath, backupPath);
-				});
-			}),
-		)
-			.mapErr((e) => new ContentError("Failed to backup sources", { cause: e }))
-			.map(() => undefined); // return void instead of void[]
-	}
-
-	/**
-	 * Restores all downloads of source from its backup dir if it exists.
-	 */
-	restore(sources: ContentSource[] = [], removeBackups = true): ResultAsync<void, ContentError> {
-		this._logger.info("Attempting to restore from backup...");
-
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const downloadPath = this.getDownloadPath(source.id);
-				const backupPath = this.getBackupPath(source.id);
-
-				return FileUtils.pathExists(backupPath)
-					.andThen((exists) => {
-						if (!exists) {
-							this._logger.warn(`No backup found for ${source.id}`);
-							return ok(undefined);
-						}
-
-						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-
-						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(
-							() => {
-								if (removeBackups) {
-									this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
-									return FileUtils.remove(backupPath);
-								}
-								return ok(undefined);
-							},
-						);
-					})
-					.mapErr(
-						(e) =>
-							new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
-					);
-			}),
-		).map(() => undefined); // return void instead of void[]
 	}
 
 	getDownloadPath(sourceId?: string): string {
@@ -421,154 +431,129 @@ class LaunchpadContent
 		return path.resolve(path.resolve(this._cwd, detokenizedPath));
 	}
 
-	_createSourcesFromConfig(
-		rawSources: ConfigContentSource[],
-	): ResultAsync<ContentSource[], ContentError> {
-		return ResultAsync.combine(
-			rawSources.map((source) =>
-				ResultAsync.fromPromise(
-					// wrap source in promise to ensure it's awaited
-					Promise.resolve(source),
-					(error) => new ContentError("Failed to build source", { cause: error }),
-				),
-			),
-		).orElse((e) => {
-			this._pluginDriver.runHookSequential("onSetupError", e);
-			return err(e);
-		});
-	}
-
-	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
-		this._logger.info("Beginning content fetch process");
-		this._logger.info(
-			`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`,
-		);
-
-		const fetchLogger = new FetchLogger(this._logger);
-		const documentCountBySource = new Map<string, number>();
-
-		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
-			.andThen(() =>
-				Result.combine(
-					sources.map((source) => {
-						// Initialize document count for this source
-						documentCountBySource.set(source.id, 0);
-
-						// Emit source:start event
-						this._eventBus?.emit("content:source:start", {
-							sourceId: source.id,
-							sourceType: (source as { type?: string }).type || "unknown",
-						});
-
-						return this._getSourceFetchPromises(source, fetchLogger, documentCountBySource);
-					}),
-				),
-			)
-			.andThen((fetchPromises) => {
-				return ResultAsync.combine(fetchPromises.flat());
-			})
-			.andTee(() => {
-				// Emit source:done events for each source and update state
-				for (const source of sources) {
-					const documentCount = documentCountBySource.get(source.id) || 0;
-					const sourceState = this._getOrInitializeSourceState(source.id);
-					sourceState.lastDocumentCount = documentCount;
-					this._eventBus?.emit("content:source:done", {
-						sourceId: source.id,
-						documentCount,
-					});
-				}
-				fetchLogger.close();
-				this._logger.info("Fetch completed.");
-			})
-			.orElse((e) => {
-				fetchLogger.close();
-				this._logger.error("Fetch failed.");
-				return err(e);
-			})
-			.map(() => undefined); // return void instead of void[];
-	}
-
-	_getSourceFetchPromises(
-		source: ContentSource,
-		fetchLogger: FetchLogger,
-		documentCountBySource: Map<string, number>,
-	) {
-		const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
-
-		const initializedFetch = source.fetch({
-			logger: sourceLogger,
-			dataStore: this._dataStore,
-			abortSignal: this._abortController.signal,
-		});
-
-		const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
-
-		return this._dataStore.namespace(source.id).andThen((namespace) => {
-			const promises = fetchAsArray.map((req) => {
-				const insertResultAsync = namespace
-					.safeInsert(req.id, req.data)
-					.andTee(() => {
-						// Emit document:write event on success
-						// Construct the file path (Documents don't expose their path)
-						const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
-						const filePath = `${this.getDownloadPath(source.id)}/${filename}`;
-						// Increment document count for this source
-						documentCountBySource.set(source.id, (documentCountBySource.get(source.id) || 0) + 1);
-						this._eventBus?.emit("content:document:write", {
-							sourceId: source.id,
-							documentId: req.id,
-							path: filePath,
-						});
-					})
-					.mapErr((e) => {
-						// Emit document:error event on failure
-						this._eventBus?.emit("content:document:error", {
-							sourceId: source.id,
-							documentId: req.id,
-							error: e,
-						});
-						return new ContentError(`Failed to write data for ${req.id}`, e);
-					});
-
-				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
-
-				return insertResultAsync;
-			});
-
-			return ok(promises);
-		});
-	}
-
-	private _getOrInitializeSourceState(sourceId: string) {
-		if (!this._state.sources[sourceId]) {
-			this._state.sources[sourceId] = {
-				id: sourceId,
-				isFetching: false,
+	/**
+	 * Execute the fetch pipeline with already-resolved sources.
+	 * Pipeline manages state transitions between stages.
+	 */
+	private _executeFetchPipeline(context: FetchStageContext): ResultAsync<void, ContentError> {
+		// Initialize sources to fetching state
+		for (const source of context.sources) {
+			this._sourceStates[source.id] = {
+				state: "fetching",
+				startTime: new Date(),
 			};
 		}
-		return this._state.sources[sourceId];
-	}
 
-	_clearDir(
-		dirPath: string,
-		{ removeIfEmpty = true, ignoreKeep = false } = {},
-	): ResultAsync<void, ContentError> {
-		return FileUtils.pathExists(dirPath)
-			.andThen((exists) => {
-				if (!exists) return okAsync(undefined);
-				return FileUtils.removeFilesFromDir(
-					dirPath,
-					ignoreKeep ? undefined : this._config.keep,
-				).andThen(() => {
-					if (removeIfEmpty) {
-						return FileUtils.removeDirIfEmpty(dirPath);
+		this._setPhase({ phase: "running-setup-hooks" });
+
+		// Pipeline stages with state management
+		return (
+			// Stage 1: Setup hooks
+			setupHooksStage(context)
+				.andThen((val) => {
+					if (this._config.backupAndRestore) {
+						this._setPhase({ phase: "backing-up" });
+						// Stage 2: Backup (optional)
+						return backupStage(context);
 					}
 
+					return ok(val);
+				})
+				.andThen(() => {
+					this._setPhase({ phase: "clearing-old-data" });
+					// Stage 3: Clear old data
+					return clearOldDataStage(context);
+				})
+				.andThen(() => {
+					this._setPhase({ phase: "fetching-sources" });
+					// Stage 4: Fetch sources
+					return fetchSourcesStage(context);
+				})
+				.andThen(() => {
+					this._setPhase({ phase: "running-done-hooks" });
+					// Stage 5: Done hooks
+					return doneHooksStage(context);
+				})
+				.andThen(() => {
+					this._setPhase({ phase: "finalizing", restored: false });
+					// Stage 6: Finalize
+					return finalizingStage(context);
+				})
+				.andThen(() => {
+					this._setPhase({ phase: "clearing-temp" });
+					// Mark all sources as success
+					for (const source of context.sources) {
+						this._markSourceSuccess(source.id, new Date());
+					}
+					// Stage 7: Cleanup temp and backups
+					return cleanupStage(context, {
+						temp: true,
+						backups: this._config.backupAndRestore,
+					});
+				})
+				.andThen(() => {
 					return okAsync(undefined);
+				})
+				.andTee(() => {
+					// Clear data store
+					context.dataStore._clear();
+				})
+				.orElse((error) => {
+					// Run error recovery
+					context.dataStore._clear();
+					return this._runErrorRecovery(context, error).andThen(() => {
+						// Propagate original error after recovery
+						return err(error);
+					});
+				})
+		);
+	}
+
+	/**
+	 * Run error recovery and cleanup after fetch failure.
+	 */
+	private _runErrorRecovery(
+		context: FetchStageContext,
+		error: ContentError,
+	): ResultAsync<void, ContentError> {
+		this._setPhase({ phase: "error", error, restored: false });
+		// Mark sources as failed
+		if (context.sources) {
+			for (const source of context.sources) {
+				this._markSourceError(source.id, error);
+			}
+		}
+
+		return errorRecoveryStage(context, error)
+			.andThen(() => {
+				// Mark sources as restored
+				if (context.sources) {
+					for (const source of context.sources) {
+						this._markSourceRestored(source.id);
+					}
+				}
+				this._setPhase({ phase: "error", error, restored: true });
+				// Cleanup even on error
+				return cleanupStage(context, {
+					temp: true,
+					backups: this._config.backupAndRestore,
 				});
 			})
-			.mapErr((e) => new ContentError(`Failed to clear directory: ${dirPath}`, { cause: e }));
+			.andThen(() => {
+				this._setPhase({ phase: "clearing-temp" });
+				return okAsync(undefined);
+			})
+			.andTee(() => {
+				this._resetState();
+				// Cleanup the dataStore
+				context.dataStore._clear();
+			})
+			.orElse(() => {
+				// Even if recovery fails, cleanup temp and reset
+				this._resetState();
+				context.dataStore._clear();
+				return errAsync(error);
+			});
 	}
 
 	_getDetokenizedPath(tokenizedPath: string, downloadPath: string): string {

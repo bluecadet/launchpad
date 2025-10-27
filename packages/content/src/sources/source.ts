@@ -64,6 +64,7 @@ export const contentSourceSchema = z.object({
 });
 
 export type ContentSource = z.infer<typeof contentSourceSchema>;
+export type ContentSourceDocument = z.infer<typeof sourceFetchResultDocumentSchema>;
 
 /**
  * This function doesn't do anything, just returns the source parameter. It's just to make it easier to define/type sources.

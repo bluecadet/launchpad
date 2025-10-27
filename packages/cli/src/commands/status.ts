@@ -47,23 +47,36 @@ export function status(argv: GlobalLaunchpadArgs) {
 					// Content status
 					if (state.subsystems.content) {
 						console.log(`\n${chalk.bold("Content:")}`);
-						const sources = state.subsystems.content.sources;
+						const contentState = state.subsystems.content;
+						const sources = contentState.sources;
+
+						// Show overall phase
+						console.log(`  Phase: ${contentState.phase.phase}`);
+
 						if (sources && Object.keys(sources).length > 0) {
 							for (const [sourceId, sourceState] of Object.entries(sources)) {
-								const statusIcon = sourceState.isFetching ? chalk.yellow("●") : chalk.green("○");
-								console.log(`  ${statusIcon} ${sourceId}`);
-								if (sourceState.lastFetchStart) {
-									console.log(`    Last Fetch Started: ${sourceState.lastFetchStart}`);
+								let statusIcon = chalk.gray("○");
+								let details = "";
+
+								if (sourceState.state === "pending") {
+									statusIcon = chalk.gray("○");
+									details = "Pending";
+								} else if (sourceState.state === "fetching") {
+									statusIcon = chalk.yellow("●");
+									details = "Fetching";
+								} else if (sourceState.state === "success") {
+									statusIcon = chalk.green("✓");
+									const duration = (sourceState.duration / 1000).toFixed(1);
+									details = `Success (${duration}s)`;
+								} else if (sourceState.state === "error") {
+									statusIcon = chalk.red("✗");
+									details = `Error: ${sourceState.error.message}`;
+									if (sourceState.restored) {
+										details += " (restored from backup)";
+									}
 								}
-								if (sourceState.lastFetchSuccess) {
-									console.log(`    Last Fetch Successful: ${sourceState.lastFetchSuccess}`);
-								}
-								if (sourceState.lastFetchError) {
-									console.log(`    Last Fetch Error: ${sourceState.lastFetchError}`);
-								}
-								if (sourceState.lastDocumentCount !== undefined) {
-									console.log(`    Documents: ${sourceState.lastDocumentCount}`);
-								}
+
+								console.log(`  ${statusIcon} ${sourceId}: ${details}`);
 							}
 						}
 					}

@@ -54,7 +54,7 @@ const eventBus = controller.getEventBus();
 
 // Listen to events
 eventBus.on('content:fetch:done', (data) => {
-  console.log(`Fetched ${data.totalFiles} files`);
+  console.log(`Fetched ${data.sources.length} sources`);
 });
 
 // Emit events (from subsystems)

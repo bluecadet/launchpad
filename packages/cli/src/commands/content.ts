@@ -28,7 +28,10 @@ export function content(argv: GlobalLaunchpadArgs) {
 						return importLaunchpadContent().andThen(({ default: LaunchpadContent }) => {
 							const contentInstance = new LaunchpadContent(configContent, rootLogger, dir);
 							controller.registerSubsystem("content", contentInstance);
-							return controller.executeCommand({ type: "content.fetch" });
+
+							return contentInstance
+								.loadSources()
+								.andThen(() => controller.executeCommand({ type: "content.fetch" }));
 						});
 					},
 				}).orElse((error) => handleFatalError(error, rootLogger));

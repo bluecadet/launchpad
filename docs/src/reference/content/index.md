@@ -41,7 +41,7 @@ npm install @bluecadet/launchpad-content
 ```typescript
 import LaunchpadContent from '@bluecadet/launchpad-content';
 
-const content = new LaunchpadContent({
+const content = LaunchpadContent({
   sources: [
     // Content source configurations
   ],
@@ -50,6 +50,9 @@ const content = new LaunchpadContent({
   ],
   downloadPath: './content'
 });
+
+// Load content sources
+await content.loadSources();
 
 // Start content download and processing
 await content.start();

@@ -7,7 +7,7 @@ import {
 	type PluginDriver,
 	type PluginError,
 } from "@bluecadet/launchpad-utils";
-import type { ResultAsync } from "neverthrow";
+import { err, type ResultAsync } from "neverthrow";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
 
@@ -137,7 +137,8 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 							pluginName: plugin.name,
 							error,
 						});
-						throw error;
+
+						return err(error);
 					});
 			}
 		}

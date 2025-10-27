@@ -38,7 +38,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const content = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -61,7 +61,7 @@ describe("Content Integration", () => {
 				createMockLogger(),
 			);
 
-			const result = await content.download();
+			const result = await content._unsafeUnwrap().download();
 
 			expect(result).toBeOk();
 
@@ -124,7 +124,7 @@ describe("Content Integration", () => {
 				),
 			);
 
-			const content = new LaunchpadContent(
+			const content = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -142,7 +142,7 @@ describe("Content Integration", () => {
 				createMockLogger(),
 			);
 
-			const result = await content.download();
+			const result = await content._unsafeUnwrap().download();
 
 			expect(result).toBeOk();
 
@@ -180,7 +180,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
+			const content = await LaunchpadContent.init(
 				{
 					downloadPath: "/downloads",
 					tempPath: "/temp",
@@ -208,7 +208,9 @@ describe("Content Integration", () => {
 				createMockLogger(),
 			);
 
-			const result = await content.download();
+			expect(content).toBeOk();
+
+			const result = await content._unsafeUnwrap().download();
 
 			expect(result).toBeOk();
 

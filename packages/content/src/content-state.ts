@@ -1,37 +1,91 @@
 /**
- * Source-specific fetch state tracking.
+ * Content subsystem state exported for public API.
  */
-export type SourceState = {
-	/** Source ID */
-	id: string;
-	/** Whether a fetch is currently in progress for this source */
-	isFetching: boolean;
-	/** Timestamp of the last fetch start for this source */
-	lastFetchStart?: Date;
-	/** Timestamp of the last successful fetch for this source */
-	lastFetchSuccess?: Date;
-	/** Timestamp of the last fetch error for this source */
-	lastFetchError?: Date;
-	/** Number of documents fetched in the last successful fetch */
-	lastDocumentCount?: number;
-};
+
+import type { ContentError } from "./content-plugin-driver.js";
 
 /**
- * Content subsystem state.
- * This represents the current state of the content system.
+ * Individual source fetch state with explicit phase tracking.
+ * Each phase has associated metadata that's only valid for that phase.
  */
+export type SourceFetchState =
+	| {
+			state: "pending";
+	  }
+	| {
+			state: "fetching";
+			startTime: Date;
+	  }
+	| {
+			state: "success";
+			startTime: Date;
+			finishedAt: Date;
+			duration: number;
+	  }
+	| {
+			state: "error";
+			error: Error;
+			startTime?: Date;
+			attemptedAt: Date;
+			restored: boolean;
+	  };
 
-export type ContentState = {
-	/** Per-source state tracking */
-	sources: Record<string, SourceState>;
-	/** Total number of sources configured */
-	totalSources: number;
-	/** Download path */
-	downloadPath: string;
+/**
+ * Overall content system phase with phase-specific metadata.
+ */
+export type ContentPhase =
+	| {
+			phase: "idle";
+	  }
+	| {
+			phase: "resolving-sources";
+	  }
+	| {
+			phase: "running-setup-hooks";
+	  }
+	| {
+			phase: "backing-up";
+	  }
+	| {
+			phase: "clearing-old-data";
+	  }
+	| {
+			phase: "fetching-sources";
+	  }
+	| {
+			phase: "running-done-hooks";
+	  }
+	| {
+			phase: "finalizing";
+			restored: boolean;
+	  }
+	| {
+			phase: "error";
+			error: ContentError;
+			restored: boolean;
+	  }
+	| {
+			phase: "clearing-temp";
+	  };
+
+/**
+ * Immutable snapshot of content system state at a point in time.
+ * Useful for observability, debugging, and state replay.
+ */
+export type ContentStateSnapshot = {
+	readonly timestamp: Date;
+	readonly phase: ContentPhase;
+	readonly sources: ReadonlyRecord<string, SourceFetchState>;
+	readonly totalSources: number;
+	readonly downloadPath: string;
+};
+
+type ReadonlyRecord<K extends PropertyKey, V> = {
+	readonly [P in K]: V;
 };
 
 declare module "@bluecadet/launchpad-controller" {
 	interface SubsystemsState {
-		content: ContentState;
+		content: ContentStateSnapshot;
 	}
 }

@@ -34,15 +34,12 @@ Emitted when all content has been successfully fetched.
 ```typescript
 {
   sources: string[];   // IDs of sources that were fetched
-  totalFiles: number;  // Total number of files written
-  duration: number;    // Time taken in milliseconds
 }
 ```
 
 **Example:**
 ```typescript
 eventBus.on('content:fetch:done', (data) => {
-  console.log(`Fetched ${data.totalFiles} files in ${data.duration}ms`);
   console.log(`Sources: ${data.sources.join(', ')}`);
 });
 ```
@@ -99,14 +96,13 @@ Emitted when a source completes successfully.
 ```typescript
 {
   sourceId: string;      // ID of the source
-  documentCount: number; // Number of documents fetched
 }
 ```
 
 **Example:**
 ```typescript
 eventBus.on('content:source:done', (data) => {
-  console.log(`Source ${data.sourceId} fetched ${data.documentCount} documents`);
+  console.log(`Source ${data.sourceId} fetched`);
 });
 ```
 

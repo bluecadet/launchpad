@@ -1,39 +1,23 @@
 import { EventEmitter } from "node:events";
-import type { EventBus as IEventBus } from "@bluecadet/launchpad-utils";
+import type { EventBus as IEventBus, LaunchpadEvents } from "@bluecadet/launchpad-utils";
 
 /**
  * Core controller events.
  *
- * Subsystems can augment this interface via declaration merging:
+ * Subsystems can augment this interface via declaration merging
  *
- * @example
- * ```typescript
- * // In @bluecadet/launchpad-content
- * declare module '@bluecadet/launchpad-controller' {
- *   interface LaunchpadEvents {
- *     'content:fetch:start': { sources?: string[] };
- *     'content:fetch:done': { sources: string[]; totalFiles: number };
- *     'content:fetch:error': { error: Error };
- *   }
- * }
- * ```
- *
- * This gives full type safety when listening to events:
- * ```typescript
- * eventBus.on('content:fetch:start', (data) => {
- *   // data is typed as { sources?: string[] }
- * });
- * ```
  */
-export interface LaunchpadEvents {
-	// Command lifecycle events (controller-owned)
-	"command:start": { commandType: string; [key: string]: unknown };
-	"command:success": { commandType: string; result?: unknown };
-	"command:error": { commandType: string; error: Error };
+declare module "@bluecadet/launchpad-utils" {
+	interface LaunchpadEvents {
+		// Command lifecycle events (controller-owned)
+		"command:start": { commandType: string; [key: string]: unknown };
+		"command:success": { commandType: string; result?: unknown };
+		"command:error": { commandType: string; error: Error };
 
-	// System events (controller-owned)
-	"system:shutdown": { code?: number; signal?: string };
-	"system:error": { error: Error; context?: string };
+		// System events (controller-owned)
+		"system:shutdown": { code?: number; signal?: string };
+		"system:error": { error: Error; context?: string };
+	}
 }
 
 /**
@@ -58,9 +42,7 @@ export class EventBus extends EventEmitter implements IEventBus {
 	 * - For known events (in LaunchpadEvents interface), payload is type-checked
 	 * - For unknown events, payload is accepted as unknown
 	 */
-	override emit<K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]): boolean;
-	override emit(event: string, data: unknown): boolean;
-	override emit(event: string, data: unknown): boolean {
+	override emit<K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]): boolean {
 		// Notify wildcard listeners first
 		this._anyHandlers.forEach((handler) => {
 			try {
@@ -83,16 +65,17 @@ export class EventBus extends EventEmitter implements IEventBus {
 	override on<K extends keyof LaunchpadEvents>(
 		event: K,
 		handler: (data: LaunchpadEvents[K]) => void,
-	): this;
-	override on(event: string, handler: (data: unknown) => void): this;
-	override on(event: string, handler: (data: unknown) => void): this {
+	): this {
 		return super.on(event, handler);
 	}
 
 	/**
 	 * Unsubscribe from an event
 	 */
-	override off(event: string, handler: (data: unknown) => void): this {
+	override off<K extends keyof LaunchpadEvents>(
+		event: K,
+		handler: (data: LaunchpadEvents[K]) => void,
+	): this {
 		return super.off(event, handler);
 	}
 

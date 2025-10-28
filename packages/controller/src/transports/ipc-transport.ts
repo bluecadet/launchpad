@@ -6,8 +6,8 @@
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import type { LaunchpadEvents } from "@bluecadet/launchpad-utils";
 import { ResultAsync } from "neverthrow";
-import type { LaunchpadEvents } from "../core/event-bus.js";
 import type { LaunchpadState } from "../core/state-store.js";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {

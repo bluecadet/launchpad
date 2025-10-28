@@ -9,7 +9,7 @@
  * but without type checking.
  */
 
-declare module "@bluecadet/launchpad-controller" {
+declare module "@bluecadet/launchpad-utils" {
 	interface LaunchpadEvents {
 		// Connection lifecycle
 		"monitor:connect:start": Record<string, never>;
@@ -107,15 +107,3 @@ declare module "@bluecadet/launchpad-controller" {
 		};
 	}
 }
-
-/**
- * Type-safe event emitter helper for monitor events.
- * This ensures monitor code emits events with the correct payload shape.
- */
-export type MonitorEventEmitter = {
-	emit<K extends keyof import("@bluecadet/launchpad-controller").LaunchpadEvents>(
-		event: K,
-		data: import("@bluecadet/launchpad-controller").LaunchpadEvents[K],
-	): boolean;
-	emit(event: string, data: unknown): boolean;
-};

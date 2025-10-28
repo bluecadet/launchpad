@@ -27,7 +27,7 @@ export type MonitorState = {
 	};
 };
 
-declare module "@bluecadet/launchpad-controller" {
+declare module "@bluecadet/launchpad-utils" {
 	interface SubsystemsState {
 		monitor: MonitorState;
 	}

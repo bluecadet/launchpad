@@ -84,7 +84,7 @@ type ReadonlyRecord<K extends PropertyKey, V> = {
 	readonly [P in K]: V;
 };
 
-declare module "@bluecadet/launchpad-controller" {
+declare module "@bluecadet/launchpad-utils" {
 	interface SubsystemsState {
 		content: ContentStateSnapshot;
 	}

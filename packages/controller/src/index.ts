@@ -10,7 +10,6 @@ export type {
 export { controllerConfigSchema } from "./core/controller-config.js";
 
 // Event bus
-export type { LaunchpadEvents } from "./core/event-bus.js";
 export { EventBus } from "./core/event-bus.js";
 export {
 	deletePidFile,
@@ -22,7 +21,6 @@ export {
 // State store
 export type {
 	LaunchpadState,
-	SubsystemsState,
 	SystemState,
 } from "./core/state-store.js";
 export { StateStore } from "./core/state-store.js";

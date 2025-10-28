@@ -422,6 +422,7 @@ class LaunchpadContent
 					});
 				})
 				.andThen(() => {
+					this._stateManager.setPhase({ phase: "idle" });
 					return okAsync(undefined);
 				})
 				.andTee(() => {

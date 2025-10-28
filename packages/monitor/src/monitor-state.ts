@@ -78,7 +78,7 @@ export class MonitorStateManager extends PatchedStateManager<MonitorState> {
 		this.updateState((draft) => {
 			const app = draft.apps[appName];
 			if (app) {
-				Object.assign(app, status);
+				draft.apps[appName] = { ...app, ...status };
 			}
 		});
 	}

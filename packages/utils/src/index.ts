@@ -11,8 +11,10 @@ export type {
 	Disconnectable,
 	EventBus,
 	EventBusAware,
+	LaunchpadEvents,
 	StateProvider,
 	Subsystem,
+	SubsystemsState,
 } from "./controller-interfaces.js";
 export type { LogConfig, Logger } from "./log-manager.js";
 export { LogManager, logConfigSchema } from "./log-manager.js";

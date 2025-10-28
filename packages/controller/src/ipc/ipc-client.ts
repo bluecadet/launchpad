@@ -4,9 +4,8 @@
  */
 
 import net from "node:net";
-import type { BaseCommand } from "@bluecadet/launchpad-utils";
+import type { BaseCommand, LaunchpadEvents } from "@bluecadet/launchpad-utils";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import type { LaunchpadEvents } from "../core/event-bus.js";
 import { EventBus } from "../core/event-bus.js";
 import type { LaunchpadState } from "../core/state-store.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
@@ -86,7 +85,10 @@ export class IPCClient {
 	/**
 	 * Unsubscribe from an event
 	 */
-	off(event: string, handler: (data: unknown) => void): this {
+	off<K extends keyof LaunchpadEvents>(
+		event: K,
+		handler: (data: LaunchpadEvents[K]) => void,
+	): this {
 		this._eventBus.off(event, handler);
 		return this;
 	}

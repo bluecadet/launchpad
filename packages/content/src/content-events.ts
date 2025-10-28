@@ -9,7 +9,7 @@
  * but without type checking.
  */
 
-declare module "@bluecadet/launchpad-controller" {
+declare module "@bluecadet/launchpad-utils" {
 	interface LaunchpadEvents {
 		// Fetch lifecycle
 		"content:fetch:start": {
@@ -69,15 +69,3 @@ declare module "@bluecadet/launchpad-controller" {
 		};
 	}
 }
-
-/**
- * Type-safe event emitter helper for content events.
- * This ensures content code emits events with the correct payload shape.
- */
-export type ContentEventEmitter = {
-	emit<K extends keyof import("@bluecadet/launchpad-controller").LaunchpadEvents>(
-		event: K,
-		data: import("@bluecadet/launchpad-controller").LaunchpadEvents[K],
-	): boolean;
-	emit(event: string, data: unknown): boolean;
-};

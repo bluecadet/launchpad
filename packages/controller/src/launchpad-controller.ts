@@ -52,8 +52,7 @@ export class LaunchpadController {
 
 		// Core components (always created in both modes)
 		this._eventBus = new EventBus();
-		this._stateStore = new StateStore(this._subsystems);
-		this._stateStore.setSystemState("mode", mode);
+		this._stateStore = new StateStore(this._subsystems, this._mode);
 	}
 
 	/**
@@ -64,6 +63,7 @@ export class LaunchpadController {
 	 */
 	registerSubsystem(name: string, instance: Subsystem): void {
 		this._subsystems.set(name, instance);
+		this._stateStore.registerSubsystem(name, instance);
 
 		// Type-safe EventBus injection (optional interface)
 		if (instance.setEventBus) {

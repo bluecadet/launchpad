@@ -7,8 +7,9 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils";
+import type { Patch } from "immer";
 import { ResultAsync } from "neverthrow";
-import type { LaunchpadState } from "../core/state-store.js";
+import type { VersionedLaunchpadState } from "../core/state-store.js";
 import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
@@ -29,7 +30,7 @@ export type IPCMessage =
 	| { type: "execute-command"; id: string; data: unknown };
 
 export type IPCResponse =
-	| { id: string; type: "state"; data: LaunchpadState }
+	| { id: string; type: "state"; data: VersionedLaunchpadState }
 	| { id: string; type: "ack" }
 	| { id: string; type: "result"; data: unknown }
 	| { id: string; type: "error"; error: Error };
@@ -41,6 +42,10 @@ export type IPCEvent = {
 		data: LaunchpadEvents[K];
 	};
 }[keyof LaunchpadEvents];
+
+export type IPCBroadcastMessage =
+	| IPCEvent
+	| { type: "state-patch"; patches: Patch[]; version: number };
 
 /**
  * Create an IPC transport
@@ -154,9 +159,28 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 					};
 					ctx.eventBus.onAny(handleEvent);
 
+					// Subscribe to state patches from the state store
+					const handlePatch = (patches: Patch[], version: number) => {
+						const message: IPCBroadcastMessage = {
+							type: "state-patch",
+							patches,
+							version,
+						};
+						const serialized = `${IPCSerializer.serialize(message)}\n`;
+						clients.forEach((client) => {
+							try {
+								client.write(serialized);
+							} catch (e) {
+								logger.debug(`Failed to write state patch to IPC client: ${e}`);
+							}
+						});
+					};
+					const unsubscribePatch = ctx.stateStore.onPatch(handlePatch);
+
 					// Cleanup on abort
 					abortSignal.addEventListener("abort", () => {
 						ctx.eventBus.offAny(handleEvent);
+						unsubscribePatch();
 						clients.forEach((client) => client.end());
 						server?.close();
 						if (fs.existsSync(socketPath)) {

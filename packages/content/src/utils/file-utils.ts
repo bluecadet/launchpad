@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { glob } from "glob";
 import { okAsync, ResultAsync } from "neverthrow";
-import type { ContentError } from "../index.js";
 
 export class FileUtilsError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {

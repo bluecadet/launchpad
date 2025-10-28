@@ -124,6 +124,7 @@ Subsystems that expose state implement `getState()`:
 ```typescript
 interface StateProvider<TState> {
   getState(): TState;
+  onStatePatch(handler: PatchHandler): () => void;
 }
 ```
 

@@ -6,7 +6,7 @@
  */
 
 import chalk from "chalk";
-import { okAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { ContentError } from "../content-plugin-driver.js";
 import type { ContentSource } from "../sources/source.js";
 import { FetchLogger } from "../utils/fetch-logger.js";
@@ -70,7 +70,7 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
 	context.logger.info("Backing up downloads...");
 
 	if (!context.sources) {
-		return ResultAsync.fromSafePromise(Promise.reject(new ContentError("Sources not initialized")));
+		return errAsync(new ContentError("Sources not initialized"));
 	}
 
 	return ResultAsync.combine(
@@ -104,7 +104,7 @@ export function clearOldDataStage(context: FetchStageContext): ResultAsync<void,
 	context.logger.info("Clearing download directory");
 
 	if (!context.sources) {
-		return ResultAsync.fromSafePromise(Promise.reject(new ContentError("Sources not initialized")));
+		return errAsync(new ContentError("Sources not initialized"));
 	}
 
 	return ResultAsync.combine(

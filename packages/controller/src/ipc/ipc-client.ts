@@ -230,8 +230,7 @@ export class IPCClient {
 			this._lastState = applyPatches(this._lastState, patches);
 			this._lastStateVersion = version;
 		} catch (e) {
-			console.error("Failed to apply patches:", e);
-			throw e;
+			return errAsync(new IPCMessageError("Failed to apply patches", e instanceof Error ? e : undefined));
 		}
 
 		// create a copy without _version

@@ -24,8 +24,8 @@ const createMockNetServer = () => {
 			// Call immediately (synchronously) for tests
 			callback();
 		}),
-		close: vi.fn((callback: Cb) => {
-			callback();
+		close: vi.fn((callback?: Cb) => {
+			if (callback) callback();
 		}),
 		on: vi.fn((event: string, handler: Cb) => {
 			if (!mockServerListeners[event]) {
@@ -91,6 +91,7 @@ describe("ipc-transport", () => {
 			} as any,
 			stateStore: {
 				getState: vi.fn().mockReturnValue({ system: { mode: "task" } }),
+				onPatch: vi.fn(() => () => {}),
 			} as any,
 		};
 
@@ -446,6 +447,144 @@ describe("ipc-transport", () => {
 	describe("id property", () => {
 		it("should have id property set to 'ipc'", () => {
 			expect(transport.id).toBe("ipc");
+		});
+	});
+
+	describe("state patch handling", () => {
+		it("should subscribe to stateStore patches on start", async () => {
+			let patchHandler: ((patches: any[], version: number) => void) | undefined;
+			context.stateStore.onPatch = vi.fn((handler) => {
+				patchHandler = handler;
+				return () => {};
+			});
+
+			const result = await transport.start(context);
+
+			// Ensure start succeeded
+			expect(result.isOk()).toBe(true);
+			expect(context.stateStore.onPatch).toHaveBeenCalled();
+		});
+
+		it("should emit state-patch event when stateStore emits patches", async () => {
+			let patchHandler: ((patches: any[], version: number) => void) | undefined;
+
+			context.stateStore.onPatch = vi.fn((handler) => {
+				patchHandler = handler;
+				// Return unsubscribe function
+				return () => {};
+			});
+
+			await transport.start(context);
+
+			const mockSocket = createMockSocket();
+			mockServerCallback?.(mockSocket);
+
+			// Clear previous writes (from server.listen events)
+			mockSocket.write.mockClear();
+
+			// Simulate a patch from the state store
+			const testPatches = [
+				{ op: "replace", path: ["subsystems", "content", "phase"], value: "complete" },
+			];
+			patchHandler?.(testPatches, 1);
+
+			// Should send state-patch message to client
+			expect(mockSocket.write).toHaveBeenCalledTimes(1);
+			const writtenData = mockSocket.write.mock.calls[0]![0]!;
+			const response = IPCSerializer.deserialize(writtenData) as IPCResponse;
+
+			expect(response.type).toBe("state-patch");
+			expect((response as any).patches).toEqual(testPatches);
+			expect((response as any).version).toBe(1);
+		});
+
+		it("should broadcast state-patch to all connected clients", async () => {
+			let patchHandler: ((patches: any[], version: number) => void) | undefined;
+
+			context.stateStore.onPatch = vi.fn((handler) => {
+				patchHandler = handler;
+				return () => {};
+			});
+
+			await transport.start(context);
+
+			// Connect two clients
+			const mockSocket1 = createMockSocket();
+			const mockSocket2 = createMockSocket();
+
+			mockServerCallback?.(mockSocket1);
+			mockServerCallback?.(mockSocket2);
+
+			// Clear previous writes
+			mockSocket1.write.mockClear();
+			mockSocket2.write.mockClear();
+
+			// Simulate a patch
+			const testPatches = [{ op: "add", path: ["subsystems", "monitor", "apps"], value: [] }];
+			patchHandler?.(testPatches, 2);
+
+			// Both clients should receive the patch
+			expect(mockSocket1.write).toHaveBeenCalledTimes(1);
+			expect(mockSocket2.write).toHaveBeenCalledTimes(1);
+
+			const response1 = IPCSerializer.deserialize(
+				mockSocket1.write.mock.calls[0]![0]!,
+			) as IPCResponse;
+			const response2 = IPCSerializer.deserialize(
+				mockSocket2.write.mock.calls[0]![0]!,
+			) as IPCResponse;
+
+			expect(response1.type).toBe("state-patch");
+			expect(response2.type).toBe("state-patch");
+			expect((response1 as any).version).toBe(2);
+			expect((response2 as any).version).toBe(2);
+		});
+
+		it("should handle multiple patches sequentially", async () => {
+			let patchHandler: ((patches: any[], version: number) => void) | undefined;
+
+			context.stateStore.onPatch = vi.fn((handler) => {
+				patchHandler = handler;
+				return () => {};
+			});
+
+			await transport.start(context);
+
+			const mockSocket = createMockSocket();
+			mockServerCallback?.(mockSocket);
+			mockSocket.write.mockClear();
+
+			// Send multiple patches
+			patchHandler?.([{ op: "replace", path: ["system", "mode"], value: "persistent" }], 1);
+			patchHandler?.([{ op: "add", path: ["data", "newField"], value: "value" }], 2);
+
+			// Should have sent two messages
+			expect(mockSocket.write).toHaveBeenCalledTimes(2);
+
+			const response1 = IPCSerializer.deserialize(
+				mockSocket.write.mock.calls[0]![0]!,
+			) as IPCResponse;
+			const response2 = IPCSerializer.deserialize(
+				mockSocket.write.mock.calls[1]![0]!,
+			) as IPCResponse;
+
+			expect((response1 as any).version).toBe(1);
+			expect((response2 as any).version).toBe(2);
+		});
+
+		it("should unsubscribe from patches on abort", async () => {
+			const mockUnsubscribe = vi.fn();
+			context.stateStore.onPatch = vi.fn(() => mockUnsubscribe);
+
+			await transport.start(context);
+
+			// Trigger abort
+			abortController.abort();
+
+			// Wait for abort handler to execute
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			expect(mockUnsubscribe).toHaveBeenCalled();
 		});
 	});
 });

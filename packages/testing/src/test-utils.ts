@@ -35,6 +35,8 @@ export function createMockLogger() {
 
 export type MockEventBus = EventBus & {
 	emit: ReturnType<typeof vi.fn>;
+	onAny: ReturnType<typeof vi.fn>;
+	offAny: ReturnType<typeof vi.fn>;
 	getEmittedEvents: () => Array<{ event: string; data: unknown }>;
 	getEventsOfType: <T = unknown>(eventName: string) => T[];
 	clearEvents: () => void;
@@ -46,11 +48,25 @@ export type MockEventBus = EventBus & {
  */
 export function createMockEventBus(): MockEventBus {
 	const emittedEvents: Array<{ event: string; data: unknown }> = [];
+	const anyHandlers: Array<(event: string, data: unknown) => void> = [];
 
 	const mockEventBus = {
 		emit: vi.fn((event: string, data: unknown) => {
 			emittedEvents.push({ event, data });
+			// Call any handlers
+			for (const handler of anyHandlers) {
+				handler(event, data);
+			}
 			return true;
+		}),
+		onAny: vi.fn((handler: (event: string, data: unknown) => void) => {
+			anyHandlers.push(handler);
+		}),
+		offAny: vi.fn((handler: (event: string, data: unknown) => void) => {
+			const index = anyHandlers.indexOf(handler);
+			if (index > -1) {
+				anyHandlers.splice(index, 1);
+			}
 		}),
 		getEmittedEvents: () => emittedEvents,
 		getEventsOfType: <T = unknown>(eventName: string): T[] => {

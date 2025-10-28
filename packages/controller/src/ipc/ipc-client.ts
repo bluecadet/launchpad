@@ -5,12 +5,17 @@
 
 import net from "node:net";
 import type { BaseCommand, LaunchpadEvents } from "@bluecadet/launchpad-utils";
+import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { EventBus } from "../core/event-bus.js";
 import type { LaunchpadState } from "../core/state-store.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
-import type { IPCEvent, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
+import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "./ipc-serializer.js";
+
+enablePatches();
+
+type StateChangeHandler = (newState: LaunchpadState) => void;
 
 export class IPCClient {
 	private _socket: net.Socket | null = null;
@@ -24,6 +29,9 @@ export class IPCClient {
 		}
 	>();
 	private _nextId = 0;
+	private _stateChangeListeners = new Set<StateChangeHandler>();
+	private _lastState: Readonly<LaunchpadState> | null = null;
+	private _lastStateVersion = -1;
 	private static readonly DEFAULT_TIMEOUT_MS = 5000;
 
 	/**
@@ -135,7 +143,12 @@ export class IPCClient {
 
 		return this._sendMessage(message).andThen((response) => {
 			if (response.type === "state") {
-				return okAsync(response.data);
+				// remove _version before returning
+				const { _version, ...state } = response.data;
+				Object.freeze(state);
+				this._lastState = state;
+				this._lastStateVersion = response.data._version;
+				return okAsync(state);
 			}
 			if (response.type === "error") {
 				return errAsync(new IPCMessageError("Controller error", { cause: response.error }));
@@ -187,6 +200,48 @@ export class IPCClient {
 			}
 			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
 		});
+	}
+
+	/**
+	 * Register a listener for state changes
+	 * Returns an unsubscribe function
+	 */
+	onStateChange(listener: (newState: LaunchpadState) => void): () => void {
+		this._stateChangeListeners.add(listener);
+		return () => {
+			this._stateChangeListeners.delete(listener);
+		};
+	}
+
+	private _handlePatch(
+		patches: Patch[],
+		version: number,
+	): ResultAsync<void, IPCMessageError | IPCConnectionError> {
+		// If we missed versions (or don't have an initial state yet), re-query full state
+		if (!this._lastState || version !== this._lastStateVersion + 1) {
+			return this.queryState().map((state) => {
+				this._stateChangeListeners.forEach((listener) => {
+					listener(state);
+				});
+			});
+		}
+
+		try {
+			this._lastState = applyPatches(this._lastState, patches);
+			this._lastStateVersion = version;
+		} catch (e) {
+			console.error("Failed to apply patches:", e);
+			throw e;
+		}
+
+		// create a copy without _version
+		const stateRef = this._lastState;
+
+		this._stateChangeListeners.forEach((listener) => {
+			listener(stateRef);
+		});
+
+		return okAsync(undefined);
 	}
 
 	/**
@@ -255,7 +310,7 @@ export class IPCClient {
 			if (!line.trim()) continue;
 
 			try {
-				const message = IPCSerializer.deserialize(line) as IPCResponse | IPCEvent;
+				const message = IPCSerializer.deserialize(line) as IPCResponse | IPCBroadcastMessage;
 
 				// Handle events (no id field)
 				if (message.type === "event") {
@@ -263,8 +318,13 @@ export class IPCClient {
 					continue;
 				}
 
+				if (message.type === "state-patch") {
+					this._handlePatch(message.patches, message.version);
+					continue;
+				}
+
 				// Handle request-response messages (has id field)
-				const response = message as IPCResponse;
+				const response = message;
 				const request = this._pendingRequests.get(response.id);
 
 				if (request) {

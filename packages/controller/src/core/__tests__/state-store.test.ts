@@ -1,5 +1,6 @@
-import type { Subsystem } from "@bluecadet/launchpad-utils";
-import { describe, expect, it } from "vitest";
+import type { PatchHandler, Subsystem } from "@bluecadet/launchpad-utils";
+import type { Patch } from "immer";
+import { describe, expect, it, vi } from "vitest";
 import { StateStore } from "../state-store.js";
 
 describe("StateStore", () => {
@@ -49,8 +50,8 @@ describe("StateStore", () => {
 			const store = new StateStore(subsystems);
 			const state = store.getState();
 
-			expect(state.subsystems.content).toEqual(mockContentState);
-			expect(state.subsystems.monitor).toEqual(mockMonitorState);
+			expect((state.subsystems as any).content).toEqual(mockContentState);
+			expect((state.subsystems as any).monitor).toEqual(mockMonitorState);
 		});
 
 		it("should skip subsystems without getState method", () => {
@@ -70,8 +71,8 @@ describe("StateStore", () => {
 			const store = new StateStore(subsystems);
 			const state = store.getState();
 
-			expect(state.subsystems["with-state"]).toEqual({ value: "has-state" });
-			expect(state.subsystems["without-state"]).toBeUndefined();
+			expect((state.subsystems as any)["with-state"]).toEqual({ value: "has-state" });
+			expect((state.subsystems as any)["without-state"]).toBeUndefined();
 		});
 
 		it("should return empty subsystems object when no subsystems registered", () => {
@@ -222,9 +223,113 @@ describe("StateStore", () => {
 			const state2 = store.getState();
 			const state3 = store.getState();
 
-			expect(state1.subsystems.test).toEqual({ value: 0 });
-			expect(state2.subsystems.test).toEqual({ value: 1 });
-			expect(state3.subsystems.test).toEqual({ value: 2 });
+			expect((state1.subsystems as any).test).toEqual({ value: 0 });
+			expect((state2.subsystems as any).test).toEqual({ value: 1 });
+			expect((state3.subsystems as any).test).toEqual({ value: 2 });
+		});
+	});
+
+	describe("patch handling", () => {
+		it("should relay subsystem patches with path alteration", () => {
+			let patchHandler: PatchHandler | undefined;
+
+			const subsystem: Subsystem = {
+				getState: () => {
+					return { data: { count: 0 } };
+				},
+				onStatePatch: (handler) => {
+					patchHandler = handler;
+					return () => {};
+				},
+			};
+
+			const subsystems = new Map<string, Subsystem>([["testSubsystem", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const onPatchSpy = vi.fn<PatchHandler>();
+			store.onPatch(onPatchSpy);
+
+			// Simulate a patch from the subsystem
+			let patches: Patch[] = [{ op: "replace", path: ["data", "count"], value: 5 }];
+
+			patchHandler?.(patches);
+
+			expect(onPatchSpy).toHaveBeenCalledExactlyOnceWith(
+				[
+					{
+						op: "replace",
+						path: ["subsystems", "testSubsystem", "data", "count"],
+						value: 5,
+					},
+				],
+				expect.anything(),
+			);
+
+			// Simulate a patch from the subsystem
+			patches = [
+				{ op: "replace", path: ["data", "count"], value: 1 },
+				{ op: "add", path: ["data", "newField"], value: 10 },
+			];
+
+			patchHandler?.(patches);
+
+			expect(onPatchSpy).toHaveBeenLastCalledWith(
+				[
+					{
+						op: "replace",
+						path: ["subsystems", "testSubsystem", "data", "count"],
+						value: 1,
+					},
+					{
+						op: "add",
+						path: ["subsystems", "testSubsystem", "data", "newField"],
+						value: 10,
+					},
+				],
+				expect.anything(),
+			);
+		});
+		it("should increment version number on patches", () => {
+			let patchHandler: PatchHandler | undefined;
+
+			const subsystem: Subsystem = {
+				getState: () => {
+					return { data: { count: 0 } };
+				},
+				onStatePatch: (handler) => {
+					patchHandler = handler;
+					return () => {};
+				},
+			};
+
+			const subsystems = new Map<string, Subsystem>([["testSubsystem", subsystem]]);
+			const store = new StateStore(subsystems);
+
+			const onPatchSpy = vi.fn<PatchHandler>();
+			store.onPatch(onPatchSpy);
+
+			expect(store.getState()._version).toBe(0);
+
+			// Simulate a patch from the subsystem
+			let patches: Patch[] = [{ op: "replace", path: ["data", "count"], value: 5 }];
+
+			patchHandler?.(patches);
+
+			expect(onPatchSpy).toHaveBeenCalledWith(expect.anything(), 1);
+
+			expect(store.getState()._version).toBe(1);
+
+			// Simulate a patch from the subsystem
+			patches = [
+				{ op: "replace", path: ["data", "count"], value: 1 },
+				{ op: "add", path: ["data", "newField"], value: 10 },
+			];
+
+			patchHandler?.(patches);
+
+			expect(onPatchSpy).toHaveBeenLastCalledWith(expect.anything(), 2);
+
+			expect(store.getState()._version).toBe(2);
 		});
 	});
 });

@@ -72,3 +72,13 @@ export type ResolvedContentConfig = z.output<typeof contentConfigSchema>;
 export function defineContentConfig(config: ContentConfig) {
 	return config;
 }
+
+// Declaration merging to add content config to LaunchpadConfig
+declare module "@bluecadet/launchpad-utils" {
+	interface LaunchpadConfig {
+		/**
+		 * Content system configuration.
+		 */
+		content?: ContentConfig;
+	}
+}

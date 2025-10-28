@@ -1,4 +1,3 @@
-import type { Patch } from "immer";
 import type { ResultAsync } from "neverthrow";
 import type { PatchHandler } from "./state-patcher.js";
 

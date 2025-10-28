@@ -774,7 +774,7 @@ describe("IPCClient", () => {
 		});
 
 		it("should handle patch messages", async () => {
-			const { client, simulateData, parsedWriteCall, writeMock } = createTestClient();
+			const { client, simulateData, writeMock } = createTestClient();
 			await client.connect("/test/socket");
 
 			const handler = vi.fn();

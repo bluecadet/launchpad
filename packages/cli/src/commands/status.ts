@@ -51,7 +51,7 @@ export function status(argv: GlobalLaunchpadArgs) {
 						const sources = contentState.sources;
 
 						// Show overall phase
-						console.log(`  Phase: ${contentState.phase.phase}`);
+						console.log(`  Phase: ${contentState.phase}`);
 
 						if (sources && Object.keys(sources).length > 0) {
 							for (const [sourceId, sourceState] of Object.entries(sources)) {

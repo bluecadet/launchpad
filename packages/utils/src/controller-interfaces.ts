@@ -1,4 +1,6 @@
+import type { Patch } from "immer";
 import type { ResultAsync } from "neverthrow";
+import type { PatchHandler } from "./state-patcher.js";
 
 // biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
 export interface LaunchpadEvents {}
@@ -108,11 +110,18 @@ export interface CommandExecutor<TCommand extends BaseCommand = BaseCommand> {
  */
 export interface StateProvider<TState = unknown> {
 	/**
-	 * Get the current state of this subsystem.
+	 * Get the current (immutable) state of this subsystem.
 	 * This should be a lightweight, synchronous operation.
 	 * @returns Current state snapshot
 	 */
 	getState(): TState;
+
+	/**
+	 * Subscribe to state patches/updates.
+	 * @param handler - Function called with an array of state patches
+	 * @return Unsubscribe function
+	 */
+	onStatePatch(handler: PatchHandler): () => void;
 }
 
 /**

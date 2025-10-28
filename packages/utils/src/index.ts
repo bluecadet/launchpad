@@ -29,6 +29,7 @@ export {
 	PluginError,
 } from "./plugin-driver.js";
 export type { LogConfig };
+export { PatchedStateManager, type PatchHandler } from "./state-patcher.js";
 
 // this will be augmented via declaration merging
 export interface LaunchpadConfig {

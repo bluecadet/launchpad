@@ -82,10 +82,14 @@ describe("LaunchpadMonitor - State Tracking", () => {
 	});
 
 	describe("start - state updates", () => {
-		it("should initialize state with empty apps object", () => {
+		it("should initialize state with offline state", () => {
 			const { monitor } = createTestMonitor();
 
-			expect(monitor.getState().apps).toEqual({});
+			expect(monitor.getState().apps).toEqual({
+				"test-app": {
+					status: "offline",
+				},
+			});
 		});
 
 		it("should update state with app status when app starts successfully", async () => {
@@ -256,10 +260,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 			const result = await monitor.stop("test-app");
 
 			expect(result).toBeOk();
-			// State should exist but not be updated if app wasn't previously tracked
-			const state = monitor.getState();
-			// Note: The app entry is only created on start, so stopping without starting won't create state
-			expect(state.apps["test-app"]!).toBeUndefined();
 		});
 
 		it("should handle multiple apps stopping", async () => {

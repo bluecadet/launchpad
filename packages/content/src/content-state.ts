@@ -2,6 +2,8 @@
  * Content subsystem state exported for public API.
  */
 
+import { PatchedStateManager } from "@bluecadet/launchpad-utils";
+import type { PatchHandler } from "../../utils/src/state-patcher.js";
 import type { ContentError } from "./content-plugin-driver.js";
 
 /**
@@ -68,24 +70,88 @@ export type ContentPhase =
 			phase: "clearing-temp";
 	  };
 
-/**
- * Immutable snapshot of content system state at a point in time.
- * Useful for observability, debugging, and state replay.
- */
-export type ContentStateSnapshot = {
-	readonly timestamp: Date;
-	readonly phase: ContentPhase;
-	readonly sources: ReadonlyRecord<string, SourceFetchState>;
-	readonly totalSources: number;
-	readonly downloadPath: string;
-};
-
-type ReadonlyRecord<K extends PropertyKey, V> = {
-	readonly [P in K]: V;
+export type ContentState = ContentPhase & {
+	sources: Record<string, SourceFetchState>;
 };
 
 declare module "@bluecadet/launchpad-utils" {
 	interface SubsystemsState {
-		content: ContentStateSnapshot;
+		content: ContentState;
+	}
+}
+
+export class ContentStateManager extends PatchedStateManager<ContentState> {
+	constructor() {
+		super({
+			phase: "idle",
+			sources: {},
+		});
+	}
+
+	setPhase(newPhase: ContentPhase): void {
+		this.updateState((draft) => {
+			Object.assign(draft, newPhase);
+		});
+	}
+
+	initializeSources(sourceIds: string[]): void {
+		this.updateState((draft) => {
+			for (const id of sourceIds) {
+				if (!draft.sources[id]) {
+					draft.sources[id] = { state: "pending" };
+				}
+			}
+		});
+	}
+
+	markSourceFetching(sourceId: string): void {
+		this.updateState((draft) => {
+			draft.sources[sourceId] = {
+				state: "fetching",
+				startTime: new Date(),
+			};
+		});
+	}
+
+	markSourceSuccess(sourceId: string): void {
+		this.updateState((draft) => {
+			const source = draft.sources[sourceId];
+			if (source && source.state === "fetching") {
+				const finishedAt = new Date();
+				const newState = {
+					state: "success" as const,
+					startTime: source.startTime,
+					finishedAt,
+					duration: finishedAt.getTime() - source.startTime.getTime(),
+				};
+				draft.sources[sourceId] = newState;
+			}
+		});
+	}
+
+	markSourceError(sourceId: string, error: Error): void {
+		this.updateState((draft) => {
+			const source = draft.sources[sourceId];
+			const now = new Date();
+			draft.sources[sourceId] = {
+				state: "error",
+				error,
+				startTime: source && source.state === "fetching" ? source.startTime : undefined,
+				attemptedAt: now,
+				restored: false,
+			};
+		});
+	}
+
+	markSourceRestored(sourceId: string): void {
+		this.updateState((draft) => {
+			const source = draft.sources[sourceId];
+			if (source && source.state === "error") {
+				draft.sources[sourceId] = {
+					...source,
+					restored: true,
+				};
+			}
+		});
 	}
 }

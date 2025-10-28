@@ -6,6 +6,7 @@ import {
 	type Logger,
 	LogManager,
 	onExit,
+	type PatchHandler,
 	PluginDriver,
 	type StateProvider,
 } from "@bluecadet/launchpad-utils";
@@ -19,7 +20,7 @@ import {
 	TIMESTAMP_TOKEN,
 } from "./content-config.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
-import type { ContentPhase, ContentStateSnapshot, SourceFetchState } from "./content-state.js";
+import { type ContentState, ContentStateManager } from "./content-state.js";
 import {
 	backupStage,
 	cleanupStage,
@@ -36,7 +37,7 @@ import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 
 class LaunchpadContent
-	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentStateSnapshot>
+	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentState>
 {
 	private _config: ResolvedContentConfig;
 	private _logger: Logger;
@@ -50,17 +51,14 @@ class LaunchpadContent
 	private _initialized = false;
 	// TODO: Consider making DataStore per-fetch instead of per-instance
 	private _dataStore: DataStore;
-
-	// Simple inline state tracking
-	private _currentPhase: ContentPhase = { phase: "idle" };
-	private _sourceStates: Record<string, SourceFetchState> = {};
-	private _totalSources = 0;
+	private _stateManager: ContentStateManager;
 
 	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
 		this._config = contentConfigSchema.parse(config);
 		this._cwd = cwd;
 		this._logger = LogManager.getLogger("content", parentLogger);
 		this._dataStore = new DataStore(this._config.downloadPath);
+		this._stateManager = new ContentStateManager();
 
 		onExit(() => {
 			this._abortController.abort();
@@ -124,11 +122,7 @@ class LaunchpadContent
 
 				// Initialize source states
 				const sourceIds = resolvedSources.map((s) => s.id);
-				this._totalSources = sourceIds.length;
-				this._sourceStates = {};
-				for (const sourceId of sourceIds) {
-					this._sourceStates[sourceId] = { state: "pending" };
-				}
+				this._stateManager.initializeSources(sourceIds);
 				this._initialized = true;
 
 				this._logger.info(`Initialized ${sourceIds.length} source(s)`);
@@ -152,73 +146,12 @@ class LaunchpadContent
 	/**
 	 * Get immutable snapshot of the current state of the content system.
 	 */
-	getState(): ContentStateSnapshot {
-		return Object.freeze({
-			timestamp: new Date(),
-			phase: this._currentPhase,
-			sources: Object.freeze({ ...this._sourceStates }),
-			totalSources: this._totalSources,
-			downloadPath: this._config.downloadPath,
-		});
+	getState(): ContentState {
+		return this._stateManager.state;
 	}
 
-	/**
-	 * Advance to the next phase (called by stages during pipeline execution).
-	 * Phase transitions happen linearly through the pipeline.
-	 */
-	private _setPhase(newPhase: ContentPhase): void {
-		this._currentPhase = newPhase;
-	}
-
-	/**
-	 * Mark a source as successfully completed.
-	 */
-	private _markSourceSuccess(sourceId: string, finishedAt: Date): void {
-		const state = this._sourceStates[sourceId];
-		if (state && state.state === "fetching") {
-			const startTime = state.startTime;
-			const duration = finishedAt.getTime() - startTime.getTime();
-			this._sourceStates[sourceId] = {
-				state: "success",
-				startTime,
-				finishedAt,
-				duration,
-			};
-		}
-	}
-
-	/**
-	 * Mark a source as failed.
-	 */
-	private _markSourceError(sourceId: string, error: Error): void {
-		const state = this._sourceStates[sourceId];
-		if (state) {
-			const startTime = state.state === "fetching" ? state.startTime : undefined;
-			this._sourceStates[sourceId] = {
-				state: "error",
-				error,
-				startTime,
-				attemptedAt: new Date(),
-				restored: false,
-			};
-		}
-	}
-
-	/**
-	 * Mark a source as restored after error recovery.
-	 */
-	private _markSourceRestored(sourceId: string): void {
-		const state = this._sourceStates[sourceId];
-		if (state && state.state === "error") {
-			state.restored = true;
-		}
-	}
-
-	/**
-	 * Reset state to idle and all sources to pending for next fetch.
-	 */
-	private _resetState(): void {
-		this._currentPhase = { phase: "idle" };
+	onStatePatch(handler: PatchHandler): () => void {
+		return this._stateManager.onPatch(handler);
 	}
 
 	/**
@@ -299,7 +232,7 @@ class LaunchpadContent
 		}
 
 		// Reset state at the start of a new fetch
-		this._resetState();
+		this._stateManager.setPhase({ phase: "idle" });
 
 		const resolvedSources: ContentSource[] = [];
 
@@ -438,13 +371,10 @@ class LaunchpadContent
 	private _executeFetchPipeline(context: FetchStageContext): ResultAsync<void, ContentError> {
 		// Initialize sources to fetching state
 		for (const source of context.sources) {
-			this._sourceStates[source.id] = {
-				state: "fetching",
-				startTime: new Date(),
-			};
+			this._stateManager.markSourceFetching(source.id);
 		}
 
-		this._setPhase({ phase: "running-setup-hooks" });
+		this._stateManager.setPhase({ phase: "running-setup-hooks" });
 
 		// Pipeline stages with state management
 		return (
@@ -452,7 +382,7 @@ class LaunchpadContent
 			setupHooksStage(context)
 				.andThen((val) => {
 					if (this._config.backupAndRestore) {
-						this._setPhase({ phase: "backing-up" });
+						this._stateManager.setPhase({ phase: "backing-up" });
 						// Stage 2: Backup (optional)
 						return backupStage(context);
 					}
@@ -460,30 +390,30 @@ class LaunchpadContent
 					return ok(val);
 				})
 				.andThen(() => {
-					this._setPhase({ phase: "clearing-old-data" });
+					this._stateManager.setPhase({ phase: "clearing-old-data" });
 					// Stage 3: Clear old data
 					return clearOldDataStage(context);
 				})
 				.andThen(() => {
-					this._setPhase({ phase: "fetching-sources" });
+					this._stateManager.setPhase({ phase: "fetching-sources" });
 					// Stage 4: Fetch sources
 					return fetchSourcesStage(context);
 				})
 				.andThen(() => {
-					this._setPhase({ phase: "running-done-hooks" });
+					this._stateManager.setPhase({ phase: "running-done-hooks" });
 					// Stage 5: Done hooks
 					return doneHooksStage(context);
 				})
 				.andThen(() => {
-					this._setPhase({ phase: "finalizing", restored: false });
+					this._stateManager.setPhase({ phase: "finalizing", restored: false });
 					// Stage 6: Finalize
 					return finalizingStage(context);
 				})
 				.andThen(() => {
-					this._setPhase({ phase: "clearing-temp" });
+					this._stateManager.setPhase({ phase: "clearing-temp" });
 					// Mark all sources as success
 					for (const source of context.sources) {
-						this._markSourceSuccess(source.id, new Date());
+						this._stateManager.markSourceSuccess(source.id);
 					}
 					// Stage 7: Cleanup temp and backups
 					return cleanupStage(context, {
@@ -516,11 +446,11 @@ class LaunchpadContent
 		context: FetchStageContext,
 		error: ContentError,
 	): ResultAsync<void, ContentError> {
-		this._setPhase({ phase: "error", error, restored: false });
+		this._stateManager.setPhase({ phase: "error", error, restored: false });
 		// Mark sources as failed
 		if (context.sources) {
 			for (const source of context.sources) {
-				this._markSourceError(source.id, error);
+				this._stateManager.markSourceError(source.id, error);
 			}
 		}
 
@@ -529,10 +459,10 @@ class LaunchpadContent
 				// Mark sources as restored
 				if (context.sources) {
 					for (const source of context.sources) {
-						this._markSourceRestored(source.id);
+						this._stateManager.markSourceRestored(source.id);
 					}
 				}
-				this._setPhase({ phase: "error", error, restored: true });
+				this._stateManager.setPhase({ phase: "error", error, restored: true });
 				// Cleanup even on error
 				return cleanupStage(context, {
 					temp: true,
@@ -540,17 +470,17 @@ class LaunchpadContent
 				});
 			})
 			.andThen(() => {
-				this._setPhase({ phase: "clearing-temp" });
+				this._stateManager.setPhase({ phase: "clearing-temp" });
 				return okAsync(undefined);
 			})
 			.andTee(() => {
-				this._resetState();
+				this._stateManager.setPhase({ phase: "idle" });
 				// Cleanup the dataStore
 				context.dataStore._clear();
 			})
 			.orElse(() => {
 				// Even if recovery fails, cleanup temp and reset
-				this._resetState();
+				this._stateManager.setPhase({ phase: "idle" });
 				context.dataStore._clear();
 				return errAsync(error);
 			});

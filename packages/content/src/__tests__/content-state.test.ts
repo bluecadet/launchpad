@@ -52,19 +52,6 @@ describe("ContentState", () => {
 			expect(state.sources["source-2"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("pending");
 			expect(state.sources["source-2"]?.state).toBe("pending");
-			expect(state.totalSources).toBe(2);
-			expect(state.downloadPath).toBe("downloads");
-		});
-
-		it("should track correct number of configured sources", async () => {
-			const config = createBasicConfig(3);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			const state = content.getState();
-
-			expect(state.totalSources).toBe(3);
 		});
 	});
 

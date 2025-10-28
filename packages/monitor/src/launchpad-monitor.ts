@@ -6,6 +6,7 @@ import {
 	type Logger,
 	LogManager,
 	onExit,
+	type PatchHandler,
 	PluginDriver,
 	type StateProvider,
 } from "@bluecadet/launchpad-utils";
@@ -23,7 +24,7 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
-import type { MonitorState } from "./monitor-state.js";
+import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
 class LaunchpadMonitor
 	implements
@@ -41,7 +42,7 @@ class LaunchpadMonitor
 	_isShuttingDown = false;
 	_cwd: string;
 	_eventBus?: EventBus;
-	_state: MonitorState;
+	_stateManager: MonitorStateManager;
 
 	constructor(config: MonitorConfig, parentLogger: Logger, cwd = process.cwd()) {
 		autoBind(this);
@@ -53,16 +54,13 @@ class LaunchpadMonitor
 		this._busManager = new BusManager(this._logger);
 		this._appManager = new AppManager(this._logger, this._processManager, this._config, cwd);
 
+		// Initialize state
+		this._stateManager = new MonitorStateManager();
+
 		for (const appConf of this._config.apps) {
+			if (appConf.pm2.name) this._stateManager.initializeApp(appConf.pm2.name);
 			this._busManager.initAppLogging(appConf);
 		}
-
-		// Initialize state
-		this._state = {
-			isConnected: false,
-			isShuttingDown: false,
-			apps: {},
-		};
 
 		if (this._config.shutdownOnExit) {
 			onExit(() => {
@@ -90,7 +88,11 @@ class LaunchpadMonitor
 	 * Get the current state of the monitor system.
 	 */
 	getState(): MonitorState {
-		return this._state;
+		return this._stateManager.state;
+	}
+
+	onStatePatch(handler: PatchHandler): () => void {
+		return this._stateManager.onPatch(handler);
 	}
 
 	/**
@@ -195,8 +197,7 @@ class LaunchpadMonitor
 			.andThrough(() => this._pluginDriver.runHookSequential("afterConnect"))
 			.andTee(() => {
 				// Update state and emit success event
-				this._state.isConnected = true;
-				this._state.lastConnect = new Date();
+				this._stateManager.setConnected(true);
 				this._eventBus?.emit("monitor:connect:done", {
 					appCount: this._config.apps.length,
 				});
@@ -245,8 +246,7 @@ class LaunchpadMonitor
 			.andThrough(() => this._pluginDriver.runHookSequential("afterDisconnect"))
 			.andTee(() => {
 				// Update state and emit success event
-				this._state.isConnected = false;
-				this._state.lastDisconnect = new Date();
+				this._stateManager.setConnected(false);
 				this._eventBus?.emit("monitor:disconnect:done", {});
 			});
 	}
@@ -279,12 +279,7 @@ class LaunchpadMonitor
 							.andThen(() => this._appManager.startApp(name))
 							.andThrough((process) => {
 								// Update state with app startup info
-								this._state.apps[name] = {
-									status: "online",
-									pid: process.pid,
-									pm2Id: process.pm_id,
-									lastStart: new Date(),
-								};
+								this._stateManager.markAppStarted(name, process.pid, process.pm_id);
 								return this._pluginDriver.runHookSequential("afterAppStart", {
 									appName: name,
 									process,
@@ -292,10 +287,7 @@ class LaunchpadMonitor
 							})
 							.orElse((error) => {
 								// Update state with error info
-								this._state.apps[name] = {
-									status: "errored",
-									lastError: new Date(),
-								};
+								this._stateManager.markAppErrored(name);
 								return errAsync(error);
 							}),
 					),
@@ -323,11 +315,7 @@ class LaunchpadMonitor
 						.andThen(() => this._appManager.stopApp(name))
 						.andThrough(() => {
 							// Update state with app stop info
-							if (this._state.apps[name]) {
-								this._state.apps[name].status = "offline";
-								this._state.apps[name].lastStop = new Date();
-								this._state.apps[name].pid = undefined;
-							}
+							this._stateManager.markAppStopped(name);
 							return this._pluginDriver.runHookSequential("afterAppStop", { appName: name });
 						}),
 				),

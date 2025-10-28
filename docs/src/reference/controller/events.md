@@ -227,7 +227,7 @@ Applications and plugins can define their own events using declaration merging:
 
 ```typescript
 // my-plugin.ts
-declare module '@bluecadet/launchpad-controller' {
+declare module '@bluecadet/launchpad-utils' {
   interface LaunchpadEvents {
     'plugin:myPlugin:ready': { version: string };
     'plugin:myPlugin:error': { error: Error };

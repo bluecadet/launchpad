@@ -1,5 +1,11 @@
 import type { ResultAsync } from "neverthrow";
 
+// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
+export interface LaunchpadEvents {}
+
+// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
+export interface SubsystemsState {}
+
 /**
  * EventBus interface for inter-subsystem communication.
  * Implementations should provide type-safe event emission and subscription.
@@ -11,33 +17,37 @@ export interface EventBus {
 	 * @param data - Event payload
 	 * @returns true if event had listeners, false otherwise
 	 */
-	emit(event: string, data: unknown): boolean;
+	emit<K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]): boolean;
 
 	/**
 	 * Subscribe to an event.
 	 * @param event - Event name to listen for
 	 * @param handler - Handler function called when event is emitted
 	 */
-	on(event: string, handler: (data: unknown) => void): this;
+	on<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this;
 
 	/**
 	 * Unsubscribe from an event.
 	 * @param event - Event name
 	 * @param handler - Handler function to remove
 	 */
-	off(event: string, handler: (data: unknown) => void): this;
+	off<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this;
 
 	/**
 	 * Subscribe to all events.
 	 * @param handler - Handler function called for any event
 	 */
-	onAny(handler: (event: string, data: unknown) => void): this;
+	onAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this;
 
 	/**
 	 * Unsubscribe from all events.
 	 * @param handler - Handler function to remove
 	 */
-	offAny(handler: (event: string, data: unknown) => void): this;
+	offAny(
+		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
+	): this;
 }
 
 /**

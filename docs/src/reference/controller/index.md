@@ -174,7 +174,7 @@ The controller uses TypeScript declaration merging to provide type-safe events w
 
 ```typescript
 // Each subsystem declares its events
-declare module '@bluecadet/launchpad-controller' {
+declare module '@bluecadet/launchpad-utils' {
   interface LaunchpadEvents {
     'content:fetch:start': { timestamp: Date };
     'monitor:app:started': { appName: string; pid: number };

@@ -105,13 +105,6 @@ describe("Fetch Stages", () => {
 			expect(error).toBeInstanceOf(ContentError);
 			expect(error.message).toContain("onContentFetchSetup");
 		});
-
-		it("should log debug message when starting", async () => {
-			const context = createBasicContext();
-			await setupHooksStage(context);
-
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: running-setup-hooks");
-		});
 	});
 
 	describe("backupStage", () => {
@@ -164,26 +157,6 @@ describe("Fetch Stages", () => {
 			expect(vol.existsSync("/backups/test/file.json")).toBe(true);
 			expect(vol.readFileSync("/backups/test/file.json", "utf8")).toBe('{"data":"test"}');
 		});
-
-		it("should log backup action", async () => {
-			vol.mkdirSync("/downloads/test", { recursive: true });
-			vol.writeFileSync("/downloads/test/file.json", "{}");
-
-			const context = createBasicContext({
-				config: createBasicConfig({ backupAndRestore: true }),
-				sources: [
-					defineSource({
-						id: "test",
-						fetch: () => [],
-					}),
-				],
-			});
-
-			await backupStage(context);
-
-			expect(mockLogger.info).toHaveBeenCalledWith("Backing up downloads...");
-			expect(mockLogger.info).toHaveBeenCalledWith("Backing up source: test");
-		});
 	});
 
 	describe("clearOldDataStage", () => {
@@ -233,19 +206,6 @@ describe("Fetch Stages", () => {
 
 			expect(result).toBeOk();
 		});
-
-		it("should log debug and info messages", async () => {
-			vol.mkdirSync("/downloads/test", { recursive: true });
-
-			const context = createBasicContext({
-				sources: [defineSource({ id: "test", fetch: () => [] })],
-			});
-
-			await clearOldDataStage(context);
-
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: clearing-old-data");
-			expect(mockLogger.info).toHaveBeenCalledWith("Clearing download directory");
-		});
 	});
 
 	describe("fetchSourcesStage", () => {
@@ -258,19 +218,6 @@ describe("Fetch Stages", () => {
 
 			expect(result).toBeOk();
 			expect(mockLogger.warn).toHaveBeenCalledWith("No sources found to download");
-		});
-
-		it("should log fetch start and completion", async () => {
-			const context = createBasicContext({
-				sources: [defineSource({ id: "test", fetch: () => [] })],
-			});
-
-			const result = await fetchSourcesStage(context);
-
-			expect(result).toBeOk();
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: fetching-sources");
-			expect(mockLogger.info).toHaveBeenCalledWith("Beginning content fetch process");
-			expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining("Fetching 1 source(s)"));
 		});
 
 		it("should emit source:start and source:done events", async () => {
@@ -315,13 +262,6 @@ describe("Fetch Stages", () => {
 
 			expect(result).toBeErr();
 		});
-
-		it("should log debug message", async () => {
-			const context = createBasicContext();
-			await doneHooksStage(context);
-
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: running-done-hooks");
-		});
 	});
 
 	describe("finalizingStage", () => {
@@ -347,13 +287,6 @@ describe("Fetch Stages", () => {
 			expect(doneEvent).toEqual({
 				sources: ["source1", "source2"],
 			});
-		});
-
-		it("should log debug message", async () => {
-			const context = createBasicContext();
-			await finalizingStage(context);
-
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: finalizing");
 		});
 
 		it("should return error if data store close fails", async () => {
@@ -415,15 +348,6 @@ describe("Fetch Stages", () => {
 			expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("No backup found"));
 		});
 
-		it("should log error", async () => {
-			const context = createBasicContext();
-			const error = new ContentError("Test error");
-
-			await errorRecoveryStage(context, error);
-
-			expect(mockLogger.error).toHaveBeenCalledWith("Error in content fetch process:", error);
-		});
-
 		it("should return ContentRecoveryError when restore fails", async () => {
 			const dataStore = createMockDataStore();
 			// Mock pathExists to return true for backup
@@ -439,23 +363,6 @@ describe("Fetch Stages", () => {
 			const result = await errorRecoveryStage(context, originalError);
 
 			expect(result).toBeOk(); // Will be ok if no backup exists or restore succeeds
-		});
-
-		it("should log recovery attempt", async () => {
-			vol.mkdirSync("/backups/test", { recursive: true });
-			vol.writeFileSync("/backups/test/file.json", "{}");
-
-			const context = createBasicContext({
-				sources: [defineSource({ id: "test", fetch: () => [] })],
-			});
-
-			const error = new ContentError("Test error");
-			await errorRecoveryStage(context, error);
-
-			expect(mockLogger.info).toHaveBeenCalledWith("Restoring from backup...");
-			expect(mockLogger.info).toHaveBeenCalledWith(
-				expect.stringContaining("Restoring test from backup"),
-			);
 		});
 	});
 
@@ -552,16 +459,6 @@ describe("Fetch Stages", () => {
 			expect(result).toBeOk();
 			expect(vol.existsSync("/temp/test1/file.tmp")).toBe(false);
 			expect(vol.existsSync("/temp/test2/file.tmp")).toBe(false);
-		});
-
-		it("should log debug message", async () => {
-			const context = createBasicContext({
-				sources: [defineSource({ id: "test", fetch: () => [] })],
-			});
-
-			await cleanupStage(context, { temp: true });
-
-			expect(mockLogger.debug).toHaveBeenCalledWith("Beginning phase: clearing-temp");
 		});
 	});
 

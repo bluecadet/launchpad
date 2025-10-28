@@ -150,3 +150,13 @@ export type ResolvedAppConfig = ResolvedMonitorConfig["apps"][number];
 export function defineMonitorConfig(config: MonitorConfig) {
 	return config;
 }
+
+// Declaration merging to add monitor config to LaunchpadConfig
+declare module "@bluecadet/launchpad-utils" {
+	interface LaunchpadConfig {
+		/**
+		 * Monitor system configuration.
+		 */
+		monitor?: MonitorConfig;
+	}
+}

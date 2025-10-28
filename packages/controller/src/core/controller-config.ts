@@ -30,3 +30,13 @@ export const controllerConfigSchema = z
 	.default({});
 
 export type ControllerConfig = z.infer<typeof controllerConfigSchema>;
+
+// Declaration merging to add controller config to LaunchpadConfig
+declare module "@bluecadet/launchpad-utils" {
+	interface LaunchpadConfig {
+		/**
+		 * Controller system configuration.
+		 */
+		controller?: ControllerConfig;
+	}
+}

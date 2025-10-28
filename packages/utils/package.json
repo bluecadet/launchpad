@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@sindresorhus/slugify": "^2.1.0",
-    "ansi-escapes": "^7.0.0",
+    "ansi-escapes": "^7.1.1",
     "chalk": "^5.0.0",
     "immer": "^10.2.0",
     "moment": "^2.29.1",

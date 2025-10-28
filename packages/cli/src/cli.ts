@@ -48,7 +48,14 @@ yargs(hideBin(process.argv))
 	.command(
 		"status",
 		"Show the status of the launchpad controller.",
-		() => {},
+		(yargs) => {
+			return yargs.option("watch", {
+				alias: "w",
+				describe: "Watch for status changes",
+				type: "boolean",
+				default: false,
+			});
+		},
 		async (args) => {
 			const { status } = await import("./commands/status.js");
 			await status(args);

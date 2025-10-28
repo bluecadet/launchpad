@@ -2,86 +2,46 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
+import type { LaunchpadState } from "@bluecadet/launchpad-controller";
+import { onExit } from "@bluecadet/launchpad-utils";
+import ansiEscapes from "ansi-escapes";
 import chalk from "chalk";
-import { okAsync } from "neverthrow";
+import { okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
 
-export function status(argv: GlobalLaunchpadArgs) {
+export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
 			return withDaemon(dir, config.controller, (client) => {
 				return client.queryState().andThen((state) => {
-					// Pretty print the state
-					console.log(chalk.bold("Launchpad Status:"));
-
-					if (state.system?.startTime) {
-						const uptime = Date.now() - new Date(state.system.startTime).getTime();
-						console.log(`  Uptime: ${formatUptime(uptime)}`);
+					if (!argv.watch) {
+						console.log(stateToString(state));
+						return okAsync(state);
 					}
 
-					// Monitor status
-					if (state.subsystems.monitor) {
-						console.log(`\n${chalk.bold("Monitor:")}`);
-						console.log(
-							`  Connected: ${state.subsystems.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}`,
-						);
+					// Watch mode
+					const str = stateToString(state);
+					let lastHeight = str.split("\n").length + 1;
+					process.stdout.write(str);
 
-						// Apps
-						if (
-							state.subsystems.monitor.apps &&
-							Object.keys(state.subsystems.monitor.apps).length > 0
-						) {
-							console.log(`\n${chalk.bold("Apps:")}`);
-							for (const [appName, appStatus] of Object.entries(state.subsystems.monitor.apps)) {
-								const icon = appStatus.status === "online" ? "●" : "○";
-								const statusColor = appStatus.status === "online" ? chalk.green : chalk.red;
-								console.log(
-									`  ${statusColor(icon)} ${appName}: ${statusColor(appStatus.status)}${appStatus.pid ? ` (PID: ${appStatus.pid})` : ""}`,
-								);
-							}
-						}
-					}
+					client.onStateChange((newState) => {
+						const newStr = stateToString(newState);
+						process.stdout.write(`${ansiEscapes.eraseLines(lastHeight)}${newStr}`);
+						lastHeight = newStr.split("\n").length;
+					});
 
-					// Content status
-					if (state.subsystems.content) {
-						console.log(`\n${chalk.bold("Content:")}`);
-						const contentState = state.subsystems.content;
-						const sources = contentState.sources;
-
-						// Show overall phase
-						console.log(`  Phase: ${contentState.phase}`);
-
-						if (sources && Object.keys(sources).length > 0) {
-							for (const [sourceId, sourceState] of Object.entries(sources)) {
-								let statusIcon = chalk.gray("○");
-								let details = "";
-
-								if (sourceState.state === "pending") {
-									statusIcon = chalk.gray("○");
-									details = "Pending";
-								} else if (sourceState.state === "fetching") {
-									statusIcon = chalk.yellow("●");
-									details = "Fetching";
-								} else if (sourceState.state === "success") {
-									statusIcon = chalk.green("✓");
-									const duration = (sourceState.duration / 1000).toFixed(1);
-									details = `Success (${duration}s)`;
-								} else if (sourceState.state === "error") {
-									statusIcon = chalk.red("✗");
-									details = `Error: ${sourceState.error.message}`;
-									if (sourceState.restored) {
-										details += " (restored from backup)";
-									}
-								}
-
-								console.log(`  ${statusIcon} ${sourceId}: ${details}`);
-							}
-						}
-					}
-
-					return okAsync(state);
+					process.stdout.write(
+						chalk.gray("\nWatching for status changes... (press Ctrl+C to exit)"),
+					);
+					const neverResolve = new Promise<void>((resolve) => {
+						// resolve on sigint / sigterm / sigkill / etc
+						onExit(() => {
+							resolve();
+						});
+					});
+					return ResultAsync.fromSafePromise(neverResolve);
 				});
 			});
 		})
@@ -90,6 +50,72 @@ export function status(argv: GlobalLaunchpadArgs) {
 			console.error(`Start it with: ${chalk.cyan("launchpad start")}`);
 			process.exit(1);
 		});
+}
+function stateToString(state: LaunchpadState): string {
+	let output = "";
+
+	// Pretty print the state
+	output += `${chalk.bold("Launchpad Status:")}\n`;
+
+	if (state.system?.startTime) {
+		const uptime = Date.now() - new Date(state.system.startTime).getTime();
+		output += `  Uptime: ${formatUptime(uptime)}\n`;
+	}
+
+	// Monitor status
+	if (state.subsystems.monitor) {
+		output += `\n${chalk.bold("Monitor:")}\n`;
+		output += `  Connected: ${state.subsystems.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}\n`;
+
+		// Apps
+		if (state.subsystems.monitor.apps && Object.keys(state.subsystems.monitor.apps).length > 0) {
+			output += `\n${chalk.bold("Apps:")}\n`;
+			for (const [appName, appStatus] of Object.entries(state.subsystems.monitor.apps)) {
+				const icon = appStatus.status === "online" ? "●" : "○";
+				const statusColor = appStatus.status === "online" ? chalk.green : chalk.red;
+				output += `  ${statusColor(icon)} ${appName}: ${statusColor(appStatus.status)}${appStatus.pid ? ` (PID: ${appStatus.pid})` : ""}\n`;
+			}
+		}
+	}
+
+	// Content status
+	if (state.subsystems.content) {
+		output += `\n${chalk.bold("Content:")}\n`;
+		const contentState = state.subsystems.content;
+		const sources = contentState.sources;
+
+		// Show overall phase
+		output += `  Phase: ${contentState.phase}\n`;
+
+		if (sources && Object.keys(sources).length > 0) {
+			for (const [sourceId, sourceState] of Object.entries(sources)) {
+				let statusIcon = chalk.gray("○");
+				let details = "";
+
+				if (sourceState.state === "pending") {
+					statusIcon = chalk.gray("○");
+					details = "Pending";
+				} else if (sourceState.state === "fetching") {
+					statusIcon = chalk.yellow("●");
+					details = "Fetching";
+				} else if (sourceState.state === "success") {
+					statusIcon = chalk.green("✓");
+					const duration = (sourceState.duration / 1000).toFixed(1);
+					details = `Success (${duration}s)`;
+				} else if (sourceState.state === "error") {
+					statusIcon = chalk.red("✗");
+					details = `Error: ${sourceState.error.message}`;
+					if (sourceState.restored) {
+						details += " (restored from backup)";
+					}
+				}
+
+				output += `  ${statusIcon} ${sourceId}: ${details}\n`;
+			}
+		}
+	}
+
+	return output;
 }
 
 /**

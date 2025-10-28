@@ -137,9 +137,9 @@ describe("PatchedStateManager", () => {
 			const handler2 = vi.fn();
 			const handler3 = vi.fn();
 
-			const unsub1 = manager.onPatch(handler1);
+			const _unsub1 = manager.onPatch(handler1);
 			const unsub2 = manager.onPatch(handler2);
-			const unsub3 = manager.onPatch(handler3);
+			const _unsub3 = manager.onPatch(handler3);
 
 			manager.updateState((draft) => {
 				draft.count = 1;

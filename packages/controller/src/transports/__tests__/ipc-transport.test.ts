@@ -452,9 +452,9 @@ describe("ipc-transport", () => {
 
 	describe("state patch handling", () => {
 		it("should subscribe to stateStore patches on start", async () => {
-			let patchHandler: ((patches: any[], version: number) => void) | undefined;
+			let _patchHandler: ((patches: any[], version: number) => void) | undefined;
 			context.stateStore.onPatch = vi.fn((handler) => {
-				patchHandler = handler;
+				_patchHandler = handler;
 				return () => {};
 			});
 

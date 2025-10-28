@@ -3,7 +3,6 @@
  */
 
 import { PatchedStateManager } from "@bluecadet/launchpad-utils";
-import type { PatchHandler } from "../../utils/src/state-patcher.js";
 import type { ContentError } from "./content-plugin-driver.js";
 
 /**

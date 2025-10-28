@@ -1,3 +1,5 @@
+import type { LogConfig } from "./log-manager.js";
+
 export {
 	FixedConsoleLogger,
 	NO_TTY,
@@ -16,7 +18,7 @@ export type {
 	Subsystem,
 	SubsystemsState,
 } from "./controller-interfaces.js";
-export type { LogConfig, Logger } from "./log-manager.js";
+export type { Logger } from "./log-manager.js";
 export { LogManager, logConfigSchema } from "./log-manager.js";
 export { onExit } from "./on-exit.js";
 export type { BaseHookContext, HookSet, Plugin } from "./plugin-driver.js";
@@ -26,3 +28,12 @@ export {
 	HookContextProvider,
 	PluginError,
 } from "./plugin-driver.js";
+export type { LogConfig };
+
+// this will be augmented via declaration merging
+export interface LaunchpadConfig {
+	/**
+	 * Logging configuration.
+	 */
+	logging?: LogConfig;
+}

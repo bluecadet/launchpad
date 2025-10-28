@@ -1,14 +1,5 @@
-import type { ContentConfig } from "@bluecadet/launchpad-content";
-import { type ControllerConfig, controllerConfigSchema } from "@bluecadet/launchpad-controller";
-import type { MonitorConfig } from "@bluecadet/launchpad-monitor";
-import type { LogConfig } from "@bluecadet/launchpad-utils";
-
-export type LaunchpadConfig = {
-	controller?: ControllerConfig;
-	content?: ContentConfig;
-	monitor?: MonitorConfig;
-	logging?: LogConfig;
-};
+import { controllerConfigSchema } from "@bluecadet/launchpad-controller";
+import type { LaunchpadConfig } from "@bluecadet/launchpad-utils";
 
 /**
  * Applies defaults to the provided launchpad config.

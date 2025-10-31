@@ -1,5 +1,5 @@
 import path from "node:path";
-import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller";
+import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
 import { LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";

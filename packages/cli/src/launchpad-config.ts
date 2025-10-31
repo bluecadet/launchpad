@@ -1,4 +1,4 @@
-import { controllerConfigSchema } from "@bluecadet/launchpad-controller";
+import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { LaunchpadConfig } from "@bluecadet/launchpad-utils/types";
 
 /**

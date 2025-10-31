@@ -12,8 +12,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/launchpad-config.d.ts",
+      "default": "./dist/launchpad-config.js"
     },
     "./package.json": "./package.json"
   },

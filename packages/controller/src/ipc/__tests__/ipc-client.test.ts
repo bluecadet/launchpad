@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IPCEvent, IPCResponse } from "../../transports/ipc-transport.js";
 import { IPCClient } from "../ipc-client.js";
 import { IPCSerializer } from "../ipc-serializer.js";
+import { getOSSocketPath } from "../ipc-utils.js";
 
 type Cb = (...args: any[]) => void;
 
@@ -84,7 +85,7 @@ describe("IPCClient", () => {
 			const result = await client.connect("/test/socket");
 
 			expect(result.isOk()).toBe(true);
-			expect(net.createConnection).toHaveBeenCalledWith("/test/socket", expect.any(Function));
+			expect(net.createConnection).toHaveBeenCalledWith(getOSSocketPath("/test/socket"), expect.any(Function));
 		});
 
 		it("should return error if connection fails", async () => {

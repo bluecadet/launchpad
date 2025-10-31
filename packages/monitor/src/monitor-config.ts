@@ -1,6 +1,6 @@
 import type { StartOptions } from "pm2";
 import { z } from "zod";
-import { monitorPluginSchema } from "./core/monitor-plugin-driver.js";
+import { monitorPluginSchema } from "./monitor-plugin.js";
 
 const windowsApiConfigSchema = z.object({
 	/**

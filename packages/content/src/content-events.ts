@@ -1,3 +1,6 @@
+// need to import so declaration merging works
+import "@bluecadet/launchpad-utils/types";
+
 /**
  * Content subsystem events.
  *
@@ -9,7 +12,7 @@
  * but without type checking.
  */
 
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadEvents {
 		// Fetch lifecycle
 		"content:fetch:start": {

@@ -4,7 +4,7 @@
  * (CLI, web dashboard, OSC, etc.)
  */
 
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type { ResultAsync } from "neverthrow";
 import type { CommandDispatcher } from "./command-dispatcher.js";
 import type { EventBus } from "./event-bus.js";

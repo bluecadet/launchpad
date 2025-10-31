@@ -3,7 +3,7 @@
  * These commands are dispatched via the controller's executeCommand() method.
  */
 
-import type { BaseCommand } from "@bluecadet/launchpad-utils";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
 
 /**
  * Connect to PM2 daemon

@@ -2,8 +2,10 @@
  * Content subsystem state exported for public API.
  */
 
-import { PatchedStateManager } from "@bluecadet/launchpad-utils";
+import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 import type { ContentError } from "./content-plugin-driver.js";
+// need to import so declaration merging works
+import "@bluecadet/launchpad-utils/types";
 
 /**
  * Individual source fetch state with explicit phase tracking.
@@ -73,7 +75,7 @@ export type ContentState = ContentPhase & {
 	sources: Record<string, SourceFetchState>;
 };
 
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface SubsystemsState {
 		content: ContentState;
 	}

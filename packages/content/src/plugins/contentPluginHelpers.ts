@@ -1,4 +1,5 @@
-import { FixedConsoleLogger, type Logger } from "@bluecadet/launchpad-utils";
+import { FixedConsoleLogger } from "@bluecadet/launchpad-utils/console-transport";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import chalk from "chalk";
 import type { z } from "zod";
 import type { Document } from "../utils/data-store.js";

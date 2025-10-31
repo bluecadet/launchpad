@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 
 export type FetchPaginatedOptions<T, Merge extends boolean> = {
 	/**

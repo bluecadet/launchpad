@@ -4,9 +4,33 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./console-transport": {
+      "types": "./dist/console-transport.d.ts",
+      "default": "./dist/console-transport.js"
+    },
+    "./log-manager": {
+      "types": "./dist/log-manager.d.ts",
+      "default": "./dist/log-manager.js"
+    },
+    "./plugin-driver": {
+      "types": "./dist/plugin-driver.d.ts",
+      "default": "./dist/plugin-driver.js"
+    },
+    "./state-patcher": {
+      "types": "./dist/state-patcher.d.ts",
+      "default": "./dist/state-patcher.js"
+    },
+    "./controller-interfaces": {
+      "types": "./dist/controller-interfaces.d.ts",
+      "default": "./dist/controller-interfaces.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./on-exit": {
+      "types": "./dist/on-exit.d.ts",
+      "default": "./dist/on-exit.js"
     }
   },
   "files": [

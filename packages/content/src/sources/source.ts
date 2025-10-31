@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { z } from "zod";
 import type { DataStore } from "../utils/data-store.js";
 

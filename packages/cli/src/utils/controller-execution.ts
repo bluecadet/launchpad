@@ -10,7 +10,7 @@ import {
 	IPCClient,
 	LaunchpadController,
 } from "@bluecadet/launchpad-controller";
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
 

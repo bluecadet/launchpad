@@ -61,7 +61,7 @@ export function createPluginValidator<T extends HookSet>(validHookKeys: (keyof T
 	}) as z.ZodType<Plugin<T>>;
 }
 
-export default class PluginDriver<T extends HookSet> {
+export class PluginDriver<T extends HookSet> {
 	#plugins: Plugin<T>[] = [];
 	readonly #baseHookContexts = new Map<Plugin<T>, BaseHookContext>();
 	readonly #baseLogger: Logger;

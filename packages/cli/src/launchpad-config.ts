@@ -1,5 +1,5 @@
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller";
-import type { LaunchpadConfig } from "@bluecadet/launchpad-utils";
+import type { LaunchpadConfig } from "@bluecadet/launchpad-utils/types";
 
 /**
  * Applies defaults to the provided launchpad config.

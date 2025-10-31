@@ -1,11 +1,6 @@
 import type { ResultAsync } from "neverthrow";
 import type { PatchHandler } from "./state-patcher.js";
-
-// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
-export interface LaunchpadEvents {}
-
-// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
-export interface SubsystemsState {}
+import type { LaunchpadEvents } from "./types.js";
 
 /**
  * EventBus interface for inter-subsystem communication.

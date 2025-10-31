@@ -1,6 +1,6 @@
 import { fork } from "node:child_process";
 import fs from "node:fs";
-import type { BaseCommand } from "@bluecadet/launchpad-utils";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
 import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";

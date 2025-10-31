@@ -3,7 +3,9 @@
  * This represents the current state of the monitor system.
  */
 
-import { PatchedStateManager } from "@bluecadet/launchpad-utils";
+import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
+// Need to import so that declaration merging works
+import "@bluecadet/launchpad-utils/types";
 
 export type MonitorAppStatus = "online" | "offline" | "errored";
 
@@ -31,7 +33,7 @@ export type MonitorState = {
 	};
 };
 
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface SubsystemsState {
 		monitor: MonitorState;
 	}

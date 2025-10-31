@@ -1,4 +1,5 @@
-import type { PatchHandler, Subsystem } from "@bluecadet/launchpad-utils";
+import type { Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import type { Patch } from "immer";
 import { describe, expect, it, vi } from "vitest";
 import { StateStore } from "../state-store.js";

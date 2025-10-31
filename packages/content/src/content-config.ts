@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { contentPluginSchema } from "./content-plugin-driver.js";
-import { type ContentSource, contentSourceSchema } from "./sources/source.js";
+import { contentPluginSchema } from "./content-plugin.js";
+import { type ContentSource, contentSourceSchema } from "./source.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
 

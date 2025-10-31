@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import chalk from "chalk";
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
+import { defineContentPlugin } from "../content-plugin.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";
 
 const symlinkSchema = z.object({

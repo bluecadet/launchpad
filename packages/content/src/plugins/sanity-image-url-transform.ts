@@ -6,7 +6,7 @@ import type {
 	SanityReference,
 } from "@sanity/image-url/lib/types/types.js";
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
+import { defineContentPlugin } from "../content-plugin.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";

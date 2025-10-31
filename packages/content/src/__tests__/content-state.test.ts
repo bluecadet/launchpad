@@ -2,7 +2,7 @@ import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testi
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LaunchpadContent from "../launchpad-content.js";
-import { defineSource } from "../sources/source.js";
+import { defineSource } from "../source.js";
 
 describe("ContentState", () => {
 	afterEach(() => {

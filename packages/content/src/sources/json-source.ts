@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import ky from "ky";
 import { z } from "zod";
-import { defineSource } from "./source.js";
+import { defineSource } from "../source.js";
 
 const jsonSourceSchema = z.object({
 	/** required field to identify this source. Will be used as download path. */

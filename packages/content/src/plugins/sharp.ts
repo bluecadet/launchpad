@@ -5,7 +5,7 @@ import chalk from "chalk";
 import PQueue from "p-queue";
 import type SharpType from "sharp";
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
+import { defineContentPlugin } from "../content-plugin.js";
 import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";

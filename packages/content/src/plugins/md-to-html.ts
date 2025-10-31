@@ -2,7 +2,7 @@ import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
+import { defineContentPlugin } from "../content-plugin.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";

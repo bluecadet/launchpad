@@ -31,6 +31,9 @@
 				"useNumberNamespace": "error",
 				"noInferrableTypes": "error",
 				"noUselessElse": "error"
+			},
+			"performance": {
+				"noBarrelFile": "error"
 			}
 		}
 	},

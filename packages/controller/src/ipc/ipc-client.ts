@@ -12,6 +12,7 @@ import type { LaunchpadState } from "../core/state-store.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
 import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "./ipc-serializer.js";
+import { getOSSocketPath } from "./ipc-utils.js";
 
 enablePatches();
 
@@ -37,7 +38,9 @@ export class IPCClient {
 	/**
 	 * Connect to the IPC socket
 	 */
-	connect(socketPath: string): ResultAsync<void, IPCConnectionError> {
+	connect(originalSocketPath: string): ResultAsync<void, IPCConnectionError> {
+		const socketPath = getOSSocketPath(originalSocketPath);
+
 		return ResultAsync.fromPromise(
 			new Promise<void>((resolve, reject) => {
 				this._socket = net.createConnection(socketPath, () => {

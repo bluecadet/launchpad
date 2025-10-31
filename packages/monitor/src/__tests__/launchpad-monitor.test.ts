@@ -2,9 +2,9 @@ import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
-import type { MonitorPlugin } from "../core/monitor-plugin-driver.js";
 import LaunchpadMonitor from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
+import type { MonitorPlugin } from "../monitor-plugin.js";
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined

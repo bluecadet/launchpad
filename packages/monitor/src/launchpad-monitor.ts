@@ -15,7 +15,6 @@ import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
-import { MonitorPluginDriver } from "./core/monitor-plugin-driver.js";
 import { ProcessManager } from "./core/process-manager.js";
 import type { MonitorCommand } from "./monitor-commands.js";
 import {
@@ -23,6 +22,7 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
+import { MonitorPluginDriver } from "./monitor-plugin.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
 class LaunchpadMonitor

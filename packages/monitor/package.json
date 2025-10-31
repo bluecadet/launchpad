@@ -9,8 +9,24 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/launchpad-monitor.d.ts",
+      "default": "./dist/launchpad-monitor.js"
+    },
+    "./plugin": {
+      "types": "./dist/monitor-plugin.d.ts",
+      "default": "./dist/monitor-plugin.js"
+    },
+    "./commands": {
+      "types": "./dist/monitor-commands.d.ts",
+      "default": "./dist/monitor-commands.js"
+    },
+    "./config": {
+      "types": "./dist/monitor-config.d.ts",
+      "default": "./dist/monitor-config.js"
+    },
+    "./events": {
+      "types": "./dist/monitor-events.d.ts",
+      "default": "./dist/monitor-events.js"
     },
     "./state": {
       "types": "./dist/monitor-state.d.ts",

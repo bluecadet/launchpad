@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { vol } from "memfs";
 import { afterEach, vi } from "vitest";
 import { type ContentConfig, contentConfigSchema } from "../../content-config.js";

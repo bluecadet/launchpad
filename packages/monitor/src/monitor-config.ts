@@ -152,7 +152,7 @@ export function defineMonitorConfig(config: MonitorConfig) {
 }
 
 // Declaration merging to add monitor config to LaunchpadConfig
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadConfig {
 		/**
 		 * Monitor system configuration.

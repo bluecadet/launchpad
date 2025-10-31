@@ -1,5 +1,5 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { PluginDriver } from "@bluecadet/launchpad-utils";
+import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import { describe, expect, it, vi } from "vitest";
 import { contentConfigSchema } from "../content-config.js";
 import {

@@ -4,7 +4,8 @@
  * Everything should be traceable back to LaunchpadContent for clarity.
  */
 
-import type { EventBus, Logger } from "@bluecadet/launchpad-utils";
+import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type { ResolvedContentConfig } from "../content-config.js";
 import type { ContentPluginDriver } from "../content-plugin-driver.js";
 import type { ContentSource } from "../sources/source.js";

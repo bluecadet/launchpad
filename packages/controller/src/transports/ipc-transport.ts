@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import type { LaunchpadEvents } from "@bluecadet/launchpad-utils";
+import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ResultAsync } from "neverthrow";

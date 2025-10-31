@@ -1,8 +1,15 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { LaunchpadController } from "../launchpad-controller.js";
+
+declare module "@bluecadet/launchpad-utils/types" {
+	interface SubsystemsState {
+		[test: string]: any;
+	}
+}
 
 describe("LaunchpadController", () => {
 	const rootLogger = createMockLogger();
@@ -361,7 +368,7 @@ describe("LaunchpadController", () => {
 		it("should emit events and aggregate state across subsystems", async () => {
 			const controller = createController();
 			const eventBus = controller.getEventBus();
-			const events: string[] = [];
+			const events: (keyof LaunchpadEvents)[] = [];
 
 			eventBus.onAny((event) => events.push(event));
 

@@ -1,3 +1,6 @@
+// Need to import so that declaration merging works
+import "@bluecadet/launchpad-utils/types";
+
 /**
  * Monitor subsystem events.
  *
@@ -9,7 +12,7 @@
  * but without type checking.
  */
 
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadEvents {
 		// Connection lifecycle
 		"monitor:connect:start": Record<string, never>;

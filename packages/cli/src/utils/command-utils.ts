@@ -1,5 +1,6 @@
 import path from "node:path";
-import { type Logger, LogManager, TTY_FIXED_END } from "@bluecadet/launchpad-utils";
+import { TTY_FIXED_END } from "@bluecadet/launchpad-utils/console-transport";
+import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import chalk from "chalk";
 import { errAsync, ok, ResultAsync } from "neverthrow";
 import { ZodError } from "zod";

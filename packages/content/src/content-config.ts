@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { contentPluginSchema } from "./content-plugin-driver.js";
 import { type ContentSource, contentSourceSchema } from "./sources/source.js";
+// need to import so declaration merging works
+import "@bluecadet/launchpad-utils/types";
 
 export const DOWNLOAD_PATH_TOKEN = "%DOWNLOAD_PATH%";
 export const TIMESTAMP_TOKEN = "%TIMESTAMP%";
@@ -74,7 +76,7 @@ export function defineContentConfig(config: ContentConfig) {
 }
 
 // Declaration merging to add content config to LaunchpadConfig
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadConfig {
 		/**
 		 * Content system configuration.

@@ -1,4 +1,4 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 import type { EventBus } from "./event-bus.js";

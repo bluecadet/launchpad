@@ -1,4 +1,4 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";

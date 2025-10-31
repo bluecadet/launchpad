@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventBus } from "../event-bus.js";
 
+declare module "@bluecadet/launchpad-utils/types" {
+	interface LaunchpadEvents {
+		[name: string]: any;
+	}
+}
+
 describe("EventBus", () => {
 	describe("emit and on", () => {
 		it("should emit events to subscribers", () => {

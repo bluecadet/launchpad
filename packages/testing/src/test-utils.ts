@@ -1,4 +1,4 @@
-import type { EventBus } from "@bluecadet/launchpad-utils";
+import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
 import { vi } from "vitest";
 
 type MockLogger = {

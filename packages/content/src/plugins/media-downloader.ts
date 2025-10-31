@@ -5,7 +5,7 @@ import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
 import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
-import { type ContentHookContext, defineContentPlugin } from "../content-plugin-driver.js";
+import { type ContentHookContext, defineContentPlugin } from "../content-plugin.js";
 import type { DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
@@ -14,7 +14,7 @@ import { CacheProgressLogger, parsePluginConfig, queryOrUpdate } from "./content
 
 const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)?$/i;
 
-declare module "../content-plugin-driver.js" {
+declare module "../content-plugin.js" {
 	interface ContentHookArgs {
 		"plugin:media-downloader:mediaDownloaded": { url: string; sourceId: string; localPath: string };
 	}

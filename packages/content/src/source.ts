@@ -1,6 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { z } from "zod";
-import type { DataStore } from "../utils/data-store.js";
+import type { DataStore } from "./utils/data-store.js";
 
 /**
  * Context object passed to the `fetch` method of a source.

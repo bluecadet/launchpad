@@ -1,7 +1,7 @@
 import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type Airtable from "airtable";
 import { z } from "zod";
-import { defineSource } from "./source.js";
+import { defineSource } from "../source.js";
 
 const airtableSourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */

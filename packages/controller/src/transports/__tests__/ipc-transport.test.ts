@@ -3,8 +3,8 @@ import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testi
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Transport, TransportContext } from "../../core/transport.js";
-import { IPCSerializer } from "../../ipc/ipc-serializer.js";
+import type { Transport, TransportContext } from "../../transport.js";
+import { IPCSerializer } from "../../utils/ipc-serializer.js";
 import { createIPCTransport, type IPCMessage, type IPCResponse } from "../ipc-transport.js";
 
 type Cb = (...args: any[]) => void;

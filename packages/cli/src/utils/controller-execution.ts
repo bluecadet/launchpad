@@ -4,12 +4,10 @@
  */
 
 import path from "node:path";
-import {
-	type ControllerConfig,
-	getDaemonPid,
-	IPCClient,
-	LaunchpadController,
-} from "@bluecadet/launchpad-controller";
+import { LaunchpadController } from "@bluecadet/launchpad-controller";
+import type { ControllerConfig } from "@bluecadet/launchpad-controller/config";
+import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
+import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
 import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ControllerConfig } from "@bluecadet/launchpad-controller";
+import type { ControllerConfig } from "@bluecadet/launchpad-controller/config";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { fs } from "memfs";
 import { err, errAsync, ok, okAsync } from "neverthrow";
@@ -11,15 +11,19 @@ import {
 } from "../controller-execution.js";
 
 vi.mock("@bluecadet/launchpad-controller", () => ({
-	IPCClient: vi.fn(),
 	LaunchpadController: vi.fn(),
+}));
+vi.mock("@bluecadet/launchpad-controller/ipc-client", () => ({
+	IPCClient: vi.fn(),
+}));
+vi.mock("@bluecadet/launchpad-controller/pid-utils", () => ({
 	getDaemonPid: vi.fn(),
 }));
 
 // Import mocked modules
-import * as ControllerModule from "@bluecadet/launchpad-controller";
-
-const { IPCClient, LaunchpadController, getDaemonPid } = ControllerModule;
+import { LaunchpadController } from "@bluecadet/launchpad-controller";
+import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
+import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
 
 describe("controller-execution", () => {
 	const baseDir = "/test/base";

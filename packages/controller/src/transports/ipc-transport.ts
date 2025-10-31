@@ -11,15 +11,15 @@ import chalk from "chalk";
 import type { Patch } from "immer";
 import { ResultAsync } from "neverthrow";
 import type { VersionedLaunchpadState } from "../core/state-store.js";
-import type { Transport, TransportContext } from "../core/transport.js";
 import {
 	CommandExecutionError,
 	IPCMessageError,
 	StateAccessError,
 	TransportError,
 } from "../errors.js";
-import { IPCSerializer } from "../ipc/ipc-serializer.js";
-import { getOSSocketPath } from "../ipc/ipc-utils.js";
+import type { Transport, TransportContext } from "../transport.js";
+import { IPCSerializer } from "../utils/ipc-serializer.js";
+import { getOSSocketPath } from "../utils/ipc-utils.js";
 
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */

@@ -8,12 +8,12 @@ import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfac
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import { EventBus } from "../core/event-bus.js";
-import type { LaunchpadState } from "../core/state-store.js";
-import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "../errors.js";
-import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "../transports/ipc-transport.js";
-import { IPCSerializer } from "./ipc-serializer.js";
-import { getOSSocketPath } from "./ipc-utils.js";
+import { EventBus } from "./core/event-bus.js";
+import type { LaunchpadState } from "./core/state-store.js";
+import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "./errors.js";
+import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "./transports/ipc-transport.js";
+import { IPCSerializer } from "./utils/ipc-serializer.js";
+import { getOSSocketPath } from "./utils/ipc-utils.js";
 
 enablePatches();
 

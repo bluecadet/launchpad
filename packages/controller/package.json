@@ -9,8 +9,24 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/launchpad-controller.d.ts",
+      "default": "./dist/launchpad-controller.js"
+    },
+    "./config": {
+      "types": "./dist/controller-config.d.ts",
+      "default": "./dist/controller-config.js"
+    },
+    "./ipc-client": {
+      "types": "./dist/ipc-client.d.ts",
+      "default": "./dist/ipc-client.js"
+    },
+    "./pid-utils": {
+      "types": "./dist/pid-utils.d.ts",
+      "default": "./dist/pid-utils.js"
+    },
+    "./transport": {
+      "types": "./dist/transport.d.ts",
+      "default": "./dist/transport.js"
     },
     "./transports/ipc": {
       "types": "./dist/transports/ipc.d.ts",

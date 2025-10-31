@@ -4,13 +4,15 @@ import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import type { ControllerConfig, ControllerMode } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
-import type { ControllerConfig, ControllerMode } from "./core/controller-config.js";
 import { EventBus } from "./core/event-bus.js";
-import { deletePidFile, getDaemonPid, writePidFile } from "./core/pid-manager.js";
-import { StateStore } from "./core/state-store.js";
-import type { Transport } from "./core/transport.js";
+import { type LaunchpadState, StateStore } from "./core/state-store.js";
+import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
+import type { Transport } from "./transport.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
+
+export type { LaunchpadState };
 
 /**
  * LaunchpadController is the central orchestrator for Launchpad.

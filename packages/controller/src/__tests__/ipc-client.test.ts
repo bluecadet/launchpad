@@ -1,9 +1,9 @@
 import net from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { IPCEvent, IPCResponse } from "../../transports/ipc-transport.js";
 import { IPCClient } from "../ipc-client.js";
-import { IPCSerializer } from "../ipc-serializer.js";
-import { getOSSocketPath } from "../ipc-utils.js";
+import type { IPCEvent, IPCResponse } from "../transports/ipc-transport.js";
+import { IPCSerializer } from "../utils/ipc-serializer.js";
+import { getOSSocketPath } from "../utils/ipc-utils.js";
 
 type Cb = (...args: any[]) => void;
 

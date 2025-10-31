@@ -7,9 +7,9 @@ import {
 	isProcessRunning,
 	readPidFile,
 	writePidFile,
-} from "../pid-manager.js";
+} from "../pid-utils.js";
 
-describe("pid-manager", () => {
+describe("pid-utils", () => {
 	describe("writePidFile", () => {
 		it("should write PID to file", () => {
 			const result = writePidFile("/test/pid", 12345);

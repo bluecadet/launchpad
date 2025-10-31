@@ -6,9 +6,9 @@
 
 import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type { ResultAsync } from "neverthrow";
-import type { CommandDispatcher } from "./command-dispatcher.js";
-import type { EventBus } from "./event-bus.js";
-import type { StateStore } from "./state-store.js";
+import type { CommandDispatcher } from "./core/command-dispatcher.js";
+import type { EventBus } from "./core/event-bus.js";
+import type { StateStore } from "./core/state-store.js";
 
 /**
  * Context passed to transports on start/stop
@@ -45,4 +45,11 @@ export interface Transport {
 	 * Called when controller is shutting down
 	 */
 	stop(ctx: TransportContext): ResultAsync<void, Error>;
+}
+
+/**
+ * This function doesn't do anything, just a helper for typing transports
+ */
+export function defineTransport<T extends Transport>(transport: T): T {
+	return transport;
 }

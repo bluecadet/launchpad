@@ -7,11 +7,11 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils";
+import chalk from "chalk";
 import type { Patch } from "immer";
 import { ResultAsync } from "neverthrow";
 import type { VersionedLaunchpadState } from "../core/state-store.js";
 import type { Transport, TransportContext } from "../core/transport.js";
-import chalk from 'chalk'
 import {
 	CommandExecutionError,
 	IPCMessageError,
@@ -64,16 +64,16 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 		start(ctx: TransportContext): ResultAsync<void, TransportError> {
 			const { logger, abortSignal } = ctx;
 
-			if (process.platform == "win32" && (options.socketPath !== socketPath)) {
+			if (process.platform === "win32" && options.socketPath !== socketPath) {
 				// notify user that the socket path has been updated to conform with windows named pipe reqs,
 				// as it might not be where they expect it
 
 				logger.warn(
-					`Windows named pipes must be located in ${chalk.grey("\\\\?\\pipe\\")} or ${chalk.grey("\\\\.\\pipe\\")}. `
-				)
+					`Windows named pipes must be located in ${chalk.grey("\\\\?\\pipe\\")} or ${chalk.grey("\\\\.\\pipe\\")}. `,
+				);
 				logger.warn(
-					`The configured socketPath has been moved to the ${chalk.grey("\\\\?\\pipe\\")} directory to conform with this requirement.`
-				)
+					`The configured socketPath has been moved to the ${chalk.grey("\\\\?\\pipe\\")} directory to conform with this requirement.`,
+				);
 			}
 
 			const promise = new Promise<void>((resolve, reject) => {

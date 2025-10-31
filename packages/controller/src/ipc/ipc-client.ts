@@ -232,7 +232,7 @@ export class IPCClient {
 		try {
 			this._lastState = applyPatches(this._lastState, patches);
 			this._lastStateVersion = version;
-		} catch (e) {
+		} catch (_e) {
 			return errAsync(new IPCMessageError("Failed to apply patches"));
 		}
 

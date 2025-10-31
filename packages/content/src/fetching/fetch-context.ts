@@ -7,8 +7,8 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
 import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type { ResolvedContentConfig } from "../content-config.js";
-import type { ContentPluginDriver } from "../content-plugin-driver.js";
-import type { ContentSource } from "../sources/source.js";
+import type { ContentPluginDriver } from "../content-plugin.js";
+import type { ContentSource } from "../source.js";
 import type { DataStore } from "../utils/data-store.js";
 
 /**

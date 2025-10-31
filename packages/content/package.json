@@ -9,8 +9,84 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/launchpad-content.d.ts",
+      "default": "./dist/launchpad-content.js"
+    },
+    "./commands": {
+      "types": "./dist/content-commands.d.ts",
+      "default": "./dist/content-commands.js"
+    },
+    "./config": {
+      "types": "./dist/content-config.d.ts",
+      "default": "./dist/content-config.js"
+    },
+    "./events": {
+      "types": "./dist/content-events.d.ts",
+      "default": "./dist/content-events.js"
+    },
+    "./state": {
+      "types": "./dist/content-state.d.ts",
+      "default": "./dist/content-state.js"
+    },
+    "./plugin": {
+      "types": "./dist/content-plugin.d.ts",
+      "default": "./dist/content-plugin.js"
+    },
+    "./plugins/md-to-html": {
+      "types": "./dist/plugins/md-to-html.d.ts",
+      "default": "./dist/plugins/md-to-html.js"
+    },
+    "./plugins/media-downloader": {
+      "types": "./dist/plugins/media-downloader.d.ts",
+      "default": "./dist/plugins/media-downloader.js"
+    },
+    "./plugins/sanity-image-url-transform": {
+      "types": "./dist/plugins/sanity-image-url-transform.d.ts",
+      "default": "./dist/plugins/sanity-image-url-transform.js"
+    },
+    "./plugins/sanity-to-html": {
+      "types": "./dist/plugins/sanity-to-html.d.ts",
+      "default": "./dist/plugins/sanity-to-html.js"
+    },
+    "./plugins/sanity-to-markdown": {
+      "types": "./dist/plugins/sanity-to-markdown.d.ts",
+      "default": "./dist/plugins/sanity-to-markdown.js"
+    },
+    "./plugins/sanity-to-plain": {
+      "types": "./dist/plugins/sanity-to-plain.d.ts",
+      "default": "./dist/plugins/sanity-to-plain.js"
+    },
+    "./plugins/sharp": {
+      "types": "./dist/plugins/sharp.d.ts",
+      "default": "./dist/plugins/sharp.js" 
+    },
+    "./plugins/symlink": {
+      "types": "./dist/plugins/symlink.d.ts",
+      "default": "./dist/plugins/symlink.js"
+    },
+    "./source": {
+      "types": "./dist/source.d.ts",
+      "default": "./dist/source.js"
+    },
+    "./sources/airtable": {
+      "types": "./dist/sources/airtable-source.d.ts",
+      "default": "./dist/sources/airtable-source.js"
+    },
+    "./sources/contentful": {
+      "types": "./dist/sources/contentful-source.d.ts",
+      "default": "./dist/sources/contentful-source.js"
+    },
+    "./sources/json": {
+      "types": "./dist/sources/json-source.d.ts",
+      "default": "./dist/sources/json-source.js"
+    },
+    "./sources/sanity": {
+      "types": "./dist/sources/sanity-source.d.ts",
+      "default": "./dist/sources/sanity-source.js"
+    },
+    "./sources/strapi": {
+      "types": "./dist/sources/strapi-source.d.ts",
+      "default": "./dist/sources/strapi-source.js"
     },
     "./package.json": "./package.json"
   },

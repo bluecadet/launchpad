@@ -2,8 +2,8 @@ import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import ky from "ky";
 import qs from "qs";
 import { z } from "zod";
+import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { defineSource } from "./source.js";
 
 const strapiCredentialsSchema = z.union(
 	[

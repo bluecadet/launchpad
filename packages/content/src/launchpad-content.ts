@@ -18,7 +18,7 @@ import {
 	type ResolvedContentConfig,
 	TIMESTAMP_TOKEN,
 } from "./content-config.js";
-import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
+import { ContentError, ContentPluginDriver } from "./content-plugin.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import {
 	backupStage,
@@ -31,7 +31,7 @@ import {
 	finalizingStage,
 	setupHooksStage,
 } from "./fetching/fetch-stages.js";
-import type { ContentSource } from "./sources/source.js";
+import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 

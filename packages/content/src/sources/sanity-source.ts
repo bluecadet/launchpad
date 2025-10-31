@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { defineSource } from "./source.js";
 
 const sanitySourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */

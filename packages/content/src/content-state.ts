@@ -3,7 +3,7 @@
  */
 
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
-import type { ContentError } from "./content-plugin-driver.js";
+import type { ContentError } from "./content-plugin.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
 

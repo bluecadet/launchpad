@@ -1,8 +1,8 @@
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedContentConfig } from "../../content-config.js";
-import type { ContentPluginDriver } from "../../content-plugin-driver.js";
-import { defineSource } from "../../sources/source.js";
+import type { ContentPluginDriver } from "../../content-plugin.js";
+import { defineSource } from "../../source.js";
 import type { DataStore } from "../../utils/data-store.js";
 import type { FetchStageContext } from "../fetch-context.js";
 

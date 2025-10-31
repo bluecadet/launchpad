@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin-driver.js";
+import { defineContentPlugin } from "../content-plugin.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import { parsePluginConfig } from "./contentPluginHelpers.js";

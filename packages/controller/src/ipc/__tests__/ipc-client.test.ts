@@ -85,7 +85,10 @@ describe("IPCClient", () => {
 			const result = await client.connect("/test/socket");
 
 			expect(result.isOk()).toBe(true);
-			expect(net.createConnection).toHaveBeenCalledWith(getOSSocketPath("/test/socket"), expect.any(Function));
+			expect(net.createConnection).toHaveBeenCalledWith(
+				getOSSocketPath("/test/socket"),
+				expect.any(Function),
+			);
 		});
 
 		it("should return error if connection fails", async () => {

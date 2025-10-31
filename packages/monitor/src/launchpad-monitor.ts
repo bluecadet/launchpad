@@ -1,15 +1,14 @@
-import {
-	type CommandExecutor,
-	type Disconnectable,
-	type EventBus,
-	type EventBusAware,
-	type Logger,
-	LogManager,
-	onExit,
-	type PatchHandler,
-	PluginDriver,
-	type StateProvider,
-} from "@bluecadet/launchpad-utils";
+import type {
+	CommandExecutor,
+	Disconnectable,
+	EventBus,
+	EventBusAware,
+	StateProvider,
+} from "@bluecadet/launchpad-utils/controller-interfaces";
+import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
+import { onExit } from "@bluecadet/launchpad-utils/on-exit";
+import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
+import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import autoBind from "auto-bind";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -151,10 +150,8 @@ class LaunchpadMonitor
 				return this.shutdown(command.exitCode);
 
 			default: {
-				// TypeScript exhaustiveness check
-				const exhaustiveCheck: never = command;
 				return errAsync(
-					new Error(`Unknown monitor command type: ${(exhaustiveCheck as MonitorCommand).type}`),
+					new Error(`Unknown monitor command type: ${(command as MonitorCommand).type}`),
 				);
 			}
 		}

@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import type Airtable from "airtable";
 import { z } from "zod";
 import { defineSource } from "./source.js";

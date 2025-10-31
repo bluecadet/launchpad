@@ -1,5 +1,6 @@
 import path from "node:path";
-import type { EventBus, Logger } from "@bluecadet/launchpad-utils";
+import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";

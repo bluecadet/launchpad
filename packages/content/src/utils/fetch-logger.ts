@@ -1,4 +1,4 @@
-import { FixedConsoleLogger, NO_TTY } from "@bluecadet/launchpad-utils";
+import { FixedConsoleLogger, NO_TTY } from "@bluecadet/launchpad-utils/console-transport";
 import chalk from "chalk";
 import type { ResultAsync } from "neverthrow";
 

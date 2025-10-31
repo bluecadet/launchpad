@@ -1,4 +1,4 @@
-import { type Logger, LogManager } from "@bluecadet/launchpad-utils";
+import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import type { SubEmitterSocket } from "axon";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";

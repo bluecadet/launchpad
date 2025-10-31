@@ -1,12 +1,12 @@
+import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
 import {
 	type BaseHookContext,
 	createPluginValidator,
-	type EventBus,
 	HookContextProvider,
 	type Plugin,
 	type PluginDriver,
 	type PluginError,
-} from "@bluecadet/launchpad-utils";
+} from "@bluecadet/launchpad-utils/plugin-driver";
 import { err, type ResultAsync } from "neverthrow";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";

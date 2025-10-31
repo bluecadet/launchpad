@@ -1,5 +1,6 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { type Logger, PluginDriver } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type LaunchpadMonitor from "../../launchpad-monitor.js";
 import { type MonitorPlugin, MonitorPluginDriver } from "../monitor-plugin-driver.js";

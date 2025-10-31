@@ -1,6 +1,8 @@
 import path from "node:path";
-import type { BaseCommand, Logger, Subsystem } from "@bluecadet/launchpad-utils";
-import { LogManager, onExit } from "@bluecadet/launchpad-utils";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import { LogManager } from "@bluecadet/launchpad-utils/log-manager";
+import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import type { ControllerConfig, ControllerMode } from "./core/controller-config.js";

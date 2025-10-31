@@ -3,7 +3,7 @@
  */
 
 import type { LaunchpadState } from "@bluecadet/launchpad-controller";
-import { onExit } from "@bluecadet/launchpad-utils";
+import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import ansiEscapes from "ansi-escapes";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";

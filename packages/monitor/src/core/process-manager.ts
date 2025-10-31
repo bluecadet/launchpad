@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";
 

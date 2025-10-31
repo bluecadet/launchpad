@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import type { EventBus as IEventBus, LaunchpadEvents } from "@bluecadet/launchpad-utils";
+import type { EventBus as IEventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 
 /**
  * Core controller events.
@@ -7,7 +8,7 @@ import type { EventBus as IEventBus, LaunchpadEvents } from "@bluecadet/launchpa
  * Subsystems can augment this interface via declaration merging
  *
  */
-declare module "@bluecadet/launchpad-utils" {
+declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadEvents {
 		// Command lifecycle events (controller-owned)
 		"command:start": { commandType: string; [key: string]: unknown };

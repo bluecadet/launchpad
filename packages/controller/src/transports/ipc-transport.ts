@@ -11,6 +11,7 @@ import type { Patch } from "immer";
 import { ResultAsync } from "neverthrow";
 import type { VersionedLaunchpadState } from "../core/state-store.js";
 import type { Transport, TransportContext } from "../core/transport.js";
+import chalk from 'chalk'
 import {
 	CommandExecutionError,
 	IPCMessageError,
@@ -18,6 +19,7 @@ import {
 	TransportError,
 } from "../errors.js";
 import { IPCSerializer } from "../ipc/ipc-serializer.js";
+import { getOSSocketPath } from "../ipc/ipc-utils.js";
 
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
@@ -54,12 +56,25 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 	let server: net.Server | null = null;
 	const clients = new Set<net.Socket>();
 
+	const socketPath = getOSSocketPath(options.socketPath);
+
 	return {
 		id: "ipc",
 
 		start(ctx: TransportContext): ResultAsync<void, TransportError> {
 			const { logger, abortSignal } = ctx;
-			const { socketPath } = options;
+
+			if (process.platform == "win32" && (options.socketPath !== socketPath)) {
+				// notify user that the socket path has been updated to conform with windows named pipe reqs,
+				// as it might not be where they expect it
+
+				logger.warn(
+					`Windows named pipes must be located in ${chalk.grey("\\\\?\\pipe\\")} or ${chalk.grey("\\\\.\\pipe\\")}. `
+				)
+				logger.warn(
+					`The configured socketPath has been moved to the ${chalk.grey("\\\\?\\pipe\\")} directory to conform with this requirement.`
+				)
+			}
 
 			const promise = new Promise<void>((resolve, reject) => {
 				// Clean up existing socket
@@ -75,18 +90,21 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 					}
 				}
 
-				// Ensure directory exists
-				try {
-					const dir = path.dirname(socketPath);
-					if (!fs.existsSync(dir)) {
-						fs.mkdirSync(dir, { recursive: true });
+				// This step isn't relevant for windows named pipes
+				if (process.platform !== "win32") {
+					// Ensure directory exists
+					try {
+						const dir = path.dirname(socketPath);
+						if (!fs.existsSync(dir)) {
+							fs.mkdirSync(dir, { recursive: true });
+						}
+					} catch (e) {
+						return reject(
+							new TransportError("Failed to create socket directory", {
+								cause: e instanceof Error ? e : new Error(String(e)),
+							}),
+						);
 					}
-				} catch (e) {
-					return reject(
-						new TransportError("Failed to create socket directory", {
-							cause: e instanceof Error ? e : new Error(String(e)),
-						}),
-					);
 				}
 
 				// Create server
@@ -139,7 +157,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 				});
 
 				server.listen(socketPath, () => {
-					logger.info(`IPC transport listening at ${socketPath}`);
+					logger.info(`IPC transport listening at ${chalk.grey(socketPath)}`);
 
 					// Subscribe to EventBus for event streaming with type-safe handler
 					const handleEvent = <K extends keyof LaunchpadEvents>(
@@ -208,7 +226,6 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 
 		stop(ctx: TransportContext): ResultAsync<void, TransportError> {
 			const { logger } = ctx;
-			const { socketPath } = options;
 
 			const promise = new Promise<void>((resolve, reject) => {
 				if (!server) {

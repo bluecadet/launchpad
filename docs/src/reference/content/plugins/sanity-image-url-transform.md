@@ -7,7 +7,7 @@ The `sanityImageUrlTransform` plugin transforms Sanity image references into usa
 To use the `sanityImageUrlTransform` plugin, include it in your configuration before your `mediaDownloader` plugin:
 
 ```typescript{1,6-12}
-import { sanityImageUrlTransform } from '@bluecadet/launchpad-content';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/plugins/sanity-image-url-transform';
 
 export default defineConfig({
   content: {

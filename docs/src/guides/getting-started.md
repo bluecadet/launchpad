@@ -24,6 +24,11 @@ Alternatively, install everything at once:
 npm install @bluecadet/launchpad
 ```
 
+> [!TIP]
+> These docs assume you have installed the packages individually. If you installed the monorepo package (`@bluecadet/launchpad`), you can adjust the import paths by replacing `@bluecadet/launchpad-` with `@bluecadet/launchpad/`.
+> 
+> For example, `@bluecadet/launchpad-content/plugins/sharp` becomes `@bluecadet/launchpad/content/plugins/sharp`.
+
 ## Basic Setup
 
 1. Create a configuration file:
@@ -31,7 +36,7 @@ npm install @bluecadet/launchpad
 ```js
 // launchpad.config.js (or launchpad.config.ts, launchpad.config.mjs, etc.)
 import { defineConfig } from '@bluecadet/launchpad-cli';
-import { jsonSource } from '@bluecadet/launchpad-content';
+import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
   content: {

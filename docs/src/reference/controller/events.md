@@ -12,8 +12,6 @@ Events are fully type-safe through TypeScript declaration merging. Each subsyste
 
 ```typescript
 import { LaunchpadController } from '@bluecadet/launchpad-controller';
-import '@bluecadet/launchpad-content'; // Import content event types
-import '@bluecadet/launchpad-monitor'; // Import monitor event types
 
 const controller = new LaunchpadController(config, logger);
 const eventBus = controller.getEventBus();

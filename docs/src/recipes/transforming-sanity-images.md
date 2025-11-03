@@ -7,8 +7,8 @@ When working with Sanity.io images, you can leverage Sanity's built-in image tra
 First, ensure your GROQ query includes all necessary image fields:
 
 ```typescript{12-17}
-import { defineConfig } from '@bluecadet/launchpad-core';
-import { sanitySource } from '@bluecadet/launchpad-content';
+import { defineConfig } from '@bluecadet/launchpad-cli';
+import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
 
 export default defineConfig({
   content: {
@@ -40,9 +40,10 @@ The `asset->` reference is crucial for accessing the full image data, including 
 
 Add the `sanityImageUrlTransform` plugin to transform image references into URLs:
 
-```typescript{14-22}
-import { defineConfig } from '@bluecadet/launchpad-core';
-import { sanityImageUrlTransform, sanitySource } from '@bluecadet/launchpad-content';
+```typescript{15-23}
+import { defineConfig } from '@bluecadet/launchpad-cli';
+import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/plugins/sanity-image-url-transform';
 
 export default defineConfig({
   content: {

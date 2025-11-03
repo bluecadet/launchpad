@@ -40,7 +40,7 @@ The monitor package is a robust process management and monitoring tool designed 
 npm install @bluecadet/launchpad-monitor
 ```
 
-## Basic Usage
+## JS API Usage
 
 ```typescript
 import LaunchpadMonitor from '@bluecadet/launchpad-monitor';

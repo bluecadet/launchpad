@@ -50,7 +50,7 @@ The fetched data, either as a promise returning a single document or an async it
 To define a custom content source, use the `defineSource` function:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content';
+import { defineSource } from '@bluecadet/launchpad-content/source';
 
 export default defineSource({
   id: 'myCustomSource',

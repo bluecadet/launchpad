@@ -7,7 +7,7 @@ The `sanitySource` content source is used to fetch data from Sanity.io. It suppo
 To use the `sanitySource` content source, include it in the list of content sources in your configuration:
 
 ```typescript{1,6-15}
-import { sanitySource } from '@bluecadet/launchpad-content';
+import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
 
 export default defineConfig({
   content: {

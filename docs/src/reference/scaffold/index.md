@@ -51,7 +51,7 @@ npx launchpad scaffold
 > [!NOTE] Note:
 > The scaffold package primarily consists of PowerShell scripts and batch files. The npm package provides minimal JavaScript adapters to enable programmatic usage through the JavaScript API shown below.
 
-## JavaScript API Usage
+## JS API Usage
 
 ```typescript
 import { launchScaffold } from '@bluecadet/launchpad-scaffold';

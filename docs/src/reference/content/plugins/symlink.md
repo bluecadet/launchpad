@@ -5,7 +5,7 @@ The `symlink` plugin is used to create symbolic links between files or directori
 ## Usage
 
 ```typescript
-import { symlink } from '@bluecadet/launchpad-content';
+import { symlink } from '@bluecadet/launchpad-content/plugins/symlink';
 
 export default defineConfig({
   content: {

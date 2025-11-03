@@ -7,7 +7,7 @@ The `contentfulSource` content source is used to fetch entries and assets from C
 To use the `contentfulSource` content source, include it in the list of content sources in your configuration:
 
 ```typescript{1,6-13}
-import { contentfulSource } from '@bluecadet/launchpad-content';
+import { contentfulSource } from '@bluecadet/launchpad-content/sources/contentful';
 
 export default defineConfig({
   content: {

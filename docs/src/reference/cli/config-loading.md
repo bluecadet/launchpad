@@ -56,7 +56,7 @@ When using TypeScript or an editor with TypeScript support (like VS Code), the `
 
 ```js
 import { defineConfig } from '@bluecadet/launchpad-cli';
-import { jsonSource } from '@bluecadet/launchpad-content';
+import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
   content: {

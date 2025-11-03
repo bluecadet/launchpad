@@ -7,7 +7,7 @@ The `jsonSource` content source is used to fetch data from JSON endpoints via HT
 To use the `jsonSource` content source, include it in the list of content sources in your configuration:
 
 ```typescript{1,6-13}
-import { jsonSource } from '@bluecadet/launchpad-content';
+import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
   content: {

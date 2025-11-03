@@ -36,7 +36,7 @@ The content package is a powerful tool for downloading, transforming, and managi
 npm install @bluecadet/launchpad-content
 ```
 
-## Basic Usage
+## JS API Usage
 
 ```typescript
 import LaunchpadContent from '@bluecadet/launchpad-content';

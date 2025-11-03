@@ -17,7 +17,7 @@ First, add the `mediaDownloader` plugin to your configuration:
 
 ```ts
 import { defineConfig } from '@bluecadet/launchpad-cli';
-import { mediaDownloader } from '@bluecadet/launchpad-content';
+import { mediaDownloader } from '@bluecadet/launchpad-content/plugins/media-downloader';
 
 export default defineConfig({
   content: {
@@ -49,7 +49,8 @@ Add the sharp plugin *after* the media downloader:
 
 ```ts{8-13}
 import { defineConfig } from '@bluecadet/launchpad-cli';
-import { mediaDownloader, sharp } from '@bluecadet/launchpad-content';
+import { mediaDownloader } from '@bluecadet/launchpad-content/plugins/media-downloader';
+import { sharp } from '@bluecadet/launchpad-content/plugins/sharp';
 
 export default defineConfig({
   content: {

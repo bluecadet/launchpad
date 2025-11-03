@@ -7,7 +7,7 @@ The `airtableSource` content source is used to fetch data from Airtable. It supp
 To use the `airtableSource` content source, include it in the list of content sources in your configuration:
 
 ```typescript{1,6-12}
-import { airtableSource } from '@bluecadet/launchpad-content';
+import { airtableSource } from '@bluecadet/launchpad-content/sources/airtable';
 
 export default defineConfig({
   content: {

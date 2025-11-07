@@ -59,7 +59,10 @@ export async function loadConfigFromFile<T>(configPath: string): Promise<Partial
 		return {};
 	}
 
-	const jiti = createJiti(import.meta.url);
+	const jiti = createJiti(import.meta.url, {
+		fsCache: false,
+		moduleCache: false,
+	});
 
 	try {
 		// need to use fileURLToPath here for windows support (prefixes with file://)

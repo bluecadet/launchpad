@@ -43,7 +43,7 @@ npm install @bluecadet/launchpad-monitor
 ## JS API Usage
 
 ```typescript
-import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
+import { LaunchpadMonitor } from '@bluecadet/launchpad-monitor';
 
 const monitor = new LaunchpadMonitor({
   apps: [

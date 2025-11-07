@@ -9,6 +9,10 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./launchpad-content": {
       "types": "./dist/launchpad-content.d.ts",
       "default": "./dist/launchpad-content.js"
     },
@@ -31,6 +35,10 @@
     "./plugin": {
       "types": "./dist/content-plugin.d.ts",
       "default": "./dist/content-plugin.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "default": "./dist/plugins/index.js"
     },
     "./plugins/md-to-html": {
       "types": "./dist/plugins/md-to-html.d.ts",
@@ -67,6 +75,10 @@
     "./source": {
       "types": "./dist/source.d.ts",
       "default": "./dist/source.js"
+    },
+    "./sources": {
+      "types": "./dist/sources/index.d.ts",
+      "default": "./dist/sources/index.js"
     },
     "./sources/airtable": {
       "types": "./dist/sources/airtable-source.d.ts",

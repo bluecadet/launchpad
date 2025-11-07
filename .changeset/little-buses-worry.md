@@ -8,4 +8,4 @@
 "@bluecadet/launchpad-cli": major
 ---
 
-Remove barrel files. All packages no longer have an index export file that re-exports the public APIs. Instead, those APIs are accessible directly. This updates nearly all import paths across the entire launchpad ecosystem.
+Refactor package exports. Removed most re-exports from the index files, and added additional package export paths. Also refactored the launchpad meta package to generate export paths that match the individual packages. This updates nearly all import paths across the entire launchpad ecosystem.

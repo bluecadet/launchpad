@@ -9,6 +9,10 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./launchpad-monitor": {
       "types": "./dist/launchpad-monitor.d.ts",
       "default": "./dist/launchpad-monitor.js"
     },

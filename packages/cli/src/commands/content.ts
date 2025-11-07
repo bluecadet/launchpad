@@ -25,7 +25,7 @@ export function content(argv: GlobalLaunchpadArgs) {
 					},
 					otherwise: (controller) => {
 						// No daemon - need to instantiate subsystem and register it
-						return importLaunchpadContent().andThen(({ default: LaunchpadContent }) => {
+						return importLaunchpadContent().andThen(({ LaunchpadContent }) => {
 							const contentInstance = new LaunchpadContent(configContent, rootLogger, dir);
 							controller.registerSubsystem("content", contentInstance);
 

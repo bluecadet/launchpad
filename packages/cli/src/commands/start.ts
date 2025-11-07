@@ -110,7 +110,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 									startupCommands.push({ type: "content.fetch" });
 
 									const contentConfig = config.content;
-									return importLaunchpadContent().andThen(({ default: LaunchpadContent }) => {
+									return importLaunchpadContent().andThen(({ LaunchpadContent }) => {
 										const contentInstance = new LaunchpadContent(contentConfig, rootLogger, dir);
 										controller.registerSubsystem("content", contentInstance);
 										return contentInstance.loadSources();
@@ -124,7 +124,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 									startupCommands.push({ type: "monitor.connect" }, { type: "monitor.start" });
 
 									const monitorConfig = config.monitor;
-									return importLaunchpadMonitor().andThen(({ default: LaunchpadMonitor }) => {
+									return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
 										const monitorInstance = new LaunchpadMonitor(monitorConfig, rootLogger, dir);
 										controller.registerSubsystem("monitor", monitorInstance);
 										return ok();

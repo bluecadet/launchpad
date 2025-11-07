@@ -27,7 +27,7 @@ export function monitor(argv: GlobalLaunchpadArgs) {
 					},
 					otherwise: (controller) => {
 						// No daemon - need to instantiate subsystem and register it
-						return importLaunchpadMonitor().andThen(({ default: LaunchpadMonitor }) => {
+						return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
 							const monitorInstance = new LaunchpadMonitor(configMonitor, rootLogger, dir);
 							controller.registerSubsystem("monitor", monitorInstance);
 

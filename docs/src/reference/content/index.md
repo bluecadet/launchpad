@@ -39,7 +39,7 @@ npm install @bluecadet/launchpad-content
 ## JS API Usage
 
 ```typescript
-import LaunchpadContent from '@bluecadet/launchpad-content';
+import { LaunchpadContent } from '@bluecadet/launchpad-content';
 
 const content = LaunchpadContent({
   sources: [

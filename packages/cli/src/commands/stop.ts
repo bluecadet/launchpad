@@ -67,7 +67,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 					console.log("Launchpad is not running.");
 					console.log("Found monitor configuration, attempting to kill monitor process...");
 
-					return importLaunchpadMonitor().andThen(({ default: LaunchpadMonitor }) => {
+					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
 						const logger = LogManager.configureRootLogger();
 						return LaunchpadMonitor.kill(logger);
 					});

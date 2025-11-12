@@ -1,4 +1,7 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import {
+	createMockLogger,
+	createMockSubsystemCtx,
+} from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,18 +48,12 @@ function createTestMonitor(
 	},
 	cwd?: string,
 ) {
-	const rootLogger = createMockLogger();
-	const monitor = new LaunchpadMonitor(config, rootLogger, cwd);
-	const monitorLogger = rootLogger.children.get("monitor");
-
-	if (!monitorLogger) {
-		throw new Error("Failed to create monitor logger");
-	}
+	const ctx = createMockSubsystemCtx(cwd);
+	const monitor = new LaunchpadMonitor(config, ctx);
 
 	return {
 		monitor,
-		rootLogger,
-		monitorLogger,
+		rootLogger: ctx.logger,
 		plugin: config.plugins![0] as MonitorPlugin,
 	};
 }

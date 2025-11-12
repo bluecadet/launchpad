@@ -1,6 +1,6 @@
 import { afterEach } from "node:test";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { type Window, windowManager } from "node-window-manager";
 import semver from "semver";
 import { beforeEach, describe, expect, it, vi } from "vitest";

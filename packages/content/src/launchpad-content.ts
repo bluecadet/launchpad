@@ -1,11 +1,9 @@
 import path from "node:path";
 import type {
 	CommandExecutor,
-	EventBus,
-	EventBusAware,
 	StateProvider,
+	SubsystemContext,
 } from "@bluecadet/launchpad-utils/controller-interfaces";
-import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
@@ -35,27 +33,23 @@ import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 
-class LaunchpadContent
-	implements EventBusAware, CommandExecutor<ContentCommand>, StateProvider<ContentState>
-{
+class LaunchpadContent implements CommandExecutor<ContentCommand>, StateProvider<ContentState> {
 	private _config: ResolvedContentConfig;
-	private _logger: Logger;
 	private _pluginDriver: ContentPluginDriver;
 	private _sourceRegistry: Map<string, ContentSource> = new Map();
 	private _startDatetime = new Date();
 	private _abortController = new AbortController();
-	private _cwd: string;
-	private _eventBus?: EventBus;
 	private _commandInProgress = false;
 	private _initialized = false;
 	// TODO: Consider making DataStore per-fetch instead of per-instance
 	private _dataStore: DataStore;
 	private _stateManager: ContentStateManager;
 
-	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
+	constructor(
+		config: ContentConfig,
+		private readonly ctx: SubsystemContext,
+	) {
 		this._config = contentConfigSchema.parse(config);
-		this._cwd = cwd;
-		this._logger = LogManager.getLogger("content", parentLogger);
 		this._dataStore = new DataStore(this._config.downloadPath);
 		this._stateManager = new ContentStateManager();
 
@@ -63,14 +57,12 @@ class LaunchpadContent
 			this._abortController.abort();
 		});
 
-		const basePluginDriver = new PluginDriver(
-			{ logger: this._logger, cwd: this._cwd },
-			this._config.plugins,
-		);
+		const basePluginDriver = new PluginDriver(this.ctx, this._config.plugins);
 
 		this._pluginDriver = new ContentPluginDriver(basePluginDriver, {
 			dataStore: this._dataStore,
 			options: this._config,
+			eventBus: this.ctx.eventBus,
 			paths: {
 				getDownloadPath: this.getDownloadPath.bind(this),
 				getTempPath: this.getTempPath.bind(this),
@@ -99,7 +91,7 @@ class LaunchpadContent
 		const inputSources = this._config.sources;
 
 		if (!inputSources || inputSources.length === 0) {
-			this._logger.warn("No sources configured");
+			this.ctx.logger.warn("No sources configured");
 			return okAsync(undefined);
 		}
 
@@ -124,22 +116,13 @@ class LaunchpadContent
 				this._stateManager.initializeSources(sourceIds);
 				this._initialized = true;
 
-				this._logger.info(`Initialized ${sourceIds.length} source(s)`);
+				this.ctx.logger.info(`Initialized ${sourceIds.length} source(s)`);
 				return ok(undefined);
 			})
 			.orElse((e) => {
 				this._pluginDriver.runHookSequential("onSetupError", e);
 				return err(e);
 			});
-	}
-
-	/**
-	 * Inject EventBus for controller integration.
-	 * When EventBus is present, the content system will emit lifecycle events.
-	 */
-	setEventBus(eventBus: EventBus): void {
-		this._eventBus = eventBus;
-		this._pluginDriver.setEventBus(eventBus);
 	}
 
 	/**
@@ -226,7 +209,7 @@ class LaunchpadContent
 
 		const idsToFetch = sourceIds || this._sourceRegistry.keys();
 		if (!idsToFetch) {
-			this._logger.warn("No sources to fetch");
+			this.ctx.logger.warn("No sources to fetch");
 			return okAsync(undefined);
 		}
 
@@ -240,7 +223,7 @@ class LaunchpadContent
 			if (source) {
 				resolvedSources.push(source);
 			} else {
-				this._logger.error(
+				this.ctx.logger.error(
 					`Source not registered with ID: ${sourceId}. Did you forget to call loadSources()?`,
 				);
 				return errAsync(new ContentError(`Source not registered with ID: ${sourceId}`));
@@ -250,16 +233,16 @@ class LaunchpadContent
 		this._startDatetime = new Date();
 
 		// Emit fetch start event
-		this._eventBus?.emit("content:fetch:start", { timestamp: this._startDatetime });
+		this.ctx.eventBus.emit("content:fetch:start", { timestamp: this._startDatetime });
 
 		// Create fetch stage context with fresh DataStore
 		const context: FetchStageContext = {
 			pluginDriver: this._pluginDriver,
 			dataStore: this._dataStore,
-			logger: this._logger,
-			eventBus: this._eventBus,
+			logger: this.ctx.logger,
+			eventBus: this.ctx.eventBus,
 			config: this._config,
-			cwd: this._cwd,
+			cwd: this.ctx.cwd,
 			abortSignal: this._abortController.signal,
 			getDownloadPath: this.getDownloadPath.bind(this),
 			getTempPath: this.getTempPath.bind(this),
@@ -289,7 +272,7 @@ class LaunchpadContent
 		const idsToClear = sourceIds || Array.from(this._sourceRegistry.keys());
 
 		if (!idsToClear || idsToClear.length === 0) {
-			this._logger.info("No sources to clear");
+			this.ctx.logger.info("No sources to clear");
 			return okAsync(undefined);
 		}
 
@@ -332,9 +315,9 @@ class LaunchpadContent
 
 	getDownloadPath(sourceId?: string): string {
 		if (sourceId) {
-			return path.resolve(this._cwd, this._config.downloadPath, sourceId);
+			return path.resolve(this.ctx.cwd, this._config.downloadPath, sourceId);
 		}
-		return path.resolve(this._cwd, this._config.downloadPath);
+		return path.resolve(this.ctx.cwd, this._config.downloadPath);
 	}
 
 	getTempPath(sourceId?: string, pluginName?: string): string {
@@ -343,14 +326,14 @@ class LaunchpadContent
 		let detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 
 		if (pluginName) {
-			detokenizedPath = path.resolve(this._cwd, detokenizedPath, pluginName);
+			detokenizedPath = path.resolve(this.ctx.cwd, detokenizedPath, pluginName);
 		}
 
 		if (sourceId) {
-			detokenizedPath = path.resolve(this._cwd, detokenizedPath, sourceId);
+			detokenizedPath = path.resolve(this.ctx.cwd, detokenizedPath, sourceId);
 		}
 
-		return path.resolve(this._cwd, detokenizedPath);
+		return path.resolve(this.ctx.cwd, detokenizedPath);
 	}
 
 	getBackupPath(sourceId?: string): string {
@@ -358,9 +341,9 @@ class LaunchpadContent
 		const tokenizedPath = this._config.backupPath;
 		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
 		if (sourceId) {
-			return path.resolve(path.resolve(this._cwd, detokenizedPath, sourceId));
+			return path.resolve(path.resolve(this.ctx.cwd, detokenizedPath, sourceId));
 		}
-		return path.resolve(path.resolve(this._cwd, detokenizedPath));
+		return path.resolve(path.resolve(this.ctx.cwd, detokenizedPath));
 	}
 
 	/**

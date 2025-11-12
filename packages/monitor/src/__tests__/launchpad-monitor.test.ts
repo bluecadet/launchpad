@@ -1,4 +1,7 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import {
+	createMockLogger,
+	createMockSubsystemCtx,
+} from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
@@ -44,18 +47,12 @@ function createTestMonitor(
 	},
 	cwd?: string,
 ) {
-	const rootLogger = createMockLogger();
-	const monitor = new LaunchpadMonitor(config, rootLogger, cwd);
-	const monitorLogger = rootLogger.children.get("monitor");
-
-	if (!monitorLogger) {
-		throw new Error("Failed to create monitor logger");
-	}
+	const ctx = createMockSubsystemCtx(cwd);
+	const monitor = new LaunchpadMonitor(config, ctx);
 
 	return {
 		monitor,
-		rootLogger,
-		monitorLogger,
+		rootLogger: ctx.logger,
 		plugin: config.plugins![0] as MonitorPlugin,
 	};
 }
@@ -209,26 +206,26 @@ describe("LaunchpadMonitor", () => {
 
 	describe("shutdown", () => {
 		it("should stop apps and disconnect", async () => {
-			const { monitor, monitorLogger } = createTestMonitor();
+			const { monitor, rootLogger } = createTestMonitor();
 
 			vi.spyOn(monitor._appManager, "stopApp").mockImplementationOnce(() => okAsync({}));
 
 			const result = await monitor.shutdown();
 
 			expect(result).toBeOk();
-			expect(monitorLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor exiting"));
+			expect(rootLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor exiting"));
 			expect(mockExit).toHaveBeenCalled();
 		});
 
 		it("should prevent multiple shutdowns", async () => {
-			const { monitor, monitorLogger } = createTestMonitor();
+			const { monitor, rootLogger } = createTestMonitor();
 
 			monitor._isShuttingDown = true;
 
 			const result = await monitor.shutdown();
 
 			expect(result).toBeOk();
-			expect(monitorLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Aborting exit"));
+			expect(rootLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Aborting exit"));
 		});
 
 		it("should handle custom exit codes", async () => {
@@ -261,7 +258,6 @@ describe("LaunchpadMonitor", () => {
 				cwd,
 			);
 
-			expect(monitor._cwd).toBe(cwd);
 			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
 				"/test/cwd/app/cwd",
 			);
@@ -273,7 +269,6 @@ describe("LaunchpadMonitor", () => {
 				plugins: [mockPlugin],
 			});
 
-			expect(monitor._cwd).toBe(process.cwd());
 			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
 				"/app/cwd",
 			);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logConfigSchema } from "./core/file-logger.js";
 
 /**
  * Controller mode enum
@@ -24,12 +25,18 @@ export const controllerConfigSchema = z
 		 */
 		socketPath: z.string().default(".launchpad/launchpad.sock"),
 
+		/**
+		 * File logging configuration
+		 */
+		logging: logConfigSchema,
+
 		// Future: transports array will go here in Phase 2+
 	})
 	.optional()
 	.default({});
 
-export type ControllerConfig = z.infer<typeof controllerConfigSchema>;
+export type ControllerConfig = z.input<typeof controllerConfigSchema>;
+export type ResolvedControllerConfig = z.output<typeof controllerConfigSchema>;
 
 // Declaration merging to add controller config to LaunchpadConfig
 declare module "@bluecadet/launchpad-utils/types" {

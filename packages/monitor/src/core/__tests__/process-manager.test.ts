@@ -1,5 +1,5 @@
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import pm2 from "pm2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProcessManager } from "../process-manager.js";

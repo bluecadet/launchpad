@@ -134,7 +134,7 @@ export function fetchSourcesStage(context: FetchStageContext): ResultAsync<void,
 		`Fetching ${context.sources.length} source(s): ${context.sources.map((s) => s.id).join(", ")}`,
 	);
 
-	const fetchLogger = new FetchLogger(context.logger);
+	const fetchLogger = new FetchLogger(context.logger, context.eventBus);
 
 	return ResultAsync.combine(
 		// eagerly instantiate all namespaces, that way a source can depend on another source's data

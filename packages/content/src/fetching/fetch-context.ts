@@ -5,7 +5,7 @@
  */
 
 import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { ResolvedContentConfig } from "../content-config.js";
 import type { ContentPluginDriver } from "../content-plugin.js";
 import type { ContentSource } from "../source.js";
@@ -34,7 +34,7 @@ export type FetchStageContext = {
 	readonly abortSignal: AbortSignal;
 
 	// Optional event bus (injected by controller)
-	readonly eventBus?: EventBus;
+	readonly eventBus: EventBus;
 
 	// Mutable during fetch - created fresh for each fetch
 	pluginDriver: ContentPluginDriver;

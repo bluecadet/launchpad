@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import { ok, Result, ResultAsync } from "neverthrow";
 import PQueue from "p-queue";

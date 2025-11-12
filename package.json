@@ -7,7 +7,7 @@
     "changeset": "changeset",
     "lint": "npx @biomejs/biome check",
     "lint:fix": "npx @biomejs/biome check --fix",
-    "build": "tsc --build",
+    "build": "npm run build -w @bluecadet/launchpad",
     "dev": "tsc --build --watch",
     "docs:build": "npm run build -w @bluecadet/launchpad-docs",
     "release": "npm run build && changeset publish",

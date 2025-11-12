@@ -1,5 +1,6 @@
-import { FixedConsoleLogger } from "@bluecadet/launchpad-utils/console-transport";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import type { z } from "zod";
 import type { Document } from "../utils/data-store.js";
@@ -56,7 +57,7 @@ export async function queryOrUpdate<T>({
 	return Promise.all(results);
 }
 
-export class CacheProgressLogger extends FixedConsoleLogger {
+export class CacheProgressLogger extends FixedTTYLogger {
 	#total: number;
 	#fresh = 0;
 	#cached = 0;
@@ -73,8 +74,12 @@ export class CacheProgressLogger extends FixedConsoleLogger {
 		return this.#total;
 	}
 
-	constructor(logger: Logger, total: number) {
-		super(logger, 0);
+	constructor(
+		private logger: Logger,
+		eventBus: EventBus,
+		total: number,
+	) {
+		super(eventBus);
 		this.#total = total;
 	}
 

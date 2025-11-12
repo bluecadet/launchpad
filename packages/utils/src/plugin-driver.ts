@@ -1,7 +1,8 @@
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
-import type { Logger } from "./log-manager.js";
+import type { EventBus } from "./controller-interfaces.js";
+import type { Logger } from "./logger.js";
 import { onExit } from "./on-exit.js";
 
 export class PluginError extends Error {
@@ -23,6 +24,7 @@ export class PluginError extends Error {
 
 export interface BaseHookContext {
 	logger: Logger;
+	eventBus: EventBus;
 	abortSignal: AbortSignal;
 	cwd: string;
 }
@@ -65,6 +67,7 @@ export class PluginDriver<T extends HookSet> {
 	#plugins: Plugin<T>[] = [];
 	readonly #baseHookContexts = new Map<Plugin<T>, BaseHookContext>();
 	readonly #baseLogger: Logger;
+	readonly #eventBus: EventBus;
 	readonly #abortController = new AbortController();
 	readonly #cwd: string;
 
@@ -72,8 +75,12 @@ export class PluginDriver<T extends HookSet> {
 		return this.#plugins;
 	}
 
-	constructor({ logger, cwd }: { logger: Logger; cwd?: string }, plugins?: Plugin<T>[]) {
+	constructor(
+		{ logger, eventBus, cwd }: { logger: Logger; eventBus: EventBus; cwd?: string },
+		plugins?: Plugin<T>[],
+	) {
 		this.#baseLogger = logger;
+		this.#eventBus = eventBus;
 		this.#cwd = cwd || process.cwd();
 
 		if (plugins) {
@@ -91,8 +98,9 @@ export class PluginDriver<T extends HookSet> {
 		for (const plugin of pluginArray) {
 			this.#plugins.push(plugin);
 			this.#baseHookContexts.set(plugin, {
-				logger: this.#baseLogger.child({ module: `plugin:${plugin.name}` }),
+				logger: this.#baseLogger.child(`plugin:${plugin.name}`),
 				abortSignal: this.#abortController.signal,
+				eventBus: this.#eventBus,
 				cwd: this.#cwd,
 			});
 		}

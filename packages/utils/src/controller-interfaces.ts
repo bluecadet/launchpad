@@ -1,4 +1,5 @@
 import type { ResultAsync } from "neverthrow";
+import type { Logger } from "./logger.js";
 import type { PatchHandler } from "./state-patcher.js";
 import type { LaunchpadEvents } from "./types.js";
 
@@ -44,19 +45,6 @@ export interface EventBus {
 	offAny(
 		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
 	): this;
-}
-
-/**
- * Optional interface for subsystems that support EventBus injection.
- * When implemented, the controller will automatically inject its EventBus instance.
- */
-export interface EventBusAware {
-	/**
-	 * Inject EventBus into this subsystem.
-	 * Called by the controller during subsystem registration.
-	 * @param eventBus - EventBus instance to use for emitting/listening to events
-	 */
-	setEventBus(eventBus: EventBus): void;
 }
 
 /**
@@ -118,6 +106,12 @@ export interface StateProvider<TState = unknown> {
 	onStatePatch(handler: PatchHandler): () => void;
 }
 
+export interface SubsystemContext {
+	readonly eventBus: EventBus;
+	readonly logger: Logger;
+	readonly cwd: string;
+}
+
 /**
  * Generic subsystem type that can optionally implement any controller interfaces.
  * This allows subsystems to work with or without the controller.
@@ -126,5 +120,5 @@ export interface StateProvider<TState = unknown> {
  * @template TState - The state type this subsystem provides
  */
 export type Subsystem<TCommand extends BaseCommand = BaseCommand, TState = unknown> = Partial<
-	EventBusAware & Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>
+	Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>
 >;

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
@@ -58,7 +58,7 @@ describe("Content Integration", () => {
 						}),
 					],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 
 			const result = await content._unsafeUnwrap().download();
@@ -139,7 +139,7 @@ describe("Content Integration", () => {
 					],
 					plugins: [sanityToHtml({ path: "$..content" })],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 
 			const result = await content._unsafeUnwrap().download();
@@ -205,7 +205,7 @@ describe("Content Integration", () => {
 						}),
 					],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 
 			expect(content).toBeOk();
@@ -251,7 +251,7 @@ describe("Content Integration", () => {
 						}),
 					],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 
 			const result = await content.download();
@@ -296,7 +296,7 @@ describe("Content Integration", () => {
 						sanityToHtml({ path: "$..content" }), // This should fail on invalid content
 					],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 
 			const result = await content.download();

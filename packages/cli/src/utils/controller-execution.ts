@@ -5,10 +5,11 @@
 
 import path from "node:path";
 import { LaunchpadController } from "@bluecadet/launchpad-controller";
-import type { ControllerConfig } from "@bluecadet/launchpad-controller/config";
+import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/config";
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
 
@@ -21,7 +22,7 @@ export { DaemonNotRunningError, IPCConnectionError };
  */
 export function withDaemon<T>(
 	baseDir: string,
-	controllerConfig: ControllerConfig,
+	controllerConfig: ResolvedControllerConfig,
 	operation: (client: IPCClient, pid: number) => ResultAsync<T, IPCConnectionError>,
 ): ResultAsync<T, DaemonNotRunningError | IPCConnectionError> {
 	const pidFile = path.resolve(baseDir, controllerConfig.pidFile);
@@ -36,6 +37,8 @@ export function withDaemon<T>(
 	const pid = daemonPidResult.value;
 	const client = new IPCClient();
 
+	addLogListeners(client);
+
 	// Connect and execute operation
 	return client.connect(socketPath).andThen(() => {
 		const result = operation(client, pid);
@@ -49,8 +52,8 @@ export function withDaemon<T>(
  */
 export function withDaemonOrController<T>(
 	baseDir: string,
-	controllerConfig: ControllerConfig,
-	logger: Logger,
+	controllerConfig: ResolvedControllerConfig,
+	logger: Logger | Console,
 	options: {
 		mode: "task" | "persistent";
 		ifDaemon: (client: IPCClient, pid: number) => ResultAsync<T, Error>;
@@ -69,6 +72,9 @@ export function withDaemonOrController<T>(
 		const pid = daemonPidResult.value;
 		logger.info("Daemon is running, delegating to daemon via IPC");
 		const client = new IPCClient();
+
+		addLogListeners(client);
+
 		return client.connect(socketPath).andThen(() => {
 			const result = options.ifDaemon(client, pid);
 			return result.andTee(() => client.disconnect());
@@ -77,7 +83,9 @@ export function withDaemonOrController<T>(
 
 	// Create local controller
 	logger.info(`Daemon is not running, starting controller in ${options.mode} mode`);
-	const controller = new LaunchpadController(controllerConfig, logger, baseDir, options.mode);
+	const controller = new LaunchpadController(controllerConfig, baseDir, options.mode);
+
+	addLogListeners(controller.getEventBus());
 
 	return controller.start().andThen(() => {
 		const result = options.otherwise(controller);
@@ -88,5 +96,26 @@ export function withDaemonOrController<T>(
 		}
 
 		return result;
+	});
+}
+
+// Both EventBus and IPCClient implement this interface
+type LaunchpadEventEmitter = {
+	on<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): void;
+};
+
+// TODO: nicer log formatting
+function addLogListeners(bus: LaunchpadEventEmitter): void {
+	bus.on("log:debug", (payload) => {
+		console.log(JSON.stringify(payload));
+	});
+	bus.on("log:info", (payload) => {
+		console.log(JSON.stringify(payload));
+	});
+	bus.on("log:warn", (payload) => {
+		console.warn(JSON.stringify(payload));
+	});
+	bus.on("log:error", (payload) => {
+		console.error(JSON.stringify(payload));
 	});
 }

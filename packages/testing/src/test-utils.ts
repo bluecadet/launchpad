@@ -1,4 +1,4 @@
-import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus, SubsystemContext } from "@bluecadet/launchpad-utils/controller-interfaces";
 import { vi } from "vitest";
 
 type MockLogger = {
@@ -78,4 +78,12 @@ export function createMockEventBus(): MockEventBus {
 	} as MockEventBus;
 
 	return mockEventBus;
+}
+
+export function createMockSubsystemCtx(cwd = "/") {
+	return {
+		logger: createMockLogger(),
+		eventBus: createMockEventBus(),
+		cwd,
+	} satisfies SubsystemContext;
 }

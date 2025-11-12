@@ -1,12 +1,21 @@
 import path from "node:path";
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
-import { LogManager } from "@bluecadet/launchpad-utils/log-manager";
+import type {
+	BaseCommand,
+	Subsystem,
+	SubsystemContext,
+} from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import type { ControllerConfig, ControllerMode } from "./controller-config.js";
+import {
+	type ControllerConfig,
+	type ControllerMode,
+	controllerConfigSchema,
+	type ResolvedControllerConfig,
+} from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { EventBus } from "./core/event-bus.js";
+import { createFileLogger } from "./core/file-logger.js";
 import { type LaunchpadState, StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
 import type { Transport } from "./transport.js";
@@ -30,7 +39,7 @@ export type { LaunchpadState };
  * - Persistent mode: Long-running controller with IPC transport enabled
  */
 export class LaunchpadController {
-	private _config: ControllerConfig;
+	private _config: ResolvedControllerConfig;
 	private _mode: ControllerMode;
 	private _baseDir: string;
 	private _logger: Logger;
@@ -43,19 +52,12 @@ export class LaunchpadController {
 	private _ipcTransport: Transport | null = null;
 	// Future: private _transports: Transport[] = [];
 
-	constructor(
-		config: ControllerConfig,
-		logger: Logger,
-		baseDir: string,
-		mode: ControllerMode = "task",
-	) {
-		this._config = config;
+	constructor(config: ControllerConfig, baseDir: string, mode: ControllerMode = "task") {
+		this._config = controllerConfigSchema.parse(config);
 		this._mode = mode;
 		this._baseDir = baseDir;
-		this._logger = LogManager.getLogger("controller", logger);
-
-		// Core components (always created in both modes)
 		this._eventBus = new EventBus();
+		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
 		this._stateStore = new StateStore(this._subsystems, this._mode);
 	}
 
@@ -69,13 +71,7 @@ export class LaunchpadController {
 		this._subsystems.set(name, instance);
 		this._stateStore.registerSubsystem(name, instance);
 
-		// Type-safe EventBus injection (optional interface)
-		if (instance.setEventBus) {
-			instance.setEventBus(this._eventBus);
-			this._logger.debug(`Registered subsystem '${name}' with EventBus injection`);
-		} else {
-			this._logger.debug(`Registered subsystem '${name}' (no EventBus support)`);
-		}
+		this._logger.debug(`Registered subsystem '${name}'`);
 	}
 
 	/**
@@ -267,5 +263,13 @@ export class LaunchpadController {
 	 */
 	isStarted(): boolean {
 		return this._isStarted;
+	}
+
+	getSubsystemCtx(subsystemName: string): SubsystemContext {
+		return {
+			eventBus: this._eventBus,
+			logger: this._logger.child(subsystemName),
+			cwd: this._baseDir,
+		};
 	}
 }

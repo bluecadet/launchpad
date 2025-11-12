@@ -17,7 +17,6 @@
 		"declaration": true,
 		"composite": true,
 		"declarationMap": true,
-		"lib": ["es2022"],
-		"stripInternal": true
+		"lib": ["es2022"]
 	}
 }

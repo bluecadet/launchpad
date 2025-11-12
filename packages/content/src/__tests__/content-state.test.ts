@@ -1,4 +1,7 @@
-import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import {
+	createMockEventBus,
+	createMockSubsystemCtx,
+} from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LaunchpadContent from "../launchpad-content.js";
@@ -41,7 +44,7 @@ describe("ContentState", () => {
 	describe("initialization", () => {
 		it("should initialize with empty sources record", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -58,7 +61,7 @@ describe("ContentState", () => {
 	describe("per-source state tracking", () => {
 		it("should initialize source state when fetch starts", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -75,7 +78,7 @@ describe("ContentState", () => {
 
 		it("should track multiple sources independently", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -93,7 +96,7 @@ describe("ContentState", () => {
 	describe("fetch lifecycle state updates", () => {
 		it("should set startTime timestamp when fetch begins", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -113,7 +116,7 @@ describe("ContentState", () => {
 
 		it("should set finishedAt timestamp after successful fetch", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -134,7 +137,7 @@ describe("ContentState", () => {
 
 		it("should have state set to success after successful fetch", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -146,7 +149,7 @@ describe("ContentState", () => {
 
 		it("should track different timestamps for different sources", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -192,7 +195,7 @@ describe("ContentState", () => {
 				],
 			};
 
-			const contentResult = await LaunchpadContent.init(failingConfig, createMockLogger());
+			const contentResult = await LaunchpadContent.init(failingConfig, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -231,7 +234,7 @@ describe("ContentState", () => {
 				],
 			};
 
-			const contentResult = await LaunchpadContent.init(failingConfig, createMockLogger());
+			const contentResult = await LaunchpadContent.init(failingConfig, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -243,7 +246,7 @@ describe("ContentState", () => {
 
 		it("should not clear lastFetchSuccess on error", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -263,16 +266,14 @@ describe("ContentState", () => {
 	describe("event bus integration", () => {
 		it("should emit events when state is updated", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const ctx = createMockSubsystemCtx();
+			const contentResult = await LaunchpadContent.init(config, ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const eventBus = createMockEventBus();
-			content.setEventBus(eventBus);
-
 			await content.download();
 
-			const emittedEvents = eventBus.emit as any;
+			const emittedEvents = ctx.eventBus.emit as any;
 			expect(emittedEvents).toHaveBeenCalledWith(
 				"content:fetch:start",
 				expect.objectContaining({ timestamp: expect.any(Date) }),
@@ -287,16 +288,14 @@ describe("ContentState", () => {
 
 		it("should emit source-specific events", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const ctx = createMockSubsystemCtx();
+			const contentResult = await LaunchpadContent.init(config, ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const eventBus = createMockEventBus();
-			content.setEventBus(eventBus);
-
 			await content.download();
 
-			const emittedEvents = eventBus.emit as any;
+			const emittedEvents = ctx.eventBus.emit as any;
 			expect(emittedEvents).toHaveBeenCalledWith(
 				"content:source:start",
 				expect.objectContaining({
@@ -315,7 +314,7 @@ describe("ContentState", () => {
 	describe("state consistency", () => {
 		it("should maintain state across multiple operations", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -348,7 +347,7 @@ describe("ContentState", () => {
 
 		it("should not lose state of other sources when one is updated", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -363,7 +362,7 @@ describe("ContentState", () => {
 
 		it("should have consistent state structure across all sources", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -386,7 +385,7 @@ describe("ContentState", () => {
 	describe("state mutations during operations", () => {
 		it("should return frozen state objects", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -400,7 +399,7 @@ describe("ContentState", () => {
 
 		it("should reflect state changes through getState()", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

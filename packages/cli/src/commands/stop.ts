@@ -1,6 +1,5 @@
 import path from "node:path";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
-import { LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
@@ -68,8 +67,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 					console.log("Found monitor configuration, attempting to kill monitor process...");
 
 					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
-						const logger = LogManager.configureRootLogger();
-						return LaunchpadMonitor.kill(logger);
+						return LaunchpadMonitor.kill(console);
 					});
 				}
 

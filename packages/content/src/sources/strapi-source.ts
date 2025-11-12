@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import ky from "ky";
 import qs from "qs";
 import { z } from "zod";

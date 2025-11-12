@@ -83,6 +83,7 @@ describe("FetchStageContext", () => {
 				abortSignal: new AbortController().signal,
 				pluginDriver: pluginDriver1,
 				dataStore: dataStore1,
+				eventBus: mockEventBus,
 				getDownloadPath: () => "/downloads",
 				getTempPath: () => "/temp",
 				getBackupPath: () => "/backups",
@@ -99,39 +100,6 @@ describe("FetchStageContext", () => {
 			expect(context.pluginDriver).toBe(pluginDriver2);
 			expect(context.dataStore).toBe(dataStore2);
 		});
-
-		it("should have optional event bus", () => {
-			const contextWithEventBus: FetchStageContext = {
-				config: createBasicConfig(),
-				cwd: "/project",
-				logger: mockLogger,
-				abortSignal: new AbortController().signal,
-				eventBus: mockEventBus,
-				pluginDriver: createMockPluginDriver(),
-				dataStore: createMockDataStore(),
-				getDownloadPath: () => "/downloads",
-				getTempPath: () => "/temp",
-				getBackupPath: () => "/backups",
-				sources: [],
-			};
-
-			expect(contextWithEventBus.eventBus).toBe(mockEventBus);
-
-			const contextWithoutEventBus: FetchStageContext = {
-				config: createBasicConfig(),
-				cwd: "/project",
-				logger: mockLogger,
-				abortSignal: new AbortController().signal,
-				pluginDriver: createMockPluginDriver(),
-				dataStore: createMockDataStore(),
-				getDownloadPath: () => "/downloads",
-				getTempPath: () => "/temp",
-				getBackupPath: () => "/backups",
-				sources: [],
-			};
-
-			expect(contextWithoutEventBus.eventBus).toBeUndefined();
-		});
 	});
 
 	describe("Path resolution functions", () => {
@@ -142,6 +110,7 @@ describe("FetchStageContext", () => {
 				logger: mockLogger,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
+				eventBus: mockEventBus,
 				dataStore: createMockDataStore(),
 				getDownloadPath: (sourceId?: string) =>
 					sourceId ? `/downloads/${sourceId}` : "/downloads",
@@ -163,6 +132,7 @@ describe("FetchStageContext", () => {
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
+				eventBus: mockEventBus,
 				getDownloadPath: () => "/downloads",
 				getTempPath: (sourceId?: string, pluginName?: string) => {
 					if (sourceId && pluginName) {
@@ -190,6 +160,7 @@ describe("FetchStageContext", () => {
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
+				eventBus: mockEventBus,
 				getDownloadPath: () => "/downloads",
 				getTempPath: () => "/temp",
 				getBackupPath: (sourceId?: string) => (sourceId ? `/backups/${sourceId}` : "/backups"),
@@ -208,6 +179,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -228,6 +200,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -250,6 +223,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -271,6 +245,7 @@ describe("FetchStageContext", () => {
 			const context: FetchStageContext = {
 				config: createBasicConfig(),
 				cwd: "/project",
+				eventBus: mockEventBus,
 				logger: mockLogger,
 				abortSignal: controller.signal,
 				pluginDriver: createMockPluginDriver(),
@@ -293,6 +268,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: controller.signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -321,6 +297,7 @@ describe("FetchStageContext", () => {
 				config,
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -344,6 +321,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore: createMockDataStore(),
@@ -366,6 +344,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver,
 				dataStore: createMockDataStore(),
@@ -386,6 +365,7 @@ describe("FetchStageContext", () => {
 				config: createBasicConfig(),
 				cwd: "/project",
 				logger: mockLogger,
+				eventBus: mockEventBus,
 				abortSignal: new AbortController().signal,
 				pluginDriver: createMockPluginDriver(),
 				dataStore,

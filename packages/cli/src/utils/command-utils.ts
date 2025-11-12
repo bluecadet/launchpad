@@ -1,8 +1,6 @@
 import path from "node:path";
-import { TTY_FIXED_END } from "@bluecadet/launchpad-utils/console-transport";
-import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import chalk from "chalk";
-import { errAsync, ok, ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import { ZodError } from "zod";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
@@ -49,58 +47,47 @@ export function loadConfigAndEnv(
 	).map((config) => ({ dir: configDir, config: resolveLaunchpadConfig(config) }));
 }
 
-export function initializeLogger(config: ResolvedLaunchpadOptions, cwd?: string) {
-	const rootLogger = LogManager.configureRootLogger(config.logging, cwd);
-
-	return ok(rootLogger);
-}
-
-export function handleFatalError(error: Error, rootLogger: Logger | Console): never {
-	logFullErrorChain(rootLogger, error);
+export function handleFatalError(error: Error): never {
+	logFullErrorChain(error);
 	process.exit(1);
 }
 
-function logFullErrorChain(logger: Logger | Console, error: Error) {
+function logFullErrorChain(error: Error) {
 	let currentError: Error | undefined = error;
 
-	// clear any fixed messages if this is not just a console
-	if ("child" in logger) {
-		logger.info("", { [TTY_FIXED_END]: true });
-	}
-
-	logger.error("");
-	logger.error(`${chalk.red.bold("Full error chain:")}`);
-	logger.error("");
+	console.error("");
+	console.error(`${chalk.red.bold("Full error chain:")}`);
+	console.error("");
 
 	while (currentError) {
-		logger.error(
+		console.error(
 			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(getPrettyMessage(currentError))}`,
 		);
 		const callstack = currentError.stack;
 
 		if (callstack) {
-			logger.error(`${chalk.red("│")}`);
+			console.error(`${chalk.red("│")}`);
 
 			const lines = callstack.split("\n").slice(1);
 
 			for (const line of lines) {
-				logger.error(`${chalk.red("│")} ${chalk.red.dim(line)}`);
+				console.error(`${chalk.red("│")} ${chalk.red.dim(line)}`);
 			}
 
-			logger.error(`${chalk.red("│")}`);
-			logger.error(`${chalk.red("└──────────────────")}`);
+			console.error(`${chalk.red("│")}`);
+			console.error(`${chalk.red("└──────────────────")}`);
 		}
 
 		if (currentError.cause && currentError.cause instanceof Error) {
 			currentError = currentError.cause;
-			logger.error(`    ${chalk.red.dim("│")} ${chalk.red.dim("Caused by:")}`);
-			logger.error(`    ${chalk.red.dim("│")}`);
+			console.error(`    ${chalk.red.dim("│")} ${chalk.red.dim("Caused by:")}`);
+			console.error(`    ${chalk.red.dim("│")}`);
 		} else {
 			currentError = undefined;
 		}
 	}
 
-	logger.error("");
+	console.error("");
 }
 
 function getPrettyMessage(e: Error): string {

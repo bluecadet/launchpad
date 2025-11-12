@@ -32,6 +32,10 @@
       "default": "./dist/content/index.js",
       "types": "./dist/content/index.d.ts"
     },
+    "./content/launchpad-content": {
+      "default": "./dist/content/launchpad-content.js",
+      "types": "./dist/content/launchpad-content.d.ts"
+    },
     "./content/commands": {
       "default": "./dist/content/commands.js",
       "types": "./dist/content/commands.d.ts"
@@ -51,6 +55,10 @@
     "./content/plugin": {
       "default": "./dist/content/plugin.js",
       "types": "./dist/content/plugin.d.ts"
+    },
+    "./content/plugins": {
+      "default": "./dist/content/plugins.js",
+      "types": "./dist/content/plugins.d.ts"
     },
     "./content/plugins/md-to-html": {
       "default": "./dist/content/plugins/md-to-html.js",
@@ -87,6 +95,10 @@
     "./content/source": {
       "default": "./dist/content/source.js",
       "types": "./dist/content/source.d.ts"
+    },
+    "./content/sources": {
+      "default": "./dist/content/sources.js",
+      "types": "./dist/content/sources.d.ts"
     },
     "./content/sources/airtable": {
       "default": "./dist/content/sources/airtable.js",
@@ -135,6 +147,10 @@
     "./monitor": {
       "default": "./dist/monitor/index.js",
       "types": "./dist/monitor/index.d.ts"
+    },
+    "./monitor/launchpad-monitor": {
+      "default": "./dist/monitor/launchpad-monitor.js",
+      "types": "./dist/monitor/launchpad-monitor.d.ts"
     },
     "./monitor/plugin": {
       "default": "./dist/monitor/plugin.js",

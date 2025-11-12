@@ -1,4 +1,4 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import { describe, expect, it, vi } from "vitest";
 import { contentConfigSchema } from "../content-config.js";
@@ -22,18 +22,21 @@ describe("ContentPluginDriver", () => {
 			getBackupPath: (source?: string) => (source ? `/backups/${source}` : "/backups"),
 		};
 
-		return { dataStore, options, paths };
+		const eventBus = createMockEventBus();
+
+		return { dataStore, options, paths, eventBus };
 	};
 
 	describe("plugin context", () => {
 		it("should provide correct context to plugins", async () => {
-			const { dataStore, options, paths } = createMockContext();
+			const { dataStore, options, paths, eventBus } = createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger });
+			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
 				paths,
+				eventBus,
 			});
 
 			const plugin = defineContentPlugin({
@@ -56,13 +59,14 @@ describe("ContentPluginDriver", () => {
 		});
 
 		it("should handle plugin-specific temp paths correctly", async () => {
-			const { dataStore, options, paths } = createMockContext();
+			const { dataStore, options, paths, eventBus } = createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger });
+			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
 				paths,
+				eventBus,
 			});
 
 			const plugin1 = defineContentPlugin({
@@ -92,13 +96,14 @@ describe("ContentPluginDriver", () => {
 
 	describe("error handling", () => {
 		it("should handle setup errors with ContentError", async () => {
-			const { dataStore, options, paths } = createMockContext();
+			const { dataStore, options, paths, eventBus } = createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger });
+			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
 				paths,
+				eventBus,
 			});
 
 			const onSetupError = vi.fn();
@@ -119,13 +124,14 @@ describe("ContentPluginDriver", () => {
 		});
 
 		it("should handle fetch errors with ContentError", async () => {
-			const { dataStore, options, paths } = createMockContext();
+			const { dataStore, options, paths, eventBus } = createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger });
+			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
 				paths,
+				eventBus,
 			});
 
 			const onContentFetchError = vi.fn();
@@ -148,13 +154,14 @@ describe("ContentPluginDriver", () => {
 
 	describe("plugin lifecycle", () => {
 		it("should call hooks in correct order", async () => {
-			const { dataStore, options, paths } = createMockContext();
+			const { dataStore, options, paths, eventBus } = createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger });
+			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
 				paths,
+				eventBus,
 			});
 
 			const order: string[] = [];

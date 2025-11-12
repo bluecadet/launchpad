@@ -4,13 +4,13 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "exports": {
-    "./console-transport": {
-      "types": "./dist/console-transport.d.ts",
-      "default": "./dist/console-transport.js"
+    "./logger": {
+      "types": "./dist/logger.d.ts",
+      "default": "./dist/logger.js"
     },
-    "./log-manager": {
-      "types": "./dist/log-manager.d.ts",
-      "default": "./dist/log-manager.js"
+    "./fixed-tty-logger": {
+      "types": "./dist/fixed-tty-logger.d.ts",
+      "default": "./dist/fixed-tty-logger.js"
     },
     "./plugin-driver": {
       "types": "./dist/plugin-driver.d.ts",
@@ -58,9 +58,7 @@
     "immer": "^10.2.0",
     "moment": "^2.29.1",
     "neverthrow": "^8.1.1",
-    "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^4.5.5",
-    "zod": "^3.23.8"
+    "winston": "^3.17.0"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {

@@ -1,41 +1,42 @@
 import { errAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
-import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
+import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 
 export function content(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
-		.mapErr((error) => handleFatalError(error, console))
+		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			return initializeLogger(config, dir).asyncAndThen((rootLogger) => {
-				if (!config.content) {
-					return errAsync(new ConfigError("No content config found in your config file."));
-				}
+			if (!config.content) {
+				return errAsync(new ConfigError("No content config found in your config file."));
+			}
 
-				// saving a reference here for type safety
-				// as config.content is possibly undefined later in the callbacks
-				const configContent = config.content;
+			// saving a reference here for type safety
+			// as config.content is possibly undefined later in the callbacks
+			const configContent = config.content;
 
-				return withDaemonOrController(dir, config.controller, rootLogger, {
-					mode: "task",
-					ifDaemon: (client) => {
-						// Daemon is running - just send commands via IPC
-						return client.executeCommand({ type: "content.fetch" });
-					},
-					otherwise: (controller) => {
-						// No daemon - need to instantiate subsystem and register it
-						return importLaunchpadContent().andThen(({ LaunchpadContent }) => {
-							const contentInstance = new LaunchpadContent(configContent, rootLogger, dir);
-							controller.registerSubsystem("content", contentInstance);
+			return withDaemonOrController(dir, config.controller, console, {
+				mode: "task",
+				ifDaemon: (client) => {
+					// Daemon is running - just send commands via IPC
+					return client.executeCommand({ type: "content.fetch" });
+				},
+				otherwise: (controller) => {
+					// No daemon - need to instantiate subsystem and register it
+					return importLaunchpadContent().andThen(({ LaunchpadContent }) => {
+						const contentInstance = new LaunchpadContent(
+							configContent,
+							controller.getSubsystemCtx("content"),
+						);
+						controller.registerSubsystem("content", contentInstance);
 
-							return contentInstance
-								.loadSources()
-								.andThen(() => controller.executeCommand({ type: "content.fetch" }));
-						});
-					},
-				}).orElse((error) => handleFatalError(error, rootLogger));
-			});
+						return contentInstance
+							.loadSources()
+							.andThen(() => controller.executeCommand({ type: "content.fetch" }));
+					});
+				},
+			}).orElse((error) => handleFatalError(error));
 		});
 }
 

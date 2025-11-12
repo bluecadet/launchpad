@@ -355,7 +355,11 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 
 						ctx.logger.info(`Syncing ${chalk.cyan(mediaItems.length)} files`);
 
-						const progressLogger = new MediaDownloaderProgressLogger(ctx.logger, mediaItems.length);
+						const progressLogger = new MediaDownloaderProgressLogger(
+							ctx.logger,
+							ctx.eventBus,
+							mediaItems.length,
+						);
 
 						const tasks = mediaItems.map((mediaItem) => {
 							const destDir = ctx.paths.getTempPath(mediaItem.sourceId);

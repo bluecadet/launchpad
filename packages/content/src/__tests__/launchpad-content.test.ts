@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContentError, type ContentPlugin } from "../content-plugin.js";
@@ -38,7 +38,10 @@ describe("LaunchpadContent", () => {
 
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -62,7 +65,7 @@ describe("LaunchpadContent", () => {
 				keep: [".keep"],
 			};
 
-			const contentResult = await LaunchpadContent.init(config, createMockLogger());
+			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -77,7 +80,10 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should clear data store between runs", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -122,7 +128,7 @@ describe("LaunchpadContent", () => {
 
 			const contentResult = await LaunchpadContent.init(
 				createBasicConfig([plugin1, plugin2]),
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -144,7 +150,7 @@ describe("LaunchpadContent", () => {
 
 			const contentResult = await LaunchpadContent.init(
 				createBasicConfig([errorPlugin]),
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -165,7 +171,10 @@ describe("LaunchpadContent", () => {
 
 	describe("path handling", () => {
 		it("should handle download path token replacement", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -178,7 +187,10 @@ describe("LaunchpadContent", () => {
 
 			vi.setSystemTime("2024-01-01T00:00:00.00");
 
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -190,8 +202,7 @@ describe("LaunchpadContent", () => {
 		it("should use the provided cwd for path resolution", async () => {
 			const contentResult = await LaunchpadContent.init(
 				createBasicConfig(),
-				createMockLogger(),
-				"/some/cwd",
+				createMockSubsystemCtx("/some/cwd"),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -208,7 +219,10 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should default to process.cwd() if no cwd is provided", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -232,8 +246,7 @@ describe("LaunchpadContent", () => {
 					backupPath: "/absolute/backups",
 					sources: [],
 				},
-				createMockLogger(),
-				"/some/cwd",
+				createMockSubsystemCtx("/some/cwd"),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -252,7 +265,10 @@ describe("LaunchpadContent", () => {
 
 	describe("executeCommand", () => {
 		it("should allow a single command to execute", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -285,7 +301,7 @@ describe("LaunchpadContent", () => {
 					...createBasicConfig(),
 					sources: [slowSource],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -332,7 +348,7 @@ describe("LaunchpadContent", () => {
 					...createBasicConfig(),
 					sources: [slowSource],
 				},
-				createMockLogger(),
+				createMockSubsystemCtx(),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -357,7 +373,10 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should allow sequential commands to execute after first completes", async () => {
-			const contentResult = await LaunchpadContent.init(createBasicConfig(), createMockLogger());
+			const contentResult = await LaunchpadContent.init(
+				createBasicConfig(),
+				createMockSubsystemCtx(),
+			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

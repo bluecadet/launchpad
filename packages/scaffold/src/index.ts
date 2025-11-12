@@ -1,17 +1,14 @@
 import * as path from "node:path";
-import { type Logger, LogManager } from "@bluecadet/launchpad-utils/log-manager";
 import * as sudo from "sudo-prompt";
 
-export function launchScaffold(parentLogger: Logger) {
-	const logger = LogManager.getLogger("scaffold", parentLogger);
-
+export function launchScaffold() {
 	if (process.platform !== "win32") {
-		logger.error("Launchpad Scaffold currently only supports Windows");
-		logger.error("Exiting...");
+		console.error("Launchpad Scaffold currently only supports Windows");
+		console.error("Exiting...");
 		process.exit(1);
 	}
 
-	logger.info("Starting Launchpad Scaffold script...");
+	console.info("Starting Launchpad Scaffold script...");
 
 	return sudo.exec(
 		`start ${path.resolve(import.meta.dirname, "../setup.bat")}`,

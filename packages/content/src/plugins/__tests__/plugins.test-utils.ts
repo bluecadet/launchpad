@@ -1,6 +1,6 @@
 import path from "node:path";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { vol } from "memfs";
 import { afterEach, vi } from "vitest";
 import { type ContentConfig, contentConfigSchema } from "../../content-config.js";
@@ -28,6 +28,7 @@ export async function createTestPluginContext({
 		logger,
 		abortSignal: new AbortController().signal,
 		cwd: "/",
+		eventBus: createMockEventBus(),
 		paths: {
 			getDownloadPath: vi
 				.fn()

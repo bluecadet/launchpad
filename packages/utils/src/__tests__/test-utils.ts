@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { Logger } from "../log-manager.ts";
+import type { Logger } from "../logger.ts";
 
 export function createMockLogger(): Logger {
 	return {
@@ -7,8 +7,6 @@ export function createMockLogger(): Logger {
 		warn: vi.fn(),
 		error: vi.fn(),
 		debug: vi.fn(),
-		once: vi.fn(),
-		close: vi.fn(),
 		child: () => createMockLogger(),
 	};
 }

@@ -12,15 +12,12 @@ declare module "@bluecadet/launchpad-utils/types" {
 }
 
 describe("LaunchpadController", () => {
-	const rootLogger = createMockLogger();
-
 	function createController(mode?: "task" | "persistent") {
 		return new LaunchpadController(
 			{
 				pidFile: "./pid",
 				socketPath: "./socket",
 			},
-			rootLogger,
 			"/test",
 			mode,
 		);
@@ -62,16 +59,6 @@ describe("LaunchpadController", () => {
 
 			expect(controller.hasSubsystem("test")).toBe(true);
 			expect(controller.getSubsystem("test")).toBe(subsystem);
-		});
-
-		it("should inject EventBus if subsystem implements EventBusAware", () => {
-			const controller = createController("task");
-			const setEventBus = vi.fn();
-			const subsystem: Subsystem = { setEventBus };
-
-			controller.registerSubsystem("test", subsystem);
-
-			expect(setEventBus).toHaveBeenCalledWith(controller.getEventBus());
 		});
 
 		it("should not inject EventBus if subsystem does not implement EventBusAware", () => {

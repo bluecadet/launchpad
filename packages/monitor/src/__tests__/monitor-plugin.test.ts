@@ -1,5 +1,5 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils/log-manager";
+import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type LaunchpadMonitor from "../launchpad-monitor.js";
@@ -39,7 +39,11 @@ describe("MonitorPluginDriver", () => {
 			},
 		};
 
-		const basePluginDriver = new PluginDriver({ logger: mockLogger }, [mockPlugin]);
+		const eventBus = createMockEventBus();
+
+		const basePluginDriver = new PluginDriver({ logger: mockLogger, eventBus: eventBus }, [
+			mockPlugin,
+		]);
 		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: mockMonitor });
 	});
 

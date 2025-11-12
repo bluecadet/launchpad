@@ -57,6 +57,8 @@
     "devalue": "^5.4.2",
     "immer": "^10.2.0",
     "neverthrow": "^8.1.1",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^4.5.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

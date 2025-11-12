@@ -1,5 +1,8 @@
 import path from "node:path";
-import type { ControllerConfig } from "@bluecadet/launchpad-controller/config";
+import {
+	controllerConfigSchema,
+	type ResolvedControllerConfig,
+} from "@bluecadet/launchpad-controller/config";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { fs } from "memfs";
 import { err, errAsync, ok, okAsync } from "neverthrow";
@@ -27,10 +30,10 @@ import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
 
 describe("controller-execution", () => {
 	const baseDir = "/test/base";
-	const controllerConfig: ControllerConfig = {
+	const controllerConfig: ResolvedControllerConfig = controllerConfigSchema.parse({
 		pidFile: "pid",
 		socketPath: "socket",
-	};
+	});
 	const logger = createMockLogger();
 
 	beforeEach(() => {
@@ -306,12 +309,7 @@ describe("controller-execution", () => {
 				otherwise,
 			});
 
-			expect(LaunchpadController).toHaveBeenCalledWith(
-				controllerConfig,
-				logger,
-				baseDir,
-				"persistent",
-			);
+			expect(LaunchpadController).toHaveBeenCalledWith(controllerConfig, baseDir, "persistent");
 		});
 
 		it("should log when using daemon", async () => {

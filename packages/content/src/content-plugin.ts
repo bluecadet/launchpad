@@ -66,7 +66,7 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 		getTempPath: (source?: string, pluginName?: string) => string;
 		getBackupPath: (source?: string) => string;
 	};
-	#eventBus?: EventBus;
+	#eventBus: EventBus;
 
 	constructor(
 		wrappee: PluginDriver<ContentHooks>,
@@ -74,9 +74,11 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 			dataStore,
 			options,
 			paths,
+			eventBus,
 		}: {
 			dataStore: DataStore;
 			options: ResolvedContentConfig;
+			eventBus: EventBus;
 			paths: {
 				getDownloadPath: (source?: string) => string;
 				getTempPath: (source?: string, pluginName?: string) => string;
@@ -88,9 +90,6 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 		this.#dataStore = dataStore;
 		this.#options = options;
 		this.#pathGetters = paths;
-	}
-
-	setEventBus(eventBus: EventBus): void {
 		this.#eventBus = eventBus;
 	}
 
@@ -118,7 +117,7 @@ export class ContentPluginDriver extends HookContextProvider<ContentHooks, Conte
 		let result = super.runHookSequential(hookName, ...additionalArgs);
 
 		// Wrap with event emissions if we have an EventBus
-		if (this.#eventBus && pluginsWithHook.length > 0) {
+		if (pluginsWithHook.length > 0) {
 			for (const plugin of pluginsWithHook) {
 				const startTime = Date.now();
 				this.#eventBus.emit("content:plugin:start", {

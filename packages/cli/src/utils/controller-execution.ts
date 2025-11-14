@@ -12,6 +12,7 @@ import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
+import { cliLogger } from "./cli-logger.js";
 
 export { DaemonNotRunningError, IPCConnectionError };
 
@@ -23,6 +24,7 @@ export { DaemonNotRunningError, IPCConnectionError };
 export function withDaemon<T>(
 	baseDir: string,
 	controllerConfig: ResolvedControllerConfig,
+	relayLogs: boolean,
 	operation: (client: IPCClient, pid: number) => ResultAsync<T, IPCConnectionError>,
 ): ResultAsync<T, DaemonNotRunningError | IPCConnectionError> {
 	const pidFile = path.resolve(baseDir, controllerConfig.pidFile);
@@ -37,7 +39,9 @@ export function withDaemon<T>(
 	const pid = daemonPidResult.value;
 	const client = new IPCClient();
 
-	addLogListeners(client);
+	if (relayLogs) {
+		addLogListeners(client);
+	}
 
 	// Connect and execute operation
 	return client.connect(socketPath).andThen(() => {
@@ -106,16 +110,9 @@ type LaunchpadEventEmitter = {
 
 // TODO: nicer log formatting
 function addLogListeners(bus: LaunchpadEventEmitter): void {
-	bus.on("log:debug", (payload) => {
-		console.log(JSON.stringify(payload));
-	});
-	bus.on("log:info", (payload) => {
-		console.log(JSON.stringify(payload));
-	});
-	bus.on("log:warn", (payload) => {
-		console.warn(JSON.stringify(payload));
-	});
-	bus.on("log:error", (payload) => {
-		console.error(JSON.stringify(payload));
-	});
+	bus.on("log:error", cliLogger.fromPayload.bind(null, "error"));
+	bus.on("log:warn", cliLogger.fromPayload.bind(null, "warn"));
+	bus.on("log:info", cliLogger.fromPayload.bind(null, "info"));
+	bus.on("log:debug", cliLogger.fromPayload.bind(null, "debug"));
+	bus.on("log:verbose", cliLogger.fromPayload.bind(null, "verbose"));
 }

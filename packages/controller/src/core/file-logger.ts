@@ -1,9 +1,11 @@
 import path from "node:path";
 import winston from "winston";
 import "winston-daily-rotate-file";
+import { formatWithOptions } from "node:util";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import type { LogLevel } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
-import { LEVEL, MESSAGE } from "triple-beam";
+import { LEVEL, SPLAT } from "triple-beam";
 import Transport from "winston-transport";
 import { z } from "zod";
 import type { EventBus } from "./event-bus.js";
@@ -51,8 +53,6 @@ export const logConfigSchema = z
 export type LogConfig = z.input<typeof logConfigSchema>;
 export type ResolvedLogConfig = z.output<typeof logConfigSchema>;
 
-type LogLevel = "info" | "warn" | "error" | "debug";
-
 class EventBusTransport extends Transport {
 	constructor(
 		private eventBus: EventBus,
@@ -61,13 +61,26 @@ class EventBusTransport extends Transport {
 		super({ ...opts, format: winston.format.json() });
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: winston types with any
 	override log(info: any, callback: () => void) {
 		const level = info[LEVEL] as LogLevel;
-		// create copy of info without LEVEL and MESSAGE, as those are internal to winston and not needed in the event payload
-		const payload = { ...info };
-		delete payload[LEVEL];
-		delete payload[MESSAGE];
-		this.eventBus.emit(`log:${level}`, payload);
+		const args = [info.message];
+
+		if (info[SPLAT]) {
+			args.push(...info[SPLAT]);
+		}
+
+		this.eventBus.emit(`log:${level}`, {
+			message: formatWithOptions(
+				{
+					colors: false,
+					compact: true,
+				},
+				...args,
+			),
+			args,
+			module: info.module,
+		});
 		callback();
 	}
 }
@@ -108,9 +121,9 @@ export function createFileLogger(
 		],
 	});
 
-	// if (config.overrideConsole) {
-	// 	bindConsoleToLogger(logger);
-	// }
+	if (config.overrideConsole) {
+		bindConsoleToLogger(logger);
+	}
 
 	return proxyChildMethod(logger);
 }
@@ -131,12 +144,13 @@ function proxyChildMethod(logger: winston.Logger): Logger {
 	});
 }
 
-export function bindConsoleToLogger(logger: Logger) {
-	console.log = logger.info.bind(logger);
-	console.info = logger.info.bind(logger);
-	console.warn = logger.warn.bind(logger);
-	console.error = logger.error.bind(logger);
-	console.debug = logger.debug.bind(logger);
+export function bindConsoleToLogger(logger: winston.Logger) {
+	const consoleLogger = logger.child({ module: "console" });
+	console.log = consoleLogger.debug.bind(consoleLogger);
+	console.info = consoleLogger.debug.bind(consoleLogger);
+	console.warn = consoleLogger.warn.bind(consoleLogger);
+	console.error = consoleLogger.error.bind(consoleLogger);
+	console.debug = consoleLogger.debug.bind(consoleLogger);
 
 	Object.freeze(console);
 }

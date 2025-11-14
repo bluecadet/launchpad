@@ -1,10 +1,10 @@
 import path from "node:path";
 import chalk from "chalk";
 import { errAsync, ResultAsync } from "neverthrow";
-import { ZodError } from "zod";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
+import { cliLogger } from "./cli-logger.js";
 import { findConfig, loadConfigFromFile } from "./config.js";
 import { resolveEnv } from "./env.js";
 
@@ -48,67 +48,6 @@ export function loadConfigAndEnv(
 }
 
 export function handleFatalError(error: Error): never {
-	logFullErrorChain(error);
+	cliLogger.error(error);
 	process.exit(1);
-}
-
-function logFullErrorChain(error: Error) {
-	let currentError: Error | undefined = error;
-
-	console.error("");
-	console.error(`${chalk.red.bold("Full error chain:")}`);
-	console.error("");
-
-	while (currentError) {
-		console.error(
-			`${chalk.red("┌─")} ${chalk.red.bold(currentError.name)}: ${chalk.red(getPrettyMessage(currentError))}`,
-		);
-		const callstack = currentError.stack;
-
-		if (callstack) {
-			console.error(`${chalk.red("│")}`);
-
-			const lines = callstack.split("\n").slice(1);
-
-			for (const line of lines) {
-				console.error(`${chalk.red("│")} ${chalk.red.dim(line)}`);
-			}
-
-			console.error(`${chalk.red("│")}`);
-			console.error(`${chalk.red("└──────────────────")}`);
-		}
-
-		if (currentError.cause && currentError.cause instanceof Error) {
-			currentError = currentError.cause;
-			console.error(`    ${chalk.red.dim("│")} ${chalk.red.dim("Caused by:")}`);
-			console.error(`    ${chalk.red.dim("│")}`);
-		} else {
-			currentError = undefined;
-		}
-	}
-
-	console.error("");
-}
-
-function getPrettyMessage(e: Error): string {
-	if (e instanceof ZodError) {
-		return formatZodError(e);
-	}
-
-	return e.message;
-}
-
-function formatZodError(e: ZodError): string {
-	return e.errors
-		.map((issue) => {
-			const path = issue.path.length ? `property "${issue.path.join(".")}"` : "<root>";
-			let additionalInfo = "";
-
-			if ("expected" in issue) {
-				additionalInfo = ` (expected: ${issue.expected}, received: ${issue.received})`;
-			}
-
-			return `${path}: ${issue.message}${additionalInfo}`;
-		})
-		.join("\n");
 }

@@ -1,7 +1,4 @@
-import {
-	createMockLogger,
-	createMockSubsystemCtx,
-} from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";

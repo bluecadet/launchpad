@@ -1,5 +1,4 @@
 import {
-	createMockEventBus,
 	createMockSubsystemCtx,
 	type MockEventBus,
 } from "@bluecadet/launchpad-testing/test-utils.ts";

@@ -1,0 +1,201 @@
+import { sep } from "node:path";
+import { formatWithOptions } from "node:util";
+import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/types";
+import chalk, { type ChalkInstance } from "chalk";
+import stringWidth from "string-width";
+
+const LEVEL_COLORS: { [k in LogLevel]: ChalkInstance } = {
+	info: chalk.green,
+	debug: chalk.cyan,
+	warn: chalk.yellow,
+	error: chalk.red,
+	verbose: chalk.magenta,
+};
+
+const LEVEL_BG_COLORS: { [k in LogLevel]: ChalkInstance } = {
+	info: chalk.bgGreen.black,
+	debug: chalk.bgCyan.black,
+	warn: chalk.bgYellow.black,
+	error: chalk.bgRed.black,
+	verbose: chalk.bgMagenta.black,
+};
+
+/**
+ * Parses a stack trace string and normalises its paths by removing the current working directory and the "file://" protocol.
+ * @param {string} stack - The stack trace string.
+ * @returns {string[]} An array of stack trace lines with normalised paths.
+ */
+function parseStack(stack: string, message: string) {
+	const cwd = process.cwd() + sep;
+
+	const lines = stack
+		.split("\n")
+		.splice(message.split("\n").length)
+		.map((l) => l.trim().replace("file://", "").replace(cwd, ""));
+
+	return lines;
+}
+
+function formatStack(stack: string, message: string, errorLevel = 0) {
+	const indent = "  ".repeat(errorLevel + 1);
+
+	return (
+		`\n${indent}` +
+		parseStack(stack, message)
+			.map(
+				(line) =>
+					"  " +
+					line
+						.replace(/^at +/, (m) => chalk.gray(m))
+						.replace(/\((.+)\)/, (_, m) => `(${chalk.cyan(m)})`),
+			)
+			.join(`\n${indent}`)
+	);
+}
+
+function formatErr(err: Error, errorLevel = 0): string {
+	const message = err.message;
+	const stack = err.stack ? formatStack(err.stack, message, errorLevel) : "";
+
+	const level = errorLevel || 0;
+	const causedPrefix = level > 0 ? `${"  ".repeat(level)}[cause]: ` : "";
+	const causedError = err.cause instanceof Error ? `\n\n${formatErr(err.cause, level + 1)}` : "";
+
+	return `${causedPrefix + message}\n${stack}${causedError}`;
+}
+
+function formatLevelPrefix(level: LogLevel, isBadge = false) {
+	if (isBadge) {
+		return LEVEL_BG_COLORS[level](` ${level.toUpperCase()} `);
+	}
+
+	return LEVEL_COLORS[level](`${level}:`);
+}
+
+function formatDate(date: Date) {
+	return date.toLocaleTimeString();
+}
+
+/**
+ * Splits a message into multiple lines based on the given width.
+ * Preserves word boundaries where possible.
+ * Respect newline characters.
+ */
+function splitLines(
+	message: string,
+	widthFirstLine: number,
+	widthAdditionalLines: number,
+): string[] {
+	if (!message) {
+		return [""];
+	}
+
+	// First split by existing newlines to respect them
+	const paragraphs = message.split("\n");
+	const result: string[] = [];
+
+	for (let i = 0; i < paragraphs.length; i++) {
+		const paragraph = paragraphs[i] as string;
+		const isFirstParagraph = i === 0 && result.length === 0;
+		const maxWidth = isFirstParagraph ? widthFirstLine : widthAdditionalLines;
+
+		if (stringWidth(paragraph) <= maxWidth) {
+			result.push(paragraph);
+		} else {
+			// Need to wrap this paragraph
+			const words = paragraph.split(" ");
+			let currentLine = "";
+
+			for (const word of words) {
+				const testLine = currentLine ? `${currentLine} ${word}` : word;
+				const currentMaxWidth =
+					result.length === 0 && isFirstParagraph ? widthFirstLine : widthAdditionalLines;
+
+				if (stringWidth(testLine) <= currentMaxWidth) {
+					currentLine = testLine;
+				} else {
+					// Current line is full, start a new one
+					if (currentLine) {
+						result.push(currentLine);
+					}
+					currentLine = word;
+				}
+			}
+
+			// Add the last line if there's content
+			if (currentLine) {
+				result.push(currentLine);
+			}
+		}
+	}
+
+	return result.length > 0 ? result : [""];
+}
+
+export function formatLogObj(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
+	const date = chalk.gray(formatDate(new Date()));
+	const module = payload.module ? `${chalk.gray(payload.module)} ` : "";
+
+	const isBadge = level === "error" || level === "warn";
+
+	const left = formatLevelPrefix(level, isBadge);
+	const right = `${module}${date}`;
+
+	const availableSpace = process.stdout.columns - stringWidth(left) - stringWidth(right) - 2; // 2 for spaces
+
+	const [message, ...additionalLines] = splitLines(
+		formatArgs(payload.args),
+		availableSpace,
+		process.stdout.columns - 4,
+	);
+
+	// justify right side all the way to the right
+	const spaceRight = availableSpace - stringWidth(message as string) + 1;
+
+	let formatted = `${left} ${message}${" ".repeat(spaceRight)}${right}`;
+	for (const line of additionalLines) {
+		formatted += `\n   ${line}`;
+	}
+
+	// Add extra padding for badge style
+	return isBadge ? `\n${formatted}\n` : formatted;
+}
+
+function formatArgs(args: unknown[]) {
+	const _args = args.map((arg) => {
+		if (arg instanceof Error) {
+			return formatErr(arg);
+		}
+		return arg;
+	});
+
+	return formatWithOptions({ colors: false, compact: true }, ..._args);
+}
+
+function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
+	const formatted = formatLogObj(level, payload);
+
+	if (level === "error" || level === "warn") {
+		process.stderr.write(`${formatted}\n`);
+	} else {
+		process.stdout.write(`${formatted}\n`);
+	}
+}
+
+/**
+ * for a console-like API
+ */
+function log(level: LogLevel, ...args: unknown[]) {
+	logFromPayload(level, {
+		args,
+	});
+}
+
+export const cliLogger = {
+	debug: log.bind(null, "debug"),
+	info: log.bind(null, "info"),
+	warn: log.bind(null, "warn"),
+	error: log.bind(null, "error"),
+	verbose: log.bind(null, "verbose"),
+	fromPayload: logFromPayload,
+};

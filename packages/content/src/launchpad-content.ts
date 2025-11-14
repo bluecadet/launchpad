@@ -233,7 +233,9 @@ class LaunchpadContent implements CommandExecutor<ContentCommand>, StateProvider
 		this._startDatetime = new Date();
 
 		// Emit fetch start event
-		this.ctx.eventBus.emit("content:fetch:start", { timestamp: this._startDatetime });
+		this.ctx.eventBus.emit("content:fetch:start", {
+			timestamp: this._startDatetime,
+		});
 
 		// Create fetch stage context with fresh DataStore
 		const context: FetchStageContext = {
@@ -281,12 +283,18 @@ class LaunchpadContent implements CommandExecutor<ContentCommand>, StateProvider
 				const tasks = [] as ResultAsync<void, ContentError>[];
 				if (temp) {
 					tasks.push(
-						FileUtils.clearDir(this.getTempPath(sourceId), { removeIfEmpty, ignoreKeep: true }),
+						FileUtils.clearDir(this.getTempPath(sourceId), {
+							removeIfEmpty,
+							ignoreKeep: true,
+						}),
 					);
 				}
 				if (backups) {
 					tasks.push(
-						FileUtils.clearDir(this.getBackupPath(sourceId), { removeIfEmpty, ignoreKeep: true }),
+						FileUtils.clearDir(this.getBackupPath(sourceId), {
+							removeIfEmpty,
+							ignoreKeep: true,
+						}),
 					);
 				}
 				if (downloads) {

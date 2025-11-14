@@ -1,7 +1,4 @@
-import {
-	createMockLogger,
-	createMockSubsystemCtx,
-} from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { beforeEach, describe, expect, it, vi } from "vitest";

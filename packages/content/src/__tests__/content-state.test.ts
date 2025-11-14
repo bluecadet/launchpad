@@ -1,7 +1,4 @@
-import {
-	createMockEventBus,
-	createMockSubsystemCtx,
-} from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LaunchpadContent from "../launchpad-content.js";

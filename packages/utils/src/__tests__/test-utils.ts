@@ -7,6 +7,7 @@ export function createMockLogger(): Logger {
 		warn: vi.fn(),
 		error: vi.fn(),
 		debug: vi.fn(),
+		verbose: vi.fn(),
 		child: () => createMockLogger(),
 	};
 }

@@ -5,12 +5,11 @@ type MockLogger = {
 	children: Map<string, MockLogger>;
 	// biome-ignore lint/suspicious/noExplicitAny: not actually relevant, just a mock
 	child: (options: any) => MockLogger;
-	once: () => void;
 	debug: () => void;
 	info: () => void;
 	warn: () => void;
 	error: () => void;
-	close: () => void;
+	verbose: () => void;
 	log: () => void;
 };
 
@@ -22,18 +21,18 @@ export function createMockLogger() {
 			children.set(options.module, child);
 			return child;
 		},
-		once: vi.fn(),
 		debug: vi.fn(),
 		info: vi.fn(),
 		warn: vi.fn(),
 		error: vi.fn(),
-		close: vi.fn(),
+		verbose: vi.fn(),
 		log: vi.fn(),
 		children,
 	};
 }
 
 export type MockEventBus = EventBus & {
+	on: ReturnType<typeof vi.fn>;
 	emit: ReturnType<typeof vi.fn>;
 	onAny: ReturnType<typeof vi.fn>;
 	offAny: ReturnType<typeof vi.fn>;
@@ -75,6 +74,7 @@ export function createMockEventBus(): MockEventBus {
 		clearEvents: () => {
 			emittedEvents.length = 0;
 		},
+		on: vi.fn(),
 	} as MockEventBus;
 
 	return mockEventBus;

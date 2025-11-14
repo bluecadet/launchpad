@@ -12,5 +12,6 @@ export type Logger = {
 	warn: LogMethod;
 	error: LogMethod;
 	debug: LogMethod;
+	verbose: LogMethod;
 	child: (moduleName: string) => Logger;
 };

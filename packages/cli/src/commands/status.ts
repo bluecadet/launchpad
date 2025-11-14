@@ -14,7 +14,7 @@ import { withDaemon } from "../utils/controller-execution.js";
 export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 	return loadConfigAndEnv(argv)
 		.andThen(({ dir, config }) => {
-			return withDaemon(dir, config.controller, (client) => {
+			return withDaemon(dir, config.controller, false, (client) => {
 				return client.queryState().andThen((state) => {
 					if (!argv.watch) {
 						console.log(stateToString(state));

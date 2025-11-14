@@ -1,4 +1,3 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";

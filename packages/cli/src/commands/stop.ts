@@ -19,7 +19,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 		.andThen(({ dir, config }) => {
 			const pidFile = path.resolve(dir, config.controller.pidFile);
 
-			return withDaemon(dir, config.controller, (client, pid) => {
+			return withDaemon(dir, config.controller, true, (client, pid) => {
 				console.log("Stopping Launchpad gracefully...");
 				return client
 					.shutdown()

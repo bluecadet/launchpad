@@ -18,7 +18,7 @@ export class ProcessManager {
 	}
 
 	isDaemonRunning(): ResultAsync<boolean, Error> {
-		this.#logger.debug("Checking if daemon is running...");
+		this.#logger.verbose("Checking if daemon is running...");
 		return pingDaemon();
 	}
 
@@ -55,7 +55,7 @@ export class ProcessManager {
 		return this.getProcesses().andThen((processes) => {
 			const deletePromises = processes.map((process) => {
 				if (process.name) {
-					this.#logger.debug(`Deleting process ${process.name}`);
+					this.#logger.verbose(`Deleting process ${process.name}`);
 					return this.deleteProcess(process.name);
 				}
 				return okAsync(undefined);

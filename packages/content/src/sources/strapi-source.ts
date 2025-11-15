@@ -274,7 +274,7 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 						fetchPageFn: async (params) => {
 							const pageNum = params.offset / params.limit;
 
-							ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+							ctx.logger.verbose(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
 							const response = await ky
 								.get(

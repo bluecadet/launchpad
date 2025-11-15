@@ -62,7 +62,7 @@ describe("content-transform-utils", () => {
 			expect(
 				((await dataStore.getDocument("test", "doc1")._unsafeUnwrap()._read()) as any).content,
 			).toBe("TEST");
-			expect(logger.debug).toHaveBeenCalled();
+			expect(logger.verbose).toHaveBeenCalled();
 		});
 
 		it("should return error if document.apply fails", async () => {

@@ -348,8 +348,8 @@ describe("ipc-transport", () => {
 			mockServerCallback?.(mockSocket1);
 			mockServerCallback?.(mockSocket2);
 
-			expect(context.logger.debug).toHaveBeenCalledWith("IPC client connected");
-			expect(context.logger.debug).toHaveBeenCalledTimes(2);
+			expect(context.logger.verbose).toHaveBeenCalledWith("IPC client connected");
+			expect(context.logger.verbose).toHaveBeenCalledTimes(2);
 		});
 
 		it("should handle client disconnect", async () => {
@@ -361,7 +361,7 @@ describe("ipc-transport", () => {
 			const closeHandler = mockSocket.listeners.close![0]!;
 			closeHandler();
 
-			expect(context.logger.debug).toHaveBeenCalledWith("IPC client disconnected");
+			expect(context.logger.verbose).toHaveBeenCalledWith("IPC client disconnected");
 		});
 
 		it("should handle client error", async () => {

@@ -35,7 +35,7 @@ export function fetchPaginated<T, Merge extends boolean = false>({
 }: FetchPaginatedOptions<T, Merge>): Merge extends true ? Promise<T[]> : AsyncGenerator<T> {
 	async function* generator() {
 		for (let i = 0; i < maxFetchCount; i++) {
-			logger.debug(`Fetching page ${i}`);
+			logger.verbose(`Fetching page ${i}`);
 			const data = await fetchPageFn({ limit, offset: i * limit });
 
 			if (data === null || (Array.isArray(data) && data.length === 0)) {

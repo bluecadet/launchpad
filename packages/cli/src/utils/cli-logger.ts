@@ -3,6 +3,7 @@ import { formatWithOptions } from "node:util";
 import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/types";
 import chalk, { type ChalkInstance } from "chalk";
 import stringWidth from "string-width";
+import { forwardLog } from "./detached-messaging.js";
 
 const LEVEL_COLORS: { [k in LogLevel]: ChalkInstance } = {
 	info: chalk.green,
@@ -174,6 +175,9 @@ function formatArgs(args: unknown[]) {
 
 function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
 	const formatted = formatLogObj(level, payload);
+
+	// Forward log to parent process if detached
+	forwardLog(level, payload);
 
 	if (level === "error" || level === "warn") {
 		process.stderr.write(`${formatted}\n`);

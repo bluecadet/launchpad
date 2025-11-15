@@ -3,6 +3,7 @@ import path from "node:path";
 import url from "node:url";
 import chalk from "chalk";
 import { createJiti } from "jiti";
+import { cliLogger } from "./cli-logger.js";
 
 const DEFAULT_CONFIG_PATHS = [
 	"launchpad.config.js",
@@ -20,7 +21,7 @@ const DEFAULT_CONFIG_PATHS = [
 export function findConfig() {
 	const configs = findAllConfigsRecursive();
 	if (configs.length > 0) {
-		console.log(`Found configs: ${configs.map((c) => chalk.white(c)).join(", ")}`);
+		cliLogger.info(`Found configs: ${configs.map((c) => chalk.white(c)).join(", ")}`);
 	}
 	return configs.length > 0 ? configs[0] : null;
 }

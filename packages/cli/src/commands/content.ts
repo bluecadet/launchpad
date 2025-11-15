@@ -16,7 +16,7 @@ export function content(argv: GlobalLaunchpadArgs) {
 			// as config.content is possibly undefined later in the callbacks
 			const configContent = config.content;
 
-			return withDaemonOrController(dir, config.controller, console, {
+			return withDaemonOrController(dir, config.controller, {
 				mode: "task",
 				ifDaemon: (client) => {
 					// Daemon is running - just send commands via IPC

@@ -68,7 +68,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 					cliLogger.info("Found monitor configuration, attempting to kill monitor process...");
 
 					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
-						return LaunchpadMonitor.kill(console);
+						return LaunchpadMonitor.kill(cliLogger);
 					});
 				}
 

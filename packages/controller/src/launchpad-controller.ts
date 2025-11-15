@@ -71,7 +71,7 @@ export class LaunchpadController {
 		this._subsystems.set(name, instance);
 		this._stateStore.registerSubsystem(name, instance);
 
-		this._logger.debug(`Registered subsystem '${name}'`);
+		this._logger.verbose(`Registered subsystem '${name}'`);
 	}
 
 	/**
@@ -105,7 +105,7 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		}
 
-		this._logger.debug(`Starting controller in ${this._mode} mode`);
+		this._logger.verbose(`Starting controller in ${this._mode} mode`);
 
 		// Initialize command dispatcher with registered subsystems
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._subsystems);
@@ -147,7 +147,7 @@ export class LaunchpadController {
 
 			return this._ipcTransport.start(transportContext).map(() => {
 				this._isStarted = true;
-				this._logger.debug("Controller started with IPC transport");
+				this._logger.verbose("Controller started with IPC transport");
 				return undefined;
 			});
 		}
@@ -158,7 +158,7 @@ export class LaunchpadController {
 		// }
 
 		this._isStarted = true;
-		this._logger.debug("Controller started");
+		this._logger.verbose("Controller started");
 
 		return okAsync(undefined);
 	}
@@ -173,7 +173,7 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		}
 
-		this._logger.debug("Stopping controller");
+		this._logger.verbose("Stopping controller");
 
 		// Abort any pending operations (triggers transport cleanup via abortSignal)
 		this._abortController.abort();
@@ -195,7 +195,7 @@ export class LaunchpadController {
 		// Disconnect subsystems (if they implement Disconnectable)
 		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
 			if (subsystem.disconnect) {
-				this._logger.debug(`Disconnecting subsystem '${name}'`);
+				this._logger.verbose(`Disconnecting subsystem '${name}'`);
 				return subsystem.disconnect();
 			}
 			return okAsync(undefined);
@@ -210,7 +210,7 @@ export class LaunchpadController {
 
 			this._isStarted = false;
 			this._ipcTransport = null;
-			this._logger.debug("Controller stopped");
+			this._logger.verbose("Controller stopped");
 			return undefined;
 		});
 	}

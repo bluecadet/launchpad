@@ -46,7 +46,7 @@ export class BusManager {
 		};
 
 		if (outFilepath && appConfig.logging.showStdout) {
-			this.#logger.debug(`Tailing stdout from ${outFilepath}`);
+			this.#logger.verbose(`Tailing stdout from ${outFilepath}`);
 			const outTail = new Tail(outFilepath, tailOptions);
 			outTail.on("line", (data) => {
 				if (typeof data === "string") {
@@ -63,7 +63,7 @@ export class BusManager {
 		}
 
 		if (errFilepath && appConfig.logging.showStderr) {
-			this.#logger.debug(`Tailing stderr from ${errFilepath}`);
+			this.#logger.verbose(`Tailing stderr from ${errFilepath}`);
 			const errTail = new Tail(errFilepath, tailOptions);
 			errTail.on("line", (data) => {
 				if (typeof data === "string") {
@@ -81,7 +81,7 @@ export class BusManager {
 	}
 
 	connect(): ResultAsync<void, Error> {
-		this.#logger.debug("Connecting to PM2 bus");
+		this.#logger.verbose("Connecting to PM2 bus");
 
 		return ResultAsync.fromPromise(
 			new Promise((resolve, reject) => {
@@ -105,7 +105,7 @@ export class BusManager {
 	disconnect(): Result<void, Error> {
 		try {
 			if (this.#bus) {
-				this.#logger.debug("Disconnecting from PM2 bus");
+				this.#logger.verbose("Disconnecting from PM2 bus");
 				this.#bus.off("*");
 				this.#bus = null;
 			}

@@ -19,7 +19,7 @@ export default function jsonSource(options: z.input<typeof jsonSourceSchema>) {
 		id: parsedOptions.id,
 		fetch: (ctx) => {
 			return Object.entries(parsedOptions.files).map(([key, url]) => {
-				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
+				ctx.logger.verbose(`Downloading json ${chalk.blue(url)}`);
 				return {
 					id: key,
 					data: ky

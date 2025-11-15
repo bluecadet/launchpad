@@ -431,7 +431,7 @@ export async function fetchData(context: FetchContext) {
     }
   } catch (error) {
     if (abortSignal.aborted) {
-      logger.debug('Operation aborted');
+      logger.verbose('Operation aborted');
       return;
     }
     throw error;

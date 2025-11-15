@@ -197,9 +197,9 @@ class LaunchpadMonitor
 	 */
 	_handleExistingDaemon(): ResultAsync<void, Error> {
 		if (this._config.deleteExistingBeforeConnect) {
-			this.ctx.logger.debug("Deleting existing PM2 processes");
+			this.ctx.logger.verbose("Deleting existing PM2 processes");
 			return this._processManager.deleteAllProcesses().andThen(() => {
-				this.ctx.logger.debug("Killing existing PM2 daemon");
+				this.ctx.logger.verbose("Killing existing PM2 daemon");
 				return LaunchpadMonitor.kill(this.ctx.logger);
 			});
 		}
@@ -221,7 +221,7 @@ class LaunchpadMonitor
 			.andThen(() => this._processManager.isDaemonRunning())
 			.andThen((isDaemonRunning) => {
 				if (isDaemonRunning) {
-					this.ctx.logger.debug("Disconnecting from daemon");
+					this.ctx.logger.verbose("Disconnecting from daemon");
 					return this._processManager.disconnect();
 				}
 				return okAsync(undefined);

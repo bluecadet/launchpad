@@ -25,7 +25,9 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 		);
 	}
 
-	logger.debug(`Applying window settings to ${apps.length} ${apps.length === 1 ? "app" : "apps"}`);
+	logger.verbose(
+		`Applying window settings to ${apps.length} ${apps.length === 1 ? "app" : "apps"}`,
+	);
 
 	const fgPids = new Set();
 	const minPids = new Set();
@@ -79,7 +81,7 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 		}
 	}
 
-	logger.debug("Done applying window settings.");
+	logger.verbose("Done applying window settings.");
 };
 
 export default sortWindows;

@@ -85,7 +85,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 			// Build startup commands based on config
 			const startupCommands: Array<BaseCommand> = [];
 
-			return withDaemonOrController(dir, config.controller, console, {
+			return withDaemonOrController(dir, config.controller, {
 				mode: "persistent",
 				ifDaemon: (_client, pid) => {
 					// Daemon already running

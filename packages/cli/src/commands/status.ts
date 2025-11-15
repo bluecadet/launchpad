@@ -8,6 +8,7 @@ import ansiEscapes from "ansi-escapes";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
+import { cliLogger } from "../utils/cli-logger.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
 
@@ -46,8 +47,8 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 			});
 		})
 		.mapErr(() => {
-			console.error(chalk.red("Launchpad is not running"));
-			console.error(`Start it with: ${chalk.cyan("launchpad start")}`);
+			cliLogger.error(chalk.red("Launchpad is not running"));
+			cliLogger.error(`Start it with: ${chalk.cyan("launchpad start")}`);
 			process.exit(1);
 		});
 }

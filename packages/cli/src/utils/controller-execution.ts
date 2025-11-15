@@ -115,4 +115,6 @@ function addLogListeners(bus: LaunchpadEventEmitter): void {
 	bus.on("log:info", cliLogger.fromPayload.bind(null, "info"));
 	bus.on("log:debug", cliLogger.fromPayload.bind(null, "debug"));
 	bus.on("log:verbose", cliLogger.fromPayload.bind(null, "verbose"));
+	bus.on("log:tty", (data) => cliLogger.fixed(data.message));
+	bus.on("log:tty:close", () => cliLogger.fixed(null));
 }

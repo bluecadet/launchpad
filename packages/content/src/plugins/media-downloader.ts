@@ -376,6 +376,7 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 									configWithDefaults,
 								).andTee(({ cacheHit }) => {
 									if (cacheHit) {
+										ctx.logger.debug(`Cache hit for ${mediaItem.url}`);
 										progressLogger.addCached();
 									} else {
 										progressLogger.addFresh();

@@ -1,6 +1,7 @@
 import { sep } from "node:path";
 import { formatWithOptions } from "node:util";
 import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/types";
+import ansiEscapes from "ansi-escapes";
 import chalk, { type ChalkInstance } from "chalk";
 import stringWidth from "string-width";
 import { forwardLog } from "./detached-messaging.js";
@@ -187,6 +188,31 @@ function setLevel(level: LogLevel) {
 	configuredLogLevel = LOG_LEVEL_TO_NUM[level];
 }
 
+let lastFixedMessage: null | string = null;
+
+function logFixedMessage(message: string | null) {
+	if (lastFixedMessage === null) {
+		// hide cursor when displaying fixed message
+		process.stdout.write(ansiEscapes.cursorHide);
+	}
+
+	if (message === null) {
+		process.stdout.write(ansiEscapes.cursorShow);
+	} else {
+		const lastLineCount = lastFixedMessage?.split("\n").length || 0;
+		process.stdout.write(ansiEscapes.eraseLines(lastLineCount) + message); // erase last message and show new one
+	}
+
+	lastFixedMessage = message;
+}
+
+process.on("beforeExit", () => {
+	if (lastFixedMessage !== null) {
+		// ensure cursor is shown again
+		process.stdout.write(ansiEscapes.cursorShow);
+	}
+});
+
 function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
 	if (LOG_LEVEL_TO_NUM[level] > configuredLogLevel) {
 		return;
@@ -197,10 +223,20 @@ function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message
 	// Forward log to parent process if detached
 	forwardLog(level, payload);
 
+	if (lastFixedMessage !== null) {
+		// erase fixed message before logging
+		const lastLineCount = lastFixedMessage.split("\n").length;
+		process.stdout.write(ansiEscapes.eraseLines(lastLineCount));
+	}
+
+	const formattedWithFixed = lastFixedMessage
+		? `${formatted}\n${lastFixedMessage}`
+		: `${formatted}\n`;
+
 	if (level === "error" || level === "warn") {
-		process.stderr.write(`${formatted}\n`);
+		process.stderr.write(formattedWithFixed);
 	} else {
-		process.stdout.write(`${formatted}\n`);
+		process.stdout.write(formattedWithFixed);
 	}
 }
 
@@ -221,4 +257,5 @@ export const cliLogger = {
 	verbose: log.bind(null, "verbose"),
 	fromPayload: logFromPayload,
 	setLevel,
+	fixed: logFixedMessage,
 };

@@ -16,7 +16,7 @@ export function monitor(argv: GlobalLaunchpadArgs) {
 			// as config.monitor is possibly undefined later in the callbacks
 			const configMonitor = config.monitor;
 
-			return withDaemonOrController(dir, config.controller, console, {
+			return withDaemonOrController(dir, config.controller, {
 				mode: "persistent",
 				ifDaemon: (client) => {
 					// Daemon is running - just send commands via IPC

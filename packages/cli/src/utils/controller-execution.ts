@@ -57,7 +57,6 @@ export function withDaemon<T>(
 export function withDaemonOrController<T>(
 	baseDir: string,
 	controllerConfig: ResolvedControllerConfig,
-	logger: Logger | Console,
 	options: {
 		mode: "task" | "persistent";
 		ifDaemon: (client: IPCClient, pid: number) => ResultAsync<T, Error>;
@@ -74,7 +73,7 @@ export function withDaemonOrController<T>(
 	if (isDaemonRunning) {
 		// Use daemon via IPC
 		const pid = daemonPidResult.value;
-		logger.info("Daemon is running, delegating to daemon via IPC");
+		cliLogger.info("Daemon is running, delegating to daemon via IPC");
 		const client = new IPCClient();
 
 		addLogListeners(client);
@@ -86,7 +85,7 @@ export function withDaemonOrController<T>(
 	}
 
 	// Create local controller
-	logger.info(`Daemon is not running, starting controller in ${options.mode} mode`);
+	cliLogger.info(`Daemon is not running, starting controller in ${options.mode} mode`);
 	const controller = new LaunchpadController(controllerConfig, baseDir, options.mode);
 
 	addLogListeners(controller.getEventBus());

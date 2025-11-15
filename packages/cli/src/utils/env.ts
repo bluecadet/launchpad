@@ -19,6 +19,6 @@ export function resolveEnv(paths: string[]) {
 			path: envFilePath,
 		});
 
-		cliLogger.info(`Loaded env file '${chalk.white(envFilePath)}'`);
+		cliLogger.info(`Loaded env file '${chalk.grey(envFilePath)}'`);
 	}
 }

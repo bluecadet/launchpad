@@ -364,7 +364,7 @@ class LaunchpadMonitor
 	/**
 	 * Force kills all PM2 instances
 	 */
-	static kill(logger: Logger | Console): ResultAsync<void, Error> {
+	static kill(logger: Omit<Logger, "child">): ResultAsync<void, Error> {
 		return ResultAsync.fromPromise(
 			new Promise((resolve, reject) => {
 				const child = spawn("npm", ["exec", "pm2", "kill"], { shell: true });

@@ -21,7 +21,7 @@ const DEFAULT_CONFIG_PATHS = [
 export function findConfig() {
 	const configs = findAllConfigsRecursive();
 	if (configs.length > 0) {
-		cliLogger.info(`Found configs: ${configs.map((c) => chalk.white(c)).join(", ")}`);
+		cliLogger.info(`Found configs: ${configs.map((c) => chalk.grey(c)).join(", ")}`);
 	}
 	return configs.length > 0 ? configs[0] : null;
 }

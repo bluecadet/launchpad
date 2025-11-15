@@ -2,6 +2,7 @@ import path from "node:path";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
+import { cliLogger } from "../utils/cli-logger.js";
 import { loadConfigAndEnv } from "../utils/command-utils.js";
 import {
 	DaemonNotRunningError,
@@ -20,7 +21,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 			const pidFile = path.resolve(dir, config.controller.pidFile);
 
 			return withDaemon(dir, config.controller, true, (client, pid) => {
-				console.log("Stopping Launchpad gracefully...");
+				cliLogger.info("Stopping Launchpad gracefully...");
 				return client
 					.shutdown()
 					.andThen(() => wait(2000))
@@ -28,12 +29,12 @@ export function stop(argv: GlobalLaunchpadArgs) {
 						// Verify it stopped
 						if (!isProcessRunning(pid)) {
 							deletePidFile(pidFile);
-							console.log("Launchpad stopped");
+							cliLogger.info("Launchpad stopped");
 							return ok();
 						}
 
 						// IPC shutdown didn't work - fall back to SIGTERM
-						console.log("Process still running, sending SIGTERM...");
+						cliLogger.info("Process still running, sending SIGTERM...");
 						return safeKill(pid, "SIGTERM")
 							.mapErr(
 								(e) => new IPCConnectionError("Failed to stop process via signal", { cause: e }),
@@ -42,19 +43,19 @@ export function stop(argv: GlobalLaunchpadArgs) {
 							.andThen(() => {
 								if (!isProcessRunning(pid)) {
 									deletePidFile(pidFile);
-									console.log("Launchpad stopped");
+									cliLogger.info("Launchpad stopped");
 									return ok();
 								}
 
 								// Still running - force kill
-								console.log("Process did not stop gracefully, sending SIGKILL...");
+								cliLogger.info("Process did not stop gracefully, sending SIGKILL...");
 								return safeKill(pid, "SIGKILL")
 									.mapErr(
 										(e) => new IPCConnectionError("Failed to force kill process", { cause: e }),
 									)
 									.map(() => {
 										deletePidFile(pidFile);
-										console.log("Launchpad force stopped");
+										cliLogger.warn("Launchpad force stopped");
 									});
 							});
 					});
@@ -63,8 +64,8 @@ export function stop(argv: GlobalLaunchpadArgs) {
 					// try to just stop the monitor process if possible
 					// This is for compatibility with older versions of launchpad, where the 'stop' command only managed the pm2 process
 					// TODO: in a future major version, we can probably remove this fallback or move it to a separate command
-					console.log("Launchpad is not running.");
-					console.log("Found monitor configuration, attempting to kill monitor process...");
+					cliLogger.info("Launchpad is not running.");
+					cliLogger.info("Found monitor configuration, attempting to kill monitor process...");
 
 					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
 						return LaunchpadMonitor.kill(console);
@@ -75,7 +76,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 			});
 		})
 		.mapErr(() => {
-			console.error("Launchpad is not running");
+			cliLogger.error("Launchpad is not running");
 			process.exit(1);
 		});
 }

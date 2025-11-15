@@ -1,10 +1,17 @@
 import { fork } from "node:child_process";
-import fs from "node:fs";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
+import chalk from "chalk";
 import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
+import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
+import {
+	isDetached,
+	isValidChildLogMessage,
+	isValidReadyMessage,
+	sendReadyMessage,
+} from "../utils/detached-messaging.js";
 import { importLaunchpadContent } from "./content.js";
 import { importLaunchpadMonitor } from "./monitor.js";
 
@@ -27,33 +34,35 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 
 			const [mod, ...args] = filteredArgv;
 
+			cliLogger.info("Starting Launchpad in background...");
+
 			// Fork the CLI process to run the same command without --detach / -d flags
 			const child = fork(mod as string, args, {
 				detached: true,
-				stdio: ["ignore", "pipe", "pipe", "ipc"], // Ignore stdin, pipe stdout/stderr, keep IPC channel
+				stdio: "ignore", // Ignore stdin, pipe stdout/stderr, keep IPC channel
 				env: {
 					...process.env,
 					LAUNCHPAD_IS_DETACHED: "1", // Indicate to the child process that it's detached
 				},
 			});
 
-			// Pipe child's stdout and stderr to the parent process for logging.
-			// This will be closed once the child signals it's ready.
-			child.stdout?.pipe(process.stdout);
-			child.stderr?.pipe(process.stderr);
+			cliLogger.debug(`Launched detached process with PID: ${child.pid}`);
 
 			child.on("error", (error) => {
 				reject(error);
 			});
 
 			child.on("message", (message) => {
-				if (message === "ready") {
-					// Child process is ready
+				if (isValidChildLogMessage(message)) {
+					const { level, payload } = message;
+					cliLogger.fromPayload(level, payload);
+				} else if (isValidReadyMessage(message)) {
+					cliLogger.info("Launchpad started successfully in background.");
 					child.unref(); // Allow the parent to exit independently
 					child.disconnect(); // Close IPC channel
 					resolve();
 				} else {
-					console.log("Unknown message from detached process:", message);
+					cliLogger.warn("Unknown message from detached process:", message);
 				}
 			});
 
@@ -63,7 +72,9 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 		}),
 		(error) => error as Error,
 	).andTee(() => {
-		console.log("Launchpad started in background. Use 'launchpad stop' to stop it.");
+		cliLogger.info(
+			`Launchpad started in background. Use '${chalk.cyan("launchpad stop")}' to stop it.`,
+		);
 	});
 }
 
@@ -78,28 +89,14 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 				mode: "persistent",
 				ifDaemon: (_client, pid) => {
 					// Daemon already running
-					console.error(`Launchpad is already running (PID: ${pid})`);
-					console.error("Stop it with: launchpad stop");
+					cliLogger.error(`Launchpad is already running (PID: ${pid})`);
+					cliLogger.error("Stop it with: launchpad stop");
 					process.exit(1);
 				},
 				otherwise: (controller) => {
-					if (process.env.LAUNCHPAD_IS_DETACHED === "1") {
-						// set to launchpad for easier identification in process lists
+					if (isDetached) {
 						process.title = "launchpad";
-						// disconnect from parent process to fully detach
-						process.send?.("ready");
-						process.stdout.end();
-						process.stderr.end();
-
-						// TODO: figure out a less hacky way to do this
-
-						// Redirect stdout and stderr to /dev/null to prevent any output
-						// from causing errors due to closed streams
-						const devNullStream = fs.createWriteStream("/dev/null");
-						// @ts-ignore
-						process.stdout.write = devNullStream.write.bind(devNullStream);
-						// @ts-ignore
-						process.stderr.write = devNullStream.write.bind(devNullStream);
+						sendReadyMessage();
 					}
 
 					return okAsync<void, Error>(undefined)
@@ -150,7 +147,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 							return resultChain.map(() => undefined);
 						})
 						.andTee(() => {
-							console.log("Launchpad started in persistent mode. Press Ctrl+C to stop.");
+							cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");
 						});
 				},
 			}).orElse((error) => handleFatalError(error));

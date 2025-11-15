@@ -110,7 +110,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 				// Create server
 				server = net.createServer((socket) => {
 					clients.add(socket);
-					logger.debug("IPC client connected");
+					logger.verbose("IPC client connected");
 
 					let buffer = "";
 
@@ -141,7 +141,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 
 					socket.on("close", () => {
 						clients.delete(socket);
-						logger.debug("IPC client disconnected");
+						logger.verbose("IPC client disconnected");
 					});
 
 					socket.on("error", (error) => {
@@ -171,7 +171,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 							try {
 								client.write(serialized);
 							} catch (e) {
-								logger.debug(`Failed to write event to IPC client: ${e}`);
+								logger.verbose(`Failed to write event to IPC client: ${e}`);
 							}
 						});
 					};
@@ -189,7 +189,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 							try {
 								client.write(serialized);
 							} catch (e) {
-								logger.debug(`Failed to write state patch to IPC client: ${e}`);
+								logger.verbose(`Failed to write state patch to IPC client: ${e}`);
 							}
 						});
 					};
@@ -258,7 +258,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 						}
 					}
 
-					logger.debug("IPC transport stopped");
+					logger.verbose("IPC transport stopped");
 					server = null;
 					resolve();
 				});

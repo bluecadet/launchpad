@@ -53,7 +53,7 @@ describe("sortWindows", () => {
 
 	it("should handle empty apps array", async () => {
 		await sortWindows([], mockLogger);
-		expect(mockLogger.debug).toHaveBeenCalledWith("Applying window settings to 0 apps");
+		expect(mockLogger.verbose).toHaveBeenCalledWith("Applying window settings to 0 apps");
 	});
 
 	it("should warn about apps without PIDs", async () => {

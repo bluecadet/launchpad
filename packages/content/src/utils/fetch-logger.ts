@@ -55,7 +55,7 @@ export class FetchLogger extends FixedTTYLogger {
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			this.#fetches.get(sourceId)?.set(documentId, { state: "resolved", duration });
-			this.logger.debug(
+			this.logger.verbose(
 				`${this.getIcon("resolved")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
 			);
 		} catch (_e) {

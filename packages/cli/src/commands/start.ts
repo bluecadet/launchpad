@@ -46,7 +46,7 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 				},
 			});
 
-			cliLogger.debug(`Launched detached process with PID: ${child.pid}`);
+			cliLogger.verbose(`Launched detached process with PID: ${child.pid}`);
 
 			child.on("error", (error) => {
 				reject(error);

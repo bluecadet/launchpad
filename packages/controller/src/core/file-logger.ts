@@ -146,11 +146,11 @@ function proxyChildMethod(logger: winston.Logger): Logger {
 
 export function bindConsoleToLogger(logger: winston.Logger) {
 	const consoleLogger = logger.child({ module: "console" });
-	console.log = consoleLogger.debug.bind(consoleLogger);
-	console.info = consoleLogger.debug.bind(consoleLogger);
+	console.log = consoleLogger.verbose.bind(consoleLogger);
+	console.info = consoleLogger.verbose.bind(consoleLogger);
 	console.warn = consoleLogger.warn.bind(consoleLogger);
 	console.error = consoleLogger.error.bind(consoleLogger);
-	console.debug = consoleLogger.debug.bind(consoleLogger);
+	console.debug = consoleLogger.verbose.bind(consoleLogger);
 
 	Object.freeze(console);
 }

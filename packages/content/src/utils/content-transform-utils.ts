@@ -48,7 +48,9 @@ export async function applyTransformToFiles({
 	}
 
 	for (const document of matchingDocuments.value) {
-		logger.debug(chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`));
+		logger.verbose(
+			chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`),
+		);
 
 		await document.apply(path, transformFn);
 	}

@@ -425,7 +425,7 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 							});
 					})
 					.andThen(() => {
-						ctx.logger.debug('Moving downloaded media files to "download" directory');
+						ctx.logger.verbose('Moving downloaded media files to "download" directory');
 						return cleanupAfterDownload(ctx, configWithDefaults);
 					})
 					.orElse((e) => {

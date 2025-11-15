@@ -48,7 +48,7 @@ export class ContentRecoveryError extends ContentError {
  * Sources are already resolved before the pipeline starts.
  */
 export function setupHooksStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.verbose("Beginning phase: running-setup-hooks");
+	context.logger.debug("Beginning phase: running-setup-hooks");
 	return context.pluginDriver
 		.runHookSequential("onContentFetchSetup")
 		.mapErr(
@@ -65,7 +65,7 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
 		return okAsync(undefined);
 	}
 
-	context.logger.verbose("Beginning phase: backing-up");
+	context.logger.debug("Beginning phase: backing-up");
 
 	context.logger.info("Backing up downloads...");
 
@@ -99,7 +99,7 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
  * Stage 3: Clear old downloads.
  */
 export function clearOldDataStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.verbose("Beginning phase: clearing-old-data");
+	context.logger.debug("Beginning phase: clearing-old-data");
 
 	context.logger.info("Clearing download directory");
 
@@ -122,7 +122,7 @@ export function clearOldDataStage(context: FetchStageContext): ResultAsync<void,
  * Stage 4: Fetch all sources in parallel.
  */
 export function fetchSourcesStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.verbose("Beginning phase: fetching-sources");
+	context.logger.debug("Beginning phase: fetching-sources");
 
 	if (!context.sources || context.sources.length === 0) {
 		context.logger.warn("No sources found to download");
@@ -215,7 +215,7 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
  * Stage 5: Run done hooks.
  */
 export function doneHooksStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.verbose("Beginning phase: running-done-hooks");
+	context.logger.debug("Beginning phase: running-done-hooks");
 
 	return context.pluginDriver
 		.runHookSequential("onContentFetchDone")
@@ -226,7 +226,7 @@ export function doneHooksStage(context: FetchStageContext): ResultAsync<void, Co
  * Stage 6: Finalize (success path).
  */
 export function finalizingStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.verbose("Beginning phase: finalizing");
+	context.logger.debug("Beginning phase: finalizing");
 
 	context.eventBus?.emit("content:fetch:done", {
 		sources: context.sources?.map((s) => s.id) || [],
@@ -245,7 +245,7 @@ export const errorRecoveryStage = (
 	context: FetchStageContext,
 	error: ContentError,
 ): ResultAsync<void, ContentError | ContentRecoveryError> => {
-	context.logger.verbose("Beginning phase: error-recovery");
+	context.logger.debug("Beginning phase: error-recovery");
 	context.logger.error("Error in content fetch process. Running recovery steps...");
 
 	context.eventBus?.emit("content:fetch:error", { error });
@@ -295,7 +295,7 @@ export const cleanupStage = (
 	context: FetchStageContext,
 	cleanup: { temp?: boolean; backups?: boolean } = {},
 ): ResultAsync<void, ContentError> => {
-	context.logger.verbose("Beginning phase: clearing-temp");
+	context.logger.debug("Beginning phase: clearing-temp");
 
 	if (!context.sources) {
 		return okAsync(undefined);

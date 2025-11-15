@@ -2,21 +2,38 @@
 
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
+import { cliLogger } from "./utils/cli-logger.js";
 
 export type GlobalLaunchpadArgs = {
 	config?: string;
 	env?: (string | number)[];
 	envCascade?: string;
+	verbose?: number;
 };
 
 yargs(hideBin(process.argv))
 	.option("config", { alias: "c", describe: "Path to your JS config file", type: "string" })
 	.option("env", { alias: "e", describe: "Path(s) to your .env file(s)", type: "array" })
+	.option("verbose", { alias: "v", describe: "Increase logging verbosity", type: "count" })
+	.count("verbose")
 	.option("env-cascade", {
 		alias: "E",
 		describe:
 			"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 		type: "string",
+	})
+	.middleware(async (args) => {
+		switch (args.verbose) {
+			case 1:
+				cliLogger.setLevel("verbose");
+				break;
+			case 2:
+				cliLogger.setLevel("debug");
+				break;
+			default:
+				cliLogger.setLevel("info");
+				break;
+		}
 	})
 	.command(
 		"start",

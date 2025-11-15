@@ -133,7 +133,7 @@ function splitLines(
 	return result.length > 0 ? result : [""];
 }
 
-export function formatLogObj(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
+function formatLogObj(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
 	const date = chalk.gray(formatDate(new Date()));
 	const module = payload.module ? `${chalk.gray(payload.module)} ` : "";
 
@@ -173,7 +173,25 @@ function formatArgs(args: unknown[]) {
 	return formatWithOptions({ colors: false, compact: true }, ..._args);
 }
 
+const LOG_LEVEL_TO_NUM: { [k in LogLevel]: number } = {
+	error: 0,
+	warn: 1,
+	info: 2,
+	verbose: 3,
+	debug: 4,
+};
+
+let configuredLogLevel = LOG_LEVEL_TO_NUM.info;
+
+function setLevel(level: LogLevel) {
+	configuredLogLevel = LOG_LEVEL_TO_NUM[level];
+}
+
 function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
+	if (LOG_LEVEL_TO_NUM[level] > configuredLogLevel) {
+		return;
+	}
+
 	const formatted = formatLogObj(level, payload);
 
 	// Forward log to parent process if detached
@@ -202,4 +220,5 @@ export const cliLogger = {
 	error: log.bind(null, "error"),
 	verbose: log.bind(null, "verbose"),
 	fromPayload: logFromPayload,
+	setLevel,
 };

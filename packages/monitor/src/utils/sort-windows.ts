@@ -45,6 +45,13 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 			continue;
 		}
 
+		const shouldManageWindow =
+			app.options.windows.hide || app.options.windows.minimize || app.options.windows.foreground;
+
+		if (!shouldManageWindow) {
+			continue;
+		}
+
 		if (!visiblePids.has(app.pid)) {
 			logger.warn(
 				`No window found for ${chalk.blue(app.options.pm2.name)} with pid ${chalk.blue(app.pid)}.`,

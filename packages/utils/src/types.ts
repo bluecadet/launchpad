@@ -20,7 +20,7 @@ export interface LaunchpadEvents {
 	 * Payload contains the message to display (including any ANSI codes).
 	 */
 	"log:tty": {
-		message: string;
+		message: string | null;
 	};
 	/**
 	 * Event for closing TTY fixed console messages.

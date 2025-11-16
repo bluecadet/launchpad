@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
-import { loadConfigAndEnv } from "../utils/command-utils.js";
+import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
 
 export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
@@ -46,11 +46,7 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 				});
 			});
 		})
-		.mapErr(() => {
-			cliLogger.error(chalk.red("Launchpad is not running"));
-			cliLogger.error(`Start it with: ${chalk.cyan("launchpad start")}`);
-			process.exit(1);
-		});
+		.orElse((error) => handleFatalError(error));
 }
 function stateToString(state: LaunchpadState): string {
 	let output = "";

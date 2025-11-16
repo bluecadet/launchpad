@@ -3,7 +3,7 @@ import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
-import { loadConfigAndEnv } from "../utils/command-utils.js";
+import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import {
 	DaemonNotRunningError,
 	IPCConnectionError,
@@ -75,10 +75,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 				return err(e);
 			});
 		})
-		.mapErr(() => {
-			cliLogger.error("Launchpad is not running");
-			process.exit(1);
-		});
+		.orElse((error) => handleFatalError(error));
 }
 
 // wait helper wrapped in ResultAsync

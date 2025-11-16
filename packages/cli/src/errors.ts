@@ -3,6 +3,8 @@
  * All errors support the `cause` parameter for error chaining.
  */
 
+import chalk from "chalk";
+
 /**
  * Base error class for all CLI-related errors.
  */
@@ -51,7 +53,10 @@ export class MonitorError extends LaunchpadCLIError {
  */
 export class DaemonNotRunningError extends LaunchpadCLIError {
 	constructor(options?: { cause?: Error }) {
-		super("Daemon is not running", options);
+		super(
+			`Launchpad controller is not running. Start it with: ${chalk.blue("launchpad start")}`,
+			options,
+		);
 		this.name = "DaemonNotRunningError";
 	}
 }

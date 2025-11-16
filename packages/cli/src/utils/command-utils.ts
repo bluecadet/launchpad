@@ -5,13 +5,13 @@ import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
 import { cliLogger } from "./cli-logger.js";
-import { findConfig, loadConfigFromFile } from "./config.js";
+import { findFirstConfigRecursive, loadConfigFromFile } from "./config.js";
 import { resolveEnv } from "./env.js";
 
 export function loadConfigAndEnv(
 	argv: GlobalLaunchpadArgs,
 ): ResultAsync<{ dir: string; config: ResolvedLaunchpadOptions }, ConfigError> {
-	const configPath = argv.config ?? findConfig();
+	const configPath = argv.config ?? findFirstConfigRecursive();
 
 	if (!configPath) {
 		return errAsync(new ConfigError("No config file found."));

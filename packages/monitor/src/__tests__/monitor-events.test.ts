@@ -47,9 +47,8 @@ describe("Monitor Event Emissions", () => {
 
 			await monitor.connect();
 
-			const doneEvents = eventBus.getEventsOfType<{ appCount: number }>("monitor:connect:done");
+			const doneEvents = eventBus.getEventsOfType("monitor:connect:done");
 			expect(doneEvents).toHaveLength(1);
-			expect(doneEvents[0]).toEqual({ appCount: 2 });
 		});
 
 		it("should emit monitor:disconnect:start when disconnecting", async () => {

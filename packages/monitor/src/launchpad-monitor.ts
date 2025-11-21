@@ -6,12 +6,11 @@ import type {
 	CommandExecutor,
 	Disconnectable,
 	StateProvider,
-	Subsystem,
 	SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import autoBind from "auto-bind";
 import { spawn } from "cross-spawn";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
@@ -94,44 +93,15 @@ class LaunchpadMonitor
 				return this.disconnect();
 
 			case "monitor.start":
-				return this.start(command.appNames ?? null);
+				return this.start(command.appNames);
 
 			case "monitor.stop":
-				return this.stop(command.appNames ?? null);
+				return this.stop(command.appNames);
 
 			case "monitor.restart":
 				// Restart is stop + start
 				// Emit restart event for each app
-				return this._appManager
-					.validateAppNames(command.appNames ?? null)
-					.asyncAndThen((validatedNames) => {
-						for (const appName of validatedNames) {
-							this.ctx.eventBus.emit("monitor:app:restart", { appName });
-						}
-						return this.stop(command.appNames ?? null).andThen(() =>
-							this.start(command.appNames ?? null).andTee(() => {
-								// Emit restarted event for each app
-								for (const appName of validatedNames) {
-									// Get process info to include in event
-									this._appManager.getAppProcess(appName, true).match(
-										(process: pm2.ProcessDescription) => {
-											const pm2Id = process.pm_id;
-											if (pm2Id !== undefined && process.pid !== undefined) {
-												this.ctx.eventBus.emit("monitor:app:restarted", {
-													appName,
-													pm2Id,
-													pid: process.pid,
-												});
-											}
-										},
-										() => {
-											// Ignore errors when getting process info for event
-										},
-									);
-								}
-							}),
-						);
-					});
+				return this.restart(command.appNames);
 
 			case "monitor.shutdown":
 				return this.shutdown(command.exitCode);
@@ -182,9 +152,7 @@ class LaunchpadMonitor
 			.andTee(() => {
 				// Update state and emit success event
 				this._stateManager.setConnected(true);
-				this.ctx.eventBus.emit("monitor:connect:done", {
-					appCount: this._config.apps.length,
-				});
+				this.ctx.eventBus.emit("monitor:connect:done", {});
 			})
 			.orElse((error) => {
 				// Emit error event
@@ -305,6 +273,45 @@ class LaunchpadMonitor
 				),
 			).map(() => undefined);
 		});
+	}
+
+	/**
+	 * Restarts an app or a list of apps.
+	 * @param appNames Single app name, array of app names or null/undefined to default to all apps.
+	 */
+	restart(appNames: string | string[] | null = null): ResultAsync<void, Error> {
+		// Restart is stop + start
+		return this._appManager
+			.validateAppNames(appNames)
+			.andTee((validatedNames) => {
+				for (const appName of validatedNames) {
+					this.ctx.eventBus.emit("monitor:app:restart", { appName });
+				}
+			})
+			.asyncAndThrough(() => this.stop(appNames))
+			.andThrough(() => this.start(appNames))
+			.andTee((validatedNames) => {
+				// Emit restarted event for each app
+				for (const appName of validatedNames) {
+					// Get process info to include in event
+					this._appManager.getAppProcess(appName, true).match(
+						(process: pm2.ProcessDescription) => {
+							const pm2Id = process.pm_id;
+							if (pm2Id !== undefined && process.pid !== undefined) {
+								this.ctx.eventBus.emit("monitor:app:restarted", {
+									appName,
+									pm2Id,
+									pid: process.pid,
+								});
+							}
+						},
+						() => {
+							// Ignore errors when getting process info for event
+						},
+					);
+				}
+			})
+			.andThen(() => ok()); // return void
 	}
 
 	/**

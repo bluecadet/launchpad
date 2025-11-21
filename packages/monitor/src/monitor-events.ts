@@ -17,9 +17,7 @@ declare module "@bluecadet/launchpad-utils/types" {
 		// Connection lifecycle
 		"monitor:connect:start": Record<string, never>;
 
-		"monitor:connect:done": {
-			appCount: number;
-		};
+		"monitor:connect:done": Record<string, never>;
 
 		"monitor:connect:error": {
 			error: Error;

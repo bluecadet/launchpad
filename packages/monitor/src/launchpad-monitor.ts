@@ -1,13 +1,14 @@
-import type {
-	CommandExecutor,
-	Disconnectable,
-	StateProvider,
-	SubsystemContext,
-} from "@bluecadet/launchpad-utils/controller-interfaces";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
+import type {
+	CommandExecutor,
+	Disconnectable,
+	StateProvider,
+	Subsystem,
+	SubsystemContext,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import autoBind from "auto-bind";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";

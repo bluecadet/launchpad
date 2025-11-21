@@ -1,4 +1,4 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";

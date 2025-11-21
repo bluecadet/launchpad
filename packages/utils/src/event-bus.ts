@@ -1,25 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { EventBus as IEventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-
-/**
- * Core controller events.
- *
- * Subsystems can augment this interface via declaration merging
- *
- */
-declare module "@bluecadet/launchpad-utils/types" {
-	interface LaunchpadEvents {
-		// Command lifecycle events (controller-owned)
-		"command:start": { commandType: string; [key: string]: unknown };
-		"command:success": { commandType: string; result?: unknown };
-		"command:error": { commandType: string; error: Error };
-
-		// System events (controller-owned)
-		"system:shutdown": { code?: number; signal?: string };
-		"system:error": { error: Error; context?: string };
-	}
-}
 
 /**
  * EventBus implementation using Node's EventEmitter.
@@ -29,7 +9,7 @@ declare module "@bluecadet/launchpad-utils/types" {
  * - Wildcard subscriptions
  * - Pattern matching
  */
-export class EventBus extends EventEmitter implements IEventBus {
+export class EventBus extends EventEmitter {
 	private _anyHandlers = new Set<(event: string, data: unknown) => void>();
 
 	constructor() {

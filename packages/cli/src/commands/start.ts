@@ -1,5 +1,5 @@
 import { fork } from "node:child_process";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import chalk from "chalk";
 import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";

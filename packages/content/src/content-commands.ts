@@ -3,7 +3,7 @@
  * These commands are dispatched via the controller's executeCommand() method.
  */
 
-import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 
 /**
  * Fetch content from all or specific sources

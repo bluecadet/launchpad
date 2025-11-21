@@ -1,7 +1,25 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
-import type { EventBus } from "./event-bus.js";
+
+/**
+ * Core controller events.
+ * Subsystems can augment this interface via declaration merging
+ *
+ */
+declare module "@bluecadet/launchpad-utils/types" {
+	interface LaunchpadEvents {
+		// Command lifecycle events (controller-owned)
+		"command:start": { commandType: string; [key: string]: unknown };
+		"command:success": { commandType: string; result?: unknown };
+		"command:error": { commandType: string; error: Error };
+
+		// System events (controller-owned)
+		"system:shutdown": { code?: number; signal?: string };
+		"system:error": { error: Error; context?: string };
+	}
+}
 
 /**
  * CommandDispatcher routes commands to appropriate subsystems and emits events.

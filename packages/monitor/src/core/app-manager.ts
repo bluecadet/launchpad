@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";

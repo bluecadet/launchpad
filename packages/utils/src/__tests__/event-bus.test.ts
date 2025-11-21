@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventBus } from "../event-bus.js";
 
-declare module "@bluecadet/launchpad-utils/types" {
+declare module "../types.js" {
 	interface LaunchpadEvents {
 		[name: string]: any;
 	}

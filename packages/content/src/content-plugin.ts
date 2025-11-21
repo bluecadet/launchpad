@@ -1,4 +1,4 @@
-import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import {
 	type BaseHookContext,
 	createPluginValidator,

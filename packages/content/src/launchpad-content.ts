@@ -1,12 +1,12 @@
 import path from "node:path";
+import { onExit } from "@bluecadet/launchpad-utils/on-exit";
+import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
+import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import type {
 	CommandExecutor,
 	StateProvider,
 	SubsystemContext,
-} from "@bluecadet/launchpad-utils/controller-interfaces";
-import { onExit } from "@bluecadet/launchpad-utils/on-exit";
-import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
-import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {

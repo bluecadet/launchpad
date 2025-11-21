@@ -1,4 +1,4 @@
-import type { Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { SubsystemsState } from "@bluecadet/launchpad-utils/types";
 import type { Patch } from "immer";
 

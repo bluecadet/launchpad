@@ -1,4 +1,5 @@
-import type { EventBus, SubsystemContext } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { vi } from "vitest";
 
 type MockLogger = {

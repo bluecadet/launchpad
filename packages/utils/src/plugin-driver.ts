@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
-import type { EventBus } from "./controller-interfaces.js";
+import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import { onExit } from "./on-exit.js";
 

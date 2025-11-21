@@ -1,4 +1,4 @@
-import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 
 /**
  * System commands (controller-owned).

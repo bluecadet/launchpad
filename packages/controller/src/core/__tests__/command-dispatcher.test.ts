@@ -1,13 +1,13 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/controller-interfaces";
+import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
+import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";
-import { EventBus } from "../event-bus.js";
 
 describe("CommandDispatcher", () => {
 	describe("dispatch", () => {
 		it("should dispatch command to correct subsystem", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("success"));
 
 			const contentSubsystem: Subsystem = { executeCommand };
@@ -24,7 +24,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:start event before execution", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 
@@ -44,7 +44,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:success event on successful execution", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync({ files: 42 }));
 
@@ -63,7 +63,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:error event on failed execution", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const error = new Error("Fetch failed");
 			const executeCommand = vi.fn().mockReturnValue(errAsync(error));
@@ -86,7 +86,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should return error when subsystem not found", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, Subsystem>();
 
@@ -110,7 +110,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should return error when subsystem does not implement CommandExecutor", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 
 			// Subsystem without executeCommand method
@@ -139,7 +139,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should return error for invalid command type", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, Subsystem>();
 
@@ -160,7 +160,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should handle command types without namespace separator", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, Subsystem>();
 
@@ -180,7 +180,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should extract subsystem name from command type correctly", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 
 			const subsystem: Subsystem = { executeCommand };
@@ -197,7 +197,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should pass through subsystem execution errors", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const customError = new Error("Custom subsystem error");
 			const executeCommand = vi.fn().mockReturnValue(errAsync(customError));
 
@@ -217,7 +217,7 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should handle multiple subsystems correctly", async () => {
-			const eventBus = new EventBus();
+			const eventBus = createMockEventBus();
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-result"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-result"));
 

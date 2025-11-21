@@ -1,52 +1,7 @@
 import type { ResultAsync } from "neverthrow";
+import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler } from "./state-patcher.js";
-import type { LaunchpadEvents } from "./types.js";
-
-/**
- * EventBus interface for inter-subsystem communication.
- * Implementations should provide type-safe event emission and subscription.
- */
-export interface EventBus {
-	/**
-	 * Emit an event with associated data.
-	 * @param event - Event name (e.g., 'content:fetch:start')
-	 * @param data - Event payload
-	 * @returns true if event had listeners, false otherwise
-	 */
-	emit<K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]): boolean;
-
-	/**
-	 * Subscribe to an event.
-	 * @param event - Event name to listen for
-	 * @param handler - Handler function called when event is emitted
-	 */
-	on<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this;
-
-	/**
-	 * Unsubscribe from an event.
-	 * @param event - Event name
-	 * @param handler - Handler function to remove
-	 */
-	off<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this;
-
-	/**
-	 * Subscribe to all events.
-	 * @param handler - Handler function called for any event
-	 */
-	onAny(
-		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
-	): this;
-
-	/**
-	 * Unsubscribe from all events.
-	 * @param handler - Handler function to remove
-	 */
-	offAny(
-		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
-	): this;
-}
-
 /**
  * Optional interface for subsystems that can be gracefully disconnected.
  * The controller will call disconnect() during shutdown if implemented.
@@ -114,7 +69,6 @@ export interface SubsystemContext {
 
 /**
  * Generic subsystem type that can optionally implement any controller interfaces.
- * This allows subsystems to work with or without the controller.
  *
  * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
  * @template TState - The state type this subsystem provides

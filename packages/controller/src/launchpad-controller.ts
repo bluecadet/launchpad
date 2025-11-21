@@ -1,11 +1,12 @@
 import path from "node:path";
+import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import type {
 	BaseCommand,
 	Subsystem,
 	SubsystemContext,
-} from "@bluecadet/launchpad-utils/controller-interfaces";
-import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { onExit } from "@bluecadet/launchpad-utils/on-exit";
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import {
 	type ControllerConfig,
@@ -14,7 +15,6 @@ import {
 	type ResolvedControllerConfig,
 } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
-import { EventBus } from "./core/event-bus.js";
 import { createFileLogger } from "./core/file-logger.js";
 import { type LaunchpadState, StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";

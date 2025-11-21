@@ -1,4 +1,4 @@
-import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/types";
+import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/logger";
 
 export const isDetached = process.env.LAUNCHPAD_IS_DETACHED === "1";
 

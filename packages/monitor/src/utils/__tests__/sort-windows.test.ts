@@ -77,7 +77,9 @@ describe("sortWindows", () => {
 			{
 				options: {
 					pm2: { name: "test-app" },
-					windows: {},
+					windows: {
+						hide: true,
+					},
 				},
 				pid: 456, // Different from mockWindow.processId
 			},

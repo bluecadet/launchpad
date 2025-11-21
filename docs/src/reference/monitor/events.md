@@ -28,17 +28,10 @@ eventBus.on('monitor:connect:start', () => {
 ### `monitor:connect:done`
 Emitted when PM2 connection succeeds.
 
-**Payload:**
-```typescript
-{
-  appCount: number;  // Number of apps configured
-}
-```
-
 **Example:**
 ```typescript
-eventBus.on('monitor:connect:done', (data) => {
-  console.log(`Connected to PM2. Managing ${data.appCount} apps.`);
+eventBus.on('monitor:connect:done', () => {
+  console.log(`Connected to PM2.`);
 });
 ```
 

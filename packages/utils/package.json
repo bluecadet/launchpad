@@ -20,9 +20,13 @@
       "types": "./dist/state-patcher.d.ts",
       "default": "./dist/state-patcher.js"
     },
-    "./controller-interfaces": {
-      "types": "./dist/controller-interfaces.d.ts",
-      "default": "./dist/controller-interfaces.js"
+    "./subsystem-interfaces": {
+      "types": "./dist/subsystem-interfaces.d.ts",
+      "default": "./dist/subsystem-interfaces.js"
+    },
+    "./event-bus": {
+      "types": "./dist/event-bus.d.ts",
+      "default": "./dist/event-bus.js"
     },
     "./types": {
       "types": "./dist/types.d.ts",

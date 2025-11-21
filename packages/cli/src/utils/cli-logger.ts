@@ -1,6 +1,6 @@
 import { sep } from "node:path";
 import { formatWithOptions } from "node:util";
-import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/types";
+import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/logger";
 import ansiEscapes from "ansi-escapes";
 import chalk, { type ChalkInstance } from "chalk";
 import stringWidth from "string-width";

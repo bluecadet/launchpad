@@ -1,4 +1,4 @@
-import type { EventBus } from "@bluecadet/launchpad-utils/controller-interfaces";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";

@@ -2,13 +2,12 @@ import path from "node:path";
 import winston from "winston";
 import "winston-daily-rotate-file";
 import { formatWithOptions } from "node:util";
-import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import type { LogLevel } from "@bluecadet/launchpad-utils/types";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { Logger, LogLevel } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import { LEVEL, SPLAT } from "triple-beam";
 import Transport from "winston-transport";
 import { z } from "zod";
-import type { EventBus } from "./event-bus.js";
 
 const LOG_TIMESTAMP_FORMAT = "YYYY-MM-DD-HH:mm:ss";
 const FILE_TIMESTAMP_FORMAT = "YYYY-MM-DD";

@@ -4,11 +4,11 @@
  */
 
 import net from "node:net";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/controller-interfaces";
+import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import { EventBus } from "./core/event-bus.js";
 import type { LaunchpadState } from "./core/state-store.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "./errors.js";
 import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "./transports/ipc-transport.js";

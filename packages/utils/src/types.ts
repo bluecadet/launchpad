@@ -1,13 +1,11 @@
+/**
+ * File for types that are augmented by subsystems via declaration merging.
+ */
+
+import type { LogEventPayload } from "./logger.js";
+
 // biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
 export interface LaunchpadConfig {}
-
-export type LogLevel = "error" | "warn" | "info" | "debug" | "verbose";
-
-export type LogEventPayload = {
-	message: string; // formatted message string
-	args: Array<unknown>; // original arguments passed to the log method
-	module?: string;
-};
 
 export interface LaunchpadEvents {
 	"log:error": LogEventPayload;

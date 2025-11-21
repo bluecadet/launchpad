@@ -1,4 +1,4 @@
-import type { EventBus } from "./controller-interfaces.js";
+import type { EventBus } from "./event-bus.js";
 
 /**
  * Abstract class for managing fixed console log messages.

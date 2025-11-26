@@ -99,6 +99,10 @@ export interface SubsystemConfig<
 	>,
 > {
 	/**
+	 * Unique name of the subsystem.
+	 */
+	name: string;
+	/**
 	 * Initialize a subsystem instance with the provided context.
 	 * This is called once during subsystem registration.
 	 *

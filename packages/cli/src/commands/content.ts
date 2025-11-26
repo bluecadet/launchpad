@@ -24,15 +24,9 @@ export function content(argv: GlobalLaunchpadArgs) {
 				},
 				otherwise: (controller) => {
 					// No daemon - need to instantiate subsystem and register it
-					return importLaunchpadContent().andThen(({ LaunchpadContent }) => {
-						const contentInstance = new LaunchpadContent(
-							configContent,
-							controller.getSubsystemCtx("content"),
-						);
-						controller.registerSubsystem("content", contentInstance);
-
-						return contentInstance
-							.loadSources()
+					return importLaunchpadContent().andThen(({ createLaunchpadContent }) => {
+						return controller
+							.registerSubsystem(createLaunchpadContent(configContent))
 							.andThen(() => controller.executeCommand({ type: "content.fetch" }));
 					});
 				},

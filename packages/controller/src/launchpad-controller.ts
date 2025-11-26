@@ -4,7 +4,8 @@ import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import type {
 	BaseCommand,
-	Subsystem,
+	InstantiatedSubsystem,
+	SubsystemConfig,
 	SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -46,7 +47,7 @@ export class LaunchpadController {
 	private _eventBus: EventBus;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
-	private _subsystems = new Map<string, Subsystem>();
+	private _subsystems = new Map<string, InstantiatedSubsystem>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
 	private _ipcTransport: Transport | null = null;
@@ -67,17 +68,27 @@ export class LaunchpadController {
 	 *
 	 * If the subsystem implements EventBusAware, the EventBus will be injected.
 	 */
-	registerSubsystem(name: string, instance: Subsystem): void {
-		this._subsystems.set(name, instance);
-		this._stateStore.registerSubsystem(name, instance);
+	registerSubsystem(subsystem: SubsystemConfig): ResultAsync<void, Error> {
+		const name = subsystem.name;
 
-		this._logger.verbose(`Registered subsystem '${name}'`);
+		return subsystem
+			.setup(this.getSubsystemCtx(name))
+			.map((instance) => {
+				this._subsystems.set(subsystem.name, instance);
+				this._stateStore.registerSubsystem(name, instance);
+
+				this._logger.verbose(`Registered subsystem '${name}'`);
+			})
+			.orElse((error) => {
+				this._logger.error(`Failed to register subsystem '${name}'`);
+				return errAsync(error);
+			});
 	}
 
 	/**
 	 * Get a registered subsystem by name
 	 */
-	getSubsystem(name: string): Subsystem | undefined {
+	getSubsystem(name: string): InstantiatedSubsystem | undefined {
 		return this._subsystems.get(name);
 	}
 
@@ -265,11 +276,12 @@ export class LaunchpadController {
 		return this._isStarted;
 	}
 
-	getSubsystemCtx(subsystemName: string): SubsystemContext {
+	private getSubsystemCtx(subsystemName: string): SubsystemContext {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(subsystemName),
 			cwd: this._baseDir,
+			abortSignal: this._abortController.signal,
 		};
 	}
 }

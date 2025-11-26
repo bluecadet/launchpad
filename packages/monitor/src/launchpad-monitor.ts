@@ -259,6 +259,7 @@ function shutdown(
  */
 export function createLaunchpadMonitor(config: MonitorConfig) {
 	return defineSubsystem({
+		name: "monitor",
 		setup(ctx: SubsystemContext) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
@@ -332,6 +333,3 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 		},
 	});
 }
-
-// For backwards compatibility during transition, export a default that's the factory function
-export default createLaunchpadMonitor;

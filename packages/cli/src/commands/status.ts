@@ -4,7 +4,6 @@
 
 import type { LaunchpadState } from "@bluecadet/launchpad-controller";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
-import ansiEscapes from "ansi-escapes";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -18,24 +17,18 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 			return withDaemon(dir, config.controller, false, (client) => {
 				return client.queryState().andThen((state) => {
 					if (!argv.watch) {
-						console.log(stateToString(state));
+						cliLogger.fixed(stateToString(state));
 						return okAsync(state);
 					}
 
 					// Watch mode
 					const str = stateToString(state);
-					let lastHeight = str.split("\n").length + 1;
-					process.stdout.write(str);
+					cliLogger.fixed(str);
 
 					client.onStateChange((newState) => {
 						const newStr = stateToString(newState);
-						process.stdout.write(`${ansiEscapes.eraseLines(lastHeight)}${newStr}`);
-						lastHeight = newStr.split("\n").length;
+						cliLogger.fixed(`${newStr}"\nWatching for status changes... (press Ctrl+C to exit)"`);
 					});
-
-					process.stdout.write(
-						chalk.gray("\nWatching for status changes... (press Ctrl+C to exit)"),
-					);
 					const neverResolve = new Promise<void>((resolve) => {
 						// resolve on sigint / sigterm / sigkill / etc
 						onExit(() => {

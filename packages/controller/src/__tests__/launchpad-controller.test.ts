@@ -1,4 +1,8 @@
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import {
+	type BaseCommand,
+	defineSubsystem,
+	type InstantiatedSubsystem,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
@@ -50,31 +54,36 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("registerSubsystem", () => {
-		it("should register a subsystem", () => {
+		it("should register a subsystem", async () => {
 			const controller = createController("task");
-			const subsystem: Subsystem = {};
 
-			controller.registerSubsystem("test", subsystem);
+			const subsystemInner: InstantiatedSubsystem = {};
+
+			const subsystem = defineSubsystem({
+				name: "test",
+				setup: () => okAsync(subsystemInner),
+			});
+
+			const result = await controller.registerSubsystem(subsystem);
 
 			expect(controller.hasSubsystem("test")).toBe(true);
-			expect(controller.getSubsystem("test")).toBe(subsystem);
+			expect(controller.getSubsystem("test")).toBe(subsystemInner);
 		});
 
-		it("should not inject EventBus if subsystem does not implement EventBusAware", () => {
-			const controller = createController("task");
-			const subsystem: Subsystem = {}; // No setEventBus method
-
-			// Should not throw
-			expect(() => controller.registerSubsystem("test", subsystem)).not.toThrow();
-		});
-
-		it("should allow registering multiple subsystems", () => {
+		it("should allow registering multiple subsystems", async () => {
 			const controller = createController();
-			const subsystem1: Subsystem = {};
-			const subsystem2: Subsystem = {};
 
-			controller.registerSubsystem("content", subsystem1);
-			controller.registerSubsystem("monitor", subsystem2);
+			const subsystem1 = defineSubsystem({
+				name: "content",
+				setup: () => okAsync({}),
+			});
+			const subsystem2 = defineSubsystem({
+				name: "monitor",
+				setup: () => okAsync({}),
+			});
+
+			await controller.registerSubsystem(subsystem1);
+			await controller.registerSubsystem(subsystem2);
 
 			expect(controller.hasSubsystem("content")).toBe(true);
 			expect(controller.hasSubsystem("monitor")).toBe(true);
@@ -82,13 +91,19 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("getSubsystem", () => {
-		it("should return registered subsystem", () => {
+		it("should return registered subsystem", async () => {
 			const controller = createController();
-			const subsystem: Subsystem = {};
 
-			controller.registerSubsystem("test", subsystem);
+			const subsystemInner: InstantiatedSubsystem = {};
 
-			expect(controller.getSubsystem("test")).toBe(subsystem);
+			const subsystem = defineSubsystem({
+				name: "test",
+				setup: () => okAsync(subsystemInner),
+			});
+
+			await controller.registerSubsystem(subsystem);
+
+			expect(controller.getSubsystem("test")).toBe(subsystemInner);
 		});
 
 		it("should return undefined for non-existent subsystem", () => {
@@ -99,9 +114,14 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("hasSubsystem", () => {
-		it("should return true for registered subsystem", () => {
+		it("should return true for registered subsystem", async () => {
 			const controller = createController();
-			controller.registerSubsystem("test", {});
+			const subsystem = defineSubsystem({
+				name: "test",
+				setup: () => okAsync({}),
+			});
+
+			await controller.registerSubsystem(subsystem);
 
 			expect(controller.hasSubsystem("test")).toBe(true);
 		});
@@ -114,11 +134,21 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("getSubsystemNames", () => {
-		it("should return array of subsystem names", () => {
+		it("should return array of subsystem names", async () => {
 			const controller = createController();
 
-			controller.registerSubsystem("content", {});
-			controller.registerSubsystem("monitor", {});
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "content",
+					setup: () => okAsync({}),
+				}),
+			);
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "monitor",
+					setup: () => okAsync({}),
+				}),
+			);
 
 			const names = controller.getSubsystemNames();
 
@@ -156,7 +186,12 @@ describe("LaunchpadController", () => {
 		it("should initialize command dispatcher", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			controller.registerSubsystem("test", { executeCommand });
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
 
 			await controller.start();
 
@@ -195,7 +230,12 @@ describe("LaunchpadController", () => {
 		it("should disconnect subsystems that implement Disconnectable", async () => {
 			const controller = createController();
 			const disconnect = vi.fn().mockReturnValue(okAsync(undefined));
-			controller.registerSubsystem("test", { disconnect });
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync({ disconnect }),
+				}),
+			);
 
 			await controller.start();
 			await controller.stop();
@@ -205,7 +245,12 @@ describe("LaunchpadController", () => {
 
 		it("should skip disconnecting subsystems without disconnect method", async () => {
 			const controller = createController();
-			controller.registerSubsystem("test", {}); // No disconnect method
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync({}),
+				}),
+			);
 
 			await controller.start();
 
@@ -231,7 +276,12 @@ describe("LaunchpadController", () => {
 		it("should execute command through dispatcher", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("result"));
-			controller.registerSubsystem("test", { executeCommand });
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
 
 			await controller.start();
 
@@ -257,7 +307,12 @@ describe("LaunchpadController", () => {
 			const controller = createController();
 			const _error = new Error("Command failed");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			controller.registerSubsystem("test", { executeCommand });
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
 
 			await controller.start();
 
@@ -279,12 +334,17 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("getState", () => {
-		it("should return aggregated state", () => {
+		it("should return aggregated state", async () => {
 			const controller = createController();
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => ({ value: "test-state" }),
 			};
-			controller.registerSubsystem("test", subsystem);
+			await controller.registerSubsystem(
+				defineSubsystem({
+					name: "test",
+					setup: () => okAsync(subsystem),
+				}),
+			);
 
 			const state = controller.getState();
 
@@ -335,11 +395,17 @@ describe("LaunchpadController", () => {
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-done"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-done"));
 
-			const contentSubsystem: Subsystem = { executeCommand: contentExecute };
-			const monitorSubsystem: Subsystem = { executeCommand: monitorExecute };
+			const contentSubsystem = defineSubsystem({
+				name: "content",
+				setup: () => okAsync({ executeCommand: contentExecute }),
+			});
+			const monitorSubsystem = defineSubsystem({
+				name: "monitor",
+				setup: () => okAsync({ executeCommand: monitorExecute }),
+			});
 
-			controller.registerSubsystem("content", contentSubsystem);
-			controller.registerSubsystem("monitor", monitorSubsystem);
+			await controller.registerSubsystem(contentSubsystem);
+			await controller.registerSubsystem(monitorSubsystem);
 
 			await controller.start();
 
@@ -361,24 +427,32 @@ describe("LaunchpadController", () => {
 			const contentState = { isFetching: false };
 			const monitorState = { isConnected: false };
 
-			const contentSubsystem: Subsystem = {
-				executeCommand: () => {
-					contentState.isFetching = true;
-					return okAsync(undefined);
-				},
-				getState: () => contentState,
-			};
+			const contentSubsystem = defineSubsystem({
+				name: "content",
+				setup: () =>
+					okAsync({
+						executeCommand: () => {
+							contentState.isFetching = true;
+							return okAsync(undefined);
+						},
+						getState: () => contentState,
+					}),
+			});
 
-			const monitorSubsystem: Subsystem = {
-				executeCommand: () => {
-					monitorState.isConnected = true;
-					return okAsync(undefined);
-				},
-				getState: () => monitorState,
-			};
+			const monitorSubsystem = defineSubsystem({
+				name: "monitor",
+				setup: () =>
+					okAsync({
+						executeCommand: () => {
+							monitorState.isConnected = true;
+							return okAsync(undefined);
+						},
+						getState: () => monitorState,
+					}),
+			});
 
-			controller.registerSubsystem("content", contentSubsystem);
-			controller.registerSubsystem("monitor", monitorSubsystem);
+			await controller.registerSubsystem(contentSubsystem);
+			await controller.registerSubsystem(monitorSubsystem);
 
 			await controller.start();
 

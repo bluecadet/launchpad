@@ -1,7 +1,7 @@
 import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import LaunchpadContent, { createLaunchpadContent } from "../launchpad-content.js";
+import { createLaunchpadContent } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
 
 describe("ContentState", () => {

@@ -245,6 +245,7 @@ function clear(
  */
 export function createLaunchpadContent(config: ContentConfig) {
 	return defineSubsystem({
+		name: "content",
 		setup(ctx: SubsystemContext) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
@@ -320,6 +321,3 @@ export function createLaunchpadContent(config: ContentConfig) {
 		},
 	});
 }
-
-// For backwards compatibility during transition, export a default that's the factory function
-export default createLaunchpadContent;

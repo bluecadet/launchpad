@@ -9,7 +9,6 @@ import {
 	IPCConnectionError,
 	withDaemon,
 } from "../utils/controller-execution.js";
-import { importLaunchpadMonitor } from "./monitor.js";
 
 /**
  * Stop command - Gracefully stop the persistent controller via IPC,
@@ -67,8 +66,12 @@ export function stop(argv: GlobalLaunchpadArgs) {
 					cliLogger.info("Launchpad is not running.");
 					cliLogger.info("Found monitor configuration, attempting to kill monitor process...");
 
-					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
-						return LaunchpadMonitor.kill(cliLogger);
+					return ResultAsync.fromPromise(
+						import("@bluecadet/launchpad-monitor/launchpad-monitor"),
+						() => new Error('Could not import "@bluecadet/launchpad-monitor"'),
+					).andThen((module) => {
+						const killPM2 = module.killPM2;
+						return killPM2(cliLogger);
 					});
 				}
 

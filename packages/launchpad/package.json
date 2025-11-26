@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "generate": "node --experimental-strip-types ./scripts/generate.ts",
+    "generate": "node ./scripts/generate.js",
     "build": "tsc -b && npm run generate"
   },
   "repository": {

@@ -35,17 +35,8 @@ const restartNotifierPlugin = {
   name: 'restart-notifier',
   hooks: {
     // Runs after an app starts
-    afterAppStart: async ({ monitor, logger }) => {
-      const apps = monitor.getApps();
-      
-      for (const app of apps) {
-        if (app.restarts > 0) {
-          logger.warn(
-            `App ${app.name} has restarted ${app.restarts} times`
-          );
-          // Add your notification logic here
-        }
-      }
+    afterAppStart: async ({ logger }) => {
+      logger.info('An app has started successfully.');
     },
 
     // Runs when an app encounters an error
@@ -98,7 +89,6 @@ const myPlugin = {
   hooks: {
     afterAppStart: async (ctx) => {
       const {
-        monitor,     // Access monitor instance
         logger,      // Plugin-specific logging
         app         // The current app (in app-specific hooks)
       } = ctx;

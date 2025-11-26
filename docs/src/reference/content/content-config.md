@@ -34,16 +34,16 @@ Relative paths are resolved against the directory of the launchpad configuration
 ### `tempPath`
 
 - **Type:** `string`
-- **Default:** `.tmp/%TIMESTAMP%/`
+- **Default:** `.launchpad/tmp/`
 
-Temporary directory path used during content processing. The `%TIMESTAMP%` token is replaced with current timestamp.
+Temporary directory path used during content processing.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
 ### `backupPath`
 
 - **Type:** `string`
-- **Default:** `.backup/%TIMESTAMP%/`
+- **Default:** `.launchpad/backup/`
 
 Directory path where existing content is backed up before processing new downloads. Critical for recovery if downloads fail.
 

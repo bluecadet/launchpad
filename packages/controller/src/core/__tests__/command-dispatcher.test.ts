@@ -1,5 +1,8 @@
 import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type {
+	BaseCommand,
+	InstantiatedSubsystem,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";
@@ -10,8 +13,8 @@ describe("CommandDispatcher", () => {
 			const eventBus = createMockEventBus();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("success"));
 
-			const contentSubsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["content", contentSubsystem]]);
+			const contentSubsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", contentSubsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -28,8 +31,8 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 
-			const subsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["content", subsystem]]);
+			const subsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch", sources: ["test"] };
@@ -48,8 +51,8 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync({ files: 42 }));
 
-			const subsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["content", subsystem]]);
+			const subsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -68,8 +71,8 @@ describe("CommandDispatcher", () => {
 			const error = new Error("Fetch failed");
 			const executeCommand = vi.fn().mockReturnValue(errAsync(error));
 
-			const subsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["content", subsystem]]);
+			const subsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -88,7 +91,7 @@ describe("CommandDispatcher", () => {
 		it("should return error when subsystem not found", async () => {
 			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -114,8 +117,8 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 
 			// Subsystem without executeCommand method
-			const subsystem: Subsystem = {};
-			const subsystems = new Map<string, Subsystem>([["content", subsystem]]);
+			const subsystem: InstantiatedSubsystem = {};
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -141,7 +144,7 @@ describe("CommandDispatcher", () => {
 		it("should return error for invalid command type", async () => {
 			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "" };
@@ -162,7 +165,7 @@ describe("CommandDispatcher", () => {
 		it("should handle command types without namespace separator", async () => {
 			const eventBus = createMockEventBus();
 			const emitSpy = vi.spyOn(eventBus, "emit");
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "invalid-no-dot" };
@@ -183,8 +186,8 @@ describe("CommandDispatcher", () => {
 			const eventBus = createMockEventBus();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
 
-			const subsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["monitor", subsystem]]);
+			const subsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["monitor", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 
@@ -201,8 +204,8 @@ describe("CommandDispatcher", () => {
 			const customError = new Error("Custom subsystem error");
 			const executeCommand = vi.fn().mockReturnValue(errAsync(customError));
 
-			const subsystem: Subsystem = { executeCommand };
-			const subsystems = new Map<string, Subsystem>([["content", subsystem]]);
+			const subsystem: InstantiatedSubsystem = { executeCommand };
+			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
 			const command: BaseCommand = { type: "content.fetch" };
@@ -221,10 +224,10 @@ describe("CommandDispatcher", () => {
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-result"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-result"));
 
-			const contentSubsystem: Subsystem = { executeCommand: contentExecute };
-			const monitorSubsystem: Subsystem = { executeCommand: monitorExecute };
+			const contentSubsystem: InstantiatedSubsystem = { executeCommand: contentExecute };
+			const monitorSubsystem: InstantiatedSubsystem = { executeCommand: monitorExecute };
 
-			const subsystems = new Map<string, Subsystem>([
+			const subsystems = new Map<string, InstantiatedSubsystem>([
 				["content", contentSubsystem],
 				["monitor", monitorSubsystem],
 			]);

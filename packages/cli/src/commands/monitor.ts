@@ -1,3 +1,4 @@
+import { create } from "domain";
 import { errAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError, ImportError } from "../errors.js";
@@ -26,15 +27,10 @@ export function monitor(argv: GlobalLaunchpadArgs) {
 				},
 				otherwise: (controller) => {
 					// No daemon - need to instantiate subsystem and register it
-					return importLaunchpadMonitor().andThen(({ LaunchpadMonitor }) => {
-						const monitorInstance = new LaunchpadMonitor(
-							configMonitor,
-							controller.getSubsystemCtx("monitor"),
-						);
-						controller.registerSubsystem("monitor", monitorInstance);
-
+					return importLaunchpadMonitor().andThen(({ createLaunchpadMonitor }) => {
 						return controller
-							.executeCommand({ type: "monitor.connect" })
+							.registerSubsystem(createLaunchpadMonitor(configMonitor))
+							.andThen(() => controller.executeCommand({ type: "monitor.connect" }))
 							.andThen(() => controller.executeCommand({ type: "monitor.start" }));
 					});
 				},

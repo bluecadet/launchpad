@@ -28,15 +28,18 @@ export const contentConfigSchema = z.object({
 		.string()
 		.describe("The path at which to store all downloaded files. Defaults to '.downloads/'.")
 		.default(".downloads/"),
-	/** Temp file directory path. Defaults to '.tmp/'. */
-	tempPath: z.string().describe("Temp file directory path. Defaults to '.tmp/'.").default(".tmp/"),
-	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/'. */
+	/** Temp file directory path. Defaults to '.launchpad/tmp/'. */
+	tempPath: z
+		.string()
+		.describe("Temp file directory path. Defaults to '.launchpad/tmp/'.")
+		.default(".launchpad/tmp/"),
+	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'. */
 	backupPath: z
 		.string()
 		.describe(
-			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/'.",
+			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'.",
 		)
-		.default(".backup/"),
+		.default(".launchpad/backup/"),
 	/** Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']` */
 	keep: z
 		.array(z.string())

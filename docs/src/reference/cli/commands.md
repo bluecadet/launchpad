@@ -25,6 +25,9 @@ The `start` command launches Launchpad in **persistent mode**, which opens an IP
 Start in foreground (useful for development/debugging):
 ```bash
 launchpad start
+# or
+launchpad start -v # with verbose logging
+launchpad start -vv # with verbose + debug logging
 ```
 
 Start in background:
@@ -138,4 +141,5 @@ All commands support these options:
 | `--config, -c` | Path to your JS config file | string |
 | `--env, -e` | Path(s) to your .env file(s) | array |
 | `--env-cascade, -E` | Cascade env variables from multiple .env files | string |
+| `-verbose, -v` | Increase logging verbosity | count |
 | `--help` | Show help information | flag |

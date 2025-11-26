@@ -3,7 +3,7 @@ import {
 	controllerConfigSchema,
 	type ResolvedControllerConfig,
 } from "@bluecadet/launchpad-controller/config";
-import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { fs } from "memfs";
 import { err, errAsync, ok, okAsync, type ResultAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

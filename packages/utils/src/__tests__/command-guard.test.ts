@@ -1,4 +1,4 @@
-import { errAsync, ok, okAsync } from "neverthrow";
+import { errAsync, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandInProgressError, SingleCommandGuard } from "../command-guard.js";
 

@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Clear dist folder
-const distPath = path.resolve(import.meta.dirname, "..", "dist");
+const distPath = path.resolve(__dirname, "..", "dist");
 if (fs.existsSync(distPath)) {
 	fs.rmSync(distPath, { recursive: true, force: true });
 }
@@ -42,14 +45,14 @@ for (const pkg of packages) {
 			}
 
 			const jsFilePath = path.resolve(
-				import.meta.dirname,
+				__dirname,
 				"..",
 				"dist",
 				pkg.alias,
 				`${exportKey}.js`,
 			);
 			const dtsFilePath = path.resolve(
-				import.meta.dirname,
+				__dirname,
 				"..",
 				"dist",
 				pkg.alias,
@@ -82,7 +85,7 @@ for (const pkg of packages) {
 	}
 }
 
-const mainPackageJsonPath = path.resolve(import.meta.dirname, "../package.json");
+const mainPackageJsonPath = path.resolve(__dirname, "../package.json");
 const mainPackageJson = JSON.parse(fs.readFileSync(mainPackageJsonPath, "utf-8"));
 
 // Update main package.json exports

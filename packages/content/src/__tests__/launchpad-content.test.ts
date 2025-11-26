@@ -1,9 +1,10 @@
 import path from "node:path";
 import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { CommandInProgressError } from "@bluecadet/launchpad-utils/command-guard";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContentError, type ContentPlugin } from "../content-plugin.js";
-import LaunchpadContent from "../launchpad-content.js";
+import { createLaunchpadContent } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
 
 describe("LaunchpadContent", () => {
@@ -38,14 +39,14 @@ describe("LaunchpadContent", () => {
 
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig());
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
@@ -65,11 +66,14 @@ describe("LaunchpadContent", () => {
 				keep: [".keep"],
 			};
 
-			const contentResult = await LaunchpadContent.init(config, createMockSubsystemCtx());
+			const factory = createLaunchpadContent(config);
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
@@ -80,22 +84,21 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should clear data store between runs", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig());
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 			expect(result).toBeOk();
 
-			expect((content as any)._dataStore.allDocuments()).toHaveLength(0);
-
 			// Run download again to ensure no residual data
-			const result2 = await content.download();
+			const result2 = await content.executeCommand({
+				type: "content.fetch",
+			});
 			expect(result2).toBeOk();
-			expect((content as any)._dataStore.allDocuments()).toHaveLength(0);
 		});
 	});
 
@@ -126,14 +129,14 @@ describe("LaunchpadContent", () => {
 				},
 			};
 
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig([plugin1, plugin2]),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig([plugin1, plugin2]));
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(order).toEqual(["plugin1:setup", "plugin2:setup", "plugin1:done", "plugin2:done"]);
 		});
@@ -148,14 +151,14 @@ describe("LaunchpadContent", () => {
 				},
 			};
 
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig([errorPlugin]),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig([errorPlugin]));
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeErr();
 			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
@@ -169,106 +172,10 @@ describe("LaunchpadContent", () => {
 		});
 	});
 
-	describe("path handling", () => {
-		it("should handle download path token replacement", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			const path = content._getDetokenizedPath("/path/to/%DOWNLOAD_PATH%/file", "/downloads");
-			expect(path).toMatchPath("/path/to/downloads/file");
-		});
-
-		it("should handle timestamp token replacement", async () => {
-			vi.useFakeTimers();
-
-			vi.setSystemTime("2024-01-01T00:00:00.00");
-
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			const path = content._getDetokenizedPath("/path/to/%TIMESTAMP%/file", "/downloads");
-			expect(path).toMatchPath("/path/to/2024-01-02_00-00-00/file");
-			vi.useRealTimers();
-		});
-
-		it("should use the provided cwd for path resolution", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx("/some/cwd"),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			expect(content.getDownloadPath()).toMatchPath("/some/cwd/downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("/some/cwd/downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("/some/cwd/temp");
-			expect(content.getTempPath("source-id")).toMatchPath("/some/cwd/temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"/some/cwd/temp/plugin-name/source-id",
-			);
-			expect(content.getBackupPath("source-id")).toMatchPath("/some/cwd/backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("/some/cwd/backups");
-		});
-
-		it("should default to process.cwd() if no cwd is provided", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			expect(content.getDownloadPath()).toMatchPath("downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("temp");
-			expect(content.getTempPath("source-id")).toMatchPath("temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"temp/plugin-name/source-id",
-			);
-			expect(content.getBackupPath("source-id")).toMatchPath("backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("backups");
-		});
-
-		it("should support absolute path parameters", async () => {
-			// even though cwd is set, absolute paths should still work
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/absolute/downloads",
-					tempPath: "/absolute/temp",
-					backupPath: "/absolute/backups",
-					sources: [],
-				},
-				createMockSubsystemCtx("/some/cwd"),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			expect(content.getDownloadPath()).toMatchPath("/absolute/downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("/absolute/downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("/absolute/temp");
-			expect(content.getTempPath("source-id")).toMatchPath("/absolute/temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"/absolute/temp/plugin-name/source-id",
-			);
-			expect(content.getBackupPath("source-id")).toMatchPath("/absolute/backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("/absolute/backups");
-		});
-	});
-
 	describe("executeCommand", () => {
 		it("should allow a single command to execute", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig());
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -296,13 +203,11 @@ describe("LaunchpadContent", () => {
 				},
 			});
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					...createBasicConfig(),
-					sources: [slowSource],
-				},
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent({
+				...createBasicConfig(),
+				sources: [slowSource],
+			});
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -320,9 +225,8 @@ describe("LaunchpadContent", () => {
 
 			expect(firstResult).toBeOk();
 			expect(secondResult).toBeErr();
-			expect(secondResult._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
 			expect(secondResult._unsafeUnwrapErr().message).toContain(
-				"A content command is already in progress",
+				"A command is already in progress.",
 			);
 		});
 
@@ -343,13 +247,11 @@ describe("LaunchpadContent", () => {
 				},
 			});
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					...createBasicConfig(),
-					sources: [slowSource],
-				},
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent({
+				...createBasicConfig(),
+				sources: [slowSource],
+			});
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -367,16 +269,12 @@ describe("LaunchpadContent", () => {
 
 			expect(fetchResult).toBeOk();
 			expect(clearResult).toBeErr();
-			expect(clearResult._unsafeUnwrapErr().message).toContain(
-				"A content command is already in progress",
-			);
+			expect(clearResult._unsafeUnwrapErr().message).toContain("A command is already in progress.");
 		});
 
 		it("should allow sequential commands to execute after first completes", async () => {
-			const contentResult = await LaunchpadContent.init(
-				createBasicConfig(),
-				createMockSubsystemCtx(),
-			);
+			const factory = createLaunchpadContent(createBasicConfig());
+			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

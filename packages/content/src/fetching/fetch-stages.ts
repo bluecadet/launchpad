@@ -75,8 +75,8 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
 
 	return ResultAsync.combine(
 		context.sources.map((source) => {
-			const downloadPath = context.getDownloadPath(source.id);
-			const backupPath = context.getBackupPath(source.id);
+			const downloadPath = context.paths.getDownloadPath(source.id);
+			const backupPath = context.paths.getBackupPath(source.id);
 
 			return FileUtils.pathExists(downloadPath)
 				.andThen((exists) => {
@@ -109,7 +109,7 @@ export function clearOldDataStage(context: FetchStageContext): ResultAsync<void,
 
 	return ResultAsync.combine(
 		context.sources.map((source) =>
-			FileUtils.clearDir(context.getDownloadPath(source.id), {
+			FileUtils.clearDir(context.paths.getDownloadPath(source.id), {
 				keepPatterns: context.config.keep,
 				ignoreKeep: false,
 				removeIfEmpty: false,
@@ -185,7 +185,7 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
 					// Emit document:write event on success
 					// Construct the file path (Documents don't expose their path)
 					const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
-					const filePath = `${context.getDownloadPath(source.id)}/${filename}`;
+					const filePath = `${context.paths.getDownloadPath(source.id)}/${filename}`;
 					context.eventBus?.emit("content:document:write", {
 						sourceId: source.id,
 						documentId: req.id,
@@ -265,8 +265,8 @@ export const errorRecoveryStage = (
 			() =>
 				ResultAsync.combine(
 					context.sources.map((source) => {
-						const downloadPath = context.getDownloadPath(source.id);
-						const backupPath = context.getBackupPath(source.id);
+						const downloadPath = context.paths.getDownloadPath(source.id);
+						const backupPath = context.paths.getBackupPath(source.id);
 
 						return FileUtils.pathExists(backupPath)
 							.andThen((exists) => {
@@ -304,11 +304,11 @@ export const cleanupStage = (
 	const dirPaths: string[] = [];
 
 	if (cleanup.temp) {
-		dirPaths.push(...context.sources.map((source) => context.getTempPath(source.id)));
+		dirPaths.push(...context.sources.map((source) => context.paths.getTempPath(source.id)));
 	}
 
 	if (cleanup.backups) {
-		dirPaths.push(...context.sources.map((source) => context.getBackupPath(source.id)));
+		dirPaths.push(...context.sources.map((source) => context.paths.getBackupPath(source.id)));
 	}
 
 	if (dirPaths.length === 0) {

@@ -91,12 +91,6 @@ export function removeFilesFromDir(
 		.map(() => undefined);
 }
 
-export function getDateString(d = new Date()) {
-	const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1, 2)}-${pad(d.getDate() + 1, 2)}`;
-	const timeStr = `${pad(d.getHours(), 2)}-${pad(d.getMinutes(), 2)}-${pad(d.getSeconds(), 2)}`;
-	return `${dateStr}_${timeStr}`;
-}
-
 export function pad(num: number, size: number) {
 	return `${num}`.padStart(size, "0");
 }

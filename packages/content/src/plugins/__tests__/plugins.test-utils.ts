@@ -40,6 +40,6 @@ export async function createTestPluginContext({
 				.fn()
 				.mockImplementation((sourceId?: string) => path.resolve("backup", sourceId || "")),
 		},
-		contentOptions: contentConfigSchema.parse(baseOptions),
+		contentOptions: await contentConfigSchema.parseAsync(baseOptions),
 	};
 }

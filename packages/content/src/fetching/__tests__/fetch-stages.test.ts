@@ -1,13 +1,8 @@
-import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { errAsync, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResolvedContentConfig } from "../../content-config.js";
-import type { ContentPluginDriver } from "../../content-plugin.js";
 import { ContentError } from "../../content-plugin.js";
 import { defineSource } from "../../source.js";
-import type { DataStore } from "../../utils/data-store.js";
-import type { FetchStageContext } from "../fetch-context.js";
 import {
 	backupStage,
 	ContentFetchError,
@@ -20,15 +15,16 @@ import {
 	finalizingStage,
 	setupHooksStage,
 } from "../fetch-stages.js";
+import {
+	createMockContentConfig,
+	createMockDataStore,
+	createMockFetchContext,
+} from "./fetch-test-utils.js";
 
 describe("Fetch Stages", () => {
-	const mockLogger = createMockLogger();
-	const mockEventBus = createMockEventBus();
-
 	beforeEach(() => {
 		vol.reset();
 		vi.clearAllMocks();
-		mockEventBus.clearEvents();
 	});
 
 	afterEach(() => {
@@ -36,57 +32,9 @@ describe("Fetch Stages", () => {
 		vi.clearAllMocks();
 	});
 
-	// Mock plugins and data store
-	const createMockPluginDriver = (): ContentPluginDriver => {
-		return {
-			runHookSequential: vi.fn(() => okAsync(undefined)),
-			runHookParallel: vi.fn(() => okAsync(undefined)),
-		} as any;
-	};
-
-	const createMockDataStore = (): DataStore => {
-		return {
-			createNamespace: vi.fn(() => okAsync(undefined)),
-			namespace: vi.fn(() => ({
-				asyncAndThen: vi.fn((cb) => cb({ safeInsert: vi.fn(() => okAsync(undefined)) })),
-			})),
-			close: vi.fn(() => Promise.resolve()),
-		} as any;
-	};
-
-	const createBasicConfig = (
-		overrides: Partial<ResolvedContentConfig> = {},
-	): ResolvedContentConfig => {
-		return {
-			downloadPath: "/downloads",
-			tempPath: "/temp",
-			backupPath: "/backups",
-			keep: [],
-			backupAndRestore: false,
-			...overrides,
-		} as ResolvedContentConfig;
-	};
-
-	const createBasicContext = (overrides: Partial<FetchStageContext> = {}): FetchStageContext => {
-		return {
-			config: createBasicConfig(),
-			cwd: "/project",
-			logger: mockLogger,
-			abortSignal: new AbortController().signal,
-			eventBus: mockEventBus,
-			pluginDriver: createMockPluginDriver(),
-			dataStore: createMockDataStore(),
-			getDownloadPath: (sourceId?: string) => `/downloads/${sourceId || ""}`.replace(/\/$/, ""),
-			getTempPath: (sourceId?: string) => `/temp/${sourceId || ""}`.replace(/\/$/, ""),
-			getBackupPath: (sourceId?: string) => `/backups/${sourceId || ""}`.replace(/\/$/, ""),
-			sources: [],
-			...overrides,
-		};
-	};
-
 	describe("setupHooksStage", () => {
 		it("should run setup hooks successfully", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const result = await setupHooksStage(context);
 
 			expect(result).toBeOk();
@@ -94,7 +42,7 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should return error if hooks fail", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const hookError = new Error("Hook failed");
 			vi.mocked(context.pluginDriver.runHookSequential).mockReturnValue(errAsync(hookError as any));
 
@@ -109,20 +57,20 @@ describe("Fetch Stages", () => {
 
 	describe("backupStage", () => {
 		it("should skip backup when backupAndRestore is false", async () => {
-			const context = createBasicContext({
-				config: createBasicConfig({ backupAndRestore: false }),
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: false }),
 			});
 
 			const result = await backupStage(context);
 
 			expect(result).toBeOk();
-			expect(mockLogger.info).not.toHaveBeenCalledWith(expect.stringContaining("Backing up"));
+			expect(context.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("Backing up"));
 		});
 
 		it("should skip backup for source with no downloads", async () => {
 			vol.mkdirSync("/downloads/test", { recursive: true });
-			const context = createBasicContext({
-				config: createBasicConfig({ backupAndRestore: true }),
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
 				sources: [
 					defineSource({
 						id: "nonexistent",
@@ -134,15 +82,17 @@ describe("Fetch Stages", () => {
 			const result = await backupStage(context);
 
 			expect(result).toBeOk();
-			expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("No downloads found"));
+			expect(context.logger.warn).toHaveBeenCalledWith(
+				expect.stringContaining("No downloads found"),
+			);
 		});
 
 		it("should backup existing downloads", async () => {
 			vol.mkdirSync("/downloads/test", { recursive: true });
 			vol.writeFileSync("/downloads/test/file.json", '{"data":"test"}');
 
-			const context = createBasicContext({
-				config: createBasicConfig({ backupAndRestore: true }),
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
 				sources: [
 					defineSource({
 						id: "test",
@@ -154,6 +104,7 @@ describe("Fetch Stages", () => {
 			const result = await backupStage(context);
 
 			expect(result).toBeOk();
+
 			expect(vol.existsSync("/backups/test/file.json")).toBe(true);
 			expect(vol.readFileSync("/backups/test/file.json", "utf8")).toBe('{"data":"test"}');
 		});
@@ -166,7 +117,7 @@ describe("Fetch Stages", () => {
 			vol.writeFileSync("/downloads/test1/old.json", "{}");
 			vol.writeFileSync("/downloads/test2/old.json", "{}");
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [
 					defineSource({ id: "test1", fetch: () => [] }),
 					defineSource({ id: "test2", fetch: () => [] }),
@@ -185,8 +136,8 @@ describe("Fetch Stages", () => {
 			vol.writeFileSync("/downloads/test/.keep", "");
 			vol.writeFileSync("/downloads/test/remove.json", "{}");
 
-			const context = createBasicContext({
-				config: createBasicConfig({ keep: [".keep"] }),
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ keep: [".keep"] }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -198,7 +149,7 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should handle missing download directories", async () => {
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "nonexistent", fetch: () => [] })],
 			});
 
@@ -210,14 +161,14 @@ describe("Fetch Stages", () => {
 
 	describe("fetchSourcesStage", () => {
 		it("should warn when no sources are configured", async () => {
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [],
 			});
 
 			const result = await fetchSourcesStage(context);
 
 			expect(result).toBeOk();
-			expect(mockLogger.warn).toHaveBeenCalledWith("No sources found to download");
+			expect(context.logger.warn).toHaveBeenCalledWith("No sources found to download");
 		});
 
 		it("should emit source:start and source:done events", async () => {
@@ -231,14 +182,14 @@ describe("Fetch Stages", () => {
 				),
 			} as any);
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				dataStore,
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
 			await fetchSourcesStage(context);
 
-			const events = mockEventBus.getEmittedEvents();
+			const events = context.eventBus.getEmittedEvents();
 			expect(events.some((e) => e.event === "content:source:start")).toBe(true);
 			expect(events.some((e) => e.event === "content:source:done")).toBe(true);
 		});
@@ -246,7 +197,7 @@ describe("Fetch Stages", () => {
 
 	describe("doneHooksStage", () => {
 		it("should run done hooks", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const result = await doneHooksStage(context);
 
 			expect(result).toBeOk();
@@ -254,7 +205,7 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should return error if hooks fail", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const hookError = new Error("Hook failed");
 			vi.mocked(context.pluginDriver.runHookSequential).mockReturnValue(errAsync(hookError as any));
 
@@ -266,7 +217,7 @@ describe("Fetch Stages", () => {
 
 	describe("finalizingStage", () => {
 		it("should close data store", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const result = await finalizingStage(context);
 
 			expect(result).toBeOk();
@@ -274,7 +225,7 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should emit fetch:done event", async () => {
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [
 					defineSource({ id: "source1", fetch: () => [] }),
 					defineSource({ id: "source2", fetch: () => [] }),
@@ -283,14 +234,14 @@ describe("Fetch Stages", () => {
 
 			await finalizingStage(context);
 
-			const doneEvent = mockEventBus.getEventsOfType("content:fetch:done")[0];
+			const doneEvent = context.eventBus.getEventsOfType("content:fetch:done")[0];
 			expect(doneEvent).toEqual({
 				sources: ["source1", "source2"],
 			});
 		});
 
 		it("should return error if data store close fails", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			vi.mocked(context.dataStore.close).mockRejectedValue(new Error("Close failed"));
 
 			const result = await finalizingStage(context);
@@ -301,7 +252,7 @@ describe("Fetch Stages", () => {
 
 	describe("errorRecoveryStage", () => {
 		it("should run error hooks", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const error = new ContentError("Test error");
 
 			await errorRecoveryStage(context, error);
@@ -313,12 +264,12 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should emit fetch:error event", async () => {
-			const context = createBasicContext();
+			const context = createMockFetchContext();
 			const error = new ContentError("Test error");
 
 			await errorRecoveryStage(context, error);
 
-			const errorEvent = mockEventBus.getEventsOfType("content:fetch:error")[0];
+			const errorEvent = context.eventBus.getEventsOfType("content:fetch:error")[0];
 			expect(errorEvent).toEqual({ error });
 		});
 
@@ -326,7 +277,7 @@ describe("Fetch Stages", () => {
 			vol.mkdirSync("/backups/test", { recursive: true });
 			vol.writeFileSync("/backups/test/file.json", '{"backup":"data"}');
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -338,20 +289,20 @@ describe("Fetch Stages", () => {
 		});
 
 		it("should warn when no backup exists", async () => {
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
 			const error = new ContentError("Test error");
 			await errorRecoveryStage(context, error);
 
-			expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("No backup found"));
+			expect(context.logger.warn).toHaveBeenCalledWith(expect.stringContaining("No backup found"));
 		});
 
 		it("should return ContentRecoveryError when restore fails", async () => {
 			const dataStore = createMockDataStore();
 			// Mock pathExists to return true for backup
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				dataStore,
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
@@ -371,7 +322,7 @@ describe("Fetch Stages", () => {
 			vol.mkdirSync("/temp/test", { recursive: true });
 			vol.mkdirSync("/backups/test", { recursive: true });
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -386,7 +337,7 @@ describe("Fetch Stages", () => {
 			vol.mkdirSync("/temp/test", { recursive: true });
 			vol.writeFileSync("/temp/test/file.tmp", "");
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -400,7 +351,7 @@ describe("Fetch Stages", () => {
 			vol.mkdirSync("/backups/test", { recursive: true });
 			vol.writeFileSync("/backups/test/file.json", "{}");
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -413,7 +364,7 @@ describe("Fetch Stages", () => {
 		it("should remove empty directories when removeIfEmpty is true", async () => {
 			vol.mkdirSync("/temp/test", { recursive: true });
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -429,8 +380,8 @@ describe("Fetch Stages", () => {
 			vol.writeFileSync("/temp/test/.keep", "");
 			vol.writeFileSync("/temp/test/file.tmp", "");
 
-			const context = createBasicContext({
-				config: createBasicConfig({ keep: [".keep"] }),
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ keep: [".keep"] }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
 
@@ -447,7 +398,7 @@ describe("Fetch Stages", () => {
 			vol.writeFileSync("/temp/test1/file.tmp", "");
 			vol.writeFileSync("/temp/test2/file.tmp", "");
 
-			const context = createBasicContext({
+			const context = createMockFetchContext({
 				sources: [
 					defineSource({ id: "test1", fetch: () => [] }),
 					defineSource({ id: "test2", fetch: () => [] }),

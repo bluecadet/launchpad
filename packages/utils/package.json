@@ -35,6 +35,10 @@
     "./on-exit": {
       "types": "./dist/on-exit.d.ts",
       "default": "./dist/on-exit.js"
+    },
+    "./command-guard": {
+      "types": "./dist/command-guard.d.ts",
+      "default": "./dist/command-guard.js"
     }
   },
   "files": [

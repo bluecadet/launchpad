@@ -2,7 +2,7 @@ import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { vi } from "vitest";
 
-type MockLogger = {
+export type MockLogger = {
 	children: Map<string, MockLogger>;
 	// biome-ignore lint/suspicious/noExplicitAny: not actually relevant, just a mock
 	child: (options: any) => MockLogger;
@@ -86,5 +86,6 @@ export function createMockSubsystemCtx(cwd = "/") {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		cwd,
+		abortSignal: new AbortController().signal,
 	} satisfies SubsystemContext;
 }

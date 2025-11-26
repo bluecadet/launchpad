@@ -10,6 +10,7 @@ import type { ResolvedContentConfig } from "../content-config.js";
 import type { ContentPluginDriver } from "../content-plugin.js";
 import type { ContentSource } from "../source.js";
 import type { DataStore } from "../utils/data-store.js";
+import type { PathsHelper } from "../utils/paths-helper.js";
 
 /**
  * Lightweight context for fetch pipeline stages.
@@ -40,10 +41,8 @@ export type FetchStageContext = {
 	pluginDriver: ContentPluginDriver;
 	dataStore: DataStore;
 
-	// Path resolution functions (bound from LaunchpadContent)
-	getDownloadPath: (sourceId?: string) => string;
-	getTempPath: (sourceId?: string, pluginName?: string) => string;
-	getBackupPath: (sourceId?: string) => string;
+	// Path resolution functions
+	paths: PathsHelper;
 
 	// Resolved sources to fetch (set by pipeline orchestrator)
 	sources: Array<ContentSource>;

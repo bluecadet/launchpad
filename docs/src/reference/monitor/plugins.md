@@ -82,16 +82,11 @@ type MonitorPlugin = {
 
 ```typescript
 type CombinedMonitorHookContext = {
-  monitor: LaunchpadMonitor;
   logger: Logger;
   abortSignal: AbortSignal;
   cwd: string;
 };
 ```
-
-### `monitor`
-
-Access to the monitor instance, providing access to process management and monitoring capabilities.
 
 ### `logger`
 

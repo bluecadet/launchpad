@@ -43,9 +43,9 @@ npm install @bluecadet/launchpad-monitor
 ## JS API Usage
 
 ```typescript
-import { LaunchpadMonitor } from '@bluecadet/launchpad-monitor';
+import { createLaunchpadMonitor } from '@bluecadet/launchpad-monitor';
 
-const monitor = new LaunchpadMonitor({
+const monitor = await createLaunchpadMonitor({
   apps: [
     {
       name: "my-app",
@@ -57,7 +57,7 @@ const monitor = new LaunchpadMonitor({
       }
     }
   ]
-});
+}).setup(subsystemContext);
 
 // Start monitoring
 await monitor.start();

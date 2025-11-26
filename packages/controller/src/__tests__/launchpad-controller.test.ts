@@ -64,7 +64,7 @@ describe("LaunchpadController", () => {
 				setup: () => okAsync(subsystemInner),
 			});
 
-			const result = await controller.registerSubsystem(subsystem);
+			const _result = await controller.registerSubsystem(subsystem);
 
 			expect(controller.hasSubsystem("test")).toBe(true);
 			expect(controller.getSubsystem("test")).toBe(subsystemInner);

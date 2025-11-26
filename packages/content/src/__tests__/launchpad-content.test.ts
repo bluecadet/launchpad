@@ -1,6 +1,5 @@
 import path from "node:path";
 import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { CommandInProgressError } from "@bluecadet/launchpad-utils/command-guard";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContentError, type ContentPlugin } from "../content-plugin.js";

@@ -16,7 +16,10 @@ const packages = [
 	{ name: "@bluecadet/launchpad-scaffold", alias: "scaffold" },
 ];
 
-const reExports: Record<string, { default: string; types: string }> = {};
+/**
+ * @type {Record<string, { default: string; types: string }>}
+ */
+const reExports = {};
 
 // for each export in the package.json of each package, generate a corresponding .js and .d.ts file
 for (const pkg of packages) {

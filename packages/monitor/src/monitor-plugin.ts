@@ -6,14 +6,9 @@ import {
 	type PluginDriver,
 } from "@bluecadet/launchpad-utils/plugin-driver";
 import type pm2 from "pm2";
-import type LaunchpadMonitor from "./launchpad-monitor.js";
+import type { BusManager } from "./core/bus-manager.js";
 
-type MonitorHookContext = {
-	/**
-	 * the monitor instance
-	 */
-	monitor: LaunchpadMonitor;
-};
+type MonitorHookContext = Record<string, never>;
 
 export type CombinedMonitorHookContext = BaseHookContext & MonitorHookContext;
 
@@ -89,23 +84,15 @@ export const monitorPluginSchema = createPluginValidator<MonitorHooks>([
 ]);
 
 export class MonitorPluginDriver extends HookContextProvider<MonitorHooks, MonitorHookContext> {
-	/**
-	 * @type {import('../launchpad-monitor.js').LaunchpadMonitor}
-	 */
-	#monitor;
-
-	constructor(wrappee: PluginDriver<MonitorHooks>, { monitor }: { monitor: LaunchpadMonitor }) {
+	constructor(wrappee: PluginDriver<MonitorHooks>, { busManager }: { busManager: BusManager }) {
 		super(wrappee);
-		this.#monitor = monitor;
 
 		// Add event handler to BusManager
-		this.#monitor._busManager.addEventHandler(this._handleBusEvent.bind(this));
+		busManager.addEventHandler(this._handleBusEvent.bind(this));
 	}
 
 	override _getPluginContext() {
-		return {
-			monitor: this.#monitor,
-		};
+		return {};
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: TODO: swap for unknown

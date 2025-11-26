@@ -55,6 +55,10 @@ export const onExit = (
 	callbacks.push({ callback, once, includeUncaught });
 };
 
+export function didTriggerExit(): boolean {
+	return didTrigger;
+}
+
 /** @internal */
 export function _reset(): void {
 	didTrigger = false;

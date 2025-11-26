@@ -3,7 +3,7 @@ import {
 	type MockEventBus,
 } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { describe, expect, it, vi } from "vitest";
-import LaunchpadMonitor from "../launchpad-monitor.js";
+import LaunchpadMonitor, { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
 // Mock process.exit to prevent tests from actually exiting
@@ -14,9 +14,9 @@ vi.mock("../utils/debounce-results.ts", () => ({
 	debounceResultAsync: (fn: unknown) => fn,
 }));
 
-function createTestMonitor(config: MonitorConfig = { apps: [] }, cwd?: string) {
+async function createTestMonitor(config: MonitorConfig = { apps: [] }, cwd?: string) {
 	const ctx = createMockSubsystemCtx(cwd);
-	const monitor = new LaunchpadMonitor(config, ctx);
+	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {
 		monitor,
@@ -28,9 +28,9 @@ function createTestMonitor(config: MonitorConfig = { apps: [] }, cwd?: string) {
 describe("Monitor Event Emissions", () => {
 	describe("Connection Lifecycle Events", () => {
 		it("should emit monitor:connect:start when connecting", async () => {
-			const { monitor, eventBus } = createTestMonitor();
+			const { monitor, eventBus } = await createTestMonitor();
 
-			await monitor.connect();
+			await monitor.executeCommand({ type: "monitor.connect" });
 
 			const startEvents = eventBus.getEventsOfType("monitor:connect:start");
 			expect(startEvents).toHaveLength(1);
@@ -38,21 +38,21 @@ describe("Monitor Event Emissions", () => {
 		});
 
 		it("should emit monitor:connect:done on successful connection", async () => {
-			const { monitor, eventBus } = createTestMonitor({
+			const { monitor, eventBus } = await createTestMonitor({
 				apps: [
 					{ pm2: { name: "app1", script: "test.js" } },
 					{ pm2: { name: "app2", script: "test.js" } },
 				],
 			});
 
-			await monitor.connect();
+			await monitor.executeCommand({ type: "monitor.connect" });
 
 			const doneEvents = eventBus.getEventsOfType("monitor:connect:done");
 			expect(doneEvents).toHaveLength(1);
 		});
 
 		it("should emit monitor:disconnect:start when disconnecting", async () => {
-			const { monitor, eventBus } = createTestMonitor();
+			const { monitor, eventBus } = await createTestMonitor();
 
 			await monitor.disconnect();
 
@@ -62,7 +62,7 @@ describe("Monitor Event Emissions", () => {
 		});
 
 		it("should emit monitor:disconnect:done on successful disconnection", async () => {
-			const { monitor, eventBus } = createTestMonitor();
+			const { monitor, eventBus } = await createTestMonitor();
 
 			await monitor.disconnect();
 
@@ -74,11 +74,11 @@ describe("Monitor Event Emissions", () => {
 
 	describe("Event Ordering", () => {
 		it("should emit events in the correct order during connect", async () => {
-			const { monitor, eventBus } = createTestMonitor({
+			const { monitor, eventBus } = await createTestMonitor({
 				apps: [{ pm2: { name: "test-app", script: "test.js" } }],
 			});
 
-			await monitor.connect();
+			await monitor.executeCommand({ type: "monitor.connect" });
 
 			const events = eventBus.getEmittedEvents();
 			const eventTypes = events.map((e) => e.event);

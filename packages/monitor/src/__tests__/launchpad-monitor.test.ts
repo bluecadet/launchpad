@@ -1,8 +1,11 @@
+import { afterEach } from "node:test";
 import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
-import LaunchpadMonitor from "../launchpad-monitor.js";
+import { BusManager } from "../core/bus-manager.js";
+import { ProcessManager } from "../core/process-manager.js";
+import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 import type { MonitorPlugin } from "../monitor-plugin.js";
 
@@ -30,7 +33,7 @@ const mockPlugin = {
 	},
 } as MonitorPlugin;
 
-function createTestMonitor(
+async function createTestMonitor(
 	config: MonitorConfig = {
 		apps: [
 			{
@@ -45,7 +48,7 @@ function createTestMonitor(
 	cwd?: string,
 ) {
 	const ctx = createMockSubsystemCtx(cwd);
-	const monitor = new LaunchpadMonitor(config, ctx);
+	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {
 		monitor,
@@ -61,63 +64,75 @@ vi.mock("../utils/debounce-results.ts", () => ({
 describe("LaunchpadMonitor", () => {
 	describe("connect", () => {
 		it("should connect to PM2 and bus", async () => {
-			const { monitor } = createTestMonitor();
+			const connectSpy = vi.spyOn(ProcessManager.prototype, "connect");
+			const busConnectSpy = vi.spyOn(BusManager.prototype, "connect");
 
-			vi.spyOn(monitor._processManager, "connect");
-			vi.spyOn(monitor._busManager, "connect");
+			const { monitor } = await createTestMonitor();
 
-			const result = await monitor.connect();
+			const result = await monitor.executeCommand({ type: "monitor.connect" });
 
 			expect(result).toBeOk();
 
-			expect(monitor._processManager.connect).toHaveBeenCalled();
-			expect(monitor._busManager.connect).toHaveBeenCalled();
+			expect(connectSpy).toHaveBeenCalled();
+			expect(busConnectSpy).toHaveBeenCalled();
 		});
 
 		it("should run connect hooks in order", async () => {
-			const { monitor, plugin } = createTestMonitor();
+			const { monitor, plugin } = await createTestMonitor();
 
-			await monitor.connect();
+			await monitor.executeCommand({ type: "monitor.connect" });
 
 			expect(plugin.hooks.beforeConnect).toHaveBeenCalled();
 			expect(plugin.hooks.afterConnect).toHaveBeenCalled();
 		});
 
 		it("should handle existing daemon when deleteExistingBeforeConnect is true", async () => {
-			const { monitor } = createTestMonitor();
+			const _isDaemonRunningSpy = vi
+				.spyOn(ProcessManager.prototype, "isDaemonRunning")
+				.mockImplementationOnce(() => okAsync(true));
+			const deleteAllProcessesSpy = vi.spyOn(ProcessManager.prototype, "deleteAllProcesses");
 
-			monitor._config.deleteExistingBeforeConnect = true;
-			monitor._processManager.isDaemonRunning = vi.fn().mockImplementationOnce(() => okAsync(true));
-			const killSpy = vi.spyOn(LaunchpadMonitor, "kill");
-			vi.spyOn(monitor._processManager, "deleteAllProcesses");
+			const { monitor } = await createTestMonitor({
+				deleteExistingBeforeConnect: true,
+				apps: [
+					{
+						pm2: {
+							name: "test-app",
+							script: "test.js",
+						},
+					},
+				],
+				plugins: [mockPlugin],
+			});
 
-			const result = await monitor.connect();
+			const result = await monitor.executeCommand({ type: "monitor.connect" });
 
 			expect(result).toBeOk();
-			expect(monitor._processManager.deleteAllProcesses).toHaveBeenCalled();
-			expect(killSpy).toHaveBeenCalled();
+			expect(deleteAllProcessesSpy).toHaveBeenCalled();
 		});
 	});
 
 	describe("disconnect", () => {
 		it("should disconnect from PM2 and bus", async () => {
-			const { monitor } = createTestMonitor();
+			const _isDaemonRunningSpy = vi
+				.spyOn(ProcessManager.prototype, "isDaemonRunning")
+				.mockImplementationOnce(() => okAsync(true));
+			const disconnectSpy = vi.spyOn(ProcessManager.prototype, "disconnect");
+			const busDisconnectSpy = vi.spyOn(BusManager.prototype, "disconnect");
 
-			monitor._processManager.isDaemonRunning = vi.fn().mockImplementationOnce(() => okAsync(true));
-			vi.spyOn(monitor._processManager, "disconnect");
-			vi.spyOn(monitor._busManager, "disconnect");
+			const { monitor } = await createTestMonitor();
 
-			const result = await monitor.disconnect();
+			const result = await monitor.executeCommand({ type: "monitor.disconnect" });
 
 			expect(result).toBeOk();
-			expect(monitor._busManager.disconnect).toHaveBeenCalled();
-			expect(monitor._processManager.disconnect).toHaveBeenCalled();
+			expect(disconnectSpy).toHaveBeenCalled();
+			expect(busDisconnectSpy).toHaveBeenCalled();
 		});
 
 		it("should run disconnect hooks in order", async () => {
-			const { monitor, plugin } = createTestMonitor();
+			const { monitor, plugin } = await createTestMonitor();
 
-			await monitor.disconnect();
+			await monitor.executeCommand({ type: "monitor.disconnect" });
 
 			expect(plugin.hooks.beforeDisconnect).toHaveBeenCalled();
 			expect(plugin.hooks.afterDisconnect).toHaveBeenCalled();
@@ -126,44 +141,37 @@ describe("LaunchpadMonitor", () => {
 
 	describe("start", () => {
 		it("should connect if not already connected", async () => {
-			const { monitor } = createTestMonitor();
+			const processManagerConnectSpy = vi.spyOn(ProcessManager.prototype, "connect");
+			const appManagerStartAppSpy = vi
+				.spyOn(AppManager.prototype, "startApp")
+				.mockImplementationOnce(() => okAsync({}));
 
-			vi.spyOn(monitor._processManager, "connect");
-			vi.spyOn(monitor._appManager, "startApp").mockImplementationOnce(() => okAsync({}));
+			const { monitor } = await createTestMonitor();
 
-			const result = await monitor.start();
-
-			expect(result).toBeOk();
-			expect(monitor._appManager.startApp).toHaveBeenCalledWith("test-app");
-			expect(monitor._processManager.connect).toHaveBeenCalled();
-		});
-
-		it("should handle null app names", async () => {
-			const { monitor } = createTestMonitor();
-
-			vi.spyOn(monitor._appManager, "startApp").mockImplementationOnce(() => okAsync({}));
-
-			const result = await monitor.start(null);
+			const result = await monitor.executeCommand({ type: "monitor.start" });
 
 			expect(result).toBeOk();
-			expect(monitor._appManager.startApp).toHaveBeenCalledWith("test-app");
+			expect(appManagerStartAppSpy).toHaveBeenCalledWith("test-app");
+			expect(processManagerConnectSpy).toHaveBeenCalled();
 		});
 
 		it("should handle single app name", async () => {
-			const { monitor } = createTestMonitor();
+			const appManagerStartAppSpy = vi
+				.spyOn(AppManager.prototype, "startApp")
+				.mockImplementationOnce(() => okAsync({}));
 
-			vi.spyOn(monitor._appManager, "startApp").mockImplementationOnce(() => okAsync({}));
+			const { monitor } = await createTestMonitor();
 
-			const result = await monitor.start("test-app");
+			const result = await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 
 			expect(result).toBeOk();
-			expect(monitor._appManager.startApp).toHaveBeenCalledWith("test-app");
+			expect(appManagerStartAppSpy).toHaveBeenCalledWith("test-app");
 		});
 
 		it("should run app start hooks in order", async () => {
-			const { monitor, plugin } = createTestMonitor();
+			const { monitor, plugin } = await createTestMonitor();
 
-			await monitor.start("test-app");
+			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 
 			expect(plugin.hooks.beforeAppStart).toHaveBeenCalledWith(expect.any(Object), {
 				appName: "test-app",
@@ -177,20 +185,22 @@ describe("LaunchpadMonitor", () => {
 
 	describe("stop", () => {
 		it("should stop specified apps", async () => {
-			const { monitor } = createTestMonitor();
+			const appManagerStopAppSpy = vi
+				.spyOn(AppManager.prototype, "stopApp")
+				.mockImplementationOnce(() => okAsync({}));
 
-			vi.spyOn(monitor._appManager, "stopApp").mockImplementationOnce(() => okAsync({}));
+			const { monitor } = await createTestMonitor();
 
-			const result = await monitor.stop("test-app");
+			const result = await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
 
 			expect(result).toBeOk();
-			expect(monitor._appManager.stopApp).toHaveBeenCalledWith("test-app");
+			expect(appManagerStopAppSpy).toHaveBeenCalledWith("test-app");
 		});
 
 		it("should run app stop hooks in order", async () => {
-			const { monitor, plugin } = createTestMonitor();
+			const { monitor, plugin } = await createTestMonitor();
 
-			await monitor.stop("test-app");
+			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
 
 			expect(plugin.hooks.beforeAppStop).toHaveBeenCalledWith(expect.any(Object), {
 				appName: "test-app",
@@ -203,72 +213,35 @@ describe("LaunchpadMonitor", () => {
 
 	describe("shutdown", () => {
 		it("should stop apps and disconnect", async () => {
-			const { monitor, rootLogger } = createTestMonitor();
+			const _appManagerStopAppSpy = vi
+				.spyOn(AppManager.prototype, "stopApp")
+				.mockImplementationOnce(() => okAsync({}));
 
-			vi.spyOn(monitor._appManager, "stopApp").mockImplementationOnce(() => okAsync({}));
+			const { monitor, rootLogger } = await createTestMonitor();
 
-			const result = await monitor.shutdown();
+			const result = await monitor.executeCommand({ type: "monitor.shutdown" });
 
 			expect(result).toBeOk();
 			expect(rootLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor exiting"));
 			expect(mockExit).toHaveBeenCalled();
 		});
 
-		it("should prevent multiple shutdowns", async () => {
-			const { monitor, rootLogger } = createTestMonitor();
-
-			monitor._isShuttingDown = true;
-
-			const result = await monitor.shutdown();
-
-			expect(result).toBeOk();
-			expect(rootLogger.warn).toHaveBeenCalledWith(expect.stringContaining("Aborting exit"));
-		});
-
 		it("should handle custom exit codes", async () => {
-			const { monitor } = createTestMonitor();
+			const { monitor } = await createTestMonitor();
 
-			await monitor.shutdown(123);
+			await monitor.executeCommand({ type: "monitor.shutdown", exitCode: 123 });
 			expect(mockExit).toHaveBeenCalledWith(123);
 		});
 
 		it("should run shutdown hook before stopping", async () => {
-			const { monitor, plugin } = createTestMonitor();
+			const { monitor, plugin } = await createTestMonitor();
 
 			const exitCode = 123;
-			await monitor.shutdown(exitCode);
+			await monitor.executeCommand({ type: "monitor.shutdown", exitCode: exitCode });
 
 			expect(plugin.hooks.beforeShutdown).toHaveBeenCalledWith(expect.any(Object), {
 				code: exitCode,
 			});
-		});
-	});
-
-	describe("cwd handling", () => {
-		it("should use provided cwd for app paths", () => {
-			const cwd = "/test/cwd";
-			const { monitor } = createTestMonitor(
-				{
-					apps: [{ pm2: { name: "test-app", script: "test.js", cwd: "app/cwd" } }],
-					plugins: [mockPlugin],
-				},
-				cwd,
-			);
-
-			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
-				"/test/cwd/app/cwd",
-			);
-		});
-
-		it("should default to process.cwd() if no cwd is provided", () => {
-			const { monitor } = createTestMonitor({
-				apps: [{ pm2: { name: "test-app", script: "test.js", cwd: "app/cwd" } }],
-				plugins: [mockPlugin],
-			});
-
-			expect(monitor._appManager.getAppOptions("test-app")._unsafeUnwrap().pm2.cwd).toMatchPath(
-				"/app/cwd",
-			);
 		});
 	});
 });

@@ -3,13 +3,6 @@ import "@bluecadet/launchpad-utils/types";
 
 /**
  * Monitor subsystem events.
- *
- * This file uses TypeScript declaration merging to add monitor-specific
- * events to the LaunchpadEvents interface from the controller package.
- *
- * When @bluecadet/launchpad-controller is installed, these events become
- * fully type-safe. When it's not installed, the events can still be emitted
- * but without type checking.
  */
 
 declare module "@bluecadet/launchpad-utils/types" {

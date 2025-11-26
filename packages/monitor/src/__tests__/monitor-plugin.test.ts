@@ -2,14 +2,15 @@ import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testi
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type LaunchpadMonitor from "../launchpad-monitor.js";
 import { type MonitorPlugin, MonitorPluginDriver } from "../monitor-plugin.js";
 
 describe("MonitorPluginDriver", () => {
 	let monitorPluginDriver: MonitorPluginDriver;
 	let mockLogger: Logger;
 	let mockPlugin: MonitorPlugin;
-	let mockMonitor: LaunchpadMonitor;
+	let busManager: {
+		addEventHandler: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(() => {
 		mockLogger = createMockLogger();
@@ -31,12 +32,8 @@ describe("MonitorPluginDriver", () => {
 			},
 		};
 
-		mockMonitor = {
-			_logger: mockLogger,
-			// @ts-expect-error - incomplete mock
-			_busManager: {
-				addEventHandler: vi.fn(),
-			},
+		busManager = {
+			addEventHandler: vi.fn(),
 		};
 
 		const eventBus = createMockEventBus();
@@ -44,21 +41,14 @@ describe("MonitorPluginDriver", () => {
 		const basePluginDriver = new PluginDriver({ logger: mockLogger, eventBus: eventBus }, [
 			mockPlugin,
 		]);
-		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, { monitor: mockMonitor });
+		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, {
+			busManager: busManager as any,
+		});
 	});
 
 	describe("constructor", () => {
 		it("should register bus event handler", () => {
-			expect(mockMonitor._busManager.addEventHandler).toHaveBeenCalledWith(expect.any(Function));
-		});
-	});
-
-	describe("_getPluginContext", () => {
-		it("should return context with monitor instance", () => {
-			const context = monitorPluginDriver._getPluginContext();
-			expect(context).toEqual({
-				monitor: mockMonitor,
-			});
+			expect(busManager.addEventHandler).toHaveBeenCalledWith(expect.any(Function));
 		});
 	});
 

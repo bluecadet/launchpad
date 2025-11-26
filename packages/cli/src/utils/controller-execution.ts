@@ -8,7 +8,6 @@ import { LaunchpadController } from "@bluecadet/launchpad-controller";
 import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/config";
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
-import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";

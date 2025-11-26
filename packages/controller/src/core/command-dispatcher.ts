@@ -1,5 +1,8 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { BaseCommand, Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type {
+	BaseCommand,
+	InstantiatedSubsystem,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 
@@ -40,7 +43,7 @@ declare module "@bluecadet/launchpad-utils/types" {
 export class CommandDispatcher {
 	constructor(
 		private _eventBus: EventBus,
-		private _subsystems: Map<string, Subsystem>,
+		private _subsystems: Map<string, InstantiatedSubsystem>,
 	) {}
 
 	/**

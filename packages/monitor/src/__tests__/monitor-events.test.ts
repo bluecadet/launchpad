@@ -3,7 +3,7 @@ import {
 	type MockEventBus,
 } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { describe, expect, it, vi } from "vitest";
-import LaunchpadMonitor, { createLaunchpadMonitor } from "../launchpad-monitor.js";
+import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
 // Mock process.exit to prevent tests from actually exiting

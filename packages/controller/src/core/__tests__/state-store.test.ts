@@ -1,5 +1,5 @@
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
-import type { Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { Patch } from "immer";
 import { describe, expect, it, vi } from "vitest";
 import { StateStore } from "../state-store.js";
@@ -7,7 +7,7 @@ import { StateStore } from "../state-store.js";
 describe("StateStore", () => {
 	describe("constructor", () => {
 		it("should initialize with default system state", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const systemState = store.getSystemState();
@@ -19,7 +19,7 @@ describe("StateStore", () => {
 
 	describe("getState", () => {
 		it("should return aggregated state with system and subsystems", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const state = store.getState();
@@ -35,15 +35,15 @@ describe("StateStore", () => {
 			const mockContentState = { isFetching: true, totalSources: 3 };
 			const mockMonitorState = { isConnected: true, totalApps: 5 };
 
-			const contentSubsystem: Subsystem = {
+			const contentSubsystem: InstantiatedSubsystem = {
 				getState: () => mockContentState,
 			};
 
-			const monitorSubsystem: Subsystem = {
+			const monitorSubsystem: InstantiatedSubsystem = {
 				getState: () => mockMonitorState,
 			};
 
-			const subsystems = new Map<string, Subsystem>([
+			const subsystems = new Map<string, InstantiatedSubsystem>([
 				["content", contentSubsystem],
 				["monitor", monitorSubsystem],
 			]);
@@ -56,15 +56,15 @@ describe("StateStore", () => {
 		});
 
 		it("should skip subsystems without getState method", () => {
-			const subsystemWithState: Subsystem = {
+			const subsystemWithState: InstantiatedSubsystem = {
 				getState: () => ({ value: "has-state" }),
 			};
 
-			const subsystemWithoutState: Subsystem = {
+			const subsystemWithoutState: InstantiatedSubsystem = {
 				// No getState method
 			};
 
-			const subsystems = new Map<string, Subsystem>([
+			const subsystems = new Map<string, InstantiatedSubsystem>([
 				["with-state", subsystemWithState],
 				["without-state", subsystemWithoutState],
 			]);
@@ -77,7 +77,7 @@ describe("StateStore", () => {
 		});
 
 		it("should return empty subsystems object when no subsystems registered", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const state = store.getState();
@@ -89,11 +89,11 @@ describe("StateStore", () => {
 	describe("getSubsystemState", () => {
 		it("should return state for specific subsystem", () => {
 			const mockState = { value: "test-state" };
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => mockState,
 			};
 
-			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["test", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const state = store.getSubsystemState("test");
@@ -102,7 +102,7 @@ describe("StateStore", () => {
 		});
 
 		it("should return undefined for non-existent subsystem", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const state = store.getSubsystemState("non-existent");
@@ -111,11 +111,11 @@ describe("StateStore", () => {
 		});
 
 		it("should return undefined for subsystem without getState", () => {
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				// No getState method
 			};
 
-			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["test", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const state = store.getSubsystemState("test");
@@ -127,11 +127,11 @@ describe("StateStore", () => {
 			type TestState = { count: number; name: string };
 
 			const mockState: TestState = { count: 42, name: "test" };
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => mockState,
 			};
 
-			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["test", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const state = store.getSubsystemState<TestState>("test");
@@ -144,7 +144,7 @@ describe("StateStore", () => {
 
 	describe("getSystemState", () => {
 		it("should return system-level state", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const systemState = store.getSystemState();
@@ -157,7 +157,7 @@ describe("StateStore", () => {
 
 	describe("setSystemState", () => {
 		it("should update system state property", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			(store as any).setSystemState("mode", "persistent");
@@ -167,7 +167,7 @@ describe("StateStore", () => {
 		});
 
 		it("should update startTime", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			const newDate = new Date("2024-01-01");
@@ -178,7 +178,7 @@ describe("StateStore", () => {
 		});
 
 		it("should update version", () => {
-			const subsystems = new Map<string, Subsystem>();
+			const subsystems = new Map<string, InstantiatedSubsystem>();
 			const store = new StateStore(subsystems);
 
 			(store as any).setSystemState("version", "1.0.0");
@@ -191,14 +191,14 @@ describe("StateStore", () => {
 	describe("pull-based state aggregation", () => {
 		it("should query subsystems on demand, not via subscriptions", () => {
 			let callCount = 0;
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => {
 					callCount++;
 					return { callCount };
 				},
 			};
 
-			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["test", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			// State should not be queried until getState is called
@@ -213,11 +213,11 @@ describe("StateStore", () => {
 
 		it("should always return current state from subsystems", () => {
 			let counter = 0;
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => ({ value: counter++ }),
 			};
 
-			const subsystems = new Map<string, Subsystem>([["test", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["test", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const state1 = store.getState();
@@ -234,7 +234,7 @@ describe("StateStore", () => {
 		it("should relay subsystem patches with path alteration", () => {
 			let patchHandler: PatchHandler | undefined;
 
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => {
 					return { data: { count: 0 } };
 				},
@@ -244,7 +244,7 @@ describe("StateStore", () => {
 				},
 			};
 
-			const subsystems = new Map<string, Subsystem>([["testSubsystem", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["testSubsystem", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const onPatchSpy = vi.fn<PatchHandler>();
@@ -293,7 +293,7 @@ describe("StateStore", () => {
 		it("should increment version number on patches", () => {
 			let patchHandler: PatchHandler | undefined;
 
-			const subsystem: Subsystem = {
+			const subsystem: InstantiatedSubsystem = {
 				getState: () => {
 					return { data: { count: 0 } };
 				},
@@ -303,7 +303,7 @@ describe("StateStore", () => {
 				},
 			};
 
-			const subsystems = new Map<string, Subsystem>([["testSubsystem", subsystem]]);
+			const subsystems = new Map<string, InstantiatedSubsystem>([["testSubsystem", subsystem]]);
 			const store = new StateStore(subsystems);
 
 			const onPatchSpy = vi.fn<PatchHandler>();

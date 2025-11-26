@@ -1,4 +1,4 @@
-import type { Subsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { SubsystemsState } from "@bluecadet/launchpad-utils/types";
 import type { Patch } from "immer";
 
@@ -49,11 +49,14 @@ export type PatchHandlerWithVersion = (patches: Patch[], version: number) => voi
  */
 export class StateStore {
 	private _systemState: SystemState;
-	private _subsystems: Map<string, Subsystem>;
+	private _subsystems: Map<string, InstantiatedSubsystem>;
 	private _stateVersion = 0;
 	private _patchHandlers: PatchHandlerWithVersion[] = [];
 
-	constructor(subsystems: Map<string, Subsystem>, mode: "task" | "persistent" = "task") {
+	constructor(
+		subsystems: Map<string, InstantiatedSubsystem>,
+		mode: "task" | "persistent" = "task",
+	) {
 		this._subsystems = subsystems;
 		this._systemState = {
 			startTime: new Date(),
@@ -68,7 +71,7 @@ export class StateStore {
 		}
 	}
 
-	registerSubsystem(name: string, instance: Subsystem): void {
+	registerSubsystem(name: string, instance: InstantiatedSubsystem): void {
 		this._subsystems.set(name, instance);
 
 		if (instance.onStatePatch) {

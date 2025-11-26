@@ -2,6 +2,7 @@ import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler } from "./state-patcher.js";
+
 /**
  * Optional interface for subsystems that can be gracefully disconnected.
  * The controller will call disconnect() during shutdown if implemented.
@@ -64,6 +65,7 @@ export interface StateProvider<TState = unknown> {
 export interface SubsystemContext {
 	readonly eventBus: EventBus;
 	readonly logger: Logger;
+	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
 }
 
@@ -73,6 +75,47 @@ export interface SubsystemContext {
  * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
  * @template TState - The state type this subsystem provides
  */
-export type Subsystem<TCommand extends BaseCommand = BaseCommand, TState = unknown> = Partial<
-	Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>
->;
+export type InstantiatedSubsystem<
+	TCommand extends BaseCommand = BaseCommand,
+	TState = unknown,
+> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>>;
+
+/**
+ * Interface for subsystems that require async setup/initialization.
+ * Factories implement this interface to provide a formalized setup flow.
+ *
+ * @template TCommand - The command type this subsystem accepts
+ * @template TState - The state type this subsystem provides
+ * @template E - The error type returned on setup failure
+ * @template TSubsystem - The actual subsystem type returned
+ */
+export interface SubsystemConfig<
+	TCommand extends BaseCommand = BaseCommand,
+	TState = unknown,
+	E = Error,
+	TSubsystem extends InstantiatedSubsystem<TCommand, TState> = InstantiatedSubsystem<
+		TCommand,
+		TState
+	>,
+> {
+	/**
+	 * Initialize a subsystem instance with the provided context.
+	 * This is called once during subsystem registration.
+	 *
+	 * @param ctx Subsystem context (logger, eventBus, cwd)
+	 * @returns Configured subsystem instance that conforms to standard interfaces
+	 */
+	setup(ctx: SubsystemContext): ResultAsync<TSubsystem, E>;
+}
+
+// Helper that validates conformance while preserving concrete type
+export function defineSubsystem<
+	TCommand extends BaseCommand,
+	TState,
+	E,
+	TSubsystem extends InstantiatedSubsystem<TCommand, TState>,
+>(
+	factory: SubsystemConfig<TCommand, TState, E, TSubsystem>,
+): SubsystemConfig<TCommand, TState, E, TSubsystem> {
+	return factory;
+}

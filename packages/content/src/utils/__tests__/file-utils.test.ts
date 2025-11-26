@@ -97,19 +97,6 @@ describe("FileUtils", () => {
 		});
 	});
 
-	describe("getDateString", () => {
-		it("should return a formatted date string", () => {
-			const testDate = new Date(2023, 3, 15, 10, 30, 45);
-			const result = FileUtils.getDateString(testDate);
-			expect(result).toBe("2023-04-16_10-30-45");
-		});
-
-		it("should use current date if no date is provided", () => {
-			const result = FileUtils.getDateString();
-			expect(result).toMatch(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/);
-		});
-	});
-
 	describe("pad", () => {
 		it("should pad numbers with leading zeros", () => {
 			expect(FileUtils.pad(5, 2)).toBe("05");

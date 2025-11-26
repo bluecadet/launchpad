@@ -6,7 +6,7 @@ import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import LaunchpadContent from "../launchpad-content.js";
+import { createLaunchpadContent } from "../launchpad-content.js";
 import mdToHtml from "../plugins/md-to-html.js";
 import mediaDownloader from "../plugins/media-downloader.js";
 import jsonSource from "../sources/json-source.js";
@@ -30,23 +30,22 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const startEvents = eventBus.getEventsOfType<{ timestamp: string }>("content:fetch:start");
 			expect(startEvents).toHaveLength(1);
@@ -64,23 +63,22 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const doneEvents = eventBus.getEventsOfType<{
 				sources: string[];
@@ -101,24 +99,23 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeErr();
 			const errorEvents = eventBus.getEventsOfType<{ error: Error; source?: string }>(
@@ -140,24 +137,23 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test-source",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test-source",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			// Check start event
 			const startEvents = eventBus.getEventsOfType<{ sourceId: string; sourceType: string }>(
@@ -182,23 +178,22 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "failing-source",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "failing-source",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeErr();
 			// When a fetch fails, an error event is emitted (either fetch:error or source:error)
@@ -223,31 +218,30 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "source1",
-							files: { "data.json": "https://api.example.com/source1.json" },
-						}),
-						jsonSource({
-							id: "source2",
-							files: { "data.json": "https://api.example.com/source2.json" },
-						}),
-						jsonSource({
-							id: "source3",
-							files: { "data.json": "https://api.example.com/source3.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "source1",
+						files: { "data.json": "https://api.example.com/source1.json" },
+					}),
+					jsonSource({
+						id: "source2",
+						files: { "data.json": "https://api.example.com/source2.json" },
+					}),
+					jsonSource({
+						id: "source3",
+						files: { "data.json": "https://api.example.com/source3.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const startEvents = eventBus.getEventsOfType<{ sourceId: string }>("content:source:start");
 			expect(startEvents).toHaveLength(3);
@@ -271,23 +265,22 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const writeEvents = eventBus.getEventsOfType<{
 				sourceId: string;
@@ -313,24 +306,23 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-					plugins: [mdToHtml({ path: "$.content" })],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+				plugins: [mdToHtml({ path: "$.content" })],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			// Check plugin:start events
 			const startEvents = eventBus.getEventsOfType<{ pluginName: string }>("content:plugin:start");
@@ -365,30 +357,29 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-					plugins: [
-						mediaDownloader({
-							mediaPattern: /\.jpg$/,
-							maxConcurrent: 1,
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+				plugins: [
+					mediaDownloader({
+						mediaPattern: /\.jpg$/,
+						maxConcurrent: 1,
+					}),
+				],
+			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			// Check that plugin events were emitted
 			const pluginEvents = eventBus
@@ -414,30 +405,29 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockSubsystemCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-					plugins: [
-						mdToHtml({ path: "$.content" }),
-						mediaDownloader({
-							mediaPattern: /\.jpg$/,
-							maxConcurrent: 1,
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+				plugins: [
+					mdToHtml({ path: "$.content" }),
+					mediaDownloader({
+						mediaPattern: /\.jpg$/,
+						maxConcurrent: 1,
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const startEvents = eventBus.getEventsOfType<{ pluginName: string }>("content:plugin:start");
 			const pluginNames = [...new Set(startEvents.map((e) => e.pluginName))];
@@ -455,23 +445,22 @@ describe("Content Event Emissions", () => {
 			);
 
 			const ctx = createMockSubsystemCtx();
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				ctx,
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.download();
+			await content.executeCommand({
+				type: "content.fetch",
+			});
 
 			const events = (ctx.eventBus as MockEventBus).getEmittedEvents();
 			const eventTypes = events.map((e) => e.event);
@@ -504,24 +493,21 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const contentResult = await LaunchpadContent.init(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: { "data.json": "https://api.example.com/data.json" },
-						}),
-					],
-				},
-				createMockSubsystemCtx(),
-			);
+			const contentResult = await createLaunchpadContent({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: { "data.json": "https://api.example.com/data.json" },
+					}),
+				],
+			}).setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
 			// Do not set eventBus - should still work
-			await expect(content.download()).resolves.toBeOk();
+			await expect(content.executeCommand({ type: "content.fetch" })).resolves.toBeOk();
 		});
 	});
 });

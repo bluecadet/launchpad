@@ -6,9 +6,9 @@ import { ContentError, ContentPluginDriver, defineContentPlugin } from "../conte
 import { DataStore } from "../utils/data-store.js";
 
 describe("ContentPluginDriver", () => {
-	const createMockContext = () => {
+	const createMockContext = async () => {
 		const dataStore = new DataStore("/");
-		const options = contentConfigSchema.parse({
+		const options = await contentConfigSchema.parseAsync({
 			downloadPath: "/downloads/",
 			tempPath: "/temp/",
 			backupPath: "/backups/",
@@ -29,7 +29,7 @@ describe("ContentPluginDriver", () => {
 
 	describe("plugin context", () => {
 		it("should provide correct context to plugins", async () => {
-			const { dataStore, options, paths, eventBus } = createMockContext();
+			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
 			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
@@ -59,7 +59,7 @@ describe("ContentPluginDriver", () => {
 		});
 
 		it("should handle plugin-specific temp paths correctly", async () => {
-			const { dataStore, options, paths, eventBus } = createMockContext();
+			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
 			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
@@ -96,7 +96,7 @@ describe("ContentPluginDriver", () => {
 
 	describe("error handling", () => {
 		it("should handle setup errors with ContentError", async () => {
-			const { dataStore, options, paths, eventBus } = createMockContext();
+			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
 			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
@@ -124,7 +124,7 @@ describe("ContentPluginDriver", () => {
 		});
 
 		it("should handle fetch errors with ContentError", async () => {
-			const { dataStore, options, paths, eventBus } = createMockContext();
+			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
 			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {
@@ -154,7 +154,7 @@ describe("ContentPluginDriver", () => {
 
 	describe("plugin lifecycle", () => {
 		it("should call hooks in correct order", async () => {
-			const { dataStore, options, paths, eventBus } = createMockContext();
+			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
 			const driver = new PluginDriver({ logger: baseLogger, eventBus });
 			const contentDriver = new ContentPluginDriver(driver, {

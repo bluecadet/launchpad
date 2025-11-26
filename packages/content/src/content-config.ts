@@ -1,11 +1,9 @@
 import { z } from "zod";
-import { contentPluginSchema } from "./content-plugin.js";
+import { ContentError, contentPluginSchema } from "./content-plugin.js";
 import { type ContentSource, contentSourceSchema } from "./source.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
-
-export const DOWNLOAD_PATH_TOKEN = "%DOWNLOAD_PATH%";
-export const TIMESTAMP_TOKEN = "%TIMESTAMP%";
+import { ResultAsync } from "neverthrow";
 
 export type ConfigContentSource = ContentSource | Promise<ContentSource>;
 
@@ -16,6 +14,9 @@ export const contentConfigSchema = z.object({
 	/** A list of content source options. This defines which content is downloaded from where. */
 	sources: z
 		.array(z.union([contentSourceSchema, z.promise(contentSourceSchema)]))
+		.transform(async (sources) => {
+			return Promise.all(sources);
+		})
 		.describe(
 			"A list of content source options. This defines which content is downloaded from where.",
 		)
@@ -27,18 +28,15 @@ export const contentConfigSchema = z.object({
 		.string()
 		.describe("The path at which to store all downloaded files. Defaults to '.downloads/'.")
 		.default(".downloads/"),
-	/** Temp file directory path. Defaults to '.tmp/%TIMESTAMP/'. */
-	tempPath: z
-		.string()
-		.describe("Temp file directory path. Defaults to '.tmp/%TIMESTAMP/'.")
-		.default(".tmp/%TIMESTAMP%/"),
-	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/%TIMESTAMP/'. */
+	/** Temp file directory path. Defaults to '.tmp/'. */
+	tempPath: z.string().describe("Temp file directory path. Defaults to '.tmp/'.").default(".tmp/"),
+	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/'. */
 	backupPath: z
 		.string()
 		.describe(
-			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/%TIMESTAMP/'.",
+			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/'.",
 		)
-		.default(".backup/%TIMESTAMP%/"),
+		.default(".backup/"),
 	/** Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']` */
 	keep: z
 		.array(z.string())
@@ -73,6 +71,13 @@ export type ResolvedContentConfig = z.output<typeof contentConfigSchema>;
  */
 export function defineContentConfig(config: ContentConfig) {
 	return config;
+}
+
+export function parseContentConfig(config: ContentConfig) {
+	return ResultAsync.fromPromise(
+		contentConfigSchema.parseAsync(config),
+		(e) => new ContentError("Invalid content config", { cause: e }),
+	);
 }
 
 // Declaration merging to add content config to LaunchpadConfig

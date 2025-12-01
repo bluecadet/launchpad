@@ -8,11 +8,11 @@
     "@bluecadet/launchpad-cli": "2.2.1",
     "@bluecadet/launchpad-content": "2.3.0",
     "@bluecadet/launchpad-monitor": "2.1.0",
-    "@bluecadet/launchpad-scaffold": "2.0.2"
+    "@bluecadet/launchpad-scaffold": "2.0.2",
+    "vitepress": "^2.0.0-alpha.15"
   },
   "dependencies": {
     "lucide-vue-next": "^0.461.0",
-    "vitepress": "^1.6.3",
     "vue": "^3.5.12"
   },
   "scripts": {

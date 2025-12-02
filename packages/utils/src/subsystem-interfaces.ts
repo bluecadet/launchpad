@@ -68,6 +68,111 @@ export interface StateProvider<TState = unknown> {
 	onStatePatch(handler: PatchHandler): () => void;
 }
 
+/**
+ * Represents a panel within a dashboard interface.
+ * Panels are individual content blocks that can be arranged and ordered.
+ */
+export type DashboardPanel = {
+	/** The HTML or text content to display in the panel */
+	content: string;
+	/** Optional display order for panel arrangement. Lower numbers appear first */
+	order?: number;
+};
+
+/**
+ * Represents a complete dashboard page that can contain either multiple panels or raw content.
+ * Pages provide a way to organize dashboard content into separate views or sections.
+ */
+export type DashboardPage = {
+	/** Optional display order for page arrangement. Lower numbers appear first */
+	order?: number;
+} & (
+	| {
+			/** Page with multiple organized panels */
+			panels: DashboardPanel[];
+	  }
+	| {
+			/** Page with raw HTML/text content */
+			content: string;
+	  }
+);
+
+/**
+ * Function type for handling HTTP requests to dashboard API endpoints.
+ * Can return either a synchronous Response or a Promise that resolves to a Response.
+ */
+export type DashboardEndpointHandler = (request: Request) => PromiseLike<Response> | Response;
+
+/**
+ * Interface for building and configuring dashboard components.
+ * Provides methods to add panels and pages to a dashboard, as well as API route registration.
+ * This is typically passed to subsystems that implement DashboardProvider to allow them
+ * to contribute content and functionality to the dashboard.
+ */
+export type DashboardBuilder = {
+	/**
+	 * Adds a panel to the dashboard.
+	 * Panels are individual content blocks that will be rendered in the dashboard interface.
+	 * @param panel - The dashboard panel to add
+	 */
+	addPanel(panel: DashboardPanel): void;
+
+	/**
+	 * Adds a page to the dashboard.
+	 * Pages provide separate views or sections within the dashboard.
+	 * @param page - The dashboard page to add
+	 */
+	addPage(page: DashboardPage): void;
+
+	/**
+	 * API route registration methods for handling HTTP requests.
+	 * Allows subsystems to expose custom endpoints for dashboard interactions.
+	 */
+	api: {
+		/**
+		 * Registers a GET endpoint handler for retrieving data or resources.
+		 * @param route - The API route path (e.g., "/api/status")
+		 * @param handler - The endpoint handler function
+		 */
+		get: (route: string, handler: DashboardEndpointHandler) => void;
+
+		/**
+		 * Registers a POST endpoint handler for creating new resources.
+		 * @param route - The API route path (e.g., "/api/commands")
+		 * @param handler - The endpoint handler function
+		 */
+		post: (route: string, handler: DashboardEndpointHandler) => void;
+
+		/**
+		 * Registers a PUT endpoint handler for updating existing resources.
+		 * @param route - The API route path (e.g., "/api/config")
+		 * @param handler - The endpoint handler function
+		 */
+		put: (route: string, handler: DashboardEndpointHandler) => void;
+
+		/**
+		 * Registers a DELETE endpoint handler for removing resources.
+		 * @param route - The API route path (e.g., "/api/sessions/:id")
+		 * @param handler - The endpoint handler function
+		 */
+		delete: (route: string, handler: DashboardEndpointHandler) => void;
+	};
+};
+
+/**
+ * Optional interface for subsystems that want to contribute content to the dashboard.
+ * When implemented, the dashboard system will call buildDashboard() during initialization
+ * to allow the subsystem to register panels, pages, and API endpoints.
+ */
+export interface DashboardProvider {
+	/**
+	 * Called by the dashboard system to allow the subsystem to contribute dashboard content.
+	 * Subsystems should use the provided builder to add panels, pages, and API routes.
+	 * @param builder - Dashboard builder instance for registering content and endpoints
+	 */
+	buildDashboard(builder: DashboardBuilder): void;
+}
+
 export interface SubsystemContext {
 	readonly eventBus: EventBus;
 	readonly logger: Logger;
@@ -87,7 +192,7 @@ export interface SubsystemContext {
 export type InstantiatedSubsystem<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
-> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>>;
+> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardBuilder>;
 
 /**
  * Interface for subsystems that require async setup/initialization.

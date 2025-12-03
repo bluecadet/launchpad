@@ -171,6 +171,18 @@
     "./scaffold": {
       "default": "./dist/scaffold/index.js",
       "types": "./dist/scaffold/index.d.ts"
+    },
+    "./dashboard/launchpad-dashboard": {
+      "default": "./dist/dashboard/launchpad-dashboard.js",
+      "types": "./dist/dashboard/launchpad-dashboard.d.ts"
+    },
+    "./dashboard/dashboard-config": {
+      "default": "./dist/dashboard/dashboard-config.js",
+      "types": "./dist/dashboard/dashboard-config.d.ts"
+    },
+    "./dashboard": {
+      "default": "./dist/dashboard/index.js",
+      "types": "./dist/dashboard/index.d.ts"
     }
   },
   "maintainers": [

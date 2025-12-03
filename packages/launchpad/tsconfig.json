@@ -18,6 +18,9 @@
 			"path": "../controller/tsconfig.src.json"
 		},
 		{
+			"path": "../dashboard/tsconfig.src.json"
+		},
+		{
 			"path": "../monitor/tsconfig.src.json"
 		},
 		{

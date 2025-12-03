@@ -8,6 +8,9 @@
 			"path": "packages/controller"
 		},
 		{
+			"path": "packages/dashboard"
+		},
+		{
 			"path": "packages/monitor"
 		},
 		{

@@ -1,3 +1,3 @@
 // WIP
 
-export {};
+export { createLaunchpadDashboard } from "./launchpad-dashboard.js";

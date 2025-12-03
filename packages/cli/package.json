@@ -66,11 +66,15 @@
   },
   "peerDependencies": {
     "@bluecadet/launchpad-content": "~2.3.0",
+    "@bluecadet/launchpad-dashboard": "~2.0.0",
     "@bluecadet/launchpad-monitor": "~2.1.0",
     "@bluecadet/launchpad-scaffold": "~2.0.0"
   },
   "peerDependenciesMeta": {
     "@bluecadet/launchpad-content": {
+      "optional": true
+    },
+    "@bluecadet/launchpad-dashboard": {
       "optional": true
     },
     "@bluecadet/launchpad-monitor": {

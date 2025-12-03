@@ -1,8 +1,9 @@
 import { fork } from "node:child_process";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import chalk from "chalk";
-import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
+import { fromPromise, ok, okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
+import { ImportError } from "../errors.js";
 import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
@@ -129,6 +130,16 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 							}
 							return ok();
 						})
+						.andThrough(() => {
+							// Dynamically import and register monitor if configured
+							if (config.dashboard) {
+								const dashboardConfig = config.dashboard;
+								return importLaunchpadDashboard().andThen(({ createLaunchpadDashboard }) => {
+									return controller.registerSubsystem(createLaunchpadDashboard(dashboardConfig));
+								});
+							}
+							return ok();
+						})
 						.andThen(() => {
 							let resultChain: ResultAsync<unknown, Error> = okAsync(undefined);
 
@@ -147,4 +158,14 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 				},
 			}).orElse((error) => handleFatalError(error));
 		});
+}
+
+export function importLaunchpadDashboard() {
+	return ResultAsync.fromPromise(
+		import("@bluecadet/launchpad-dashboard"),
+		() =>
+			new ImportError(
+				'Could not find module "@bluecadet/launchpad-dashboard". Make sure you have installed it.',
+			),
+	);
 }

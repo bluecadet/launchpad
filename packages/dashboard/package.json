@@ -8,10 +8,19 @@
 		"dist/**/*.d.ts"
 	],
 	"exports": {
+		"./launchpad-dashboard": {
+			"types": "./dist/launchpad-dashboard.d.ts",
+			"default": "./dist/launchpad-dashboard.js"
+		},
+		"./dashboard-config": {
+			"types": "./dist/dashboard-config.d.ts",
+			"default": "./dist/dashboard-config.js"
+		},
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
-		}
+		},
+		"./package.json": "./package.json"
 	},
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
@@ -26,7 +35,15 @@
 		"url": "https://github.com/bluecadet/launchpad/issues"
 	},
 	"homepage": "https://github.com/bluecadet/launchpad/packages/dashboard",
+	"dependencies": {
+		"@bluecadet/launchpad-utils": "~2.1.0",
+		"neverthrow": "^8.1.1",
+		"path-to-regexp": "^8.3.0",
+		"zod": "^3.23.8"
+	},
 	"devDependencies": {
-		"@bluecadet/launchpad-tsconfig": "0.1.0"
+		"@bluecadet/launchpad-testing": "0.1.0",
+		"@bluecadet/launchpad-tsconfig": "0.1.0",
+		"vitest": "^3.0.7"
 	}
 }

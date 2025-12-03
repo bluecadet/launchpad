@@ -38,9 +38,10 @@ describe("MonitorPluginDriver", () => {
 
 		const eventBus = createMockEventBus();
 
-		const basePluginDriver = new PluginDriver({ logger: mockLogger, eventBus: eventBus }, [
-			mockPlugin,
-		]);
+		const basePluginDriver = new PluginDriver(
+			{ logger: mockLogger, abortSignal: new AbortController().signal, eventBus: eventBus },
+			[mockPlugin],
+		);
 		monitorPluginDriver = new MonitorPluginDriver(basePluginDriver, {
 			busManager: busManager as any,
 		});

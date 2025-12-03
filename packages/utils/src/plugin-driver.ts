@@ -1,15 +1,14 @@
 import chalk from "chalk";
-import { okAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
-import { onExit } from "./on-exit.js";
 
 export class PluginError extends Error {
 	pluginId?: string;
 	declare cause: unknown;
 
-	constructor(cause: unknown, { pluginId }: { pluginId: string }) {
+	constructor(cause: unknown, { pluginId }: { pluginId?: string } = {}) {
 		if (cause instanceof Error) {
 			super(cause.message);
 			this.cause = cause;
@@ -68,7 +67,7 @@ export class PluginDriver<T extends HookSet> {
 	readonly #baseHookContexts = new Map<Plugin<T>, BaseHookContext>();
 	readonly #baseLogger: Logger;
 	readonly #eventBus: EventBus;
-	readonly #abortController = new AbortController();
+	readonly #abortSignal: AbortSignal;
 	readonly #cwd: string;
 
 	get plugins(): ReadonlyArray<Plugin<T>> {
@@ -76,20 +75,22 @@ export class PluginDriver<T extends HookSet> {
 	}
 
 	constructor(
-		{ logger, eventBus, cwd }: { logger: Logger; eventBus: EventBus; cwd?: string },
+		{
+			logger,
+			eventBus,
+			cwd,
+			abortSignal,
+		}: { logger: Logger; eventBus: EventBus; cwd?: string; abortSignal: AbortSignal },
 		plugins?: Plugin<T>[],
 	) {
 		this.#baseLogger = logger;
 		this.#eventBus = eventBus;
+		this.#abortSignal = abortSignal;
 		this.#cwd = cwd || process.cwd();
 
 		if (plugins) {
 			this.add(plugins);
 		}
-
-		onExit(() => {
-			this.#abortController.abort();
-		});
 	}
 
 	add(plugins: Plugin<T> | Plugin<T>[]): void {
@@ -99,7 +100,7 @@ export class PluginDriver<T extends HookSet> {
 			this.#plugins.push(plugin);
 			this.#baseHookContexts.set(plugin, {
 				logger: this.#baseLogger.child(`plugin:${plugin.name}`),
-				abortSignal: this.#abortController.signal,
+				abortSignal: this.#abortSignal,
 				eventBus: this.#eventBus,
 				cwd: this.#cwd,
 			});
@@ -154,6 +155,10 @@ export class PluginDriver<T extends HookSet> {
 	): ResultAsync<void, PluginError> {
 		let result: ResultAsync<void, PluginError> = okAsync(undefined);
 
+		if (this.#abortSignal.aborted) {
+			return errAsync(new PluginError("Aborted"));
+		}
+
 		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
 
 		for (const hookCall of hookCalls) {
@@ -168,7 +173,12 @@ export class PluginDriver<T extends HookSet> {
 		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
 		additionalArgs: Tail<Parameters<T[K]>>,
 	): ResultAsync<void, PluginError[]> {
+		if (this.#abortSignal.aborted) {
+			return errAsync([new PluginError("Aborted")]);
+		}
+
 		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
+
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
 	}
 
@@ -176,6 +186,10 @@ export class PluginDriver<T extends HookSet> {
 		hookName: K,
 		...additionalArgs: Tail<Parameters<T[K]>>
 	): Promise<void> {
+		if (this.#abortSignal.aborted) {
+			throw new PluginError("Aborted");
+		}
+
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {

@@ -136,10 +136,6 @@
       "default": "./dist/controller/pid-utils.js",
       "types": "./dist/controller/pid-utils.d.ts"
     },
-    "./controller/transport": {
-      "default": "./dist/controller/transport.js",
-      "types": "./dist/controller/transport.d.ts"
-    },
     "./controller/transports/ipc": {
       "default": "./dist/controller/transports/ipc.js",
       "types": "./dist/controller/transports/ipc.d.ts"

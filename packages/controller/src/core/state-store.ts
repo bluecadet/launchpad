@@ -1,36 +1,7 @@
+import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-patcher";
 import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import type { SubsystemsState } from "@bluecadet/launchpad-utils/types";
+import type { SystemState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { Patch } from "immer";
-
-/**
- * System-level state (controller-owned)
- */
-export type SystemState = {
-	startTime: Date;
-	version: string;
-	mode: "task" | "persistent";
-	[key: string]: unknown;
-};
-
-/**
- * Complete Launchpad state structure.
- * This is an aggregation of controller state + subsystem states.
- */
-export type LaunchpadState = {
-	system: SystemState;
-	subsystems: Partial<SubsystemsState>;
-};
-
-/**
- * Versioned state snapshot returned to clients.
- * Includes the state version number for detecting dropped patches.
- */
-export type VersionedLaunchpadState = LaunchpadState & {
-	/** Version number - incremented with each patch */
-	_version: number;
-};
-
-export type PatchHandlerWithVersion = (patches: Patch[], version: number) => void;
 
 /**
  * StateStore aggregates state from all registered subsystems.

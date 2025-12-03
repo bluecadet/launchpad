@@ -2,8 +2,8 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
-import type { LaunchpadState } from "@bluecadet/launchpad-controller";
 import { onExit } from "@bluecadet/launchpad-utils/on-exit";
+import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";

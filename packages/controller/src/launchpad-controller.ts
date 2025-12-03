@@ -1,9 +1,9 @@
 import path from "node:path";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { onExit } from "@bluecadet/launchpad-utils/on-exit";
 import type {
 	BaseCommand,
+	DisconnectReason,
 	InstantiatedSubsystem,
 	SubsystemConfig,
 	SubsystemContext,
@@ -17,12 +17,9 @@ import {
 } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { createFileLogger } from "./core/file-logger.js";
-import { type LaunchpadState, StateStore } from "./core/state-store.js";
+import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
-import type { Transport } from "./transport.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
-
-export type { LaunchpadState };
 
 /**
  * LaunchpadController is the central orchestrator for Launchpad.
@@ -50,7 +47,6 @@ export class LaunchpadController {
 	private _subsystems = new Map<string, InstantiatedSubsystem>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
-	private _ipcTransport: Transport | null = null;
 	// Future: private _transports: Transport[] = [];
 
 	constructor(config: ControllerConfig, baseDir: string, mode: ControllerMode = "task") {
@@ -138,25 +134,11 @@ export class LaunchpadController {
 				return errAsync(writePidResult.error);
 			}
 
-			this._ipcTransport = createIPCTransport({
-				socketPath,
-			});
-
-			const transportContext = {
-				logger: this._logger,
-				abortSignal: this._abortController.signal,
-				eventBus: this._eventBus,
-				commandDispatcher: this._commandDispatcher,
-				stateStore: this._stateStore,
-			};
-
-			// Register cleanup handlers to remove PID file on exit and close transports
-			onExit(() => {
-				deletePidFile(pidFile);
-				this._ipcTransport?.stop(transportContext);
-			});
-
-			return this._ipcTransport.start(transportContext).map(() => {
+			return this.registerSubsystem(
+				createIPCTransport({
+					socketPath,
+				}),
+			).andTee(() => {
 				this._isStarted = true;
 				this._logger.verbose("Controller started with IPC transport");
 				return undefined;
@@ -174,6 +156,36 @@ export class LaunchpadController {
 		return okAsync(undefined);
 	}
 
+	private _shutdownInProgress = false;
+
+	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
+		this._isStarted = false;
+
+		if (this._shutdownInProgress) {
+			return errAsync(new Error("Shutdown already in progress"));
+		}
+		this._logger.verbose("Controller is shutting down");
+		this._shutdownInProgress = true;
+
+		this._abortController.abort();
+
+		const pidFile = path.resolve(this._baseDir, this._config.pidFile);
+		deletePidFile(pidFile);
+
+		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
+			if (subsystem.disconnect) {
+				this._logger.verbose(`Disconnecting subsystem '${name}'`);
+				return subsystem.disconnect(reason);
+			}
+			return okAsync(undefined);
+		});
+
+		return ResultAsync.combine(disconnectResults).map(() => {
+			this._logger.verbose("All subsystems disconnected");
+			return undefined;
+		});
+	}
+
 	/**
 	 * Stop the controller.
 	 * Stops IPC transport, disconnects subsystems, aborts pending operations,
@@ -183,47 +195,11 @@ export class LaunchpadController {
 		if (!this._isStarted) {
 			return okAsync(undefined);
 		}
-
 		this._logger.verbose("Stopping controller");
 
-		// Abort any pending operations (triggers transport cleanup via abortSignal)
-		this._abortController.abort();
+		const reason: DisconnectReason = { type: "manual" };
 
-		// Stop IPC transport if it was started
-		const transportStopPromise = this._ipcTransport
-			? this._ipcTransport.stop({
-					logger: this._logger,
-					abortSignal: this._abortController.signal,
-					eventBus: this._eventBus,
-					commandDispatcher: this._commandDispatcher,
-					stateStore: this._stateStore,
-				})
-			: okAsync(undefined);
-
-		// Future: Stop optional transports
-		// const transportsStopPromises = this._transports.map(t => t.stop(ctx));
-
-		// Disconnect subsystems (if they implement Disconnectable)
-		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
-			if (subsystem.disconnect) {
-				this._logger.verbose(`Disconnecting subsystem '${name}'`);
-				return subsystem.disconnect();
-			}
-			return okAsync(undefined);
-		});
-
-		return ResultAsync.combine([transportStopPromise, ...disconnectResults]).map(() => {
-			// Clean up PID file in persistent mode
-			if (this._mode === "persistent") {
-				const pidFile = path.resolve(this._baseDir, this._config.pidFile);
-				deletePidFile(pidFile);
-			}
-
-			this._isStarted = false;
-			this._ipcTransport = null;
-			this._logger.verbose("Controller stopped");
-			return undefined;
-		});
+		return this.cleanup(reason);
 	}
 
 	/**
@@ -282,6 +258,9 @@ export class LaunchpadController {
 			logger: this._logger.child(subsystemName),
 			cwd: this._baseDir,
 			abortSignal: this._abortController.signal,
+			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),
+			getState: () => this.getState(),
+			onStatePatch: (handler) => this._stateStore.onPatch(handler),
 		};
 	}
 }

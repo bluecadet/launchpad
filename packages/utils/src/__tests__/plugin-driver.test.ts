@@ -14,13 +14,20 @@ describe("PluginDriver", () => {
 			};
 
 			const mockLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [plugin]);
+			const driver = new PluginDriver(
+				{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+				[plugin],
+			);
 			expect(driver.plugins).toContain(plugin);
 		});
 
 		it("should add plugins after initialization", () => {
 			const mockLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any });
+			const driver = new PluginDriver({
+				logger: mockLogger,
+				eventBus: {} as any,
+				abortSignal: new AbortController().signal,
+			});
 			const plugin = {
 				name: "test-plugin",
 				hooks: {
@@ -57,10 +64,10 @@ describe("PluginDriver", () => {
 
 				const mockLogger = createMockLogger();
 
-				const driver = new PluginDriver<HookSet>({ logger: mockLogger, eventBus: {} as any }, [
-					plugin1,
-					plugin2,
-				]);
+				const driver = new PluginDriver<HookSet>(
+					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+					[plugin1, plugin2],
+				);
 				await driver.runHookSequential("testHook");
 
 				expect(order).toEqual([1, 2]);
@@ -87,10 +94,10 @@ describe("PluginDriver", () => {
 				};
 
 				const mockLogger = createMockLogger();
-				const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [
-					plugin1,
-					plugin2,
-				]);
+				const driver = new PluginDriver(
+					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+					[plugin1, plugin2],
+				);
 				const result = await driver._runHookSequentialWithCtx("testHook", () => ({}), []);
 
 				expect(result.isErr()).toBe(true);
@@ -123,10 +130,10 @@ describe("PluginDriver", () => {
 				};
 
 				const mockLogger = createMockLogger();
-				const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [
-					plugin1,
-					plugin2,
-				]);
+				const driver = new PluginDriver(
+					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+					[plugin1, plugin2],
+				);
 				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
 
 				expect(result.isOk()).toBe(true);
@@ -156,10 +163,10 @@ describe("PluginDriver", () => {
 				};
 
 				const mockLogger = createMockLogger();
-				const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [
-					plugin1,
-					plugin2,
-				]);
+				const driver = new PluginDriver(
+					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+					[plugin1, plugin2],
+				);
 				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
 
 				expect(result.isErr()).toBe(true);
@@ -191,10 +198,10 @@ describe("PluginDriver", () => {
 				};
 
 				const mockLogger = createMockLogger();
-				const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [
-					plugin1,
-					plugin2,
-				]);
+				const driver = new PluginDriver(
+					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+					[plugin1, plugin2],
+				);
 				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
 
 				expect(result.isErr()).toBe(true);
@@ -215,7 +222,10 @@ describe("PluginDriver", () => {
 			};
 
 			const mockLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [plugin]);
+			const driver = new PluginDriver(
+				{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+				[plugin],
+			);
 			await driver.runHookSequential("testHook");
 		});
 	});
@@ -239,7 +249,10 @@ describe("HookContextProvider", () => {
 		};
 
 		const mockLogger = createMockLogger();
-		const baseDriver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [plugin]);
+		const baseDriver = new PluginDriver(
+			{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+			[plugin],
+		);
 		const provider = new TestContextProvider(baseDriver);
 
 		const result = await provider.runHookSequential("testHook");
@@ -273,10 +286,10 @@ describe("HookContextProvider", () => {
 		};
 
 		const mockLogger = createMockLogger();
-		const baseDriver = new PluginDriver({ logger: mockLogger, eventBus: {} as any }, [
-			plugin1,
-			plugin2,
-		]);
+		const baseDriver = new PluginDriver(
+			{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
+			[plugin1, plugin2],
+		);
 		const provider = new TestContextProvider(baseDriver);
 
 		// Test sequential

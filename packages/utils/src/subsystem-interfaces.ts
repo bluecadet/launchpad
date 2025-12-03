@@ -1,7 +1,13 @@
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
-import type { PatchHandler } from "./state-patcher.js";
+import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
+import type { VersionedLaunchpadState } from "./types.js";
+
+export type DisconnectReason =
+	| { type: "manual" }
+	| { type: "error"; error: Error }
+	| { type: "signal"; signal: NodeJS.Signals };
 
 /**
  * Optional interface for subsystems that can be gracefully disconnected.
@@ -12,7 +18,7 @@ export interface Disconnectable {
 	 * Gracefully disconnect this subsystem.
 	 * Should clean up resources, close connections, stop processes, etc.
 	 */
-	disconnect(): ResultAsync<void, Error>;
+	disconnect(reason: DisconnectReason): ResultAsync<void, Error>;
 }
 
 /**
@@ -67,6 +73,9 @@ export interface SubsystemContext {
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
+	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
+	readonly getState: () => VersionedLaunchpadState;
+	readonly onStatePatch: (handler: PatchHandlerWithVersion) => () => void;
 }
 
 /**

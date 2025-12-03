@@ -1,9 +1,9 @@
 import net from "node:net";
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Transport, TransportContext } from "../../transport.js";
 import { IPCSerializer } from "../../utils/ipc-serializer.js";
 import { createIPCTransport, type IPCMessage, type IPCResponse } from "../ipc-transport.js";
 
@@ -11,9 +11,13 @@ type Cb = (...args: any[]) => void;
 
 // Mock net.createServer
 let mockServerListeners: { [key: string]: Cb[] } = {};
+let connectionCallback: Cb | null = null;
 let mockServer: any;
 let _mockClients: any[] = [];
-let mockServerCallback: ((socket: any) => void) | null = null;
+
+type MutableContext = {
+	-readonly [K in keyof SubsystemContext]: SubsystemContext[K];
+};
 
 const createMockNetServer = () => {
 	mockServerListeners = {};
@@ -32,6 +36,10 @@ const createMockNetServer = () => {
 				mockServerListeners[event] = [];
 			}
 			mockServerListeners[event].push(handler);
+
+			if (event === "connection") {
+				connectionCallback = handler;
+			}
 		}),
 	};
 
@@ -61,41 +69,31 @@ const createMockSocket = () => {
 	};
 };
 
-describe("ipc-transport", () => {
-	const socketPath = "/test/socket";
-	let transport: Transport;
-	let context: TransportContext;
-	let abortController: AbortController;
+function createTestIPCTransport() {
+	fs.mkdirSync("/test", { recursive: true });
 
+	const abortController = new AbortController();
+
+	const context: MutableContext = {
+		cwd: "/",
+		logger: createMockLogger(),
+		eventBus: createMockEventBus() as any,
+		abortSignal: abortController.signal,
+		dispatchCommand: vi.fn().mockReturnValue(okAsync({ result: "success" })),
+		getState: vi.fn().mockReturnValue({ system: { mode: "task" } }),
+		onStatePatch: vi.fn().mockReturnValue(() => {}),
+	};
+
+	const transport = createIPCTransport({ socketPath: "/test/socket" });
+
+	return { transport, context, abortController };
+}
+
+describe("ipc-transport", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockServerCallback = null;
 
-		(vi.spyOn(net, "createServer" as any) as any).mockImplementation(
-			(callback: ((socket: any) => void) | undefined) => {
-				mockServerCallback = (callback ?? null) as ((socket: any) => void) | null;
-				return createMockNetServer();
-			},
-		);
-
-		// Setup memfs
-		fs.mkdirSync("/test", { recursive: true });
-
-		abortController = new AbortController();
-		context = {
-			logger: createMockLogger(),
-			abortSignal: abortController.signal,
-			eventBus: createMockEventBus() as any,
-			commandDispatcher: {
-				dispatch: vi.fn().mockReturnValue(okAsync({ result: "success" })),
-			} as any,
-			stateStore: {
-				getState: vi.fn().mockReturnValue({ system: { mode: "task" } }),
-				onPatch: vi.fn(() => () => {}),
-			} as any,
-		};
-
-		transport = createIPCTransport({ socketPath });
+		(vi.spyOn(net, "createServer" as any) as any).mockImplementation(() => createMockNetServer());
 	});
 
 	afterEach(() => {
@@ -104,7 +102,9 @@ describe("ipc-transport", () => {
 
 	describe("start", () => {
 		it("should attempt to start the IPC transport", async () => {
-			const _result = await transport.start(context);
+			const { transport, context } = createTestIPCTransport();
+
+			await transport.setup(context);
 
 			// Transport creation may succeed or fail depending on net mocking
 			// but at least it should try to create server
@@ -114,15 +114,38 @@ describe("ipc-transport", () => {
 
 	describe("stop", () => {
 		it("should stop the IPC transport", async () => {
-			await transport.start(context);
+			const { transport, context } = createTestIPCTransport();
 
-			const stopResult = await transport.stop(context);
+			const _result = await transport.setup(context);
+
+			expect(_result.isOk()).toBe(true);
+
+			const stopResult = await _result._unsafeUnwrap().disconnect({
+				type: "manual",
+			});
 
 			expect(stopResult.isOk()).toBe(true);
+			expect(mockServer.close).toHaveBeenCalled();
 		});
 
 		it("should handle already stopped transport", async () => {
-			const stopResult = await transport.stop(context);
+			const { transport, context } = createTestIPCTransport();
+
+			const _result = await transport.setup(context);
+
+			expect(_result.isOk()).toBe(true);
+
+			// First stop
+			const stopResult1 = await _result._unsafeUnwrap().disconnect({
+				type: "manual",
+			});
+
+			expect(stopResult1.isOk()).toBe(true);
+
+			// Second stop (should be no-op)
+			const stopResult = await _result._unsafeUnwrap().disconnect({
+				type: "manual",
+			});
 
 			expect(stopResult.isOk()).toBe(true);
 		});
@@ -130,10 +153,12 @@ describe("ipc-transport", () => {
 
 	describe("message handling", () => {
 		it("should handle query-state message", async () => {
-			await transport.start(context);
+			const { transport, context } = createTestIPCTransport();
+
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "query-state",
@@ -151,13 +176,15 @@ describe("ipc-transport", () => {
 		});
 
 		it("should return state from stateStore for query-state", async () => {
-			const testState = { system: { mode: "persistent", uptime: 1000 } };
-			context.stateStore.getState = vi.fn().mockReturnValue(testState);
+			const { transport, context } = createTestIPCTransport();
 
-			await transport.start(context);
+			const testState = { system: { mode: "persistent", uptime: 1000 } };
+			context.getState = vi.fn().mockReturnValue(testState);
+
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "query-state",
@@ -176,10 +203,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle execute-command message", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "execute-command",
@@ -193,16 +221,17 @@ describe("ipc-transport", () => {
 			// Give async operation time to complete
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
-			expect(context.commandDispatcher.dispatch).toHaveBeenCalledWith({
+			expect(context.dispatchCommand).toHaveBeenCalledWith({
 				type: "content.fetch",
 			});
 		});
 
 		it("should send command result to client", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "execute-command",
@@ -223,10 +252,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle shutdown message", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			// Mock process.exit
 			vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
@@ -252,10 +282,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle malformed JSON", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from("invalid json\n"));
@@ -269,10 +300,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should ignore empty lines", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "query-state",
@@ -287,10 +319,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle multiple messages in one chunk", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message1: IPCMessage = {
 				type: "query-state",
@@ -312,10 +345,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle incomplete messages", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "query-state",
@@ -340,23 +374,25 @@ describe("ipc-transport", () => {
 
 	describe("client lifecycle", () => {
 		it("should track connected clients", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket1 = createMockSocket();
 			const mockSocket2 = createMockSocket();
 
-			mockServerCallback?.(mockSocket1);
-			mockServerCallback?.(mockSocket2);
+			connectionCallback?.(mockSocket1);
+			connectionCallback?.(mockSocket2);
 
 			expect(context.logger.verbose).toHaveBeenCalledWith("IPC client connected");
 			expect(context.logger.verbose).toHaveBeenCalledTimes(2);
 		});
 
 		it("should handle client disconnect", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const closeHandler = mockSocket.listeners.close![0]!;
 			closeHandler();
@@ -365,10 +401,11 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle client error", async () => {
-			await transport.start(context);
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const errorHandler = mockSocket.listeners.error![0]!;
 			errorHandler(new Error("Client error"));
@@ -381,11 +418,14 @@ describe("ipc-transport", () => {
 
 	describe("error handling", () => {
 		it("should handle command execution errors", async () => {
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
+
 			const error = new Error("Command failed");
 
 			// Note: The transport actually uses neverthrow ResultAsync,
 			// but we need to simulate the match behavior
-			context.commandDispatcher.dispatch = vi.fn(
+			context.dispatchCommand = vi.fn(
 				(_cmd) =>
 					({
 						match: (_onOk: any, onErr: any) => {
@@ -394,10 +434,10 @@ describe("ipc-transport", () => {
 					}) as any,
 			);
 
-			await transport.start(context);
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "execute-command",
@@ -419,14 +459,17 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle stateStore errors", async () => {
-			context.stateStore.getState = vi.fn().mockImplementation(() => {
+			const { transport, context, abortController } = createTestIPCTransport();
+			await transport.setup(context);
+
+			context.getState = vi.fn().mockImplementation(() => {
 				throw new Error("State retrieval failed");
 			});
 
-			await transport.start(context);
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			const message: IPCMessage = {
 				type: "query-state",
@@ -444,40 +487,37 @@ describe("ipc-transport", () => {
 		});
 	});
 
-	describe("id property", () => {
-		it("should have id property set to 'ipc'", () => {
-			expect(transport.id).toBe("ipc");
-		});
-	});
-
 	describe("state patch handling", () => {
 		it("should subscribe to stateStore patches on start", async () => {
+			const { transport, context, abortController } = createTestIPCTransport();
+
 			let _patchHandler: ((patches: any[], version: number) => void) | undefined;
-			context.stateStore.onPatch = vi.fn((handler) => {
+			context.onStatePatch = vi.fn((handler) => {
 				_patchHandler = handler;
 				return () => {};
 			});
 
-			const result = await transport.start(context);
+			const result = await transport.setup(context);
 
 			// Ensure start succeeded
 			expect(result.isOk()).toBe(true);
-			expect(context.stateStore.onPatch).toHaveBeenCalled();
+			expect(context.onStatePatch).toHaveBeenCalled();
 		});
 
 		it("should emit state-patch event when stateStore emits patches", async () => {
+			const { transport, context, abortController } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.stateStore.onPatch = vi.fn((handler) => {
+			context.onStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				// Return unsubscribe function
 				return () => {};
 			});
 
-			await transport.start(context);
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 
 			// Clear previous writes (from server.listen events)
 			mockSocket.write.mockClear();
@@ -499,21 +539,22 @@ describe("ipc-transport", () => {
 		});
 
 		it("should broadcast state-patch to all connected clients", async () => {
+			const { transport, context, abortController } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.stateStore.onPatch = vi.fn((handler) => {
+			context.onStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				return () => {};
 			});
 
-			await transport.start(context);
+			await transport.setup(context);
 
 			// Connect two clients
 			const mockSocket1 = createMockSocket();
 			const mockSocket2 = createMockSocket();
 
-			mockServerCallback?.(mockSocket1);
-			mockServerCallback?.(mockSocket2);
+			connectionCallback?.(mockSocket1);
+			connectionCallback?.(mockSocket2);
 
 			// Clear previous writes
 			mockSocket1.write.mockClear();
@@ -541,17 +582,18 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle multiple patches sequentially", async () => {
+			const { transport, context, abortController } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.stateStore.onPatch = vi.fn((handler) => {
+			context.onStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				return () => {};
 			});
 
-			await transport.start(context);
+			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
-			mockServerCallback?.(mockSocket);
+			connectionCallback?.(mockSocket);
 			mockSocket.write.mockClear();
 
 			// Send multiple patches
@@ -570,21 +612,6 @@ describe("ipc-transport", () => {
 
 			expect((response1 as any).version).toBe(1);
 			expect((response2 as any).version).toBe(2);
-		});
-
-		it("should unsubscribe from patches on abort", async () => {
-			const mockUnsubscribe = vi.fn();
-			context.stateStore.onPatch = vi.fn(() => mockUnsubscribe);
-
-			await transport.start(context);
-
-			// Trigger abort
-			abortController.abort();
-
-			// Wait for abort handler to execute
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			expect(mockUnsubscribe).toHaveBeenCalled();
 		});
 	});
 });

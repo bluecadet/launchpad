@@ -33,3 +33,31 @@ export interface LaunchpadEvents {
 
 // biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
 export interface SubsystemsState {}
+
+/**
+ * System-level state (controller-owned)
+ */
+export type SystemState = {
+	startTime: Date;
+	version: string;
+	mode: "task" | "persistent";
+	[key: string]: unknown;
+};
+
+/**
+ * Complete Launchpad state structure.
+ * This is an aggregation of controller state + subsystem states.
+ */
+export type LaunchpadState = {
+	system: SystemState;
+	subsystems: Partial<SubsystemsState>;
+};
+
+/**
+ * Versioned state snapshot returned to clients.
+ * Includes the state version number for detecting dropped patches.
+ */
+export type VersionedLaunchpadState = LaunchpadState & {
+	/** Version number - incremented with each patch */
+	_version: number;
+};

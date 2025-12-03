@@ -4,6 +4,8 @@ enablePatches();
 
 export type PatchHandler = (patches: Patch[]) => void;
 
+export type PatchHandlerWithVersion = (patches: Patch[], version: number) => void;
+
 export class PatchedStateManager<TState> {
 	private _state: Readonly<TState>;
 	private _patchHandlers: PatchHandler[] = [];

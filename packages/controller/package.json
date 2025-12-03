@@ -24,10 +24,6 @@
       "types": "./dist/pid-utils.d.ts",
       "default": "./dist/pid-utils.js"
     },
-    "./transport": {
-      "types": "./dist/transport.d.ts",
-      "default": "./dist/transport.js"
-    },
     "./transports/ipc": {
       "types": "./dist/transports/ipc.d.ts",
       "default": "./dist/transports/ipc.js"

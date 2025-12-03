@@ -1,5 +1,7 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 
 export type MockLogger = {
@@ -87,5 +89,8 @@ export function createMockSubsystemCtx(cwd = "/") {
 		eventBus: createMockEventBus(),
 		cwd,
 		abortSignal: new AbortController().signal,
+		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
+		getState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
+		onStatePatch: vi.fn().mockReturnValue(() => {}),
 	} satisfies SubsystemContext;
 }

@@ -5,19 +5,21 @@
 
 import fs from "node:fs";
 import net from "node:net";
-import path from "node:path";
-import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
+import {
+	type DisconnectReason,
+	defineSubsystem,
+	type SubsystemContext,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { LaunchpadEvents, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
-import { ResultAsync } from "neverthrow";
-import type { VersionedLaunchpadState } from "../core/state-store.js";
+import { ok, okAsync, ResultAsync } from "neverthrow";
 import {
 	CommandExecutionError,
 	IPCMessageError,
 	StateAccessError,
 	TransportError,
 } from "../errors.js";
-import type { Transport, TransportContext } from "../transport.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
 
@@ -50,67 +52,33 @@ export type IPCBroadcastMessage =
 	| { type: "state-patch"; patches: Patch[]; version: number };
 
 /**
- * Create an IPC transport
+ * Create an IPC Transport subsystem
  */
-export function createIPCTransport(options: IPCTransportOptions): Transport {
-	let server: net.Server | null = null;
-	const clients = new Set<net.Socket>();
-
-	const socketPath = getOSSocketPath(options.socketPath);
-
-	return {
-		id: "ipc",
-
-		start(ctx: TransportContext): ResultAsync<void, TransportError> {
-			const { logger, abortSignal } = ctx;
+export function createIPCTransport(options: IPCTransportOptions) {
+	return defineSubsystem({
+		name: "ipc-transport",
+		setup(ctx) {
+			const socketPath = getOSSocketPath(options.socketPath);
 
 			if (process.platform === "win32" && options.socketPath !== socketPath) {
 				// notify user that the socket path has been updated to conform with windows named pipe reqs,
 				// as it might not be where they expect it
 
-				logger.warn(
+				ctx.logger.warn(
 					`Windows named pipes must be located in ${chalk.grey("\\\\?\\pipe\\")} or ${chalk.grey("\\\\.\\pipe\\")}. `,
 				);
-				logger.warn(
+				ctx.logger.warn(
 					`The configured socketPath has been moved to the ${chalk.grey("\\\\?\\pipe\\")} directory to conform with this requirement.`,
 				);
 			}
 
-			const promise = new Promise<void>((resolve, reject) => {
-				// Clean up existing socket
-				if (fs.existsSync(socketPath)) {
-					try {
-						fs.unlinkSync(socketPath);
-					} catch (e) {
-						return reject(
-							new TransportError("Failed to clean up existing socket", {
-								cause: e instanceof Error ? e : new Error(String(e)),
-							}),
-						);
-					}
-				}
+			return safeCreateServer(socketPath).andThen((server) => {
+				const clients = new Set<net.Socket>();
 
-				// This step isn't relevant for windows named pipes
-				if (process.platform !== "win32") {
-					// Ensure directory exists
-					try {
-						const dir = path.dirname(socketPath);
-						if (!fs.existsSync(dir)) {
-							fs.mkdirSync(dir, { recursive: true });
-						}
-					} catch (e) {
-						return reject(
-							new TransportError("Failed to create socket directory", {
-								cause: e instanceof Error ? e : new Error(String(e)),
-							}),
-						);
-					}
-				}
-
-				// Create server
-				server = net.createServer((socket) => {
+				// maintain client connections
+				server.on("connection", (socket) => {
 					clients.add(socket);
-					logger.verbose("IPC client connected");
+					ctx.logger.verbose("IPC client connected");
 
 					let buffer = "";
 
@@ -129,7 +97,7 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 								handleMessage(message, socket, ctx);
 							} catch (e) {
 								const error = e instanceof Error ? e : new Error(String(e));
-								logger.error(`Failed to parse IPC message: ${error.message}`);
+								ctx.logger.error(`Failed to parse IPC message: ${error.message}`);
 								sendError(
 									socket,
 									"unknown",
@@ -141,62 +109,54 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 
 					socket.on("close", () => {
 						clients.delete(socket);
-						logger.verbose("IPC client disconnected");
+						ctx.logger.verbose("IPC client disconnected");
 					});
 
 					socket.on("error", (error) => {
-						logger.error(`IPC client error: ${error.message}`);
+						ctx.logger.error(`IPC client error: ${error.message}`);
 						clients.delete(socket);
 					});
 				});
 
-				server.on("error", (error) => {
-					const err = error instanceof Error ? error : new Error(String(error));
-					logger.error(`IPC server error: ${err.message}`);
-					reject(new TransportError("Failed to start IPC server", { cause: err }));
-				});
+				// Subscribe to EventBus for event streaming with type-safe handler
+				const handleEvent = <K extends keyof LaunchpadEvents>(
+					event: K,
+					data: LaunchpadEvents[K],
+				) => {
+					// Fully type-safe: event and data are correlated via the generic
+					const message = createIPCEvent(event, data);
+					const serialized = `${IPCSerializer.serialize(message)}\n`;
+					clients.forEach((client) => {
+						try {
+							client.write(serialized);
+						} catch (e) {
+							ctx.logger.verbose(`Failed to write event to IPC client: ${e}`);
+						}
+					});
+				};
+				ctx.eventBus.onAny(handleEvent);
 
-				server.listen(socketPath, () => {
-					logger.info(`IPC transport listening at ${chalk.grey(socketPath)}`);
-
-					// Subscribe to EventBus for event streaming with type-safe handler
-					const handleEvent = <K extends keyof LaunchpadEvents>(
-						event: K,
-						data: LaunchpadEvents[K],
-					) => {
-						// Fully type-safe: event and data are correlated via the generic
-						const message = createIPCEvent(event, data);
-						const serialized = `${IPCSerializer.serialize(message)}\n`;
-						clients.forEach((client) => {
-							try {
-								client.write(serialized);
-							} catch (e) {
-								logger.verbose(`Failed to write event to IPC client: ${e}`);
-							}
-						});
+				// Subscribe to state patches from the state store
+				const handlePatch = (patches: Patch[], version: number) => {
+					const message: IPCBroadcastMessage = {
+						type: "state-patch",
+						patches,
+						version,
 					};
-					ctx.eventBus.onAny(handleEvent);
+					const serialized = `${IPCSerializer.serialize(message)}\n`;
+					clients.forEach((client) => {
+						try {
+							client.write(serialized);
+						} catch (e) {
+							ctx.logger.verbose(`Failed to write state patch to IPC client: ${e}`);
+						}
+					});
+				};
+				const unsubscribePatch = ctx.onStatePatch(handlePatch);
 
-					// Subscribe to state patches from the state store
-					const handlePatch = (patches: Patch[], version: number) => {
-						const message: IPCBroadcastMessage = {
-							type: "state-patch",
-							patches,
-							version,
-						};
-						const serialized = `${IPCSerializer.serialize(message)}\n`;
-						clients.forEach((client) => {
-							try {
-								client.write(serialized);
-							} catch (e) {
-								logger.verbose(`Failed to write state patch to IPC client: ${e}`);
-							}
-						});
-					};
-					const unsubscribePatch = ctx.stateStore.onPatch(handlePatch);
-
-					// Cleanup on abort
-					abortSignal.addEventListener("abort", () => {
+				return ok({
+					disconnect(_reason: DisconnectReason) {
+						ctx.logger.verbose("IPC Transport is shutting down");
 						ctx.eventBus.offAny(handleEvent);
 						unsubscribePatch();
 						clients.forEach((client) => client.end());
@@ -205,86 +165,49 @@ export function createIPCTransport(options: IPCTransportOptions): Transport {
 							try {
 								fs.unlinkSync(socketPath);
 							} catch (e) {
-								logger.warn(`Failed to clean up socket: ${e}`);
+								ctx.logger.warn(`Failed to clean up socket: ${e}`);
 							}
 						}
-						logger.info("IPC transport closed");
-					});
+						ctx.logger.info("IPC transport closed");
 
-					resolve();
+						return okAsync();
+					},
 				});
 			});
-
-			return ResultAsync.fromPromise(
-				promise,
-				(e) =>
-					new TransportError("Failed to start IPC transport", {
-						cause: e instanceof Error ? e : new Error(String(e)),
-					}),
-			);
 		},
+	});
+}
 
-		stop(ctx: TransportContext): ResultAsync<void, TransportError> {
-			const { logger } = ctx;
+/**
+ * create a net.Server with neverthrow error handling
+ */
+function safeCreateServer(path: string): ResultAsync<net.Server, TransportError> {
+	return ResultAsync.fromPromise(
+		new Promise<net.Server>((resolve, reject) => {
+			const server = net.createServer();
 
-			const promise = new Promise<void>((resolve, reject) => {
-				if (!server) {
-					return resolve();
-				}
-
-				// Close all client connections
-				for (const client of clients) {
-					client.end();
-				}
-				clients.clear();
-
-				// Close server
-				server.close((err) => {
-					if (err) {
-						logger.error(`Error closing IPC server: ${err.message}`);
-						return reject(
-							new TransportError("Failed to close IPC server", {
-								cause: err instanceof Error ? err : new Error(String(err)),
-							}),
-						);
-					}
-
-					// Clean up socket file
-					if (fs.existsSync(socketPath)) {
-						try {
-							fs.unlinkSync(socketPath);
-						} catch (e) {
-							logger.warn(`Failed to clean up socket file: ${e}`);
-						}
-					}
-
-					logger.verbose("IPC transport stopped");
-					server = null;
-					resolve();
-				});
+			server.on("error", (error) => {
+				reject(error);
 			});
 
-			return ResultAsync.fromPromise(
-				promise,
-				(e) =>
-					new TransportError("Failed to stop IPC transport", {
-						cause: e instanceof Error ? e : new Error(String(e)),
-					}),
-			);
-		},
-	};
+			server.listen(path, () => {
+				resolve(server);
+			});
+		}),
+		(e) => new TransportError("Failed to create IPC server", { cause: e as Error }),
+	);
 }
 
 /**
  * Handle an IPC message
  */
-function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportContext): void {
-	const { logger, stateStore, commandDispatcher } = ctx;
+function handleMessage(message: IPCMessage, socket: net.Socket, ctx: SubsystemContext): void {
+	const { logger } = ctx;
 
 	switch (message.type) {
 		case "query-state": {
 			try {
-				const state = stateStore.getState();
+				const state = ctx.getState();
 				sendResponse(socket, {
 					id: message.id,
 					type: "state",
@@ -304,7 +227,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: TransportCo
 
 		case "execute-command": {
 			logger.info("Received execute-command via IPC");
-			const resultAsync = commandDispatcher.dispatch(message.data as { type: string });
+			const resultAsync = ctx.dispatchCommand(message.data as { type: string });
 
 			// Use neverthrow's match to handle Result
 			resultAsync.match(

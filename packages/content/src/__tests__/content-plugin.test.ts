@@ -31,7 +31,11 @@ describe("ContentPluginDriver", () => {
 		it("should provide correct context to plugins", async () => {
 			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger, eventBus });
+			const driver = new PluginDriver({
+				logger: baseLogger,
+				eventBus,
+				abortSignal: new AbortController().signal,
+			});
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
@@ -61,7 +65,11 @@ describe("ContentPluginDriver", () => {
 		it("should handle plugin-specific temp paths correctly", async () => {
 			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger, eventBus });
+			const driver = new PluginDriver({
+				logger: baseLogger,
+				eventBus,
+				abortSignal: new AbortController().signal,
+			});
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
@@ -98,7 +106,11 @@ describe("ContentPluginDriver", () => {
 		it("should handle setup errors with ContentError", async () => {
 			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger, eventBus });
+			const driver = new PluginDriver({
+				logger: baseLogger,
+				eventBus,
+				abortSignal: new AbortController().signal,
+			});
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
@@ -126,7 +138,11 @@ describe("ContentPluginDriver", () => {
 		it("should handle fetch errors with ContentError", async () => {
 			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger, eventBus });
+			const driver = new PluginDriver({
+				logger: baseLogger,
+				eventBus,
+				abortSignal: new AbortController().signal,
+			});
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,
@@ -156,7 +172,11 @@ describe("ContentPluginDriver", () => {
 		it("should call hooks in correct order", async () => {
 			const { dataStore, options, paths, eventBus } = await createMockContext();
 			const baseLogger = createMockLogger();
-			const driver = new PluginDriver({ logger: baseLogger, eventBus });
+			const driver = new PluginDriver({
+				logger: baseLogger,
+				eventBus,
+				abortSignal: new AbortController().signal,
+			});
 			const contentDriver = new ContentPluginDriver(driver, {
 				dataStore,
 				options,

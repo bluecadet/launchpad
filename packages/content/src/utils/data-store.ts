@@ -336,7 +336,7 @@ class Namespace {
 
 	#documents = new Map<string, Document>();
 
-	#pendingInserts = new Map<string, Promise<void>>();
+	#pendingInserts = new Map<string, Promise<Document>>();
 
 	constructor(parentDirectory: string, id: string) {
 		this.#id = id;
@@ -369,52 +369,25 @@ class Namespace {
 			);
 		}
 
-		return pendingInsert;
+		return pendingInsert.then(() => undefined); // map to void;
 	}
 
-	async insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
-		let insertPromiseResolve: () => void;
-		let insertPromiseReject: () => void;
-		const insertPromise = new Promise<void>((resolve, reject) => {
-			insertPromiseResolve = resolve;
-			insertPromiseReject = reject;
-		});
+	insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
+		const createPromise =
+			data instanceof Promise
+				? SingleDocument.create(this.#directory, id, data)
+				: BatchDocument.create(this.#directory, id, data);
 
-		this.#pendingInserts.set(id, insertPromise);
+		this.#pendingInserts.set(id, createPromise);
 
-		insertPromise.finally(() => {
-			this.#pendingInserts.delete(id);
-		});
-
-		if (data instanceof Promise) {
-			const doc = await SingleDocument.create(this.#directory, id, data).then(
-				(doc) => {
-					insertPromiseResolve();
-					return doc;
-				},
-				(e) => {
-					insertPromiseReject();
-					throw e;
-				},
-			);
-
-			this.#documents.set(doc.id, doc);
-			return doc;
-		}
-
-		const doc = await BatchDocument.create(this.#directory, id, data).then(
-			(doc) => {
-				insertPromiseResolve();
+		return createPromise
+			.then((doc) => {
+				this.#documents.set(doc.id, doc);
 				return doc;
-			},
-			(e) => {
-				insertPromiseReject();
-				throw e;
-			},
-		);
-
-		this.#documents.set(doc.id, doc);
-		return doc;
+			})
+			.finally(() => {
+				this.#pendingInserts.delete(id);
+			});
 	}
 
 	safeInsert<T = unknown>(

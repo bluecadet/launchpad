@@ -1,10 +1,7 @@
-import {
-	type DashboardRegistry,
-	defineSubsystem,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import { defineSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.js";
-import { DashboardRegistryImpl } from "./dashboard-registry.js";
+import { DashboardRegistryImpl } from "./lib/dashboard-registry.js";
 import { SimpleRouter } from "./lib/simple-router.js";
 
 export function createLaunchpadDashboard(config: DashboardConfig) {

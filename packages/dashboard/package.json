@@ -37,6 +37,8 @@
 	"homepage": "https://github.com/bluecadet/launchpad/packages/dashboard",
 	"dependencies": {
 		"@bluecadet/launchpad-utils": "~2.1.0",
+		"handlebars": "^4.7.8",
+		"htmx.org": "^2.0.8",
 		"neverthrow": "^8.1.1",
 		"path-to-regexp": "^8.3.0",
 		"zod": "^3.23.8"

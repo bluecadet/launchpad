@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-controller",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Controller layer for Launchpad with multi-interface support",
   "type": "module",
   "files": [
@@ -48,7 +48,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/controller",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~2.1.0",
+    "@bluecadet/launchpad-utils": "~3.0.0",
     "chalk": "^5.0.0",
     "devalue": "^5.4.2",
     "immer": "^10.2.0",

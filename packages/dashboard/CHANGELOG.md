@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-dashboard
 
+## 2.0.1
+
+### Patch Changes
+
+- [#269](https://github.com/bluecadet/launchpad/pull/269) [`9f47258`](https://github.com/bluecadet/launchpad/commit/9f47258763ac210a5982bad66bc17bfe98d239e3) Thanks [@claytercek](https://github.com/claytercek)! - Bump dependencies with vulnerabilities
+
 ## 2.0.0
 
 ### Major Changes

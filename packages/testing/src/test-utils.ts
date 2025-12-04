@@ -1,6 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 

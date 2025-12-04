@@ -321,7 +321,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 					return stateManager.onPatch(handler);
 				},
 				disconnect() {
-					return disconnect(actionCtx);
+					return shutdown(actionCtx);
 				},
 			});
 		},

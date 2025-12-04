@@ -30,7 +30,6 @@ import { createIPCTransport } from "./transports/ipc-transport.js";
  * - Command dispatching to subsystems
  * - Subsystem lifecycle management
  * - IPC transport for daemon communication (persistent mode)
- * - Optional transports (WebSocket, OSC, etc.) - Future
  *
  * Modes:
  * - Task mode: Ephemeral controller for single commands (no transports)
@@ -47,7 +46,6 @@ export class LaunchpadController {
 	private _subsystems = new Map<string, InstantiatedSubsystem>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
-	// Future: private _transports: Transport[] = [];
 
 	constructor(config: ControllerConfig, baseDir: string, mode: ControllerMode = "task") {
 		this._config = controllerConfigSchema.parse(config);
@@ -64,20 +62,27 @@ export class LaunchpadController {
 	 *
 	 * If the subsystem implements EventBusAware, the EventBus will be injected.
 	 */
-	registerSubsystem(subsystem: SubsystemConfig): ResultAsync<void, Error> {
+	registerSubsystem<
+		TCommand extends BaseCommand = BaseCommand,
+		TState = unknown,
+		E = Error,
+		TSubsystem extends InstantiatedSubsystem<TCommand, TState> = InstantiatedSubsystem<
+			TCommand,
+			TState
+		>,
+	>(subsystem: SubsystemConfig<TCommand, TState, E, TSubsystem>): ResultAsync<TSubsystem, E> {
 		const name = subsystem.name;
 
 		return subsystem
 			.setup(this.getSubsystemCtx(name))
-			.map((instance) => {
+			.andTee((instance) => {
 				this._subsystems.set(subsystem.name, instance);
 				this._stateStore.registerSubsystem(name, instance);
 
 				this._logger.verbose(`Registered subsystem '${name}'`);
 			})
-			.orElse((error) => {
+			.orTee(() => {
 				this._logger.error(`Failed to register subsystem '${name}'`);
-				return errAsync(error);
 			});
 	}
 
@@ -100,6 +105,13 @@ export class LaunchpadController {
 	 */
 	getSubsystemNames(): string[] {
 		return Array.from(this._subsystems.keys());
+	}
+
+	/**
+	 * Get all registered subsystems
+	 */
+	getSubsystems(): ReadonlyMap<string, InstantiatedSubsystem> {
+		return this._subsystems;
 	}
 
 	/**
@@ -138,17 +150,14 @@ export class LaunchpadController {
 				createIPCTransport({
 					socketPath,
 				}),
-			).andTee(() => {
-				this._isStarted = true;
-				this._logger.verbose("Controller started with IPC transport");
-				return undefined;
-			});
+			)
+				.andTee(() => {
+					this._isStarted = true;
+					this._logger.verbose("Controller started with IPC transport");
+					return undefined;
+				})
+				.map(() => {}); // return void
 		}
-
-		// Future: Start optional transports
-		// if (this._mode === "persistent" && this._transports.length > 0) {
-		//   return this._startTransports();
-		// }
 
 		this._isStarted = true;
 		this._logger.verbose("Controller started");

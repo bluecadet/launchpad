@@ -131,12 +131,29 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 							return ok();
 						})
 						.andThrough(() => {
-							// Dynamically import and register monitor if configured
+							// Dynamically import and register dashboard if configured
 							if (config.dashboard) {
 								const dashboardConfig = config.dashboard;
-								return importLaunchpadDashboard().andThen(({ createLaunchpadDashboard }) => {
-									return controller.registerSubsystem(createLaunchpadDashboard(dashboardConfig));
-								});
+								return importLaunchpadDashboard()
+									.andThen(({ createLaunchpadDashboard }) => {
+										return controller.registerSubsystem(createLaunchpadDashboard(dashboardConfig));
+									})
+									.andTee((dashboardSubsystem) => {
+										// after registering the dashboard subsystem, we need to
+										// get its registry and pass it to the other subsystems.
+										//
+										// TODO: maybe we should come up with a better way for subsystems
+										// to call each other during setup? I don't love that this HAS to be
+										// registered last.
+
+										const registry = dashboardSubsystem.getRegistry();
+
+										for (const [_name, subsystem] of controller.getSubsystems()) {
+											if (subsystem.buildDashboard) {
+												subsystem.buildDashboard(registry);
+											}
+										}
+									});
 							}
 							return ok();
 						})

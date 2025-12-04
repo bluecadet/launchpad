@@ -1,16 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import type {
+	DashboardRouteHandler,
+	DashboardRouteParams,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { Result } from "neverthrow";
 import { err, ok, ResultAsync } from "neverthrow";
 import { type MatchFunction, match } from "path-to-regexp";
-
-type DashboardRouteParams = Record<string, string | string[] | undefined>;
-
-export type DashboardRouteHandler<T extends DashboardRouteParams = Record<string, never>> = (
-	req: IncomingMessage,
-	res: ServerResponse,
-	params: T,
-) => void | Promise<void>;
 
 interface Route<T extends DashboardRouteParams = Record<string, never>> {
 	method: string;
@@ -24,28 +20,43 @@ export class SimpleRouter {
 
 	private routes: Route<DashboardRouteParams>[] = [];
 
-	get<T extends DashboardRouteParams>(path: string, handler: DashboardRouteHandler<T>): this {
-		this.addRoute("GET", path, handler);
+	get<T extends DashboardRouteParams = Record<string, never>>(
+		path: string,
+		handler: DashboardRouteHandler<T>,
+	): this {
+		this.addRoute<T>("GET", path, handler);
 		return this;
 	}
 
-	post<T extends DashboardRouteParams>(path: string, handler: DashboardRouteHandler<T>): this {
-		this.addRoute("POST", path, handler);
+	post<T extends DashboardRouteParams = Record<string, never>>(
+		path: string,
+		handler: DashboardRouteHandler<T>,
+	): this {
+		this.addRoute<T>("POST", path, handler);
 		return this;
 	}
 
-	put<T extends DashboardRouteParams>(path: string, handler: DashboardRouteHandler<T>): this {
-		this.addRoute("PUT", path, handler);
+	put<T extends DashboardRouteParams = Record<string, never>>(
+		path: string,
+		handler: DashboardRouteHandler<T>,
+	): this {
+		this.addRoute<T>("PUT", path, handler);
 		return this;
 	}
 
-	patch<T extends DashboardRouteParams>(path: string, handler: DashboardRouteHandler<T>): this {
-		this.addRoute("PATCH", path, handler);
+	patch<T extends DashboardRouteParams = Record<string, never>>(
+		path: string,
+		handler: DashboardRouteHandler<T>,
+	): this {
+		this.addRoute<T>("PATCH", path, handler);
 		return this;
 	}
 
-	delete<T extends DashboardRouteParams>(path: string, handler: DashboardRouteHandler<T>): this {
-		this.addRoute("DELETE", path, handler);
+	delete<T extends DashboardRouteParams = Record<string, never>>(
+		path: string,
+		handler: DashboardRouteHandler<T>,
+	): this {
+		this.addRoute<T>("DELETE", path, handler);
 		return this;
 	}
 

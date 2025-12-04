@@ -1,6 +1,10 @@
-import { defineSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import {
+	type DashboardRegistry,
+	defineSubsystem,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.js";
+import { DashboardRegistryImpl } from "./dashboard-registry.js";
 import { SimpleRouter } from "./lib/simple-router.js";
 
 export function createLaunchpadDashboard(config: DashboardConfig) {
@@ -14,10 +18,15 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 			const resolvedConfig = configResult.data;
 
 			const router = new SimpleRouter(ctx.logger);
+			const registry = new DashboardRegistryImpl(router);
 
 			const stopRouter = router.listen(resolvedConfig.port, resolvedConfig.host);
 
 			return okAsync({
+				// Expose the registry so the controller can pass it to other subsystems
+				getRegistry() {
+					return registry;
+				},
 				disconnect() {
 					return stopRouter();
 				},

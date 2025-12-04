@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
@@ -97,32 +98,51 @@ export type DashboardPage = {
 	  }
 );
 
+export type DashboardRouteParams = Record<string, string | string[] | undefined>;
+
 /**
  * Function type for handling HTTP requests to dashboard API endpoints.
  * Can return either a synchronous Response or a Promise that resolves to a Response.
  */
-export type DashboardEndpointHandler = (request: Request) => PromiseLike<Response> | Response;
+export type DashboardRouteHandler<T extends DashboardRouteParams = Record<string, never>> = (
+	req: IncomingMessage,
+	res: ServerResponse,
+	params: T,
+) => void | Promise<void>;
 
 /**
- * Interface for building and configuring dashboard components.
- * Provides methods to add panels and pages to a dashboard, as well as API route registration.
- * This is typically passed to subsystems that implement DashboardProvider to allow them
- * to contribute content and functionality to the dashboard.
+ * Write-only interface for subsystems to register dashboard content.
+ * This is the public API that subsystems use to contribute to the dashboard.
+ * The dashboard subsystem maintains private methods to access the registered content.
  */
-export type DashboardBuilder = {
+export interface DashboardRegistry {
 	/**
-	 * Adds a panel to the dashboard.
+	 * Registers a panel to the dashboard.
 	 * Panels are individual content blocks that will be rendered in the dashboard interface.
-	 * @param panel - The dashboard panel to add
+	 * @param id - Unique identifier for the panel
+	 * @param panel - The dashboard panel to register
 	 */
-	addPanel(panel: DashboardPanel): void;
+	registerPanel(id: string, panel: DashboardPanel): this;
 
 	/**
-	 * Adds a page to the dashboard.
+	 * Registers a page to the dashboard.
 	 * Pages provide separate views or sections within the dashboard.
-	 * @param page - The dashboard page to add
+	 * @param id - Unique identifier for the page
+	 * @param page - The dashboard page to register
 	 */
-	addPage(page: DashboardPage): void;
+	registerPage(id: string, page: DashboardPage): this;
+
+	/**
+	 * Registers a CSS file to the dashboard for custom styling.
+	 * @param path - The file path or URL of the CSS file to include
+	 */
+	registerCSS(path: string): this;
+
+	/**
+	 * Registers a JavaScript file to the dashboard for custom functionality.
+	 * @param path - The file path or URL of the JavaScript file to include
+	 */
+	registerJS(path: string): this;
 
 	/**
 	 * API route registration methods for handling HTTP requests.
@@ -134,43 +154,43 @@ export type DashboardBuilder = {
 		 * @param route - The API route path (e.g., "/api/status")
 		 * @param handler - The endpoint handler function
 		 */
-		get: (route: string, handler: DashboardEndpointHandler) => void;
+		get: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
 
 		/**
 		 * Registers a POST endpoint handler for creating new resources.
 		 * @param route - The API route path (e.g., "/api/commands")
 		 * @param handler - The endpoint handler function
 		 */
-		post: (route: string, handler: DashboardEndpointHandler) => void;
+		post: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
 
 		/**
 		 * Registers a PUT endpoint handler for updating existing resources.
 		 * @param route - The API route path (e.g., "/api/config")
 		 * @param handler - The endpoint handler function
 		 */
-		put: (route: string, handler: DashboardEndpointHandler) => void;
+		put: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
 
 		/**
 		 * Registers a DELETE endpoint handler for removing resources.
 		 * @param route - The API route path (e.g., "/api/sessions/:id")
 		 * @param handler - The endpoint handler function
 		 */
-		delete: (route: string, handler: DashboardEndpointHandler) => void;
+		delete: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
 	};
-};
+}
 
 /**
  * Optional interface for subsystems that want to contribute content to the dashboard.
- * When implemented, the dashboard system will call buildDashboard() during initialization
+ * When implemented, the controller will call buildDashboard() during subsystem setup
  * to allow the subsystem to register panels, pages, and API endpoints.
  */
 export interface DashboardProvider {
 	/**
-	 * Called by the dashboard system to allow the subsystem to contribute dashboard content.
-	 * Subsystems should use the provided builder to add panels, pages, and API routes.
-	 * @param builder - Dashboard builder instance for registering content and endpoints
+	 * Allows the subsystem to contribute dashboard content.
+	 * Subsystems should use the provided registry to register panels, pages, and API routes.
+	 * @param registry - Dashboard registry instance for registering content and endpoints
 	 */
-	buildDashboard(builder: DashboardBuilder): void;
+	buildDashboard(registry: DashboardRegistry): void;
 }
 
 export interface SubsystemContext {
@@ -192,7 +212,7 @@ export interface SubsystemContext {
 export type InstantiatedSubsystem<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
-> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardBuilder>;
+> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardProvider>;
 
 /**
  * Interface for subsystems that require async setup/initialization.

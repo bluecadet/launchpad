@@ -85,12 +85,9 @@ function wrapPm2Function<T>(
 	);
 }
 
-const safeDisconnect = Result.fromThrowable(
-	() => pm2.disconnect(),
-	(error) => {
-		return new Error("Failed to disconnect from PM2", { cause: error });
-	},
-);
+const safeDisconnect = Result.fromThrowable(pm2.disconnect.bind(pm2), (error) => {
+	return new Error("Failed to disconnect from PM2", { cause: error });
+});
 
 function pingDaemon(): ResultAsync<boolean, Error> {
 	return ResultAsync.fromPromise(

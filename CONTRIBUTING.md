@@ -401,20 +401,6 @@ Don't create changesets for:
 4. **Composition over inheritance**: Use plugin architecture and utility functions
 5. **Logging**: Add context-aware logging for debugging and monitoring
 
-### Exit Handling
-
-Use the `onExit()` utility from `@bluecadet/launchpad-utils` to register cleanup handlers:
-
-```typescript
-import { onExit } from '@bluecadet/launchpad-utils';
-
-onExit(async (signal) => {
-  // Clean up resources
-  // Called on SIGINT, SIGTERM, or uncaught exceptions
-  await cleanup();
-});
-```
-
 ### Abort Signals
 
 All long-running operations receive an `AbortSignal`. Always check and respect it:

@@ -155,10 +155,6 @@ export class PluginDriver<T extends HookSet> {
 	): ResultAsync<void, PluginError> {
 		let result: ResultAsync<void, PluginError> = okAsync(undefined);
 
-		if (this.#abortSignal.aborted) {
-			return errAsync(new PluginError("Aborted"));
-		}
-
 		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
 
 		for (const hookCall of hookCalls) {
@@ -173,10 +169,6 @@ export class PluginDriver<T extends HookSet> {
 		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
 		additionalArgs: Tail<Parameters<T[K]>>,
 	): ResultAsync<void, PluginError[]> {
-		if (this.#abortSignal.aborted) {
-			return errAsync([new PluginError("Aborted")]);
-		}
-
 		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
 
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
@@ -186,10 +178,6 @@ export class PluginDriver<T extends HookSet> {
 		hookName: K,
 		...additionalArgs: Tail<Parameters<T[K]>>
 	): Promise<void> {
-		if (this.#abortSignal.aborted) {
-			throw new PluginError("Aborted");
-		}
-
 		for (const plugin of this.#plugins) {
 			const hook = plugin.hooks[hookName];
 			if (hook) {

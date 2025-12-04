@@ -1,6 +1,5 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { didTriggerExit } from "@bluecadet/launchpad-utils/on-exit";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
@@ -229,11 +228,6 @@ function shutdown(
 	eventOrExitCode: number | undefined = undefined,
 ): ResultAsync<void, Error> {
 	ctx.logger.info("Monitor exiting... 👋");
-
-	if (didTriggerExit()) {
-		ctx.logger.warn("Aborting exit since launchpad is already exiting");
-		return okAsync(undefined);
-	}
 
 	return ctx.pluginDriver
 		.runHookSequential("beforeShutdown", { code: eventOrExitCode })

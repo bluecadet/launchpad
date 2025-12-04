@@ -10,6 +10,7 @@ import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
+import { onTerminate } from "../utils/on-terminate.js";
 
 export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 	return loadConfigAndEnv(argv)
@@ -30,8 +31,8 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 						cliLogger.fixed(`${newStr}"\nWatching for status changes... (press Ctrl+C to exit)"`);
 					});
 					const neverResolve = new Promise<void>((resolve) => {
-						// resolve on sigint / sigterm / sigkill / etc
-						onExit(() => {
+						// resolve on sigint / sigterm
+						onTerminate(() => {
 							resolve();
 						});
 					});

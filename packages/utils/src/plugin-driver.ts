@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";

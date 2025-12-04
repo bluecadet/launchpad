@@ -12,6 +12,7 @@ import {
 	isValidReadyMessage,
 	sendReadyMessage,
 } from "../utils/detached-messaging.js";
+import { onTerminate } from "../utils/on-terminate.js";
 import { importLaunchpadContent } from "./content.js";
 import { importLaunchpadMonitor } from "./monitor.js";
 
@@ -98,6 +99,10 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 						process.title = "launchpad";
 						sendReadyMessage();
 					}
+
+					onTerminate(() => {
+						controller.stop();
+					});
 
 					return okAsync<void, Error>(undefined)
 						.andThrough(() => {

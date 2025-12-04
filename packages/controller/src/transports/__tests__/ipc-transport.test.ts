@@ -86,7 +86,7 @@ function createTestIPCTransport() {
 
 	const transport = createIPCTransport({ socketPath: "/test/socket" });
 
-	return { transport, context, abortController };
+	return { transport, context };
 }
 
 describe("ipc-transport", () => {
@@ -203,7 +203,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle execute-command message", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -227,7 +227,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should send command result to client", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -252,7 +252,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle shutdown message", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -282,7 +282,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle malformed JSON", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -300,7 +300,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should ignore empty lines", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -319,7 +319,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle multiple messages in one chunk", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -345,7 +345,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle incomplete messages", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -374,7 +374,7 @@ describe("ipc-transport", () => {
 
 	describe("client lifecycle", () => {
 		it("should track connected clients", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket1 = createMockSocket();
@@ -388,7 +388,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle client disconnect", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -401,7 +401,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle client error", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -418,7 +418,7 @@ describe("ipc-transport", () => {
 
 	describe("error handling", () => {
 		it("should handle command execution errors", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			const error = new Error("Command failed");
@@ -459,7 +459,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle stateStore errors", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
 			context.getState = vi.fn().mockImplementation(() => {
@@ -489,7 +489,7 @@ describe("ipc-transport", () => {
 
 	describe("state patch handling", () => {
 		it("should subscribe to stateStore patches on start", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 
 			let _patchHandler: ((patches: any[], version: number) => void) | undefined;
 			context.onStatePatch = vi.fn((handler) => {
@@ -505,7 +505,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should emit state-patch event when stateStore emits patches", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
 			context.onStatePatch = vi.fn((handler) => {
@@ -539,7 +539,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should broadcast state-patch to all connected clients", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
 			context.onStatePatch = vi.fn((handler) => {
@@ -582,7 +582,7 @@ describe("ipc-transport", () => {
 		});
 
 		it("should handle multiple patches sequentially", async () => {
-			const { transport, context, abortController } = createTestIPCTransport();
+			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
 			context.onStatePatch = vi.fn((handler) => {

@@ -71,6 +71,12 @@ function formatLevelPrefix(level: LogLevel, isBadge = false) {
 		return LEVEL_BG_COLORS[level](` ${level.toUpperCase()} `);
 	}
 
+	if (level === "info" && configuredLogLevel <= LOG_LEVEL_TO_NUM.info) {
+		// omit "info" prefix if the only logs shown are info level.
+		// Warning and errors will still show their badged prefixes.
+		return "";
+	}
+
 	return LEVEL_COLORS[level](`${level}:`);
 }
 

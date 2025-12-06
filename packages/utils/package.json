@@ -39,6 +39,10 @@
     "./command-guard": {
       "types": "./dist/command-guard.d.ts",
       "default": "./dist/command-guard.js"
+    },
+    "./handlebars": {
+      "types": "./dist/handlebars.d.ts",
+      "default": "./dist/handlebars.js"
     }
   },
   "files": [
@@ -61,6 +65,7 @@
   },
   "dependencies": {
     "chalk": "^5.0.0",
+    "handlebars": "^4.7.8",
     "immer": "^10.2.0",
     "neverthrow": "^8.1.1"
   },

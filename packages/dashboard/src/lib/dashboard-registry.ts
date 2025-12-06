@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRequire } from "node:module";
+import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
 import type {
 	DashboardPage,
 	DashboardPanel,
@@ -8,9 +9,14 @@ import type {
 	DashboardRouteHandler,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { SimpleRouter } from "./simple-router.js";
-import { pageTemplate } from "./templates.js";
 
 const require = createRequire(import.meta.url);
+
+const pageTemplate = await loadHandlebarsTemplate<{
+	title: string;
+	cssFiles: string[];
+	jsFiles: string[];
+}>(import.meta.resolve("../../templates/page.hbs"));
 
 /**
  * Internal implementation of DashboardRegistry.
@@ -30,7 +36,7 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		this.registerJS(htmxPath);
 	}
 
-	private buildIndexPage(req: IncomingMessage, res: ServerResponse) {
+	private buildIndexPage(_req: IncomingMessage, res: ServerResponse) {
 		const builtPage = pageTemplate({
 			title: "Launchpad Dashboard",
 			cssFiles: this._cssTransformedPaths,

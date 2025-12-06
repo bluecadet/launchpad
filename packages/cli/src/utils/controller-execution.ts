@@ -89,16 +89,23 @@ export function withDaemonOrController<T>(
 
 	addLogListeners(controller.getEventBus());
 
-	return controller.start().andThen(() => {
-		const result = options.otherwise(controller);
+	return controller
+		.start()
+		.andThen(() => {
+			const result = options.otherwise(controller);
 
-		// Stop controller after commands complete (unless persistent mode)
-		if (options.mode === "task") {
-			return result.andTee(() => controller.stop());
-		}
+			// Stop controller after commands complete (unless persistent mode)
+			if (options.mode === "task") {
+				return result.andTee(() => controller.stop());
+			}
 
-		return result;
-	});
+			return result;
+		})
+		.orTee(() => {
+			// make sure to stop controller on error so that resources are cleaned up
+			cliLogger.error("An error occurred, attempting to stop controller...");
+			controller.stop();
+		});
 }
 
 // Both EventBus and IPCClient implement this interface

@@ -180,9 +180,10 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 export function importLaunchpadDashboard() {
 	return ResultAsync.fromPromise(
 		import("@bluecadet/launchpad-dashboard"),
-		() =>
+		(e: unknown) =>
 			new ImportError(
 				'Could not find module "@bluecadet/launchpad-dashboard". Make sure you have installed it.',
+				{ cause: e instanceof Error ? e : new Error(String(e)) },
 			),
 	);
 }

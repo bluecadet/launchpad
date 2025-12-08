@@ -160,7 +160,7 @@ function formatLogObj(level: LogLevel, payload: Omit<LogEventPayload, "message">
 	// justify right side all the way to the right
 	const spaceRight = availableSpace - stringWidth(message as string) + 1;
 
-	let formatted = `${left} ${message}${" ".repeat(spaceRight)}${right}`;
+	let formatted = `${left.length ? `${left} ` : ""}${message}${" ".repeat(spaceRight)}${right}`;
 	for (const line of additionalLines) {
 		formatted += `\n   ${line}`;
 	}

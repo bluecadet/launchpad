@@ -32,44 +32,9 @@ type MonitorActionContext = SubsystemContext & {
 	config: ResolvedMonitorConfig;
 };
 
-/**
- * Force kills all PM2 instances
- */
 export function killPM2(logger: Omit<Logger, "child">): ResultAsync<void, Error> {
-	return ResultAsync.fromPromise(
-		new Promise((resolve, reject) => {
-			const child = spawn("npm", ["exec", "pm2", "kill"], { shell: true });
-
-			child.stdout.on("data", (data) => logger.info(data));
-			child.stderr.on("data", (data) => logger.error(data));
-
-			child.on("error", (error) => {
-				logger.error(`PM2 could not be killed: ${error}`);
-				reject(error);
-			});
-
-			child.on("close", () => {
-				logger.info("PM2 has been killed");
-				resolve(undefined);
-			});
-		}),
-		(error) => new Error("Failed to kill PM2", { cause: error }),
-	);
-}
-
-function _handleExistingDaemon(
-	resolvedConfig: ResolvedMonitorConfig,
-	ctx: SubsystemContext,
-	processManager: ProcessManager,
-): ResultAsync<void, Error> {
-	if (resolvedConfig.deleteExistingBeforeConnect) {
-		ctx.logger.verbose("Deleting existing PM2 processes");
-		return processManager.deleteAllProcesses().andThen(() => {
-			ctx.logger.verbose("Killing existing PM2 daemon");
-			return killPM2(ctx.logger);
-		});
-	}
-	return okAsync(undefined);
+	logger.verbose("Killing existing PM2 daemon");
+	return ProcessManager.kill().map(() => undefined);
 }
 
 function connect(ctx: MonitorActionContext, ensureDaemonOwnership = true) {
@@ -80,8 +45,8 @@ function connect(ctx: MonitorActionContext, ensureDaemonOwnership = true) {
 		.andThen(() => ctx.busManager.disconnect())
 		.andThen(() => ctx.processManager.isDaemonRunning())
 		.andThen((isDaemonRunning) => {
-			if (ensureDaemonOwnership && isDaemonRunning) {
-				return _handleExistingDaemon(ctx.config, ctx, ctx.processManager);
+			if (ensureDaemonOwnership && isDaemonRunning && ctx.config.deleteExistingBeforeConnect) {
+				return killPM2(ctx.logger);
 			}
 			return okAsync(undefined);
 		})

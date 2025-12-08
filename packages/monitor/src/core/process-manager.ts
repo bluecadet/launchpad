@@ -1,6 +1,6 @@
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
-import pm2 from "pm2";
+import pm2, { type ProcessDescription } from "pm2";
 
 export class ProcessManager {
 	#logger: Logger;
@@ -63,6 +63,10 @@ export class ProcessManager {
 
 			return ResultAsync.combine(deletePromises).map(() => undefined);
 		});
+	}
+
+	static kill(): ResultAsync<ProcessDescription, Error> {
+		return wrapPm2Function("Failed to kill PM2 daemon", (cb) => pm2.killDaemon(cb));
 	}
 }
 

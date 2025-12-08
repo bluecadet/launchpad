@@ -53,6 +53,8 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		// get import path for 'htmx.org' and register route to serve it
 		const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
 		this.registerJS(htmxPath);
+		const htmxExtSsePath = require.resolve("htmx-ext-sse/dist/sse.min.js");
+		this.registerJS(htmxExtSsePath);
 	}
 
 	private static async compilePageContent(page: DashboardPage): Promise<RenderedPageContent> {
@@ -98,11 +100,9 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 			getContents: async (id) => {
 				const filePath = this._staticFileRegistry.get(id);
 
-				if (!filePath) {
-					throw new HTTPError("File not found", { statusCode: 404 });
+				if (filePath) {
+					return fs.createReadStream(filePath);
 				}
-
-				fs.createReadStream(filePath);
 			},
 			getMeta: async (id) => {
 				const filePath = this._staticFileRegistry.get(id);
@@ -179,6 +179,10 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		},
 		put: (route: string, handler: DashboardRouteHandler) => {
 			this._h3.put(route, handler);
+			return this;
+		},
+		patch: (route: string, handler: DashboardRouteHandler) => {
+			this._h3.patch(route, handler);
 			return this;
 		},
 		delete: (route: string, handler: DashboardRouteHandler) => {

@@ -3,6 +3,7 @@ import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
+	type DashboardRegistry,
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
@@ -18,6 +19,7 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
+import { registerMonitorDashboardFeatures } from "./monitor-dashboard.js";
 import { MonitorPluginDriver } from "./monitor-plugin.js";
 import { MonitorStateManager } from "./monitor-state.js";
 
@@ -322,6 +324,9 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 				},
 				disconnect() {
 					return shutdown(actionCtx);
+				},
+				buildDashboard(registry: DashboardRegistry): void {
+					registerMonitorDashboardFeatures(registry, stateManager);
 				},
 			});
 		},

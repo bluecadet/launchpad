@@ -134,26 +134,27 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 							// Dynamically import and register dashboard if configured
 							if (config.dashboard) {
 								const dashboardConfig = config.dashboard;
-								return importLaunchpadDashboard()
-									.andThen(({ createLaunchpadDashboard }) => {
-										return controller.registerSubsystem(createLaunchpadDashboard(dashboardConfig));
-									})
-									.andTee((dashboardSubsystem) => {
-										// after registering the dashboard subsystem, we need to
-										// get its registry and pass it to the other subsystems.
-										//
-										// TODO: maybe we should come up with a better way for subsystems
-										// to call each other during setup? I don't love that this HAS to be
-										// registered last.
+								return importLaunchpadDashboard().andThen(({ createLaunchpadDashboard }) => {
+									return controller.registerSubsystem(
+										createLaunchpadDashboard(dashboardConfig, (registry) => {
+											// after registering the dashboard subsystem, we need to
+											// get its registry and pass it to the other subsystems.
+											//
+											// TODO: maybe we should come up with a better way for subsystems
+											// to call each other during setup? I don't love that this HAS to be
+											// registered last.
 
-										const registry = dashboardSubsystem.getRegistry();
+											cliLogger.debug("Building dashboard features for registered subsystems...");
 
-										for (const [_name, subsystem] of controller.getSubsystems()) {
-											if (subsystem.buildDashboard) {
-												subsystem.buildDashboard(registry);
+											for (const [_name, subsystem] of controller.getSubsystems()) {
+												if (subsystem.buildDashboard) {
+													cliLogger.debug(`Building dashboard features for subsystem: ${_name}`);
+													subsystem.buildDashboard(registry);
+												}
 											}
-										}
-									});
+										}),
+									);
+								});
 							}
 							return ok();
 						})

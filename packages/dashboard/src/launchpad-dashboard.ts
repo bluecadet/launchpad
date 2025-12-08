@@ -5,7 +5,12 @@ import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.js";
 import { DashboardRegistryImpl } from "./lib/dashboard-registry.js";
 
-export function createLaunchpadDashboard(config: DashboardConfig) {
+type RegisterCallback = (registry: DashboardRegistryImpl) => void;
+
+export function createLaunchpadDashboard(
+	config: DashboardConfig,
+	registerCallback: RegisterCallback,
+) {
 	return defineSubsystem({
 		name: "dashboard",
 		setup(_ctx) {
@@ -19,12 +24,7 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 
 			const _registry = new DashboardRegistryImpl(app);
 
-			const server = serve(app, {
-				port: resolvedConfig.port,
-				hostname: resolvedConfig.host,
-				silent: true,
-				gracefulShutdown: false,
-			});
+			registerCallback(_registry);
 
 			app.use((event) => {
 				// log requests if enabled
@@ -46,6 +46,24 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 					}
 				}),
 			);
+
+			// disable caching by default, except for static files served from the dashboard
+			app.use((event) => {
+				if (event.req.method === "GET" && !event.req.url?.startsWith("/static/")) {
+					event.res.headers.set(
+						"Cache-Control",
+						"no-store, no-cache, must-revalidate, proxy-revalidate",
+					);
+				}
+			});
+
+			const server = serve(app, {
+				port: resolvedConfig.port,
+				hostname: resolvedConfig.host,
+				silent: true,
+				gracefulShutdown: false,
+				manual: false,
+			});
 
 			return okAsync({
 				// Expose the registry so the controller can pass it to other subsystems

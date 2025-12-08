@@ -2,6 +2,7 @@ import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
+	type DashboardRegistry,
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
@@ -12,6 +13,7 @@ import {
 	parseContentConfig,
 	type ResolvedContentConfig,
 } from "./content-config.js";
+import { registerContentDashboardFeatures } from "./content-dashboard.js";
 import { ContentError, ContentPluginDriver } from "./content-plugin.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import {
@@ -315,6 +317,9 @@ export function createLaunchpadContent(config: ContentConfig) {
 						},
 						onStatePatch(handler: PatchHandler): () => void {
 							return stateManager.onPatch(handler);
+						},
+						buildDashboard(registry: DashboardRegistry): void {
+							registerContentDashboardFeatures(registry, stateManager);
 						},
 					});
 				});

@@ -168,6 +168,13 @@ export interface DashboardRegistry {
 		put: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
 
 		/**
+		 * Registers a PATCH endpoint handler for updating existing resources.
+		 * @param route - The API route path (e.g., "/api/config")
+		 * @param handler - The endpoint handler function
+		 */
+		patch: (route: string, handler: DashboardRouteHandler) => DashboardRegistry;
+
+		/**
 		 * Registers a DELETE endpoint handler for removing resources.
 		 * @param route - The API route path (e.g., "/api/sessions/:id")
 		 * @param handler - The endpoint handler function

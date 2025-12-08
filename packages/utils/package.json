@@ -65,6 +65,7 @@
   },
   "dependencies": {
     "chalk": "^5.0.0",
+    "h3": "^2.0.1-rc.6",
     "handlebars": "^4.7.8",
     "immer": "^10.2.0",
     "neverthrow": "^8.1.1"

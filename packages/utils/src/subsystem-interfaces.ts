@@ -1,4 +1,4 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { HTTPHandler } from "h3";
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
@@ -104,11 +104,7 @@ export type DashboardRouteParams = Record<string, string | string[] | undefined>
  * Function type for handling HTTP requests to dashboard API endpoints.
  * Can return either a synchronous Response or a Promise that resolves to a Response.
  */
-export type DashboardRouteHandler<T extends DashboardRouteParams = Record<string, never>> = (
-	req: IncomingMessage,
-	res: ServerResponse,
-	params: T,
-) => void | Promise<void>;
+export type DashboardRouteHandler = HTTPHandler;
 
 /**
  * Write-only interface for subsystems to register dashboard content.
@@ -212,7 +208,11 @@ export interface SubsystemContext {
 export type InstantiatedSubsystem<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
-> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardProvider>;
+> = Partial<
+	Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardProvider
+> & {
+	[key: string]: unknown;
+};
 
 /**
  * Interface for subsystems that require async setup/initialization.

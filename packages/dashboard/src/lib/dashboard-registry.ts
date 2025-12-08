@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRequire } from "node:module";
 import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
 import type {
@@ -8,7 +7,7 @@ import type {
 	DashboardRegistry,
 	DashboardRouteHandler,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import type { SimpleRouter } from "./simple-router.js";
+import { type H3, type H3Event, HTTPError, html, serveStatic } from "h3";
 
 const require = createRequire(import.meta.url);
 
@@ -27,24 +26,55 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 	private _pages = new Map<string, DashboardPage>();
 	private _cssTransformedPaths: string[] = [];
 	private _jsTransformedPaths: string[] = [];
+	private _staticFileRegistry: Map<string, string> = new Map();
 
-	constructor(private _router: SimpleRouter) {
-		this._router.get("/", this.buildIndexPage.bind(this));
+	constructor(private _h3: H3) {
+		this._h3.get("/", this.buildIndexPage.bind(this));
+		this._h3.get("/static/**", this.handleStaticFileRequest.bind(this));
 
 		// get import path for 'htmx.org' and register route to serve it
 		const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
 		this.registerJS(htmxPath);
 	}
 
-	private buildIndexPage(_req: IncomingMessage, res: ServerResponse) {
+	private buildIndexPage(_event: H3Event) {
 		const builtPage = pageTemplate({
 			title: "Launchpad Dashboard",
 			cssFiles: this._cssTransformedPaths,
 			jsFiles: this._jsTransformedPaths,
 		});
 
-		res.writeHead(200, { "Content-Type": "text/html" });
-		res.end(builtPage);
+		return html(builtPage);
+	}
+
+	private handleStaticFileRequest(event: H3Event) {
+		return serveStatic(event, {
+			getContents: async (id) => {
+				const filePath = this._staticFileRegistry.get(id);
+
+				if (!filePath) {
+					throw new HTTPError("File not found", { statusCode: 404 });
+				}
+
+				return fs.createReadStream(filePath);
+			},
+			getMeta: async (id) => {
+				const filePath = this._staticFileRegistry.get(id);
+
+				if (!filePath) {
+					throw new HTTPError("File not found", { statusCode: 404 });
+				}
+
+				const stats = await fs.promises.stat(filePath).catch(() => {});
+
+				if (stats?.isFile()) {
+					return {
+						size: stats.size,
+						mtime: stats.mtimeMs,
+					};
+				}
+			},
+		});
 	}
 
 	// ---- Getters for dashboard builder ----
@@ -67,27 +97,12 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 
 		// otherwise, assume it's a local file. Serve from /static/, and strip leading slash if present
 		const normalizedPath = originalPath.startsWith("/") ? originalPath.slice(1) : originalPath;
-		const newPath = `/static/${normalizedPath}`;
 
-		// Register route to serve the file
-		this._router.get(newPath, (req, res) => {
-			switch (type) {
-				case "css":
-					res.writeHead(200, { "Content-Type": "text/css" });
-					break;
-				case "js":
-					res.writeHead(200, { "Content-Type": "application/javascript" });
-					break;
-				default:
-					res.writeHead(200, { "Content-Type": "text/plain" });
-					break;
-			}
+		const staticReqPath = `/static/${normalizedPath}`;
 
-			const fileStream = fs.createReadStream(originalPath);
-			fileStream.pipe(res);
-		});
+		this._staticFileRegistry.set(staticReqPath, originalPath);
 
-		return newPath;
+		return staticReqPath;
 	}
 
 	registerCSS(path: string) {
@@ -102,19 +117,19 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 
 	readonly api: DashboardRegistry["api"] = {
 		get: (route: string, handler: DashboardRouteHandler) => {
-			this._router.get(route, handler);
+			this._h3.get(route, handler);
 			return this;
 		},
 		post: (route: string, handler: DashboardRouteHandler) => {
-			this._router.post(route, handler);
+			this._h3.post(route, handler);
 			return this;
 		},
 		put: (route: string, handler: DashboardRouteHandler) => {
-			this._router.put(route, handler);
+			this._h3.put(route, handler);
 			return this;
 		},
 		delete: (route: string, handler: DashboardRouteHandler) => {
-			this._router.delete(route, handler);
+			this._h3.delete(route, handler);
 			return this;
 		},
 	};

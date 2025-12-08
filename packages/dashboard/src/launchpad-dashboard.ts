@@ -1,23 +1,51 @@
 import { defineSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import { errAsync, okAsync } from "neverthrow";
+import chalk from "chalk";
+import { H3, onError, serve } from "h3";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.js";
 import { DashboardRegistryImpl } from "./lib/dashboard-registry.js";
-import { SimpleRouter } from "./lib/simple-router.js";
 
 export function createLaunchpadDashboard(config: DashboardConfig) {
 	return defineSubsystem({
 		name: "dashboard",
-		setup(ctx) {
+		setup(_ctx) {
 			const configResult = dashboardConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
 			}
 			const resolvedConfig = configResult.data;
 
-			const router = new SimpleRouter(ctx.logger);
-			const registry = new DashboardRegistryImpl(router);
+			const app = new H3();
 
-			const stopRouter = router.listen(resolvedConfig.port, resolvedConfig.host);
+			const registry = new DashboardRegistryImpl(app);
+
+			const server = serve(app, {
+				port: resolvedConfig.port,
+				hostname: resolvedConfig.host,
+				silent: true,
+				gracefulShutdown: false,
+			});
+
+			app.use((event) => {
+				// log requests if enabled
+				const { method, url } = event.req;
+				_ctx.logger.debug(`${method} ${url}`);
+			});
+
+			app.use(
+				onError((event, error) => {
+					const level = event.status && event.status >= 500 ? "error" : "warn";
+
+					const msg = `[${chalk[level === "error" ? "red" : "yellow"](event.status)}] Error processing request: ${error.req.method} ${error.req.url}`;
+					if (level === "error") {
+						_ctx.logger.error({
+							message: new Error(msg, { cause: event }),
+						});
+					} else {
+						_ctx.logger.warn(msg);
+					}
+				}),
+			);
 
 			return okAsync({
 				// Expose the registry so the controller can pass it to other subsystems
@@ -25,7 +53,7 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 					return registry;
 				},
 				disconnect() {
-					return stopRouter();
+					return ResultAsync.fromPromise(server.close(), (e) => e as Error);
 				},
 			});
 		},

@@ -74,8 +74,9 @@ export interface StateProvider<TState = unknown> {
  * Panels are individual content blocks that can be arranged and ordered.
  */
 export type DashboardPanel = {
+	title: string;
 	/** The HTML or text content to display in the panel */
-	content: string;
+	render: string | (() => Promise<string> | string);
 	/** Optional display order for panel arrangement. Lower numbers appear first */
 	order?: number;
 };
@@ -85,6 +86,8 @@ export type DashboardPanel = {
  * Pages provide a way to organize dashboard content into separate views or sections.
  */
 export type DashboardPage = {
+	title: string;
+	slug: string;
 	/** Optional display order for page arrangement. Lower numbers appear first */
 	order?: number;
 } & (
@@ -94,7 +97,7 @@ export type DashboardPage = {
 	  }
 	| {
 			/** Page with raw HTML/text content */
-			content: string;
+			render: string | (() => Promise<string> | string);
 	  }
 );
 
@@ -115,18 +118,16 @@ export interface DashboardRegistry {
 	/**
 	 * Registers a panel to the dashboard.
 	 * Panels are individual content blocks that will be rendered in the dashboard interface.
-	 * @param id - Unique identifier for the panel
 	 * @param panel - The dashboard panel to register
 	 */
-	registerPanel(id: string, panel: DashboardPanel): this;
+	registerPanel(panel: DashboardPanel): this;
 
 	/**
 	 * Registers a page to the dashboard.
 	 * Pages provide separate views or sections within the dashboard.
-	 * @param id - Unique identifier for the page
 	 * @param page - The dashboard page to register
 	 */
-	registerPage(id: string, page: DashboardPage): this;
+	registerPage(page: DashboardPage): this;
 
 	/**
 	 * Registers a CSS file to the dashboard for custom styling.

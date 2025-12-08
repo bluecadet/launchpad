@@ -11,6 +11,34 @@
 </head>
 
 <body>
+  {{!-- header --}}
+  <header class="dashboard-header">
+    {{!-- only if we have more than one page --}}
+    {{#if pages.[1]}}
+    <nav class="dashboard-nav">
+      <ul>
+        {{#each pages}}
+        <li><a href="/{{this.slug}}">{{this.title}}</a></li>
+        {{/each}}
+      </ul>
+    </nav>
+    {{/if}}
+  </header>
+  {{!-- body --}}
+  {{#if content.raw}}
+  {{{content.raw}}}
+  {{else}}
+  <div class="dashboard-panels">
+    {{#each content.panels}}
+    <div class="dashboard-panel">
+      <h2>{{this.title}}</h2>
+      <div class="dashboard-panel-content">
+        {{{this.content}}}
+      </div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
   {{#each jsFiles}}
   <script src="{{this}}"></script>
   {{/each}}

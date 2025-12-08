@@ -17,7 +17,7 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 
 			const app = new H3();
 
-			const registry = new DashboardRegistryImpl(app);
+			const _registry = new DashboardRegistryImpl(app);
 
 			const server = serve(app, {
 				port: resolvedConfig.port,
@@ -50,7 +50,7 @@ export function createLaunchpadDashboard(config: DashboardConfig) {
 			return okAsync({
 				// Expose the registry so the controller can pass it to other subsystems
 				getRegistry() {
-					return registry;
+					return _registry;
 				},
 				disconnect() {
 					return ResultAsync.fromPromise(server.close(), (e) => e as Error);

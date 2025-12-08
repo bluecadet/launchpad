@@ -11,10 +11,23 @@ import { type H3, type H3Event, HTTPError, html, serveStatic } from "h3";
 
 const require = createRequire(import.meta.url);
 
+type RenderedPageContent =
+	| {
+			raw: string;
+	  }
+	| {
+			panels: {
+				title: string;
+				content: string;
+			}[];
+	  };
+
 const pageTemplate = await loadHandlebarsTemplate<{
 	title: string;
 	cssFiles: string[];
 	jsFiles: string[];
+	pages: DashboardPage[];
+	content: RenderedPageContent;
 }>(import.meta.resolve("../../templates/page.hbs"));
 
 /**
@@ -22,26 +35,59 @@ const pageTemplate = await loadHandlebarsTemplate<{
  * Maintains write-only interface for subsystems while providing private getters for the dashboard.
  */
 export class DashboardRegistryImpl implements DashboardRegistry {
-	private _panels = new Map<string, DashboardPanel>();
-	private _pages = new Map<string, DashboardPage>();
+	private _indexPanels: DashboardPanel[] = [];
+	private _pages: DashboardPage[] = [];
 	private _cssTransformedPaths: string[] = [];
 	private _jsTransformedPaths: string[] = [];
 	private _staticFileRegistry: Map<string, string> = new Map();
 
 	constructor(private _h3: H3) {
-		this._h3.get("/", this.buildIndexPage.bind(this));
 		this._h3.get("/static/**", this.handleStaticFileRequest.bind(this));
+
+		this.registerPage({
+			title: "Home",
+			slug: "",
+			panels: this._indexPanels,
+		});
 
 		// get import path for 'htmx.org' and register route to serve it
 		const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
 		this.registerJS(htmxPath);
 	}
 
-	private buildIndexPage(_event: H3Event) {
+	private static async compilePageContent(page: DashboardPage): Promise<RenderedPageContent> {
+		if ("render" in page) {
+			const content = typeof page.render === "function" ? await page.render() : page.render;
+			return { raw: content };
+		}
+
+		const panelRenders = page.panels
+			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+			.map(async ({ render, order, ...panel }) => {
+				const panelContent = typeof render === "function" ? await render() : render;
+
+				return {
+					...panel,
+					content: panelContent,
+				};
+			});
+
+		const panels = await Promise.all(panelRenders);
+
+		return {
+			panels,
+		};
+	}
+
+	private async buildPageResponse(page: DashboardPage) {
+		const content = await DashboardRegistryImpl.compilePageContent(page);
+
 		const builtPage = pageTemplate({
 			title: "Launchpad Dashboard",
 			cssFiles: this._cssTransformedPaths,
 			jsFiles: this._jsTransformedPaths,
+			content,
+			pages: this._pages,
 		});
 
 		return html(builtPage);
@@ -56,7 +102,7 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 					throw new HTTPError("File not found", { statusCode: 404 });
 				}
 
-				return fs.createReadStream(filePath);
+				fs.createReadStream(filePath);
 			},
 			getMeta: async (id) => {
 				const filePath = this._staticFileRegistry.get(id);
@@ -79,17 +125,18 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 
 	// ---- Getters for dashboard builder ----
 
-	registerPanel(id: string, panel: DashboardPanel) {
-		this._panels.set(id, panel);
+	registerPanel(panel: DashboardPanel) {
+		this._indexPanels.push(panel);
 		return this;
 	}
 
-	registerPage(id: string, page: DashboardPage) {
-		this._pages.set(id, page);
+	registerPage(page: DashboardPage) {
+		this._pages.push(page);
+		this._h3.get(`/${page.slug}`, this.buildPageResponse.bind(this, page));
 		return this;
 	}
 
-	private transformPath(originalPath: string, type: "css" | "js" | "text" = "text"): string {
+	private registerAssetPath(originalPath: string, type: "css" | "js"): string {
 		// if it's a web path, return as is
 		if (originalPath.startsWith("http://") || originalPath.startsWith("https://")) {
 			return originalPath;
@@ -102,16 +149,22 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 
 		this._staticFileRegistry.set(staticReqPath, originalPath);
 
+		if (type === "css") {
+			this._cssTransformedPaths.push(staticReqPath);
+		} else {
+			this._jsTransformedPaths.push(staticReqPath);
+		}
+
 		return staticReqPath;
 	}
 
 	registerCSS(path: string) {
-		this._cssTransformedPaths.push(this.transformPath(path));
+		this.registerAssetPath(path, "css");
 		return this;
 	}
 
 	registerJS(path: string) {
-		this._jsTransformedPaths.push(this.transformPath(path));
+		this.registerAssetPath(path, "js");
 		return this;
 	}
 

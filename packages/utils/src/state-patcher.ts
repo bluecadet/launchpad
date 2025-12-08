@@ -1,4 +1,4 @@
-import { enablePatches, type Patch, type Producer, produce } from "immer";
+import { enablePatches, type Patch, type Producer, produceWithPatches } from "immer";
 
 enablePatches();
 
@@ -38,9 +38,9 @@ export class PatchedStateManager<TState> {
 	 * @returns The updated state
 	 */
 	updateState(producer: Producer<TState>) {
-		this._state = produce(this._state, producer, (patches) => {
-			this._patchHandlers.forEach((handler) => handler(patches));
-		});
+		const [newState, patches] = produceWithPatches(this._state, producer);
+		this._state = newState;
+		this._patchHandlers.forEach((handler) => handler(patches));
 		return this._state;
 	}
 

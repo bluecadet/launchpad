@@ -56,8 +56,8 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 
 			child.on("message", (message) => {
 				if (isValidChildLogMessage(message)) {
-					const { level, payload } = message;
-					cliLogger.fromPayload(level, payload);
+					const { payload } = message;
+					cliLogger.fromPayload(payload);
 				} else if (isValidReadyMessage(message)) {
 					cliLogger.info("Launchpad started successfully in background.");
 					child.unref(); // Allow the parent to exit independently

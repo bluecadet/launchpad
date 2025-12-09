@@ -141,7 +141,7 @@ function splitLines(
 }
 
 function formatLogObj(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
-	const date = chalk.gray(formatDate(new Date()));
+	const date = chalk.gray(formatDate(payload.timestamp));
 	const module = payload.module ? `${chalk.gray(payload.module)} ` : "";
 
 	const isBadge = level === "error" || level === "warn";
@@ -219,15 +219,15 @@ process.on("beforeExit", () => {
 	}
 });
 
-function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message">) {
-	if (LOG_LEVEL_TO_NUM[level] > configuredLogLevel) {
+function logFromPayload(payload: Omit<LogEventPayload, "message">) {
+	if (LOG_LEVEL_TO_NUM[payload.level] > configuredLogLevel) {
 		return;
 	}
 
-	const formatted = formatLogObj(level, payload);
+	const formatted = formatLogObj(payload.level, payload);
 
 	// Forward log to parent process if detached
-	forwardLog(level, payload);
+	forwardLog(payload.level, payload);
 
 	if (lastFixedMessage !== null) {
 		// erase fixed message before logging
@@ -239,7 +239,7 @@ function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message
 		? `${formatted}\n${lastFixedMessage}`
 		: `${formatted}\n`;
 
-	if (level === "error" || level === "warn") {
+	if (payload.level === "error" || payload.level === "warn") {
 		process.stderr.write(formattedWithFixed);
 	} else {
 		process.stdout.write(formattedWithFixed);
@@ -250,8 +250,10 @@ function logFromPayload(level: LogLevel, payload: Omit<LogEventPayload, "message
  * for a console-like API
  */
 function log(level: LogLevel, ...args: unknown[]) {
-	logFromPayload(level, {
+	logFromPayload({
 		args,
+		timestamp: new Date(),
+		level: level,
 	});
 }
 

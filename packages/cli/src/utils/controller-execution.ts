@@ -115,11 +115,11 @@ type LaunchpadEventEmitter = {
 
 // TODO: nicer log formatting
 function addLogListeners(bus: LaunchpadEventEmitter): void {
-	bus.on("log:error", cliLogger.fromPayload.bind(null, "error"));
-	bus.on("log:warn", cliLogger.fromPayload.bind(null, "warn"));
-	bus.on("log:info", cliLogger.fromPayload.bind(null, "info"));
-	bus.on("log:debug", cliLogger.fromPayload.bind(null, "debug"));
-	bus.on("log:verbose", cliLogger.fromPayload.bind(null, "verbose"));
+	bus.on("log:error", cliLogger.fromPayload);
+	bus.on("log:warn", cliLogger.fromPayload);
+	bus.on("log:info", cliLogger.fromPayload);
+	bus.on("log:debug", cliLogger.fromPayload);
+	bus.on("log:verbose", cliLogger.fromPayload);
 	bus.on("log:tty", (data) => cliLogger.fixed(data.message));
 	bus.on("log:tty:close", () => cliLogger.fixed(null));
 }

@@ -1,6 +1,8 @@
 export type LogLevel = "error" | "warn" | "info" | "debug" | "verbose";
 
 export type LogEventPayload = {
+	level: LogLevel;
+	timestamp: Date;
 	message: string; // formatted message string
 	args: Array<unknown>; // original arguments passed to the log method
 	module?: string;

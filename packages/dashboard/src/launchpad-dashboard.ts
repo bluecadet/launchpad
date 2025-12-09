@@ -4,6 +4,7 @@ import { H3, onError, serve } from "h3";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.js";
 import { DashboardRegistryImpl } from "./lib/dashboard-registry.js";
+import { registerLogPanelFeatures } from "./lib/log-panel.js";
 
 type RegisterCallback = (registry: DashboardRegistryImpl) => void;
 
@@ -25,6 +26,8 @@ export function createLaunchpadDashboard(
 			const _registry = new DashboardRegistryImpl(app);
 
 			registerCallback(_registry);
+
+			registerLogPanelFeatures(_registry, _ctx.eventBus);
 
 			app.use((event) => {
 				// log requests if enabled

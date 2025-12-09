@@ -77,6 +77,8 @@ class EventBusTransport extends Transport {
 				},
 				...args,
 			),
+			timestamp: new Date(),
+			level,
 			args,
 			module: info.module,
 		});

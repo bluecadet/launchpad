@@ -33,7 +33,6 @@ export class IPCClient {
 	private _stateChangeListeners = new Set<StateChangeHandler>();
 	private _lastState: Readonly<LaunchpadState> | null = null;
 	private _lastStateVersion = -1;
-	private static readonly DEFAULT_TIMEOUT_MS = 5000;
 
 	/**
 	 * Connect to the IPC socket
@@ -258,19 +257,8 @@ export class IPCClient {
 
 		return ResultAsync.fromPromise(
 			new Promise<IPCResponse>((resolve, reject) => {
-				const timeoutHandle = setTimeout(() => {
-					this._pendingRequests.delete(message.id);
-					reject(
-						new IPCTimeoutError(
-							`IPC request timed out after ${IPCClient.DEFAULT_TIMEOUT_MS}ms`,
-							IPCClient.DEFAULT_TIMEOUT_MS,
-						),
-					);
-				}, IPCClient.DEFAULT_TIMEOUT_MS);
-
 				this._pendingRequests.set(message.id, {
 					resolve: (response) => {
-						clearTimeout(timeoutHandle);
 						resolve(response);
 					},
 					reject,
@@ -279,7 +267,6 @@ export class IPCClient {
 				const data = `${IPCSerializer.serialize(message)}\n`;
 				this._socket?.write(data, (error) => {
 					if (error) {
-						clearTimeout(timeoutHandle);
 						this._pendingRequests.delete(message.id);
 						reject(
 							new IPCConnectionError("Failed to send IPC message", {

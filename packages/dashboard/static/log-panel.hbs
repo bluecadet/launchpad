@@ -1,0 +1,26 @@
+<form class="panel-section" hx-get="/api/log-filter" hx-target="#logs"
+  hx-trigger="submit, change from:input[type='checkbox'], keyup changed from:input[type='search'] delay:500ms"
+  hx-select="#logs">
+  <input type="search" id="log-search" placeholder="Search logs..." name="query" />
+
+  <input type="checkbox" name="level.debug" id="level.debug" />
+  <label for="level.debug">Debug</label>
+
+  <input type="checkbox" name="level.verbose" id="level.verbose" />
+  <label for="level.verbose">Verbose</label>
+
+  <input type="checkbox" name="level.info" id="level.info" checked />
+  <label for="level.info">Info</label>
+
+  <input type="checkbox" name="level.warn" id="level.warn" checked />
+  <label for="level.warn">Warn</label>
+
+  <input type="checkbox" name="level.error" id="level.error" checked />
+  <label for="level.error">Error</label>
+</form>
+<div id="logs" class="panel-section logs" hx-ext="sse" hx-swap="beforeend" sse-connect="/api/log-stream{{queryParams}}"
+  sse-swap="message">
+  {{#each logs}}
+  {{> logRow this}}
+  {{/each}}
+</div>

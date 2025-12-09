@@ -30,11 +30,9 @@
   {{else}}
   <div class="dashboard-panels">
     {{#each content.panels}}
-    <div class="dashboard-panel">
-      <h2>{{this.title}}</h2>
-      <div class="dashboard-panel-content">
-        {{{this.content}}}
-      </div>
+    <div class="dashboard-panel card">
+      <h2 class="panel-section">{{this.title}}</h2>
+      {{{this.content}}}
     </div>
     {{/each}}
   </div>

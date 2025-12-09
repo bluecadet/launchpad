@@ -1,0 +1,121 @@
+/* CSS reset */
+@layer reset {
+  html {
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+
+  * {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  *, *:before, *:after {
+    box-sizing: inherit;
+  }
+
+  body, h1, h2, h3, h4, h5, h6, p, ol, ul {
+    margin: 0;
+    padding: 0;
+    font-weight: normal;
+  }
+
+  ol, ul {
+    list-style: none;
+  }
+
+  img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+/* Fonts */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(/static/fonts/inter-latin-400-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Monaspace Neon';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(/static/fonts/monaspace-neon-latin-400-normal.woff2) format('woff2'), url(/static/fonts/monaspace-neon-latin-400-normal.woff) format('woff');
+}
+
+/* Theme */
+
+:root {
+  /* base colors */
+  --color-bg: #0D0E12;
+  --color-bg-muted: #13141B;
+  --color-fg: #FFF;
+  --color-fg-muted: #9499AD;
+  --color-border: #252837;
+  --color-accent-bg: #121826;
+  --color-accent-fg: #4D96FF;
+
+  /* functional colors */
+  --color-destructive-bg: #3E1212;
+  --color-destructive-fg: #FF6B6B;
+  --color-success-bg: #123E12;
+  --color-success-fg: #6BCB77;
+  --color-warning-bg: #3E2F12;
+  --color-warning-fg: #FFD93D;
+  --color-info-bg: #123A3E;
+  --color-info-fg: #4D96FF;
+
+  /* typography vars */
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-weight-normal: 400;
+  --font-weight-bold: 600;
+  --font-family-monospace: "Monaspace Neon", monospace;
+  --font-family-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* other vars */
+  --radius-md: 8px;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-fg-muted);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+}
+
+.dashboard-panels {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  overflow: hidden;
+}
+
+.card h2 {
+  font-size: var(--font-size-lg);
+  color: var(--color-fg);
+}
+
+.panel-section {
+  padding: 0.5rem 1rem;
+
+  & + .panel-section {
+    border-block-start: 1px solid var(--color-border);
+  }
+}

@@ -28,7 +28,7 @@ const pageTemplate = await loadHandlebarsTemplate<{
 	jsFiles: string[];
 	pages: DashboardPage[];
 	content: RenderedPageContent;
-}>(import.meta.resolve("../../templates/page.hbs"));
+}>(import.meta.resolve("../../static/page.hbs"));
 
 /**
  * Internal implementation of DashboardRegistry.
@@ -51,10 +51,23 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		});
 
 		// get import path for 'htmx.org' and register route to serve it
-		const htmxPath = require.resolve("htmx.org/dist/htmx.min.js");
-		this.registerJS(htmxPath);
-		const htmxExtSsePath = require.resolve("htmx-ext-sse/dist/sse.min.js");
-		this.registerJS(htmxExtSsePath);
+		this.registerJS(require.resolve("htmx.org/dist/htmx.min.js"));
+		this.registerJS(require.resolve("htmx-ext-sse/dist/sse.min.js"));
+		// register default CSS
+		this.registerCSS(require.resolve("../../static/dashboard.css"));
+		// register font files
+		this.registerStatic(
+			"/static/fonts/inter-latin-400-normal.woff2",
+			require.resolve("@fontsource/inter/files/inter-latin-400-normal.woff2"),
+		);
+		this.registerStatic(
+			"/static/fonts/inter-latin-600-normal.woff2",
+			require.resolve("@fontsource/inter/files/inter-latin-600-normal.woff2"),
+		);
+		this.registerStatic(
+			"/static/fonts/monaspace-neon-latin-400-normal.woff2",
+			require.resolve("@fontsource/monaspace-neon/files/monaspace-neon-latin-400-normal.woff2"),
+		);
 	}
 
 	private static async compilePageContent(page: DashboardPage): Promise<RenderedPageContent> {
@@ -136,35 +149,41 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		return this;
 	}
 
-	private registerAssetPath(originalPath: string, type: "css" | "js"): string {
-		// if it's a web path, return as is
-		if (originalPath.startsWith("http://") || originalPath.startsWith("https://")) {
-			return originalPath;
-		}
+	private registerStatic(requestPath: string, originalPath: string) {
+		this._staticFileRegistry.set(requestPath, originalPath);
+		return this;
+	}
 
+	private normalizePath(path: string) {
 		// otherwise, assume it's a local file. Serve from /static/, and strip leading slash if present
-		const normalizedPath = originalPath.startsWith("/") ? originalPath.slice(1) : originalPath;
+		const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
 
 		const staticReqPath = `/static/${normalizedPath}`;
 
-		this._staticFileRegistry.set(staticReqPath, originalPath);
-
-		if (type === "css") {
-			this._cssTransformedPaths.push(staticReqPath);
-		} else {
-			this._jsTransformedPaths.push(staticReqPath);
-		}
+		this._staticFileRegistry.set(staticReqPath, path);
 
 		return staticReqPath;
 	}
 
 	registerCSS(path: string) {
-		this.registerAssetPath(path, "css");
+		if (path.startsWith("http")) {
+			this._cssTransformedPaths.push(path);
+		} else {
+			const staticPath = this.normalizePath(path);
+			this.registerStatic(staticPath, path);
+			this._cssTransformedPaths.push(staticPath);
+		}
 		return this;
 	}
 
 	registerJS(path: string) {
-		this.registerAssetPath(path, "js");
+		if (path.startsWith("http")) {
+			this._jsTransformedPaths.push(path);
+		} else {
+			const staticPath = this.normalizePath(path);
+			this.registerStatic(staticPath, path);
+			this._jsTransformedPaths.push(staticPath);
+		}
 		return this;
 	}
 

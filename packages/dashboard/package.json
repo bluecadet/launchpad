@@ -6,7 +6,7 @@
 	"files": [
 		"dist/**/*.js",
 		"dist/**/*.d.ts",
-		"templates/**/*.hbs"
+		"static/**/*"
 	],
 	"exports": {
 		"./launchpad-dashboard": {
@@ -38,6 +38,8 @@
 	"homepage": "https://github.com/bluecadet/launchpad/packages/dashboard",
 	"dependencies": {
 		"@bluecadet/launchpad-utils": "~2.1.0",
+		"@fontsource/inter": "^5.2.8",
+		"@fontsource/monaspace-neon": "^5.2.5",
 		"chalk": "^5.0.0",
 		"h3": "^2.0.1-rc.6",
 		"handlebars": "^4.7.8",

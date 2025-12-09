@@ -1,21 +1,51 @@
+import { createRequire } from "node:module";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
 import type { LogEventPayload } from "@bluecadet/launchpad-utils/logger";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import { createEventStream } from "h3";
+import { createEventStream, getQuery } from "h3";
+import Handlebars from "handlebars";
 
-function renderLogItem(log: LogEventPayload) {
-	return `<pre>[${log.timestamp}] [${log.level}] ${log.message}</pre>`;
-}
+const logRowTemplate = await loadHandlebarsTemplate<LogEventPayload>(
+	import.meta.resolve("../../static/log-row.hbs"),
+);
 
-function renderLogPanel(logs: LogEventPayload[]) {
-	return `<div id="logs">${logs.map(renderLogItem).join("\n")}</div>`;
+Handlebars.registerPartial("logRow", logRowTemplate);
+
+const logPanelTemplate = await loadHandlebarsTemplate<{
+	logs: LogEventPayload[];
+	queryParams?: string;
+}>(import.meta.resolve("../../static/log-panel.hbs"));
+
+const require = createRequire(import.meta.url);
+
+type HandlerStream = {
+	eventStream: ReturnType<typeof createEventStream>;
+	filters: {
+		query: string;
+		levels: Set<string>;
+	};
+};
+
+function payloadMatchesFilters(
+	payload: LogEventPayload,
+	filters: HandlerStream["filters"],
+): boolean {
+	const { query, levels } = filters;
+
+	const matchesQuery =
+		!query ||
+		payload.message.toLowerCase().includes(query.toLowerCase()) ||
+		payload.module?.toLowerCase().includes(query.toLowerCase());
+	const matchesLevel = levels.size === 0 || levels.has(payload.level);
+	return !!(matchesQuery && matchesLevel);
 }
 
 export function registerLogPanelFeatures(registry: DashboardRegistry, eventBus: EventBus) {
 	// Keep a buffer of the latest log messages
 	const logBuffer: LogEventPayload[] = [];
 	const MAX_LOG_ENTRIES = 1000;
-	const handlers = new Set<ReturnType<typeof createEventStream>>();
+	const handlers = new Set<HandlerStream>();
 
 	function addLogToBuffer(log: LogEventPayload) {
 		logBuffer.push(log);
@@ -24,10 +54,21 @@ export function registerLogPanelFeatures(registry: DashboardRegistry, eventBus: 
 		}
 
 		// Notify all connected clients of the new log entry
-		const logMessage = renderLogItem(log);
+		const logMessage = logRowTemplate(log);
 		for (const handler of handlers) {
-			handler.push(logMessage);
+			if (payloadMatchesFilters(log, handler.filters)) {
+				handler.eventStream.push(logMessage);
+			}
 		}
+	}
+
+	function filterLogs(
+		query: string,
+		levelFilters: Set<string> = new Set(["info", "warn", "error", "warn"]),
+	): LogEventPayload[] {
+		return logBuffer.filter((payload) =>
+			payloadMatchesFilters(payload, { query, levels: levelFilters }),
+		);
 	}
 
 	eventBus.on("log:error", addLogToBuffer);
@@ -37,19 +78,48 @@ export function registerLogPanelFeatures(registry: DashboardRegistry, eventBus: 
 	eventBus.on("log:verbose", addLogToBuffer);
 
 	registry.api.get("/api/log-stream", (event) => {
+		const queryParams = getQuery(event);
+
+		const levels = queryParams.levels ? (queryParams.levels as string).split(",") : [];
+		const levelSet = new Set<string>(levels);
+		const queryString = queryParams.query ? (queryParams.query as string) : "";
+
 		const eventStream = createEventStream(event);
-		handlers.add(eventStream);
+
+		const handlerStream: HandlerStream = {
+			eventStream,
+			filters: { query: queryString, levels: levelSet },
+		};
+		handlers.add(handlerStream);
 
 		eventStream.onClosed(() => {
-			handlers.delete(eventStream);
+			handlers.delete(handlerStream);
 		});
 
 		return eventStream.send();
 	});
 
+	registry.api.get("/api/log-filter", (event) => {
+		const queryParams = getQuery(event);
+
+		const levelFilters = new Set<string>();
+
+		if (queryParams["level.debug"]) levelFilters.add("debug");
+		if (queryParams["level.info"]) levelFilters.add("info");
+		if (queryParams["level.warn"]) levelFilters.add("warn");
+		if (queryParams["level.error"]) levelFilters.add("error");
+		if (queryParams["level.verbose"]) levelFilters.add("verbose");
+
+		const filteredLogs = filterLogs(queryParams.query ?? "", levelFilters);
+		const newQueryParams = `?query=${encodeURIComponent((queryParams.query as string) ?? "")}&levels=${Array.from(levelFilters).join(",")}`;
+		return logPanelTemplate({ logs: filteredLogs, queryParams: newQueryParams });
+	});
+
+	registry.registerCSS(require.resolve("../../static/log-panel.css"));
+
 	registry.registerPanel({
 		title: "Logs",
 		render: () =>
-			`<div hx-ext="sse" hx-target="#logs" hx-swap="beforeend" sse-connect="/api/log-stream" sse-swap="message">${renderLogPanel(logBuffer)}</div>`,
+			logPanelTemplate({ logs: filterLogs(""), queryParams: '?levels=info,warn,error&query=""' }),
 	});
 }

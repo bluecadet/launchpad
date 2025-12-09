@@ -30,6 +30,14 @@
     display: block;
     max-width: 100%;
   }
+
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+  }
 }
 
 /* Fonts */
@@ -59,7 +67,7 @@
   --color-fg: #FFF;
   --color-fg-muted: #9499AD;
   --color-border: #252837;
-  --color-accent-bg: #121826;
+  --color-accent-bg: #161e32;
   --color-accent-fg: #4D96FF;
   --color-accent-border: #4d97ff41;
 
@@ -86,6 +94,37 @@
   --radius-md: 8px;
 }
 
+/* theme color behaviors */
+:root {
+  --color-theme-fg: var(--color-fg);
+  --color-theme-bg: var(--color-bg);
+}
+
+.danger, .destructive, .error {
+  --color-theme-fg: var(--color-destructive-fg);
+  --color-theme-bg: var(--color-destructive-bg);
+}
+
+.success {
+  --color-theme-fg: var(--color-success-fg);
+  --color-theme-bg: var(--color-success-bg);
+}
+
+.warning {
+  --color-theme-fg: var(--color-warning-fg);
+  --color-theme-bg: var(--color-warning-bg);
+}
+
+.info {
+  --color-theme-fg: var(--color-info-fg);
+  --color-theme-bg: var(--color-info-bg);
+}
+
+.neutral {
+  --color-theme-fg: var(--color-fg-muted);
+  --color-theme-bg: var(--color-bg-muted);
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-fg-muted);
@@ -108,15 +147,42 @@ body {
   overflow: hidden;
 }
 
-.card h2 {
+h2 {
   font-size: var(--font-size-lg);
+  color: var(--color-fg);
+}
+
+h3 {
+  font-size: var(--font-size-md);
   color: var(--color-fg);
 }
 
 .panel-section {
   padding: 0.5rem 1rem;
 
-  & + .panel-section {
+  & + .panel-section, & + * .panel-section {
     border-block-start: 1px solid var(--color-border);
+  }
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25em 0.75em;
+  border-radius: 10000px;
+  font-size: var(--font-size-sm);
+  background-color: var(--color-theme-bg);
+  color: var(--color-theme-fg);
+}
+
+.button {
+  padding: 0.5em 1em;
+  border-radius: var(--radius-md);
+  background-color: var(--color-theme-bg);
+  color: var(--color-theme-fg);
+  text-decoration: none;
+  text-align: center;
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--color-theme-fg) 10%, var(--color-theme-bg));
   }
 }

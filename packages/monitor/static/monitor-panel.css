@@ -1,0 +1,17 @@
+.monitor-overview, .monitor-app  {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding-block: 1rem;
+
+  > .badge {
+    margin-right: auto;
+  }
+}
+
+.monitor-app {
+  padding: 1rem 0;
+  + .monitor-app {
+    border-block-start: 1px solid var(--color-border);
+  }
+}

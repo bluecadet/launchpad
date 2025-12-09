@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts"
+    "dist/**/*.d.ts",
+    "static/**/*"
   ],
   "exports": {
     ".": {

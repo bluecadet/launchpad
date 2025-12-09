@@ -1,20 +1,46 @@
-import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import { createRequire } from "node:module";
+import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
+import type {
+	BaseCommand,
+	CommandExecutor,
+	DashboardRegistry,
+} from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { createEventStream } from "h3";
-import type { MonitorState, MonitorStateManager } from "./monitor-state.js";
+import Handlebars from "handlebars";
+import type { MonitorAppStatus, MonitorState, MonitorStateManager } from "./monitor-state.js";
 
-function renderMonitorPanel(state: MonitorState) {
-	return `<pre>${JSON.stringify(state)}</pre>`;
-}
+Handlebars.registerHelper(
+	"ifMatch",
+	function (this: Handlebars.HelperDelegate, arg1, arg2, options) {
+		return arg1 === arg2 ? options.fn(this) : options.inverse(this);
+	},
+);
+
+Handlebars.registerHelper("appStatusToThemeVar", (status: MonitorAppStatus) => {
+	switch (status) {
+		case "online":
+			return "success";
+		case "offline":
+			return "neutral";
+		case "errored":
+			return "danger";
+	}
+});
+
+const logPanelTemplate = await loadHandlebarsTemplate<MonitorState>(
+	import.meta.resolve("../static/monitor-panel.hbs"),
+);
 
 export function registerMonitorDashboardFeatures(
 	registry: DashboardRegistry,
 	stateManager: MonitorStateManager,
+	dispatchCommand: (command: BaseCommand) => void,
 ) {
 	registry.api.get("/api/monitor-stream", (event) => {
 		const eventStream = createEventStream(event);
 
 		const stateSubscription = stateManager.onPatch((_e) => {
-			eventStream.push(renderMonitorPanel(stateManager.state));
+			eventStream.push(logPanelTemplate(stateManager.state).replaceAll("\n", ""));
 		});
 
 		eventStream.onClosed(() => {
@@ -25,9 +51,15 @@ export function registerMonitorDashboardFeatures(
 		return eventStream.send();
 	});
 
+	registry.api.post("/api/monitor/restart", async (event) => {
+		// TODO
+	});
+
+	registry.registerCSS(createRequire(import.meta.url).resolve("../static/monitor-panel.css"));
+
 	registry.registerPanel({
-		title: "Monitor State",
+		title: "Monitor",
 		render: () =>
-			`<div hx-ext="sse" sse-connect="/api/monitor-stream" sse-swap="message">${renderMonitorPanel(stateManager.state)}</div>`,
+			`<div hx-ext="sse" sse-connect="/api/monitor-stream" sse-swap="message">${logPanelTemplate(stateManager.state)}</div>`,
 	});
 }

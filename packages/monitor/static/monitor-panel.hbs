@@ -1,0 +1,24 @@
+<div class="panel-section monitor-overview">
+  <p>Status:</p>{{#if isConnected}}<span class="badge success">connected</span>{{else}}<span
+    class="badge neutral">disconnected</span>{{/if}}
+  {{#ifMatch status "offline"}}
+  <button class="button success">Start All</button>
+  {{else}}
+  <button class="button warning">Restart All</button>
+  <button class="button danger">Stop All</button>
+  {{/ifMatch}}
+</div>
+<div class="panel-section">
+  {{#each apps}}
+  <div class="monitor-app">
+    <h3>{{name}}</h3>
+    <p class="badge {{appStatusToThemeVar status}}">{{status}}</p>
+    {{#ifMatch status "offline"}}
+    <button class="button success">Start</button>
+    {{else}}
+    <button class="button warning">Restart</button>
+    <button class="button danger">Stop</button>
+    {{/ifMatch}}
+  </div>
+  {{/each}}
+</div>

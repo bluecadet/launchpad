@@ -291,7 +291,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 					return shutdown(actionCtx);
 				},
 				buildDashboard(registry: DashboardRegistry): void {
-					registerMonitorDashboardFeatures(registry, stateManager);
+					registerMonitorDashboardFeatures(registry, stateManager, ctx.dispatchCommand);
 				},
 			});
 		},

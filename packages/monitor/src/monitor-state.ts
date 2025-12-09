@@ -11,6 +11,7 @@ export type MonitorAppStatus = "online" | "offline" | "errored";
 
 type AppState = {
 	status: MonitorAppStatus;
+	name: string;
 	pid?: number;
 	pm2Id?: number;
 	lastStart?: Date;
@@ -71,6 +72,7 @@ export class MonitorStateManager extends PatchedStateManager<MonitorState> {
 			if (!draft.apps[appName]) {
 				draft.apps[appName] = {
 					status: "offline",
+					name: appName,
 				};
 			}
 		});

@@ -6,6 +6,15 @@ import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-int
 import { createEventStream, getQuery } from "h3";
 import Handlebars from "handlebars";
 
+const formatter = new Intl.DateTimeFormat("default", {
+	dateStyle: "short",
+	timeStyle: "short",
+});
+
+Handlebars.registerHelper("formatDate", (timestamp: Date) => {
+	return formatter.format(timestamp);
+});
+
 const logRowTemplate = await loadHandlebarsTemplate<LogEventPayload>(
 	import.meta.resolve("../../static/log-row.hbs"),
 );
@@ -57,7 +66,7 @@ export function registerLogPanelFeatures(registry: DashboardRegistry, eventBus: 
 		const logMessage = logRowTemplate(log);
 		for (const handler of handlers) {
 			if (payloadMatchesFilters(log, handler.filters)) {
-				handler.eventStream.push(logMessage);
+				handler.eventStream.push(logMessage.replace(/\n/g, "")); // remove newlines, which will terminate the SSE message early
 			}
 		}
 	}
@@ -116,10 +125,11 @@ export function registerLogPanelFeatures(registry: DashboardRegistry, eventBus: 
 	});
 
 	registry.registerCSS(require.resolve("../../static/log-panel.css"));
+	registry.registerJS(require.resolve("../../static/auto-scroll.js"));
 
 	registry.registerPanel({
 		title: "Logs",
 		render: () =>
-			logPanelTemplate({ logs: filterLogs(""), queryParams: '?levels=info,warn,error&query=""' }),
+			logPanelTemplate({ logs: filterLogs(""), queryParams: "?levels=info,warn,error" }),
 	});
 }

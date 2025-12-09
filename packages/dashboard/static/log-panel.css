@@ -1,3 +1,83 @@
 .logs {
   background: var(--color-bg);
+  height: 400px;
+  overflow-y: auto;
+  overflow-x: auto;
+  text-wrap: nowrap;
+  font-family: var(--font-family-monospace);
+  font-size: 0.9rem;
+  display: block;
+}
+
+.log-filter input[type="checkbox"] {
+  /* visually hidden */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.log-filter {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.log-filter input[type="search"] {
+  flex-grow: 1;
+  flex-basis: 100%;
+  padding: 0.25em 0.5em;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25em;
+  background: var(--color-input-bg);
+  color: var(--color-fg);
+
+  &::placeholder {
+    color: var(--color-fg-muted);
+  }
+}
+
+@media (min-width: 600px) {
+  .log-filter input[type="search"] {
+    flex-basis: auto;
+  }
+}
+
+.log-filter input[type="checkbox"] + label {
+  border: 1px solid var(--color-border);
+  padding: 0.25em 0.5em;
+  border-radius: 0.25em;
+  user-select: none;
+  font-size: var(--font-size-sm);
+}
+
+.log-filter input[type="checkbox"]:checked + label {
+  background: var(--color-accent-bg);
+  color: var(--color-accent-fg);
+  border-color: var(--color-accent-border);
+}
+
+.logs .log-date {
+  color: var(--color-fg);
+}
+
+.logs .log-level {
+  color: var(--color-success-fg);
+
+  &.warning {
+    color: var(--color-warning-fg);
+  }
+
+  &.error {
+    color: var(--color-danger-fg);
+  }
+
+  &.verbose, &.debug {
+    color: var(--color-info-fg);
+  }
 }

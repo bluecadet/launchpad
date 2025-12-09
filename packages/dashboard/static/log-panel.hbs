@@ -1,26 +1,26 @@
-<form class="panel-section" hx-get="/api/log-filter" hx-target="#logs"
+<form class="panel-section log-filter" hx-get="/api/log-filter" hx-target="#logs" hx-swap="outerHTML"
   hx-trigger="submit, change from:input[type='checkbox'], keyup changed from:input[type='search'] delay:500ms"
   hx-select="#logs">
   <input type="search" id="log-search" placeholder="Search logs..." name="query" />
 
   <input type="checkbox" name="level.debug" id="level.debug" />
-  <label for="level.debug">Debug</label>
+  <label class="level-toggle" for="level.debug">Debug</label>
 
   <input type="checkbox" name="level.verbose" id="level.verbose" />
-  <label for="level.verbose">Verbose</label>
+  <label class="level-toggle" for="level.verbose">Verbose</label>
 
   <input type="checkbox" name="level.info" id="level.info" checked />
-  <label for="level.info">Info</label>
+  <label class="level-toggle" for="level.info">Info</label>
 
   <input type="checkbox" name="level.warn" id="level.warn" checked />
-  <label for="level.warn">Warn</label>
+  <label class="level-toggle" for="level.warn">Warn</label>
 
   <input type="checkbox" name="level.error" id="level.error" checked />
-  <label for="level.error">Error</label>
+  <label class="level-toggle" for="level.error">Error</label>
 </form>
-<div id="logs" class="panel-section logs" hx-ext="sse" hx-swap="beforeend" sse-connect="/api/log-stream{{queryParams}}"
-  sse-swap="message">
+<auto-scroll id="logs" class="panel-section logs" hx-ext="sse" hx-swap="beforeend"
+  sse-connect="/api/log-stream{{queryParams}}" sse-swap="message">
   {{#each logs}}
   {{> logRow this}}
   {{/each}}
-</div>
+</auto-scroll>

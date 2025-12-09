@@ -51,6 +51,7 @@ vi.mock("pm2", () => {
 					on: vi.fn(),
 				}),
 			),
+			killDaemon: vi.fn().mockImplementation((_cb) => _cb(null)),
 			Client: {
 				// eslint-disable-next-line n/no-callback-literal
 				pingDaemon: vi.fn().mockImplementation((cb) => cb(false)),

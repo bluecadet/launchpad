@@ -89,7 +89,7 @@ describe("LaunchpadMonitor", () => {
 			const _isDaemonRunningSpy = vi
 				.spyOn(ProcessManager.prototype, "isDaemonRunning")
 				.mockImplementationOnce(() => okAsync(true));
-			const deleteAllProcessesSpy = vi.spyOn(ProcessManager.prototype, "deleteAllProcesses");
+			const killSpy = vi.spyOn(ProcessManager, "kill");
 
 			const { monitor } = await createTestMonitor({
 				deleteExistingBeforeConnect: true,
@@ -107,7 +107,7 @@ describe("LaunchpadMonitor", () => {
 			const result = await monitor.executeCommand({ type: "monitor.connect" });
 
 			expect(result).toBeOk();
-			expect(deleteAllProcessesSpy).toHaveBeenCalled();
+			expect(killSpy).toHaveBeenCalled();
 		});
 	});
 

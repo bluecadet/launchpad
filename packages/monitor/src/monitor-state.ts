@@ -6,11 +6,14 @@
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 // Need to import so that declaration merging works
 import "@bluecadet/launchpad-utils/types";
+import { errAsync, type ResultAsync } from "neverthrow";
 
 export type MonitorAppStatus = "online" | "offline" | "errored";
+export type MonitorAppAction = "starting" | "stopping" | "restarting";
 
 type AppState = {
 	status: MonitorAppStatus;
+	action?: MonitorAppAction;
 	name: string;
 	pid?: number;
 	pm2Id?: number;
@@ -78,15 +81,6 @@ export class MonitorStateManager extends PatchedStateManager<MonitorState> {
 		});
 	}
 
-	updateAppStatus(appName: string, status: Partial<AppState>): void {
-		this.updateState((draft) => {
-			const app = draft.apps[appName];
-			if (app) {
-				draft.apps[appName] = { ...app, ...status };
-			}
-		});
-	}
-
 	markAppStarted(appName: string, pid?: number, pm2Id?: number): void {
 		this.updateState((draft) => {
 			const app = draft.apps[appName];
@@ -119,5 +113,64 @@ export class MonitorStateManager extends PatchedStateManager<MonitorState> {
 				app.lastError = new Date();
 			}
 		});
+	}
+
+	acquireAppActionLock(
+		appNames: string[] | string | undefined,
+		action: MonitorAppAction,
+		cb: () => ResultAsync<void, Error>,
+	): ResultAsync<void, Error> {
+		let appNamesArray: string[];
+
+		if (appNames === undefined || appNames === null) {
+			appNamesArray = Object.keys(this.state.apps);
+		} else if (typeof appNames === "string") {
+			appNamesArray = [appNames];
+		} else {
+			appNamesArray = appNames;
+		}
+
+		for (const appName of appNamesArray) {
+			const appState = this.state.apps[appName];
+			if (appState?.action) {
+				return errAsync(
+					new Error(`Cannot perform action on app "${appName}" while it is ${appState.action}.`),
+				);
+			}
+		}
+
+		// update action state with one atomic update
+		this.updateState((state) => {
+			for (const appName of appNamesArray) {
+				const appState = state.apps[appName];
+				if (appState) {
+					appState.action = action;
+				}
+			}
+		});
+
+		return cb()
+			.andTee(() => {
+				// clear action state with one atomic update
+				this.updateState((state) => {
+					for (const appName of appNamesArray) {
+						const appState = state.apps[appName];
+						if (appState) {
+							appState.action = undefined;
+						}
+					}
+				});
+			})
+			.orTee((_error) => {
+				// clear action state with one atomic update
+				this.updateState((state) => {
+					for (const appName of appNamesArray) {
+						const appState = state.apps[appName];
+						if (appState) {
+							appState.action = undefined;
+						}
+					}
+				});
+			});
 	}
 }

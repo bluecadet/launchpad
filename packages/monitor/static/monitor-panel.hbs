@@ -1,24 +1,28 @@
 <div class="panel-section monitor-overview">
   <p>Status:</p>{{#if isConnected}}<span class="badge success">connected</span>{{else}}<span
     class="badge neutral">disconnected</span>{{/if}}
-  {{#ifMatch status "offline"}}
-  <button class="button success">Start All</button>
-  {{else}}
-  <button class="button warning">Restart All</button>
-  <button class="button danger">Stop All</button>
-  {{/ifMatch}}
+  {{#if isConnected}}
+  <button class="button warning" hx-post="/api/monitor/action" hx-vals='{"action":"restart"}'>Restart All</button>
+  <button class="button danger" hx-post="/api/monitor/action" hx-vals='{"action":"stop"}'>Stop
+    All</button>
+  {{/if}}
 </div>
 <div class="panel-section">
   {{#each apps}}
-  <div class="monitor-app">
+  <div class="monitor-app {{name}}">
     <h3>{{name}}</h3>
     <p class="badge {{appStatusToThemeVar status}}">{{status}}</p>
+    {{#if ../isConnected}}
     {{#ifMatch status "offline"}}
-    <button class="button success">Start</button>
+    <button class="button success" hx-post="/api/monitor/action" hx-vals='{"action":"start","appName":"{{name}}"}' {{#if
+      action}}disabled{{/if}}>Start</button>
     {{else}}
-    <button class="button warning">Restart</button>
-    <button class="button danger">Stop</button>
+    <button class="button warning" hx-post="/api/monitor/action" hx-vals='{"action":"restart","appName":"{{name}}"}'
+      {{#if action}}disabled{{/if}}>Restart</button>
+    <button class="button danger" hx-post="/api/monitor/action" hx-vals='{"action":"stop","appName":"{{name}}"}' {{#if
+      action}}disabled{{/if}}>Stop</button>
     {{/ifMatch}}
+    {{/if}}
   </div>
   {{/each}}
 </div>

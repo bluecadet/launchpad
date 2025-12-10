@@ -122,7 +122,7 @@
 
 .neutral {
   --color-theme-fg: var(--color-fg-muted);
-  --color-theme-bg: var(--color-bg-muted);
+  --color-theme-bg: color-mix(in srgb, var(--color-fg-muted) 20%, var(--color-bg-muted));
 }
 
 body {
@@ -184,5 +184,10 @@ h3 {
 
   &:hover {
     background-color: color-mix(in srgb, var(--color-theme-fg) 10%, var(--color-theme-bg));
+  }
+
+  &:disabled, &[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }

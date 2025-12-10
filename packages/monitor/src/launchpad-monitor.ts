@@ -1,4 +1,3 @@
-import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
@@ -255,25 +254,27 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 				config: resolvedConfig,
 			};
 
-			const commandGuard = new SingleCommandGuard();
-
 			return okAsync({
 				executeCommand(command: AnyCommand) {
 					switch (command.type) {
 						case "monitor.connect":
-							return commandGuard.run(() =>
-								connect(actionCtx, command.ensureDaemonOwnership ?? true),
-							);
+							return connect(actionCtx, command.ensureDaemonOwnership ?? true);
 						case "monitor.disconnect":
-							return commandGuard.run(() => disconnect(actionCtx));
+							return disconnect(actionCtx);
 						case "monitor.start":
-							return commandGuard.run(() => start(actionCtx, command.appNames));
+							return stateManager.acquireAppActionLock(command.appNames, "starting", () =>
+								start(actionCtx, command.appNames),
+							);
 						case "monitor.stop":
-							return commandGuard.run(() => stop(actionCtx, command.appNames));
+							return stateManager.acquireAppActionLock(command.appNames, "stopping", () =>
+								stop(actionCtx, command.appNames),
+							);
 						case "monitor.restart":
-							return commandGuard.run(() => restart(actionCtx, command.appNames));
+							return stateManager.acquireAppActionLock(command.appNames, "restarting", () =>
+								restart(actionCtx, command.appNames),
+							);
 						case "monitor.shutdown":
-							return commandGuard.run(() => shutdown(actionCtx, command.exitCode));
+							return shutdown(actionCtx, command.exitCode);
 						default: {
 							return errAsync(
 								new Error(`Unknown monitor command type: ${(command as AnyCommand).type}`),

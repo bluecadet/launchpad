@@ -10,7 +10,11 @@ import {
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import type { LaunchpadEvents, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type {
+	AnyCommand,
+	LaunchpadEvents,
+	VersionedLaunchpadState,
+} from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, okAsync, ResultAsync } from "neverthrow";
@@ -31,7 +35,7 @@ export type IPCTransportOptions = {
 export type IPCMessage =
 	| { type: "query-state"; id: string }
 	| { type: "shutdown"; id: string }
-	| { type: "execute-command"; id: string; data: unknown };
+	| { type: "execute-command"; id: string; data: AnyCommand };
 
 export type IPCResponse =
 	| { id: string; type: "state"; data: VersionedLaunchpadState }
@@ -227,7 +231,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: SubsystemCo
 
 		case "execute-command": {
 			logger.info("Received execute-command via IPC");
-			const resultAsync = ctx.dispatchCommand(message.data as { type: string });
+			const resultAsync = ctx.dispatchCommand(message.data as AnyCommand);
 
 			// Use neverthrow's match to handle Result
 			resultAsync.match(

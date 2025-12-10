@@ -5,8 +5,7 @@
 
 import net from "node:net";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import type { LaunchpadEvents, LaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { AnyCommand, LaunchpadEvents, LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "./errors.js";
@@ -162,7 +161,7 @@ export class IPCClient {
 	/**
 	 * Execute a command on the controller
 	 */
-	executeCommand(command: BaseCommand): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
+	executeCommand(command: AnyCommand): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
 		const message: IPCMessage = {
 			type: "execute-command",
 			id: this._generateId(),

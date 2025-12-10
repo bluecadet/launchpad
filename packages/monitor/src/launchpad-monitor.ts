@@ -7,13 +7,13 @@ import {
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
-import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
 import { ProcessManager } from "./core/process-manager.js";
-import type { MonitorCommand } from "./monitor-commands.js";
+import "./monitor-commands.js";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import {
 	type MonitorConfig,
 	monitorConfigSchema,
@@ -258,7 +258,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 			const commandGuard = new SingleCommandGuard();
 
 			return okAsync({
-				executeCommand(command: MonitorCommand) {
+				executeCommand(command: AnyCommand) {
 					switch (command.type) {
 						case "monitor.connect":
 							return commandGuard.run(() =>
@@ -276,7 +276,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 							return commandGuard.run(() => shutdown(actionCtx, command.exitCode));
 						default: {
 							return errAsync(
-								new Error(`Unknown monitor command type: ${(command as MonitorCommand).type}`),
+								new Error(`Unknown monitor command type: ${(command as AnyCommand).type}`),
 							);
 						}
 					}

@@ -3,7 +3,7 @@ import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
-import type { VersionedLaunchpadState } from "./types.js";
+import type { AnyCommand, VersionedLaunchpadState } from "./types.js";
 
 export type DisconnectReason =
 	| { type: "manual" }
@@ -26,7 +26,7 @@ export interface Disconnectable {
  * Base command structure that all subsystem commands must follow.
  * Subsystems define their own specific command types that extend this.
  */
-export type BaseCommand = {
+type BaseCommand = {
 	type: string;
 	[key: string]: unknown;
 };
@@ -35,16 +35,14 @@ export type BaseCommand = {
  * Optional interface for subsystems that can execute commands.
  * When implemented, the controller will route commands to this method.
  * The subsystem handles its own command routing internally.
- *
- * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
  */
-export interface CommandExecutor<TCommand extends BaseCommand = BaseCommand> {
+export interface CommandExecutor {
 	/**
 	 * Execute a command on this subsystem.
 	 * @param command - Command object with type and parameters
 	 * @returns Result of command execution
 	 */
-	executeCommand(command: TCommand): ResultAsync<unknown, Error>;
+	executeCommand(command: AnyCommand): ResultAsync<unknown, Error>;
 }
 
 /**
@@ -202,7 +200,7 @@ export interface SubsystemContext {
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
-	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
+	readonly dispatchCommand: (command: AnyCommand) => ResultAsync<unknown, Error>;
 	readonly getState: () => VersionedLaunchpadState;
 	readonly onStatePatch: (handler: PatchHandlerWithVersion) => () => void;
 }
@@ -213,11 +211,8 @@ export interface SubsystemContext {
  * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
  * @template TState - The state type this subsystem provides
  */
-export type InstantiatedSubsystem<
-	TCommand extends BaseCommand = BaseCommand,
-	TState = unknown,
-> = Partial<
-	Disconnectable & CommandExecutor<TCommand> & StateProvider<TState> & DashboardProvider
+export type InstantiatedSubsystem<TState = unknown> = Partial<
+	Disconnectable & CommandExecutor & StateProvider<TState> & DashboardProvider
 > & {
 	[key: string]: unknown;
 };
@@ -232,13 +227,9 @@ export type InstantiatedSubsystem<
  * @template TSubsystem - The actual subsystem type returned
  */
 export interface SubsystemConfig<
-	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
 	E = Error,
-	TSubsystem extends InstantiatedSubsystem<TCommand, TState> = InstantiatedSubsystem<
-		TCommand,
-		TState
-	>,
+	TSubsystem extends InstantiatedSubsystem<TState> = InstantiatedSubsystem<TState>,
 > {
 	/**
 	 * Unique name of the subsystem.
@@ -255,13 +246,8 @@ export interface SubsystemConfig<
 }
 
 // Helper that validates conformance while preserving concrete type
-export function defineSubsystem<
-	TCommand extends BaseCommand,
-	TState,
-	E,
-	TSubsystem extends InstantiatedSubsystem<TCommand, TState>,
->(
-	factory: SubsystemConfig<TCommand, TState, E, TSubsystem>,
-): SubsystemConfig<TCommand, TState, E, TSubsystem> {
+export function defineSubsystem<TState, E, TSubsystem extends InstantiatedSubsystem<TState>>(
+	factory: SubsystemConfig<TState, E, TSubsystem>,
+): SubsystemConfig<TState, E, TSubsystem> {
 	return factory;
 }

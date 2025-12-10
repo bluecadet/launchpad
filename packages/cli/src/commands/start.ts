@@ -1,5 +1,5 @@
 import { fork } from "node:child_process";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { fromPromise, ok, okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -85,7 +85,7 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
 			// Build startup commands based on config
-			const startupCommands: Array<BaseCommand> = [];
+			const startupCommands: Array<AnyCommand> = [];
 
 			return withDaemonOrController(dir, config.controller, {
 				mode: "persistent",

@@ -6,8 +6,8 @@ import {
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
-import type { ContentCommand } from "./content-commands.js";
 import {
 	type ContentConfig,
 	parseContentConfig,
@@ -31,6 +31,7 @@ import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 import { createPathsHelper } from "./utils/paths-helper.js";
+import "./content-commands.js";
 
 type ContentActionContext = SubsystemContext & {
 	stateManager: ContentStateManager;
@@ -285,7 +286,7 @@ export function createLaunchpadContent(config: ContentConfig) {
 					const commandGuard = new SingleCommandGuard();
 
 					return ok({
-						executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
+						executeCommand(command: AnyCommand): ResultAsync<unknown, Error> {
 							switch (command.type) {
 								case "content.fetch": {
 									return commandGuard.run(() => fetch(command.sources ?? null, actionContext));
@@ -306,7 +307,7 @@ export function createLaunchpadContent(config: ContentConfig) {
 								default: {
 									return errAsync(
 										new ContentError(
-											`Unknown content command type: ${(command as ContentCommand).type}`,
+											`Unknown content command type: ${(command as AnyCommand).type}`,
 										),
 									);
 								}

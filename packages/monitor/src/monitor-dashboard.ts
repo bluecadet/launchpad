@@ -1,10 +1,7 @@
 import { createRequire } from "node:module";
 import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
-import type {
-	BaseCommand,
-	CommandExecutor,
-	DashboardRegistry,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { createEventStream } from "h3";
 import Handlebars from "handlebars";
 import type { MonitorAppStatus, MonitorState, MonitorStateManager } from "./monitor-state.js";
@@ -34,7 +31,7 @@ const logPanelTemplate = await loadHandlebarsTemplate<MonitorState>(
 export function registerMonitorDashboardFeatures(
 	registry: DashboardRegistry,
 	stateManager: MonitorStateManager,
-	dispatchCommand: (command: BaseCommand) => void,
+	dispatchCommand: (command: AnyCommand) => void,
 ) {
 	registry.api.get("/api/monitor-stream", (event) => {
 		const eventStream = createEventStream(event);
@@ -46,6 +43,11 @@ export function registerMonitorDashboardFeatures(
 		eventStream.onClosed(() => {
 			// unsubscribe from state updates on event stream close
 			stateSubscription();
+		});
+
+		dispatchCommand({
+			type: "monitor.start",
+			appNames: [],
 		});
 
 		return eventStream.send();

@@ -3,49 +3,49 @@
  * These commands are dispatched via the controller's executeCommand() method.
  */
 
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import "@bluecadet/launchpad-utils/types";
 
-/**
- * Fetch content from all or specific sources
- */
-export type ContentFetchCommand = BaseCommand & {
-	type: "content.fetch";
-	sources?: string[]; // If provided, only fetch these source IDs
-};
+// Declaration merging to add content commands to LaunchpadCommands
+declare module "@bluecadet/launchpad-utils/types" {
+	interface LaunchpadCommands {
+		/**
+		 * Fetch content from all or specific sources
+		 */
+		"content.fetch": {
+			/** If provided, only fetch these source IDs */
+			sources?: string[];
+		};
 
-/**
- * Clear cached content
- */
-export type ContentClearCommand = BaseCommand & {
-	type: "content.clear";
-	sources?: string[]; // If provided, only clear these source IDs
-	temp?: boolean; // Clear temp directory
-	backups?: boolean; // Clear backup directory
-	downloads?: boolean; // Clear downloads directory
-};
+		/**
+		 * Clear cached content
+		 */
+		"content.clear": {
+			/** If provided, only clear these source IDs */
+			sources?: string[];
+			/** Clear temp directory */
+			temp?: boolean;
+			/** Clear backup directory */
+			backups?: boolean;
+			/** Clear downloads directory */
+			downloads?: boolean;
+		};
 
-/**
- * Backup content
- */
-export type ContentBackupCommand = BaseCommand & {
-	type: "content.backup";
-	sources?: string[]; // If provided, only backup these source IDs
-};
+		/**
+		 * Backup content
+		 */
+		"content.backup": {
+			/** If provided, only backup these source IDs */
+			sources?: string[];
+		};
 
-/**
- * Restore content from backup
- */
-export type ContentRestoreCommand = BaseCommand & {
-	type: "content.restore";
-	sources?: string[]; // If provided, only restore these source IDs
-	removeBackups?: boolean; // Remove backups after restoring
-};
-
-/**
- * Union of all content command types
- */
-export type ContentCommand =
-	| ContentFetchCommand
-	| ContentClearCommand
-	| ContentBackupCommand
-	| ContentRestoreCommand;
+		/**
+		 * Restore content from backup
+		 */
+		"content.restore": {
+			/** If provided, only restore these source IDs */
+			sources?: string[];
+			/** Remove backups after restoring */
+			removeBackups?: boolean;
+		};
+	}
+}

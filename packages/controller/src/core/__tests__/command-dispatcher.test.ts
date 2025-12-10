@@ -1,8 +1,5 @@
 import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type {
-	BaseCommand,
-	InstantiatedSubsystem,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";
@@ -17,7 +14,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", contentSubsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
 
@@ -35,7 +32,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch", sources: ["test"] };
+			const command = { type: "content.fetch", sources: ["test"] };
 
 			await dispatcher.dispatch(command);
 
@@ -55,7 +52,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			await dispatcher.dispatch(command);
 
@@ -75,7 +72,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			await dispatcher.dispatch(command);
 
@@ -94,7 +91,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
 
@@ -121,7 +118,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
 
@@ -147,7 +144,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "" };
+			const command = { type: "" };
 
 			const result = await dispatcher.dispatch(command);
 
@@ -168,7 +165,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "invalid-no-dot" };
+			const command = { type: "invalid-no-dot" };
 
 			const result = await dispatcher.dispatch(command);
 
@@ -208,7 +205,7 @@ describe("CommandDispatcher", () => {
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
 			const dispatcher = new CommandDispatcher(eventBus, subsystems);
-			const command: BaseCommand = { type: "content.fetch" };
+			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
 

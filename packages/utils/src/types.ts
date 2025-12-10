@@ -34,6 +34,32 @@ export interface LaunchpadEvents {
 // biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
 export interface SubsystemsState {}
 
+// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
+export interface LaunchpadCommands {}
+
+/**
+ * Helper type to extract a command with its type field from LaunchpadCommands.
+ * This converts the command registry format into a proper command object.
+ *
+ * @example
+ * // If LaunchpadCommands has: { "content.fetch": { sources?: string[] } }
+ * // Then Command<"content.fetch"> = { type: "content.fetch"; sources?: string[] }
+ */
+export type Command<T extends keyof LaunchpadCommands> = LaunchpadCommands[T] extends Record<
+	string,
+	never
+>
+	? { type: T }
+	: { type: T } & LaunchpadCommands[T];
+
+/**
+ * Union of all registered commands.
+ * This type automatically includes all commands from all subsystems via declaration merging.
+ */
+export type AnyCommand = {
+	[K in keyof LaunchpadCommands]: Command<K>;
+}[keyof LaunchpadCommands];
+
 /**
  * System-level state (controller-owned)
  */

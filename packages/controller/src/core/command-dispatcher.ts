@@ -1,8 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type {
-	BaseCommand,
-	InstantiatedSubsystem,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 
@@ -21,6 +19,11 @@ declare module "@bluecadet/launchpad-utils/types" {
 		// System events (controller-owned)
 		"system:shutdown": { code?: number; signal?: string };
 		"system:error": { error: Error; context?: string };
+	}
+
+	interface LaunchpadCommands {
+		// System-level commands (controller-owned)
+		"system.shutdown": { code?: number };
 	}
 }
 
@@ -48,9 +51,9 @@ export class CommandDispatcher {
 
 	/**
 	 * Dispatch a command to the appropriate subsystem.
-	 * The command is treated generically here - type safety is enforced at the subsystem level.
+	 * The command is fully typed via declaration merging - each subsystem adds its commands to LaunchpadCommands.
 	 */
-	dispatch(command: BaseCommand): ResultAsync<unknown, CommandExecutionError> {
+	dispatch(command: AnyCommand): ResultAsync<unknown, CommandExecutionError> {
 		// 1. Extract subsystem name from command type (e.g., "content.fetch" -> "content")
 		const subsystemName = command.type.split(".")[0];
 		if (!subsystemName) {

@@ -1,5 +1,4 @@
 import {
-	type BaseCommand,
 	defineSubsystem,
 	type InstantiatedSubsystem,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
@@ -11,6 +10,9 @@ import { LaunchpadController } from "../launchpad-controller.js";
 declare module "@bluecadet/launchpad-utils/types" {
 	interface SubsystemsState {
 		[test: string]: any;
+	}
+	interface LaunchpadCommands {
+		[type: string]: Record<string, unknown>;
 	}
 }
 
@@ -196,7 +198,7 @@ describe("LaunchpadController", () => {
 			await controller.start();
 
 			// Should be able to execute commands after start
-			const command: BaseCommand = { type: "test.command" };
+			const command = { type: "test.command" };
 			const result = await controller.executeCommand(command);
 
 			expect(result.isOk()).toBe(true);
@@ -285,7 +287,7 @@ describe("LaunchpadController", () => {
 
 			await controller.start();
 
-			const command: BaseCommand = { type: "test.command" };
+			const command = { type: "test.command" };
 			const result = await controller.executeCommand(command);
 
 			expect(result.isOk()).toBe(true);
@@ -296,7 +298,7 @@ describe("LaunchpadController", () => {
 		it("should throw error when controller not started", () => {
 			const controller = createController();
 
-			const command: BaseCommand = { type: "test.command" };
+			const command = { type: "test.command" };
 
 			expect(() => controller.executeCommand(command)).toThrow(
 				"Controller must be started before executing commands",
@@ -316,7 +318,7 @@ describe("LaunchpadController", () => {
 
 			await controller.start();
 
-			const command: BaseCommand = { type: "test.command" };
+			const command = { type: "test.command" };
 			await controller.executeCommand(command);
 
 			expect(executeCommand).toHaveBeenCalled();

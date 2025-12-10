@@ -2,12 +2,12 @@ import path from "node:path";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type {
-	BaseCommand,
 	DisconnectReason,
 	InstantiatedSubsystem,
 	SubsystemConfig,
 	SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import {
 	type ControllerConfig,
@@ -63,14 +63,10 @@ export class LaunchpadController {
 	 * If the subsystem implements EventBusAware, the EventBus will be injected.
 	 */
 	registerSubsystem<
-		TCommand extends BaseCommand = BaseCommand,
 		TState = unknown,
 		E = Error,
-		TSubsystem extends InstantiatedSubsystem<TCommand, TState> = InstantiatedSubsystem<
-			TCommand,
-			TState
-		>,
-	>(subsystem: SubsystemConfig<TCommand, TState, E, TSubsystem>): ResultAsync<TSubsystem, E> {
+		TSubsystem extends InstantiatedSubsystem<TState> = InstantiatedSubsystem<TState>,
+	>(subsystem: SubsystemConfig<TState, E, TSubsystem>): ResultAsync<TSubsystem, E> {
 		const name = subsystem.name;
 
 		return subsystem
@@ -218,7 +214,7 @@ export class LaunchpadController {
 	 * The controller treats commands generically - type safety is enforced
 	 * at the subsystem level via CommandExecutor<TCommand>.
 	 */
-	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
+	executeCommand(command: AnyCommand): ResultAsync<unknown, Error> {
 		if (!this._isStarted) {
 			throw new Error("Controller must be started before executing commands");
 		}
@@ -267,7 +263,7 @@ export class LaunchpadController {
 			logger: this._logger.child(subsystemName),
 			cwd: this._baseDir,
 			abortSignal: this._abortController.signal,
-			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),
+			dispatchCommand: (command: AnyCommand) => this.executeCommand(command),
 			getState: () => this.getState(),
 			onStatePatch: (handler) => this._stateStore.onPatch(handler),
 		};

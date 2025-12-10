@@ -22,13 +22,13 @@ type RenderedPageContent =
 			}[];
 	  };
 
-const pageTemplate = await loadHandlebarsTemplate<{
+type PageTemplateData = {
 	title: string;
 	cssFiles: string[];
 	jsFiles: string[];
 	pages: DashboardPage[];
 	content: RenderedPageContent;
-}>(import.meta.resolve("../../static/page.hbs"));
+};
 
 /**
  * Internal implementation of DashboardRegistry.
@@ -94,9 +94,27 @@ export class DashboardRegistryImpl implements DashboardRegistry {
 		};
 	}
 
+	private static _compiledPageTemplate: Handlebars.TemplateDelegate<PageTemplateData> | null = null;
+
+	// Load and cache the compiled page template on first use
+	private static async _getCompiledPageTemplate() {
+		if (!DashboardRegistryImpl._compiledPageTemplate) {
+			const result = await loadHandlebarsTemplate<PageTemplateData>(
+				require.resolve("../../static/page.hbs"),
+			);
+			if (result.isErr()) {
+				throw result.error;
+			}
+			DashboardRegistryImpl._compiledPageTemplate = result.value;
+		}
+		return DashboardRegistryImpl._compiledPageTemplate;
+	}
+
 	private async buildPageResponse(page: DashboardPage) {
+		const pageTemplate = await DashboardRegistryImpl._getCompiledPageTemplate();
 		const content = await DashboardRegistryImpl.compilePageContent(page);
 
+		// TODO: don't use _unsafeUnwrap
 		const builtPage = pageTemplate({
 			title: "Launchpad Dashboard",
 			cssFiles: this._cssTransformedPaths,

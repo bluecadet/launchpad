@@ -1,5 +1,6 @@
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { createEventStream } from "h3";
+import { okAsync } from "neverthrow";
 import type { ContentState, ContentStateManager } from "./content-state.js";
 
 function renderContentPanel(state: ContentState) {
@@ -30,4 +31,6 @@ export function registerContentDashboardFeatures(
 		render: () =>
 			`<div hx-ext="sse" sse-connect="/api/content-stream" sse-swap="message">${renderContentPanel(stateManager.state)}</div>`,
 	});
+
+	return okAsync();
 }

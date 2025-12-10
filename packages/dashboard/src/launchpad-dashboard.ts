@@ -6,7 +6,7 @@ import { type DashboardConfig, dashboardConfigSchema } from "./dashboard-config.
 import { DashboardRegistryImpl } from "./lib/dashboard-registry.js";
 import { registerLogPanelFeatures } from "./lib/log-panel.js";
 
-type RegisterCallback = (registry: DashboardRegistryImpl) => void;
+type RegisterCallback = (registry: DashboardRegistryImpl) => ResultAsync<void, Error>;
 
 export function createLaunchpadDashboard(
 	config: DashboardConfig,
@@ -25,57 +25,57 @@ export function createLaunchpadDashboard(
 
 			const _registry = new DashboardRegistryImpl(app);
 
-			registerCallback(_registry);
+			return registerCallback(_registry).andThen(() => {
+				registerLogPanelFeatures(_registry, _ctx.eventBus);
 
-			registerLogPanelFeatures(_registry, _ctx.eventBus);
+				app.use((event) => {
+					// log requests if enabled
+					const { method, url } = event.req;
+					_ctx.logger.debug(`${method} ${url}`);
+				});
 
-			app.use((event) => {
-				// log requests if enabled
-				const { method, url } = event.req;
-				_ctx.logger.debug(`${method} ${url}`);
-			});
+				app.use(
+					onError((event, error) => {
+						const level = event.status && event.status >= 500 ? "error" : "warn";
 
-			app.use(
-				onError((event, error) => {
-					const level = event.status && event.status >= 500 ? "error" : "warn";
+						const msg = `[${chalk[level === "error" ? "red" : "yellow"](event.status)}] Error processing request: ${error.req.method} ${error.req.url}`;
+						if (level === "error") {
+							_ctx.logger.error({
+								message: new Error(msg, { cause: event }),
+							});
+						} else {
+							_ctx.logger.warn(msg);
+						}
+					}),
+				);
 
-					const msg = `[${chalk[level === "error" ? "red" : "yellow"](event.status)}] Error processing request: ${error.req.method} ${error.req.url}`;
-					if (level === "error") {
-						_ctx.logger.error({
-							message: new Error(msg, { cause: event }),
-						});
-					} else {
-						_ctx.logger.warn(msg);
+				// disable caching by default, except for static files served from the dashboard
+				app.use((event) => {
+					if (event.req.method === "GET" && !event.req.url?.startsWith("/static/")) {
+						event.res.headers.set(
+							"Cache-Control",
+							"no-store, no-cache, must-revalidate, proxy-revalidate",
+						);
 					}
-				}),
-			);
+				});
 
-			// disable caching by default, except for static files served from the dashboard
-			app.use((event) => {
-				if (event.req.method === "GET" && !event.req.url?.startsWith("/static/")) {
-					event.res.headers.set(
-						"Cache-Control",
-						"no-store, no-cache, must-revalidate, proxy-revalidate",
-					);
-				}
-			});
+				const server = serve(app, {
+					port: resolvedConfig.port,
+					hostname: resolvedConfig.host,
+					silent: true,
+					gracefulShutdown: false,
+					manual: false,
+				});
 
-			const server = serve(app, {
-				port: resolvedConfig.port,
-				hostname: resolvedConfig.host,
-				silent: true,
-				gracefulShutdown: false,
-				manual: false,
-			});
-
-			return okAsync({
-				// Expose the registry so the controller can pass it to other subsystems
-				getRegistry() {
-					return _registry;
-				},
-				disconnect() {
-					return ResultAsync.fromPromise(server.close(), (e) => e as Error);
-				},
+				return okAsync({
+					// Expose the registry so the controller can pass it to other subsystems
+					getRegistry() {
+						return _registry;
+					},
+					disconnect() {
+						return ResultAsync.fromPromise(server.close(), (e) => e as Error);
+					},
+				});
 			});
 		},
 	});

@@ -112,6 +112,7 @@ describe("LaunchpadMonitor - State Tracking", () => {
 			expect(monitor.getState().apps).toEqual({
 				"test-app": {
 					status: "offline",
+					name: "test-app",
 				},
 			});
 		});

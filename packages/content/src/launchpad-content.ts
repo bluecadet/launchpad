@@ -319,8 +319,8 @@ export function createLaunchpadContent(config: ContentConfig) {
 						onStatePatch(handler: PatchHandler): () => void {
 							return stateManager.onPatch(handler);
 						},
-						buildDashboard(registry: DashboardRegistry): void {
-							registerContentDashboardFeatures(registry, stateManager);
+						buildDashboard(registry: DashboardRegistry) {
+							return registerContentDashboardFeatures(registry, stateManager);
 						},
 					});
 				});

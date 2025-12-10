@@ -1,12 +1,23 @@
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import HB from "handlebars";
+import { Result, ResultAsync } from "neverthrow";
 
 // re-export handlebars with noConflict to avoid issues with global namespace.
 // All first-party usage of handlebars should use this instance.
 export const Handlebars = HB.noConflict();
 
-export async function loadHandlebarsTemplate<T = Record<string, never>>(resolvedPath: string) {
-	const templateContent = await fs.promises.readFile(fileURLToPath(resolvedPath), "utf-8");
-	return Handlebars.compile<T>(templateContent);
+const safeRead = ResultAsync.fromThrowable(
+	fs.promises.readFile,
+	(e) => new Error(`Failed to read file: ${(e as Error).message}`),
+);
+
+const safeCompile = Result.fromThrowable(
+	Handlebars.compile,
+	(e) => new Error(`Failed to compile Handlebars template: ${(e as Error).message}`),
+);
+
+export function loadHandlebarsTemplate<T = Record<string, never>>(
+	resolvedPath: string,
+): ResultAsync<HB.TemplateDelegate<T>, Error> {
+	return safeRead(resolvedPath, "utf-8").andThen((content) => safeCompile(content));
 }

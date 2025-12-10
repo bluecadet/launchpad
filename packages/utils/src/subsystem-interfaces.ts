@@ -192,7 +192,7 @@ export interface DashboardProvider {
 	 * Subsystems should use the provided registry to register panels, pages, and API routes.
 	 * @param registry - Dashboard registry instance for registering content and endpoints
 	 */
-	buildDashboard(registry: DashboardRegistry): void;
+	buildDashboard(registry: DashboardRegistry): ResultAsync<void, Error>;
 }
 
 export interface SubsystemContext {

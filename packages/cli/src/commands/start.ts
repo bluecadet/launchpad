@@ -146,12 +146,24 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 
 											cliLogger.debug("Building dashboard features for registered subsystems...");
 
+											let chain: ResultAsync<void, Error> = okAsync();
+
 											for (const [_name, subsystem] of controller.getSubsystems()) {
 												if (subsystem.buildDashboard) {
-													cliLogger.debug(`Building dashboard features for subsystem: ${_name}`);
-													subsystem.buildDashboard(registry);
+													chain = chain
+														.andTee(() =>
+															cliLogger.debug(
+																`Building dashboard features for subsystem: ${_name}`,
+															),
+														)
+														.andThen(() =>
+															// biome-ignore lint/style/noNonNullAssertion: we check for buildDashboard above
+															subsystem.buildDashboard!(registry),
+														);
 												}
 											}
+
+											return chain;
 										}),
 									);
 								});

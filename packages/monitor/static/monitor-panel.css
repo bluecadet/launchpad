@@ -14,4 +14,9 @@
   + .monitor-app {
     border-block-start: 1px solid var(--color-border);
   }
+
+  .spinner {
+    justify-self: center;
+    align-self: center;
+  }
 }

@@ -1,9 +1,8 @@
 import { createRequire } from "node:module";
-import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
+import { Handlebars, loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { createEventStream } from "h3";
-import Handlebars from "handlebars";
 import type { MonitorAppStatus, MonitorState, MonitorStateManager } from "./monitor-state.js";
 
 Handlebars.registerHelper(

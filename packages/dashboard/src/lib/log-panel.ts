@@ -1,10 +1,9 @@
 import { createRequire } from "node:module";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import { loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
+import { Handlebars, loadHandlebarsTemplate } from "@bluecadet/launchpad-utils/handlebars";
 import type { LogEventPayload } from "@bluecadet/launchpad-utils/logger";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { createEventStream, getQuery } from "h3";
-import Handlebars from "handlebars";
 
 const formatter = new Intl.DateTimeFormat("default", {
 	dateStyle: "short",

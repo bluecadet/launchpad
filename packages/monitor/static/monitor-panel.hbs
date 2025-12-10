@@ -2,8 +2,9 @@
   <p>Status:</p>{{#if isConnected}}<span class="badge success">connected</span>{{else}}<span
     class="badge neutral">disconnected</span>{{/if}}
   {{#if isConnected}}
-  <button class="button warning" hx-post="/api/monitor/action" hx-vals='{"action":"restart"}'>Restart All</button>
-  <button class="button danger" hx-post="/api/monitor/action" hx-vals='{"action":"stop"}'>Stop
+  <button class="button warning" hx-post="/api/monitor/action" hx-vals='{"action":"restart"}' hx-swap="none">Restart
+    All</button>
+  <button class="button danger" hx-post="/api/monitor/action" hx-vals='{"action":"stop"}' hx-swap="none">Stop
     All</button>
   {{/if}}
 </div>
@@ -15,12 +16,12 @@
     {{#if ../isConnected}}
     {{#ifMatch status "offline"}}
     <button class="button success" hx-post="/api/monitor/action" hx-vals='{"action":"start","appName":"{{name}}"}' {{#if
-      action}}disabled{{/if}}>Start</button>
+      action}}disabled{{/if}} hx-swap="none">Start</button>
     {{else}}
     <button class="button warning" hx-post="/api/monitor/action" hx-vals='{"action":"restart","appName":"{{name}}"}'
-      {{#if action}}disabled{{/if}}>Restart</button>
+      {{#if action}}disabled{{/if}} hx-swap="none">Restart</button>
     <button class="button danger" hx-post="/api/monitor/action" hx-vals='{"action":"stop","appName":"{{name}}"}' {{#if
-      action}}disabled{{/if}}>Stop</button>
+      action}}disabled{{/if}} hx-swap="none">Stop</button>
     {{/ifMatch}}
     {{/if}}
   </div>

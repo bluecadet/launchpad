@@ -1,4 +1,5 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type ResultAsync } from "neverthrow";
@@ -46,6 +47,7 @@ declare module "@bluecadet/launchpad-utils/types" {
 export class CommandDispatcher {
 	constructor(
 		private _eventBus: EventBus,
+		private _logger: Logger,
 		private _subsystems: Map<string, InstantiatedSubsystem>,
 	) {}
 
@@ -88,6 +90,7 @@ export class CommandDispatcher {
 
 		// 4. Emit "before" event
 		this._eventBus.emit("command:start", { commandType: command.type, ...command });
+		this._logger.debug("Dispatching command:", command);
 
 		// 5. Delegate to subsystem's executeCommand method
 		// The subsystem receives the command with its specific type and enforces type safety
@@ -100,6 +103,7 @@ export class CommandDispatcher {
 					commandType: command.type,
 					result: value,
 				});
+				this._logger.debug("Command succeeded:", command);
 			},
 			(error) => {
 				const wrappedError =
@@ -113,6 +117,7 @@ export class CommandDispatcher {
 					commandType: command.type,
 					error: wrappedError,
 				});
+				this._logger.error("Command failed:", command, wrappedError);
 			},
 		);
 

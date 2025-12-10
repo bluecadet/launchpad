@@ -123,7 +123,7 @@ export class LaunchpadController {
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
 
 		// Initialize command dispatcher with registered subsystems
-		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._subsystems);
+		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._logger, this._subsystems);
 
 		// Start IPC transport in persistent mode (built-in infrastructure)
 		if (this._mode === "persistent") {

@@ -1,4 +1,4 @@
-import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
@@ -13,7 +13,7 @@ describe("CommandDispatcher", () => {
 			const contentSubsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", contentSubsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
@@ -31,7 +31,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch", sources: ["test"] };
 
 			await dispatcher.dispatch(command);
@@ -51,7 +51,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			await dispatcher.dispatch(command);
@@ -71,7 +71,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			await dispatcher.dispatch(command);
@@ -90,7 +90,7 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
@@ -117,7 +117,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = {};
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
@@ -143,7 +143,7 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "" };
 
 			const result = await dispatcher.dispatch(command);
@@ -164,7 +164,7 @@ describe("CommandDispatcher", () => {
 			const emitSpy = vi.spyOn(eventBus, "emit");
 			const subsystems = new Map<string, InstantiatedSubsystem>();
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "invalid-no-dot" };
 
 			const result = await dispatcher.dispatch(command);
@@ -186,7 +186,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["monitor", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 
 			// Test different command formats
 			await dispatcher.dispatch({ type: "monitor.connect" });
@@ -204,7 +204,7 @@ describe("CommandDispatcher", () => {
 			const subsystem: InstantiatedSubsystem = { executeCommand };
 			const subsystems = new Map<string, InstantiatedSubsystem>([["content", subsystem]]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 			const command = { type: "content.fetch" };
 
 			const result = await dispatcher.dispatch(command);
@@ -229,7 +229,7 @@ describe("CommandDispatcher", () => {
 				["monitor", monitorSubsystem],
 			]);
 
-			const dispatcher = new CommandDispatcher(eventBus, subsystems);
+			const dispatcher = new CommandDispatcher(eventBus, createMockLogger(), subsystems);
 
 			await dispatcher.dispatch({ type: "content.fetch" });
 			await dispatcher.dispatch({ type: "monitor.connect" });

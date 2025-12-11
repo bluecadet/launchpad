@@ -1,4 +1,3 @@
-import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {

@@ -7,6 +7,8 @@
   font-family: var(--font-family-monospace);
   font-size: 0.9rem;
   display: block;
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
 }
 
 .log-filter input[type="checkbox"] {

@@ -12,13 +12,6 @@ export function registerMonitorDashboardFeatures(
 	stateManager: MonitorStateManager,
 	dispatchCommand: (command: AnyCommand) => void,
 ) {
-	Handlebars.registerHelper(
-		"ifMatch",
-		function (this: Handlebars.HelperDelegate, arg1, arg2, options) {
-			return arg1 === arg2 ? options.fn(this) : options.inverse(this);
-		},
-	);
-
 	Handlebars.registerHelper("appStatusToThemeVar", (status: MonitorAppStatus) => {
 		switch (status) {
 			case "online":

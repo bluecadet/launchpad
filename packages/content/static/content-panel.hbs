@@ -1,0 +1,38 @@
+{{!-- only show if we have more than 1 source --}}
+{{#ifMultiple sources}}
+<div class="panel-section content-overview">
+  <button class="button warning" hx-post="/api/content/action" hx-vals='{"action":"fetch"}' hx-swap="none">
+    Fetch All
+  </button>
+  <button class="button danger" hx-post="/api/content/action" hx-vals='{"action":"clear"}' hx-swap="none">
+    Clear All
+  </button>
+</div>
+{{/ifMultiple}}
+<div class="panel-section">
+  {{#each sources}}
+  <div class="content-source {{id}}">
+    <h3>{{id}}</h3>
+    <p class="badge {{fetchPhaseToThemeVar phase}}">{{phase}}</p>
+    {{!-- startedAt means there is an ongoing process --}}
+    {{#if startedAt}}
+    <svg width="24" height="24" viewBox="0 0 24 24" class="spinner">
+      <path
+        d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
+        class="spinner-inner" />
+    </svg>
+    {{/if}}
+    {{#ifMatch phase "done"}}
+    <p class="date">Last Fetch: {{formatDate completedAt}}</p>
+    {{/ifMatch}}
+    <button class="button warning" hx-post="/api/content/action" hx-vals='{"action":"fetch","appName":"{{id}}"}' {{#if
+      startedAt}}disabled{{/if}} hx-swap="none">
+      Fetch
+    </button>
+    <button class="button danger" hx-post="/api/content/action" hx-vals='{"action":"clear","appName":"{{id}}"}' {{#if
+      startedAt}}disabled{{/if}} hx-swap="none">
+      Clear
+    </button>
+  </div>
+  {{/each}}
+</div>

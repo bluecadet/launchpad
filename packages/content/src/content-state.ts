@@ -51,8 +51,12 @@ export type ContentPhase =
 			duration: number;
 	  };
 
+export type SourceState = {
+	id: string;
+} & ContentPhase;
+
 export type ContentState = {
-	sources: Record<string, ContentPhase>;
+	sources: Record<string, SourceState>;
 };
 
 declare module "@bluecadet/launchpad-utils/types" {
@@ -72,7 +76,7 @@ export class ContentStateManager extends PatchedStateManager<ContentState> {
 		this.updateState((draft) => {
 			for (const id of sourceIds) {
 				if (!draft.sources[id]) {
-					draft.sources[id] = { phase: "idle" };
+					draft.sources[id] = { phase: "idle", id };
 				}
 			}
 		});
@@ -81,7 +85,7 @@ export class ContentStateManager extends PatchedStateManager<ContentState> {
 	updateSourcesPhase(sourceIds: string[], newPhase: ContentPhase): void {
 		this.updateState((draft) => {
 			for (const id of sourceIds) {
-				draft.sources[id] = newPhase;
+				draft.sources[id] = { ...newPhase, id };
 			}
 		});
 	}

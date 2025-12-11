@@ -1,3 +1,5 @@
+{{!-- only show if we have more than 1 app --}}
+{{#ifMultiple apps}}
 <div class="panel-section monitor-overview">
   <p>Status:</p>{{#if isConnected}}<span class="badge success">connected</span>{{else}}<span
     class="badge neutral">disconnected</span>{{/if}}
@@ -8,6 +10,7 @@
     All</button>
   {{/if}}
 </div>
+{{/ifMultiple}}
 <div class="panel-section">
   {{#each apps}}
   <div class="monitor-app {{name}}">

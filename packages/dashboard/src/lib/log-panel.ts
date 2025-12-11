@@ -6,15 +6,6 @@ import type { DashboardRegistry } from "@bluecadet/launchpad-utils/subsystem-int
 import { createEventStream, getQuery } from "h3";
 import { okAsync, type ResultAsync } from "neverthrow";
 
-const formatter = new Intl.DateTimeFormat("default", {
-	dateStyle: "short",
-	timeStyle: "short",
-});
-
-Handlebars.registerHelper("formatDate", (timestamp: Date) => {
-	return formatter.format(timestamp);
-});
-
 const require = createRequire(import.meta.url);
 
 type HandlerStream = {

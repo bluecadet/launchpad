@@ -1,0 +1,31 @@
+.content-overview, .content-source  {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding-block: 1rem;
+}
+
+.content-overview {
+  justify-content: flex-end;
+}
+
+.content-source {
+  padding: 1rem 0;
+  + .content-source {
+    border-block-start: 1px solid var(--color-border);
+  }
+
+  .spinner {
+    justify-self: center;
+    align-self: center;
+  }
+
+  .date {
+    /* font-family: var(--font-family-monospace); */
+    font-size: var(--font-size-sm);
+  }
+
+  & button:first-of-type {
+    margin-left: auto;
+  }
+}

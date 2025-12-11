@@ -50,8 +50,8 @@ describe("ContentState", () => {
 			// After init but before download, sources should have pending states
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-2"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("pending");
-			expect(state.sources["source-2"]?.state).toBe("pending");
+			expect(state.sources["source-1"]?.phase).toBe("idle");
+			expect(state.sources["source-2"]?.phase).toBe("idle");
 		});
 	});
 
@@ -68,10 +68,10 @@ describe("ContentState", () => {
 
 			const state = content.getState();
 			expect(state.sources["source-1"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("success");
-			if (state.sources["source-1"]?.state === "success") {
-				expect(state.sources["source-1"]?.startTime).toBeDefined();
+			expect(state.sources["source-1"]?.phase).toBe("done");
+			if (state.sources["source-1"]?.phase === "done") {
 				expect(state.sources["source-1"]?.finishedAt).toBeDefined();
+				expect(state.sources["source-1"]?.duration).toBeDefined();
 			}
 		});
 
@@ -110,10 +110,10 @@ describe("ContentState", () => {
 			const state = content.getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
-			expect(sourceState?.state).toBe("success");
-			if (sourceState?.state === "success") {
-				expect(sourceState.startTime).toBeDefined();
-				expect(sourceState.startTime.getTime()).toBeGreaterThanOrEqual(beforeFetch.getTime());
+			expect(sourceState?.phase).toBe("done");
+			if (sourceState?.phase === "done") {
+				expect(sourceState.finishedAt).toBeDefined();
+				expect(sourceState.finishedAt.getTime()).toBeGreaterThanOrEqual(beforeFetch.getTime());
 			}
 		});
 
@@ -133,8 +133,8 @@ describe("ContentState", () => {
 			const state = content.getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
-			expect(sourceState?.state).toBe("success");
-			if (sourceState?.state === "success") {
+			expect(sourceState?.phase).toBe("done");
+			if (sourceState?.phase === "done") {
 				expect(sourceState.finishedAt).toBeDefined();
 				expect(sourceState.finishedAt.getTime()).toBeGreaterThanOrEqual(beforeFetch.getTime());
 			}
@@ -151,7 +151,7 @@ describe("ContentState", () => {
 			});
 
 			const state = content.getState();
-			expect(state.sources["source-1"]?.state).toBe("success");
+			expect(state.sources["source-1"]?.phase).toBe("done");
 		});
 
 		it("should track different timestamps for different sources", async () => {
@@ -169,13 +169,13 @@ describe("ContentState", () => {
 			const source2State = state.sources["source-2"];
 
 			// Both should be success
-			expect(source1State?.state).toBe("success");
-			expect(source2State?.state).toBe("success");
+			expect(source1State?.phase).toBe("done");
+			expect(source2State?.phase).toBe("done");
 
-			if (source1State?.state === "success" && source2State?.state === "success") {
+			if (source1State?.phase === "done" && source2State?.phase === "done") {
 				// They should be approximately the same time (within a few ms)
 				const timeDiff = Math.abs(
-					source1State.startTime.getTime() - source2State.startTime.getTime(),
+					source1State.finishedAt.getTime() - source2State.finishedAt.getTime(),
 				);
 				expect(timeDiff).toBeLessThan(100);
 			}
@@ -219,8 +219,8 @@ describe("ContentState", () => {
 
 			const state = content.getState();
 			const sourceState = state.sources["failing-source"];
-			expect(sourceState?.state).toBe("error");
-			if (sourceState?.state === "error") {
+			expect(sourceState?.phase).toBe("error");
+			if (sourceState?.phase === "error") {
 				expect(sourceState.error).toBeDefined();
 				expect(sourceState.attemptedAt.getTime()).toBeGreaterThanOrEqual(beforeFetch.getTime());
 			}
@@ -258,7 +258,7 @@ describe("ContentState", () => {
 			});
 
 			const state = content.getState();
-			expect(state.sources["failing-source"]?.state).toBe("error");
+			expect(state.sources["failing-source"]?.phase).toBe("error");
 		});
 
 		it("should not clear lastFetchSuccess on error", async () => {
@@ -275,10 +275,10 @@ describe("ContentState", () => {
 
 			const state1 = content.getState();
 			const sourceState = state1.sources["source-1"];
-			expect(sourceState?.state).toBe("success");
+			expect(sourceState?.phase).toBe("done");
 
 			// After a successful fetch, there should be no error state
-			expect(state1.sources["source-1"]?.state).not.toBe("error");
+			expect(state1.sources["source-1"]?.phase).not.toBe("error");
 		});
 	});
 
@@ -351,7 +351,7 @@ describe("ContentState", () => {
 			// State should be preserved
 			state = content.getState();
 			const firstSourceStateAgain = state.sources["source-1"];
-			expect(firstSourceStateAgain?.state).toBe(firstSourceState?.state);
+			expect(firstSourceStateAgain?.phase).toBe(firstSourceState?.phase);
 
 			// Second operation
 			await content.executeCommand({
@@ -361,13 +361,13 @@ describe("ContentState", () => {
 			const secondSourceState = state.sources["source-1"];
 
 			// Both should be success
-			expect(firstSourceState?.state).toBe("success");
-			expect(secondSourceState?.state).toBe("success");
+			expect(firstSourceState?.phase).toBe("done");
+			expect(secondSourceState?.phase).toBe("done");
 
 			// Verify the second fetch is newer
-			if (firstSourceState?.state === "success" && secondSourceState?.state === "success") {
-				expect(secondSourceState.startTime.getTime()).toBeGreaterThanOrEqual(
-					firstSourceState.startTime.getTime(),
+			if (firstSourceState?.phase === "done" && secondSourceState?.phase === "done") {
+				expect(secondSourceState.finishedAt.getTime()).toBeGreaterThanOrEqual(
+					firstSourceState.finishedAt.getTime(),
 				);
 			}
 		});
@@ -385,8 +385,8 @@ describe("ContentState", () => {
 			const state = content.getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-2"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("success");
-			expect(state.sources["source-2"]?.state).toBe("success");
+			expect(state.sources["source-1"]?.phase).toBe("done");
+			expect(state.sources["source-2"]?.phase).toBe("done");
 		});
 
 		it("should have consistent state structure across all sources", async () => {
@@ -403,9 +403,8 @@ describe("ContentState", () => {
 			for (const sourceId of ["source-1", "source-2", "source-3"]) {
 				const sourceState = state.sources[sourceId];
 				expect(sourceState).toBeDefined();
-				expect(sourceState?.state).toBe("success");
-				if (sourceState?.state === "success") {
-					expect(sourceState.startTime).toBeDefined();
+				expect(sourceState?.phase).toBe("done");
+				if (sourceState?.phase === "done") {
 					expect(sourceState.finishedAt).toBeDefined();
 					expect(typeof sourceState.duration).toBe("number");
 				}
@@ -439,7 +438,7 @@ describe("ContentState", () => {
 			// Before fetch
 			let state = content.getState();
 			expect(state.sources["source-1"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("pending");
+			expect(state.sources["source-1"]?.phase).toBe("idle");
 
 			// After fetch
 			await content.executeCommand({
@@ -447,7 +446,7 @@ describe("ContentState", () => {
 			});
 			state = content.getState();
 			expect(state.sources["source-1"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("success");
+			expect(state.sources["source-1"]?.phase).toBe("done");
 		});
 	});
 });

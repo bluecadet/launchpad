@@ -7,7 +7,7 @@ import {
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { AnyCommand } from "@bluecadet/launchpad-utils/types";
-import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import {
 	type ContentConfig,
 	parseContentConfig,
@@ -89,89 +89,90 @@ function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsy
 		sources: resolvedSources,
 	};
 
-	// Execute the fetch pipeline
-	for (const source of context.sources) {
-		ctx.stateManager.markSourceFetching(source.id);
-	}
+	const startTime = new Date();
 
-	ctx.stateManager.setPhase({ phase: "running-setup-hooks" });
+	// Execute the fetch pipeline
+
+	ctx.stateManager.updateSourcesPhase(idsToFetch, { phase: "setup", startedAt: startTime });
 
 	return setupHooksStage(context)
 		.andThen((val) => {
 			if (ctx.resolvedConfig.backupAndRestore) {
-				ctx.stateManager.setPhase({ phase: "backing-up" });
+				ctx.stateManager.updateSourcesPhase(idsToFetch, { phase: "backup", startedAt: startTime });
 				return backupStage(context);
 			}
 			return ok(val);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "clearing-old-data" });
+			ctx.stateManager.updateSourcesPhase(idsToFetch, { phase: "clearing", startedAt: startTime });
 			return clearOldDataStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "fetching-sources" });
+			ctx.stateManager.updateSourcesPhase(idsToFetch, { phase: "fetching", startedAt: startTime });
 			return fetchSourcesStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "running-done-hooks" });
+			ctx.stateManager.updateSourcesPhase(idsToFetch, {
+				phase: "transforming",
+				startedAt: startTime,
+			});
 			return doneHooksStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "finalizing", restored: false });
+			ctx.stateManager.updateSourcesPhase(idsToFetch, {
+				phase: "finalizing",
+				startedAt: startTime,
+			});
 			return finalizingStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "clearing-temp" });
-			for (const source of context.sources) {
-				ctx.stateManager.markSourceSuccess(source.id);
-			}
+			ctx.stateManager.updateSourcesPhase(idsToFetch, {
+				phase: "cleanup",
+				startedAt: startTime,
+			});
 			return cleanupStage(context, {
 				temp: true,
 				backups: ctx.resolvedConfig.backupAndRestore,
 			});
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "idle" });
+			ctx.stateManager.updateSourcesPhase(idsToFetch, {
+				phase: "done",
+				finishedAt: startTime,
+				duration: Date.now() - startTime.getTime(),
+			});
 			return okAsync(undefined);
 		})
 		.orElse((error) => {
 			// Error recovery path
-			ctx.stateManager.setPhase({ phase: "error", error, restored: false });
-			if (context.sources) {
-				for (const source of context.sources) {
-					ctx.stateManager.markSourceError(source.id, error);
-				}
-			}
+			ctx.stateManager.updateSourcesPhase(idsToFetch, {
+				phase: "error",
+				error,
+				attemptedAt: startTime,
+				restored: false,
+			});
 
 			return errorRecoveryStage(context, error)
 				.andThen(() => {
-					if (context.sources) {
-						for (const source of context.sources) {
-							ctx.stateManager.markSourceRestored(source.id);
-						}
-					}
-					ctx.stateManager.setPhase({ phase: "error", error, restored: true });
+					ctx.stateManager.updateSourcesPhase(idsToFetch, {
+						phase: "error",
+						error,
+						attemptedAt: startTime,
+						restored: true,
+					});
 					return cleanupStage(context, {
 						temp: true,
 						backups: ctx.resolvedConfig.backupAndRestore,
 					});
 				})
 				.andThen(() => {
-					ctx.stateManager.setPhase({ phase: "clearing-temp" });
-					return okAsync(undefined);
-				})
-				.andTee(() => {
-					ctx.stateManager.setPhase({ phase: "idle" });
 					dataStore._clear();
-				})
-				.orElse(() => {
-					ctx.stateManager.setPhase({ phase: "idle" });
-					dataStore._clear();
-					return errAsync(error);
-				})
-				.andThen(() => {
 					// Propagate original error after recovery
 					return err(error);
+				})
+				.orElse(() => {
+					dataStore._clear();
+					return errAsync(error);
 				});
 		});
 }
@@ -187,6 +188,10 @@ function clear(
 		ctx.logger.info("No sources to clear");
 		return okAsync(undefined);
 	}
+
+	const startTime = new Date();
+
+	ctx.stateManager.updateSourcesPhase(idsToClear, { phase: "clearing", startedAt: startTime });
 
 	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
 
@@ -238,8 +243,42 @@ function clear(
 
 			return ResultAsync.combine(clearTopResults);
 		})
+		.andThen(() => {
+			ctx.stateManager.updateSourcesPhase(idsToClear, {
+				phase: "idle",
+			});
+			return okAsync(undefined);
+		})
 		.map(() => undefined) // Map to void
 		.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
+}
+
+function _validateSourcesAreIdle(
+	sourceIds: string[] | null,
+	ctx: ContentActionContext,
+): Result<void, Error> {
+	const idsToCheck = sourceIds || Array.from(ctx.sourceRegistry.keys());
+	const currentState = ctx.stateManager.state;
+
+	const busySources: string[] = [];
+
+	for (const sourceId of idsToCheck) {
+		const sourceState = currentState.sources[sourceId];
+		if (!sourceState) {
+			return err(new ContentError(`Source ID not found in state: ${sourceId}`));
+		}
+		if (["idle", "done", "error"].indexOf(sourceState.phase) === -1) {
+			busySources.push(sourceId);
+		}
+	}
+
+	if (busySources.length > 0) {
+		return err(
+			new ContentError(`Cannot perform action. Sources not idle: ${busySources.join(", ")}`),
+		);
+	}
+
+	return ok(undefined);
 }
 
 /**
@@ -283,16 +322,20 @@ export function createLaunchpadContent(config: ContentConfig) {
 						resolvedConfig,
 					};
 
-					const commandGuard = new SingleCommandGuard();
-
 					return ok({
 						executeCommand(command: AnyCommand): ResultAsync<unknown, Error> {
 							switch (command.type) {
 								case "content.fetch": {
-									return commandGuard.run(() => fetch(command.sources ?? null, actionContext));
+									return _validateSourcesAreIdle(
+										command.sources ?? null,
+										actionContext,
+									).asyncAndThen(() => fetch(command.sources ?? null, actionContext));
 								}
 								case "content.clear": {
-									return commandGuard.run(() =>
+									return _validateSourcesAreIdle(
+										command.sources ?? null,
+										actionContext,
+									).asyncAndThen(() =>
 										clear(
 											command.sources ?? null,
 											{

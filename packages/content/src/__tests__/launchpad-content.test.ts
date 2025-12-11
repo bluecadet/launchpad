@@ -225,7 +225,7 @@ describe("LaunchpadContent", () => {
 			expect(firstResult).toBeOk();
 			expect(secondResult).toBeErr();
 			expect(secondResult._unsafeUnwrapErr().message).toContain(
-				"A command is already in progress.",
+				"Cannot perform action. Sources not idle: slow-source",
 			);
 		});
 
@@ -268,7 +268,9 @@ describe("LaunchpadContent", () => {
 
 			expect(fetchResult).toBeOk();
 			expect(clearResult).toBeErr();
-			expect(clearResult._unsafeUnwrapErr().message).toContain("A command is already in progress.");
+			expect(clearResult._unsafeUnwrapErr().message).toContain(
+				"Cannot perform action. Sources not idle: slow-source",
+			);
 		});
 
 		it("should allow sequential commands to execute after first completes", async () => {

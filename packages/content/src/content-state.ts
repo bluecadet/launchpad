@@ -7,72 +7,52 @@ import type { ContentError } from "./content-plugin.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
 
-/**
- * Individual source fetch state with explicit phase tracking.
- * Each phase has associated metadata that's only valid for that phase.
- */
-export type SourceFetchState =
+// all of these phases share the startedAt property
+export type ContentInProgressPhase = {
+	startedAt: Date;
+} & (
 	| {
-			state: "pending";
+			phase: "setup";
 	  }
 	| {
-			state: "fetching";
-			startTime: Date;
+			phase: "backup";
 	  }
 	| {
-			state: "success";
-			startTime: Date;
-			finishedAt: Date;
-			duration: number;
+			phase: "clearing";
 	  }
 	| {
-			state: "error";
-			error: Error;
-			startTime?: Date;
-			attemptedAt: Date;
-			restored: boolean;
-	  };
+			phase: "fetching";
+	  }
+	| {
+			phase: "transforming";
+	  }
+	| {
+			phase: "finalizing";
+	  }
+	| {
+			phase: "cleanup";
+	  }
+);
 
-/**
- * Overall content system phase with phase-specific metadata.
- */
 export type ContentPhase =
 	| {
 			phase: "idle";
 	  }
-	| {
-			phase: "resolving-sources";
-	  }
-	| {
-			phase: "running-setup-hooks";
-	  }
-	| {
-			phase: "backing-up";
-	  }
-	| {
-			phase: "clearing-old-data";
-	  }
-	| {
-			phase: "fetching-sources";
-	  }
-	| {
-			phase: "running-done-hooks";
-	  }
-	| {
-			phase: "finalizing";
-			restored: boolean;
-	  }
+	| ContentInProgressPhase
 	| {
 			phase: "error";
 			error: ContentError;
+			attemptedAt: Date;
 			restored: boolean;
 	  }
 	| {
-			phase: "clearing-temp";
+			phase: "done";
+			finishedAt: Date;
+			duration: number;
 	  };
 
-export type ContentState = ContentPhase & {
-	sources: Record<string, SourceFetchState>;
+export type ContentState = {
+	sources: Record<string, ContentPhase>;
 };
 
 declare module "@bluecadet/launchpad-utils/types" {
@@ -84,14 +64,7 @@ declare module "@bluecadet/launchpad-utils/types" {
 export class ContentStateManager extends PatchedStateManager<ContentState> {
 	constructor() {
 		super({
-			phase: "idle",
 			sources: {},
-		});
-	}
-
-	setPhase(newPhase: ContentPhase): void {
-		this.updateState((draft) => {
-			Object.assign(draft, newPhase);
 		});
 	}
 
@@ -99,59 +72,16 @@ export class ContentStateManager extends PatchedStateManager<ContentState> {
 		this.updateState((draft) => {
 			for (const id of sourceIds) {
 				if (!draft.sources[id]) {
-					draft.sources[id] = { state: "pending" };
+					draft.sources[id] = { phase: "idle" };
 				}
 			}
 		});
 	}
 
-	markSourceFetching(sourceId: string): void {
+	updateSourcesPhase(sourceIds: string[], newPhase: ContentPhase): void {
 		this.updateState((draft) => {
-			draft.sources[sourceId] = {
-				state: "fetching",
-				startTime: new Date(),
-			};
-		});
-	}
-
-	markSourceSuccess(sourceId: string): void {
-		this.updateState((draft) => {
-			const source = draft.sources[sourceId];
-			if (source && source.state === "fetching") {
-				const finishedAt = new Date();
-				const newState = {
-					state: "success" as const,
-					startTime: source.startTime,
-					finishedAt,
-					duration: finishedAt.getTime() - source.startTime.getTime(),
-				};
-				draft.sources[sourceId] = newState;
-			}
-		});
-	}
-
-	markSourceError(sourceId: string, error: Error): void {
-		this.updateState((draft) => {
-			const source = draft.sources[sourceId];
-			const now = new Date();
-			draft.sources[sourceId] = {
-				state: "error",
-				error,
-				startTime: source && source.state === "fetching" ? source.startTime : undefined,
-				attemptedAt: now,
-				restored: false,
-			};
-		});
-	}
-
-	markSourceRestored(sourceId: string): void {
-		this.updateState((draft) => {
-			const source = draft.sources[sourceId];
-			if (source && source.state === "error") {
-				draft.sources[sourceId] = {
-					...source,
-					restored: true,
-				};
+			for (const id of sourceIds) {
+				draft.sources[id] = newPhase;
 			}
 		});
 	}

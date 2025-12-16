@@ -23,7 +23,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 				cliLogger.info("Stopping Launchpad gracefully...");
 				return client
 					.shutdown()
-					.andThen(() => wait(2000))
+					.andThen(() => wait(5000))
 					.andThen(() => {
 						// Verify it stopped
 						if (!isProcessRunning(pid)) {

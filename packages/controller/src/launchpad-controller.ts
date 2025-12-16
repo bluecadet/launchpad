@@ -219,6 +219,12 @@ export class LaunchpadController {
 			throw new Error("Controller must be started before executing commands");
 		}
 
+		if (command.type === "system.shutdown") {
+			return this.cleanup({
+				type: "manual",
+			});
+		}
+
 		return this._commandDispatcher.dispatch(command);
 	}
 

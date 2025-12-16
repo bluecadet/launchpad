@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import net from "node:net";
+import { nextTick } from "node:process";
 import {
 	type DisconnectReason,
 	defineSubsystem,
@@ -163,8 +164,9 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						ctx.logger.verbose("IPC Transport is shutting down");
 						ctx.eventBus.offAny(handleEvent);
 						unsubscribePatch();
-						clients.forEach((client) => client.end());
-						server?.close();
+						clients.forEach((client) => client.destroy());
+						clients.clear();
+						server.close();
 						if (fs.existsSync(socketPath)) {
 							try {
 								fs.unlinkSync(socketPath);
@@ -264,10 +266,12 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: SubsystemCo
 			});
 
 			// Exit after sending response (controller's exit handlers will clean up)
-			setTimeout(() => {
+			nextTick(() => {
 				logger.info("Shutting down via IPC command");
-				process.exit(0);
-			}, 100);
+				ctx.dispatchCommand({
+					type: "system.shutdown",
+				});
+			});
 			break;
 		}
 

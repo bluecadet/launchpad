@@ -74,29 +74,33 @@ function stateToString(state: LaunchpadState): string {
 		const contentState = state.subsystems.content;
 		const sources = contentState.sources;
 
-		// Show overall phase
-		output += `  Phase: ${contentState.phase}\n`;
-
 		if (sources && Object.keys(sources).length > 0) {
 			for (const [sourceId, sourceState] of Object.entries(sources)) {
 				let statusIcon = chalk.gray("○");
 				let details = "";
 
-				if (sourceState.state === "pending") {
-					statusIcon = chalk.gray("○");
-					details = "Pending";
-				} else if (sourceState.state === "fetching") {
-					statusIcon = chalk.yellow("●");
-					details = "Fetching";
-				} else if (sourceState.state === "success") {
-					statusIcon = chalk.green("✓");
-					const duration = (sourceState.duration / 1000).toFixed(1);
-					details = `Success (${duration}s)`;
-				} else if (sourceState.state === "error") {
-					statusIcon = chalk.red("✗");
-					details = `Error: ${sourceState.error.message}`;
-					if (sourceState.restored) {
-						details += " (restored from backup)";
+				switch (sourceState.phase) {
+					case "idle": {
+						statusIcon = chalk.gray("○");
+						details = "idle";
+						break;
+					}
+					case "done": {
+						statusIcon = chalk.green("✓");
+						details = "done";
+						break;
+					}
+					case "error": {
+						statusIcon = chalk.red("✗");
+						details = `error: ${sourceState.error.message}`;
+						if (sourceState.restored) {
+							details += " (restored from backup)";
+						}
+						break;
+					}
+					default: {
+						statusIcon = chalk.yellow("●");
+						details = sourceState.phase;
 					}
 				}
 

@@ -36,7 +36,7 @@
     "glob": "^11.0.0",
     "jsonpath-plus": "^10.3.0",
     "ky": "^1.7.2",
-    "markdown-it": "^14.1.0",
+    "markdown-it": "^14.1.1",
     "neverthrow": "^8.1.1",
     "p-queue": "^7.1.0",
     "qs": "^6.11.1",

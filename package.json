@@ -34,7 +34,7 @@
     "@changesets/cli": "^2.23.0",
     "@types/node": "^22.9.3",
     "lefthook": "^1.11.12",
-    "patch-package": "^8.0.0",
+    "patch-package": "^8.0.1",
     "sherif": "^1.0.1",
     "typescript": "^5.7.2",
     "vitest": "^3.0.7"

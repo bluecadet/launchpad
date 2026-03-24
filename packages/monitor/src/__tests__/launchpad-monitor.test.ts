@@ -6,31 +6,12 @@ import { BusManager } from "../core/bus-manager.js";
 import { ProcessManager } from "../core/process-manager.js";
 import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
-import type { MonitorPlugin } from "../monitor-plugin.js";
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined
 const mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined);
 
 AppManager.prototype.applyWindowSettings = vi.fn().mockImplementation(() => okAsync({}));
-
-const mockPlugin = {
-	name: "test-plugin",
-	hooks: {
-		beforeConnect: vi.fn(),
-		afterConnect: vi.fn(),
-		beforeDisconnect: vi.fn(),
-		afterDisconnect: vi.fn(),
-		beforeAppStart: vi.fn(),
-		afterAppStart: vi.fn(),
-		beforeAppStop: vi.fn(),
-		afterAppStop: vi.fn(),
-		onAppError: vi.fn(),
-		onAppLog: vi.fn(),
-		onAppErrorLog: vi.fn(),
-		beforeShutdown: vi.fn(),
-	},
-} as MonitorPlugin;
 
 async function createTestMonitor(
 	config: MonitorConfig = {
@@ -42,7 +23,6 @@ async function createTestMonitor(
 				},
 			},
 		],
-		plugins: [mockPlugin],
 	},
 	cwd?: string,
 ) {
@@ -52,7 +32,7 @@ async function createTestMonitor(
 	return {
 		monitor,
 		rootLogger: ctx.logger,
-		plugin: config.plugins![0] as MonitorPlugin,
+		eventBus: ctx.eventBus,
 	};
 }
 
@@ -76,13 +56,13 @@ describe("LaunchpadMonitor", () => {
 			expect(busConnectSpy).toHaveBeenCalled();
 		});
 
-		it("should run connect hooks in order", async () => {
-			const { monitor, plugin } = await createTestMonitor();
+		it("should emit connect lifecycle events", async () => {
+			const { monitor, eventBus } = await createTestMonitor();
 
 			await monitor.executeCommand({ type: "monitor.connect" });
 
-			expect(plugin.hooks.beforeConnect).toHaveBeenCalled();
-			expect(plugin.hooks.afterConnect).toHaveBeenCalled();
+			expect(eventBus.getEventsOfType("monitor:connect:start")).toHaveLength(1);
+			expect(eventBus.getEventsOfType("monitor:connect:done")).toHaveLength(1);
 		});
 
 		it("should handle existing daemon when deleteExistingBeforeConnect is true", async () => {
@@ -101,7 +81,6 @@ describe("LaunchpadMonitor", () => {
 						},
 					},
 				],
-				plugins: [mockPlugin],
 			});
 
 			const result = await monitor.executeCommand({ type: "monitor.connect" });
@@ -128,13 +107,13 @@ describe("LaunchpadMonitor", () => {
 			expect(busDisconnectSpy).toHaveBeenCalled();
 		});
 
-		it("should run disconnect hooks in order", async () => {
-			const { monitor, plugin } = await createTestMonitor();
+		it("should emit disconnect lifecycle events", async () => {
+			const { monitor, eventBus } = await createTestMonitor();
 
 			await monitor.executeCommand({ type: "monitor.disconnect" });
 
-			expect(plugin.hooks.beforeDisconnect).toHaveBeenCalled();
-			expect(plugin.hooks.afterDisconnect).toHaveBeenCalled();
+			expect(eventBus.getEventsOfType("monitor:disconnect:start")).toHaveLength(1);
+			expect(eventBus.getEventsOfType("monitor:disconnect:done")).toHaveLength(1);
 		});
 	});
 
@@ -166,20 +145,6 @@ describe("LaunchpadMonitor", () => {
 			expect(result).toBeOk();
 			expect(appManagerStartAppSpy).toHaveBeenCalledWith("test-app");
 		});
-
-		it("should run app start hooks in order", async () => {
-			const { monitor, plugin } = await createTestMonitor();
-
-			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
-
-			expect(plugin.hooks.beforeAppStart).toHaveBeenCalledWith(expect.any(Object), {
-				appName: "test-app",
-			});
-			expect(plugin.hooks.afterAppStart).toHaveBeenCalledWith(expect.any(Object), {
-				appName: "test-app",
-				process: expect.any(Object),
-			});
-		});
 	});
 
 	describe("stop", () => {
@@ -194,19 +159,6 @@ describe("LaunchpadMonitor", () => {
 
 			expect(result).toBeOk();
 			expect(appManagerStopAppSpy).toHaveBeenCalledWith("test-app");
-		});
-
-		it("should run app stop hooks in order", async () => {
-			const { monitor, plugin } = await createTestMonitor();
-
-			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
-
-			expect(plugin.hooks.beforeAppStop).toHaveBeenCalledWith(expect.any(Object), {
-				appName: "test-app",
-			});
-			expect(plugin.hooks.afterAppStop).toHaveBeenCalledWith(expect.any(Object), {
-				appName: "test-app",
-			});
 		});
 	});
 
@@ -232,15 +184,12 @@ describe("LaunchpadMonitor", () => {
 			expect(mockExit).toHaveBeenCalledWith(123);
 		});
 
-		it("should run shutdown hook before stopping", async () => {
-			const { monitor, plugin } = await createTestMonitor();
+		it("should emit beforeShutdown event", async () => {
+			const { monitor, eventBus } = await createTestMonitor();
 
-			const exitCode = 123;
-			await monitor.executeCommand({ type: "monitor.shutdown", exitCode: exitCode });
+			await monitor.executeCommand({ type: "monitor.shutdown", exitCode: 123 });
 
-			expect(plugin.hooks.beforeShutdown).toHaveBeenCalledWith(expect.any(Object), {
-				code: exitCode,
-			});
+			expect(eventBus.getEventsOfType("monitor:beforeShutdown")).toHaveLength(1);
 		});
 	});
 });

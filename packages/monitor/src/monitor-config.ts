@@ -1,6 +1,5 @@
 import type { StartOptions } from "pm2";
 import { z } from "zod";
-import { monitorPluginSchema } from "./monitor-plugin.js";
 
 const windowsApiConfigSchema = z.object({
 	/**
@@ -134,8 +133,6 @@ export const monitorConfigSchema = z.object({
 			"Advanced configuration for the Windows API, e.g. for managing foreground/minimized/hidden windows.",
 		)
 		.default({}),
-	/** A list of plugins. */
-	plugins: z.array(monitorPluginSchema).default([]).describe("A list of plugins."),
 	/** Will listen for exit events. Defaults to true. */
 	shutdownOnExit: z
 		.boolean()
@@ -149,14 +146,4 @@ export type ResolvedAppConfig = ResolvedMonitorConfig["apps"][number];
 
 export function defineMonitorConfig(config: MonitorConfig) {
 	return config;
-}
-
-// Declaration merging to add monitor config to LaunchpadConfig
-declare module "@bluecadet/launchpad-utils/types" {
-	interface LaunchpadConfig {
-		/**
-		 * Monitor system configuration.
-		 */
-		monitor?: MonitorConfig;
-	}
 }

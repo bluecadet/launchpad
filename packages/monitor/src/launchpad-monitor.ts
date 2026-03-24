@@ -1,8 +1,8 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
+	type BaseCommand,
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
@@ -18,15 +18,13 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
-import { MonitorPluginDriver } from "./monitor-plugin.js";
-import { MonitorStateManager } from "./monitor-state.js";
+import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
 type MonitorActionContext = SubsystemContext & {
 	processManager: ProcessManager;
 	busManager: BusManager;
 	appManager: AppManager;
 	stateManager: MonitorStateManager;
-	pluginDriver: MonitorPluginDriver;
 	config: ResolvedMonitorConfig;
 };
 
@@ -73,9 +71,8 @@ function _handleExistingDaemon(
 function connect(ctx: MonitorActionContext, ensureDaemonOwnership = true) {
 	ctx.eventBus.emit("monitor:connect:start", {});
 
-	return ctx.pluginDriver
-		.runHookSequential("beforeConnect")
-		.andThen(() => ctx.busManager.disconnect())
+	return ctx.busManager
+		.disconnect()
 		.andThen(() => ctx.processManager.isDaemonRunning())
 		.andThen((isDaemonRunning) => {
 			if (ensureDaemonOwnership && isDaemonRunning) {
@@ -88,7 +85,6 @@ function connect(ctx: MonitorActionContext, ensureDaemonOwnership = true) {
 			return ctx.processManager.connect();
 		})
 		.andThen(() => ctx.busManager.connect())
-		.andThrough(() => ctx.pluginDriver.runHookSequential("afterConnect"))
 		.andTee(() => {
 			ctx.stateManager.setConnected(true);
 			ctx.eventBus.emit("monitor:connect:done", {});
@@ -103,9 +99,8 @@ function disconnect(ctx: MonitorActionContext): ResultAsync<void, Error> {
 	ctx.logger.info("Disconnecting from PM2");
 	ctx.eventBus.emit("monitor:disconnect:start", {});
 
-	return ctx.pluginDriver
-		.runHookSequential("beforeDisconnect")
-		.andThen(() => ctx.busManager.disconnect())
+	return ctx.busManager
+		.disconnect()
 		.andThen(() => ctx.processManager.isDaemonRunning())
 		.andThen((isDaemonRunning) => {
 			if (isDaemonRunning) {
@@ -114,7 +109,6 @@ function disconnect(ctx: MonitorActionContext): ResultAsync<void, Error> {
 			}
 			return okAsync(undefined);
 		})
-		.andThrough(() => ctx.pluginDriver.runHookSequential("afterDisconnect"))
 		.andTee(() => {
 			ctx.stateManager.setConnected(false);
 			ctx.eventBus.emit("monitor:disconnect:done", {});
@@ -143,15 +137,11 @@ function start(
 
 			return ResultAsync.combine(
 				validatedNames.map((name) =>
-					ctx.pluginDriver
-						.runHookSequential("beforeAppStart", { appName: name })
-						.andThen(() => ctx.appManager.startApp(name))
+					ctx.appManager
+						.startApp(name)
 						.andThrough((process) => {
 							ctx.stateManager.markAppStarted(name, process.pid, process.pm_id);
-							return ctx.pluginDriver.runHookSequential("afterAppStart", {
-								appName: name,
-								process,
-							});
+							return okAsync(undefined);
 						})
 						.orElse((error) => {
 							ctx.stateManager.markAppErrored(name);
@@ -176,13 +166,10 @@ function stop(
 
 		return ResultAsync.combine(
 			validatedNames.map((name) =>
-				ctx.pluginDriver
-					.runHookSequential("beforeAppStop", { appName: name })
-					.andThen(() => ctx.appManager.stopApp(name))
-					.andThrough(() => {
-						ctx.stateManager.markAppStopped(name);
-						return ctx.pluginDriver.runHookSequential("afterAppStop", { appName: name });
-					}),
+				ctx.appManager.stopApp(name).andThrough(() => {
+					ctx.stateManager.markAppStopped(name);
+					return okAsync(undefined);
+				}),
 			),
 		).map(() => undefined);
 	});
@@ -229,9 +216,9 @@ function shutdown(
 ): ResultAsync<void, Error> {
 	ctx.logger.info("Monitor exiting... 👋");
 
-	return ctx.pluginDriver
-		.runHookSequential("beforeShutdown", { code: eventOrExitCode })
-		.andThen(() => stop(ctx))
+	ctx.eventBus.emit("monitor:beforeShutdown", { code: eventOrExitCode });
+
+	return stop(ctx)
 		.andThen(() => disconnect(ctx))
 		.andTee(() => {
 			ctx.logger.info("...apps stopped ✋");
@@ -273,25 +260,46 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 				busManager.initAppLogging(appConf);
 			}
 
-			const basePluginDriver = new PluginDriver(ctx, resolvedConfig.plugins);
-			const pluginDriver = new MonitorPluginDriver(basePluginDriver, {
-				busManager,
-			});
-
 			const actionCtx: MonitorActionContext = {
 				...ctx,
 				processManager,
 				busManager,
 				appManager,
 				stateManager,
-				pluginDriver,
 				config: resolvedConfig,
 			};
+
+			// Route PM2 bus events to the event bus
+			busManager.addEventHandler((eventType, eventData) => {
+				if (!eventData?.process?.name) return;
+				const appName = eventData.process.name;
+
+				if (eventType === "log:out") {
+					ctx.eventBus.emit("monitor:app:log", {
+						appName,
+						data: eventData.data?.toString() ?? "",
+					});
+				}
+				if (eventType === "log:err") {
+					ctx.eventBus.emit("monitor:app:errorLog", {
+						appName,
+						data: eventData.data?.toString() ?? "",
+					});
+				}
+				if (eventType === "process:event") {
+					if (eventData.event === "error" || eventData.event === "exception") {
+						ctx.eventBus.emit("monitor:app:error", {
+							appName,
+							error: new Error(eventData.data || "Unknown error"),
+						});
+					}
+				}
+			});
 
 			const commandGuard = new SingleCommandGuard();
 
 			return okAsync({
-				executeCommand(command: MonitorCommand) {
+				executeCommand(command: MonitorCommand): ResultAsync<void, Error> {
 					switch (command.type) {
 						case "monitor.connect":
 							return commandGuard.run(() =>
@@ -314,16 +322,25 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 						}
 					}
 				},
-				getState() {
+				getState(): MonitorState {
 					return stateManager.state;
 				},
-				onStatePatch(handler: PatchHandler) {
+				onStatePatch(handler: PatchHandler): () => void {
 					return stateManager.onPatch(handler);
 				},
 				disconnect() {
 					return shutdown(actionCtx);
 				},
+				startupCommands: [{ type: "monitor.connect" }, { type: "monitor.start" }],
 			});
 		},
 	});
+}
+
+/**
+ * Creates a LaunchpadMonitor subsystem factory with startup commands.
+ * Use this in your launchpad config's plugins array.
+ */
+export function monitor(config: MonitorConfig) {
+	return createLaunchpadMonitor(config);
 }

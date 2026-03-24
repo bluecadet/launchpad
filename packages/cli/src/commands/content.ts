@@ -8,8 +8,8 @@ export function content(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			const contentSubsystem = config.subsystems?.find((s) => s.name === "content");
-			if (!contentSubsystem) {
+			const contentPlugin = config.plugins?.find((s) => s.name === "content");
+			if (!contentPlugin) {
 				return errAsync(new ConfigError("No content plugin found in your config file."));
 			}
 
@@ -20,9 +20,9 @@ export function content(argv: GlobalLaunchpadArgs) {
 					return client.executeCommand({ type: "content.fetch" });
 				},
 				otherwise: (controller) => {
-					// No daemon - need to register subsystem and run command
+					// No daemon - need to register plugin and run command
 					return controller
-						.registerSubsystem(contentSubsystem)
+						.registerPlugin(contentPlugin)
 						.andThen(() => controller.executeCommand({ type: "content.fetch" }));
 				},
 			}).orElse((error) => handleFatalError(error));

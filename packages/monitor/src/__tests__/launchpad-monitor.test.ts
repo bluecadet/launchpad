@@ -1,4 +1,4 @@
-import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
@@ -26,7 +26,7 @@ async function createTestMonitor(
 	},
 	cwd?: string,
 ) {
-	const ctx = createMockSubsystemCtx(cwd);
+	const ctx = createMockPluginCtx(cwd);
 	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {

@@ -1,5 +1,5 @@
 import { fork } from "node:child_process";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import chalk from "chalk";
 import { fromPromise, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -99,15 +99,15 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 						controller.stop();
 					});
 
-					const subsystems = config.subsystems ?? [];
+					const plugins = config.plugins ?? [];
 
-					// Register all subsystems in sequence, collecting startup commands
-					return subsystems
+					// Register all plugins in sequence, collecting startup commands
+					return plugins
 						.reduce(
-							(chain, subsystem) =>
+							(chain, plugin) =>
 								chain.andThen(({ commands }) =>
-									controller.registerSubsystem(subsystem).map(() => ({
-										commands: [...commands, ...(subsystem.startupCommands ?? [])],
+									controller.registerPlugin(plugin).map(() => ({
+										commands: [...commands, ...(plugin.startupCommands ?? [])],
 									})),
 								),
 							okAsync<{ commands: BaseCommand[] }, Error>({ commands: [] }),

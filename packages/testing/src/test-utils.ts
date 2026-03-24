@@ -1,5 +1,5 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
@@ -83,7 +83,7 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
-export function createMockSubsystemCtx(cwd = "/") {
+export function createMockPluginCtx(cwd = "/") {
 	return {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
@@ -92,5 +92,5 @@ export function createMockSubsystemCtx(cwd = "/") {
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
 		getState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
 		onStatePatch: vi.fn().mockReturnValue(() => {}),
-	} satisfies SubsystemContext;
+	} satisfies PluginContext;
 }

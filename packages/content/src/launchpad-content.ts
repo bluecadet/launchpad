@@ -1,10 +1,10 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
 	type BaseCommand,
-	defineSubsystem,
-	type SubsystemContext,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+	definePlugin,
+	type PluginContext,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
@@ -29,7 +29,7 @@ import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 import { createPathsHelper } from "./utils/paths-helper.js";
 
-type ContentActionContext = SubsystemContext & {
+type ContentActionContext = PluginContext & {
 	stateManager: ContentStateManager;
 	sourceRegistry: Map<string, ContentSource>;
 	resolvedConfig: ResolvedContentConfig;
@@ -229,7 +229,7 @@ function clear(
 }
 
 /**
- * Creates a LaunchpadContent subsystem factory with startup commands.
+ * Creates a LaunchpadContent plugin factory with startup commands.
  * Use this in your launchpad config's plugins array.
  */
 export function content(config: ContentConfig) {
@@ -240,13 +240,13 @@ export function content(config: ContentConfig) {
 }
 
 /**
- * Creates a LaunchpadContent subsystem factory.
+ * Creates a LaunchpadContent plugin factory.
  * Call setup() on the returned object to initialize the content system.
  */
 export function createLaunchpadContent(config: ContentConfig) {
-	return defineSubsystem({
+	return definePlugin({
 		name: "content",
-		setup(ctx: SubsystemContext) {
+		setup(ctx: PluginContext) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
 					if (resolvedConfig.sources.length === 0) {
@@ -254,7 +254,7 @@ export function createLaunchpadContent(config: ContentConfig) {
 					}
 				})
 				.andThen((resolvedConfig) => {
-					// initialize persistent services (services that live for the lifetime of the subsystem, not per-command)
+					// initialize persistent services (services that live for the lifetime of the plugin, not per-command)
 
 					const stateManager = new ContentStateManager();
 					const sourceRegistry = new Map<string, ContentSource>();

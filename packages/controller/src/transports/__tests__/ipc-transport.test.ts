@@ -345,7 +345,7 @@ describe("ipc-transport", () => {
 			mockSocket.write.mockClear();
 
 			const testPatches = [
-				{ op: "replace", path: ["subsystems", "content", "phase"], value: "complete" },
+				{ op: "replace", path: ["plugins", "content", "phase"], value: "complete" },
 			];
 			patchHandler?.(testPatches, 1);
 
@@ -376,7 +376,7 @@ describe("ipc-transport", () => {
 			mockSocket1.write.mockClear();
 			mockSocket2.write.mockClear();
 
-			const testPatches = [{ op: "add", path: ["subsystems", "monitor", "apps"], value: [] }];
+			const testPatches = [{ op: "add", path: ["plugins", "monitor", "apps"], value: [] }];
 			patchHandler?.(testPatches, 2);
 
 			expect(mockSocket1.write).toHaveBeenCalledTimes(1);

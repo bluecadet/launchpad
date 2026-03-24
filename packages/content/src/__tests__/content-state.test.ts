@@ -1,4 +1,4 @@
-import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLaunchpadContent } from "../launchpad-content.js";
@@ -41,7 +41,7 @@ describe("ContentState", () => {
 	describe("initialization", () => {
 		it("should initialize with empty sources record", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -58,7 +58,7 @@ describe("ContentState", () => {
 	describe("per-source state tracking", () => {
 		it("should initialize source state when fetch starts", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -77,7 +77,7 @@ describe("ContentState", () => {
 
 		it("should track multiple sources independently", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -97,7 +97,7 @@ describe("ContentState", () => {
 	describe("fetch lifecycle state updates", () => {
 		it("should set startTime timestamp when fetch begins", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -119,7 +119,7 @@ describe("ContentState", () => {
 
 		it("should set finishedAt timestamp after successful fetch", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -142,7 +142,7 @@ describe("ContentState", () => {
 
 		it("should track different timestamps for different sources", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -191,7 +191,7 @@ describe("ContentState", () => {
 			};
 
 			const contentResult = await createLaunchpadContent(failingConfig).setup(
-				createMockSubsystemCtx(),
+				createMockPluginCtx(),
 			);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -214,7 +214,7 @@ describe("ContentState", () => {
 
 		it("should not clear lastFetchSuccess on error", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -236,7 +236,7 @@ describe("ContentState", () => {
 	describe("event bus integration", () => {
 		it("should emit events when state is updated", async () => {
 			const config = createBasicConfig(1);
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const contentResult = await createLaunchpadContent(config).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -260,7 +260,7 @@ describe("ContentState", () => {
 
 		it("should emit source-specific events", async () => {
 			const config = createBasicConfig(1);
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const contentResult = await createLaunchpadContent(config).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -288,7 +288,7 @@ describe("ContentState", () => {
 	describe("state consistency", () => {
 		it("should maintain state across multiple operations", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -325,7 +325,7 @@ describe("ContentState", () => {
 
 		it("should have consistent state structure across all sources", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -350,7 +350,7 @@ describe("ContentState", () => {
 	describe("state mutations during operations", () => {
 		it("should return frozen state objects", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -366,7 +366,7 @@ describe("ContentState", () => {
 
 		it("should reflect state changes through getState()", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
+			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

@@ -1,14 +1,11 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type {
-	BaseCommand,
-	InstantiatedSubsystem,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand, InstantiatedPlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 
 /**
  * Core controller events.
- * Subsystems can augment this interface via declaration merging
+ * Plugins can augment this interface via declaration merging
  *
  */
 declare module "@bluecadet/launchpad-utils/types" {
@@ -25,35 +22,35 @@ declare module "@bluecadet/launchpad-utils/types" {
 }
 
 /**
- * CommandDispatcher routes commands to appropriate subsystems and emits events.
+ * CommandDispatcher routes commands to appropriate plugins and emits events.
  *
  * The dispatcher is generic - it doesn't know about specific command types.
- * Each subsystem implements CommandExecutor<TCommand> with its own command type,
- * providing full type safety at the subsystem level.
+ * Each plugin implements CommandExecutor<TCommand> with its own command type,
+ * providing full type safety at the plugin level.
  *
  * Flow:
- * 1. Extracts subsystem name from command.type
- * 2. Checks if subsystem is registered
- * 3. Checks if subsystem implements CommandExecutor
+ * 1. Extracts plugin name from command.type
+ * 2. Checks if plugin is registered
+ * 3. Checks if plugin implements CommandExecutor
  * 4. Emits "command:start" event
- * 5. Delegates to subsystem.executeCommand() (subsystem has type safety)
+ * 5. Delegates to plugin.executeCommand() (plugin has type safety)
  * 6. Emits "command:success" or "command:error" event
  * 7. Returns result
  */
 export class CommandDispatcher {
 	constructor(
 		private _eventBus: EventBus,
-		private _subsystems: Map<string, InstantiatedSubsystem>,
+		private _plugins: Map<string, InstantiatedPlugin>,
 	) {}
 
 	/**
-	 * Dispatch a command to the appropriate subsystem.
-	 * The command is treated generically here - type safety is enforced at the subsystem level.
+	 * Dispatch a command to the appropriate plugin.
+	 * The command is treated generically here - type safety is enforced at the plugin level.
 	 */
 	dispatch(command: BaseCommand): ResultAsync<unknown, CommandExecutionError> {
-		// 1. Extract subsystem name from command type (e.g., "content.fetch" -> "content")
-		const subsystemName = command.type.split(".")[0];
-		if (!subsystemName) {
+		// 1. Extract plugin name from command type (e.g., "content.fetch" -> "content")
+		const pluginName = command.type.split(".")[0];
+		if (!pluginName) {
 			const error = new CommandExecutionError(`Invalid command type: ${command.type}`, {
 				commandType: command.type,
 			});
@@ -61,22 +58,22 @@ export class CommandDispatcher {
 			return errAsync(error);
 		}
 
-		const subsystem = this._subsystems.get(subsystemName);
+		const plugin = this._plugins.get(pluginName);
 
-		// 2. Check if subsystem is registered
-		if (!subsystem) {
+		// 2. Check if plugin is registered
+		if (!plugin) {
 			const error = new CommandExecutionError(
-				`Subsystem '${subsystemName}' not available. Install @bluecadet/launchpad-${subsystemName} to use this command.`,
+				`Plugin '${pluginName}' not available. Install @bluecadet/launchpad-${pluginName} to use this command.`,
 				{ commandType: command.type },
 			);
 			this._eventBus.emit("command:error", { commandType: command.type, error });
 			return errAsync(error);
 		}
 
-		// 3. Check if subsystem implements CommandExecutor
-		if (!subsystem.executeCommand) {
+		// 3. Check if plugin implements CommandExecutor
+		if (!plugin.executeCommand) {
 			const error = new CommandExecutionError(
-				`Subsystem '${subsystemName}' does not support command execution. The subsystem must implement the CommandExecutor interface.`,
+				`Plugin '${pluginName}' does not support command execution. The plugin must implement the CommandExecutor interface.`,
 				{ commandType: command.type },
 			);
 			this._eventBus.emit("command:error", { commandType: command.type, error });
@@ -86,11 +83,11 @@ export class CommandDispatcher {
 		// 4. Emit "before" event
 		this._eventBus.emit("command:start", { commandType: command.type, ...command });
 
-		// 5. Delegate to subsystem's executeCommand method
-		// The subsystem receives the command with its specific type and enforces type safety
-		const result = subsystem.executeCommand(command);
+		// 5. Delegate to plugin's executeCommand method
+		// The plugin receives the command with its specific type and enforces type safety
+		const result = plugin.executeCommand(command);
 
-		// 6. Emit "after" event based on result and wrap any subsystem errors
+		// 6. Emit "after" event based on result and wrap any plugin errors
 		result.match(
 			(value) => {
 				this._eventBus.emit("command:success", {
@@ -102,7 +99,7 @@ export class CommandDispatcher {
 				const wrappedError =
 					error instanceof CommandExecutionError
 						? error
-						: new CommandExecutionError("Subsystem command execution failed", {
+						: new CommandExecutionError("Plugin command execution failed", {
 								cause: error instanceof Error ? error : new Error(String(error)),
 								commandType: command.type,
 							});
@@ -113,11 +110,11 @@ export class CommandDispatcher {
 			},
 		);
 
-		// Return result with type-safe error (subsystem may return generic Error, we map it)
+		// Return result with type-safe error (plugin may return generic Error, we map it)
 		return result.mapErr((error) =>
 			error instanceof CommandExecutionError
 				? error
-				: new CommandExecutionError("Subsystem command execution failed", {
+				: new CommandExecutionError("Plugin command execution failed", {
 						cause: error instanceof Error ? error : new Error(String(error)),
 						commandType: command.type,
 					}),

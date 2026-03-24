@@ -1,9 +1,9 @@
 /**
- * Monitor subsystem command types.
+ * Monitor plugin command types.
  * These commands are dispatched via the controller's executeCommand() method.
  */
 
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 
 /**
  * Connect to PM2 daemon

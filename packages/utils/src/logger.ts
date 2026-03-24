@@ -12,7 +12,7 @@ export interface LogMethod {
 }
 
 /*
- * Logger interface for subsystems.
+ * Logger interface for plugins.
  * This is a simplified subset of Winston's Logger.
  */
 export type Logger = {

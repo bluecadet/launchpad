@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContentError, type ContentTransform } from "../content-transform.js";
@@ -39,7 +39,7 @@ describe("LaunchpadContent", () => {
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {
 			const factory = createLaunchpadContent(createBasicConfig());
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -66,7 +66,7 @@ describe("LaunchpadContent", () => {
 			};
 
 			const factory = createLaunchpadContent(config);
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -84,7 +84,7 @@ describe("LaunchpadContent", () => {
 
 		it("should clear data store between runs", async () => {
 			const factory = createLaunchpadContent(createBasicConfig());
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -119,7 +119,7 @@ describe("LaunchpadContent", () => {
 			};
 
 			const factory = createLaunchpadContent(createBasicConfig([transform1, transform2]));
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -137,7 +137,7 @@ describe("LaunchpadContent", () => {
 			};
 
 			const factory = createLaunchpadContent(createBasicConfig([errorTransform]));
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -158,7 +158,7 @@ describe("LaunchpadContent", () => {
 	describe("executeCommand", () => {
 		it("should allow a single command to execute", async () => {
 			const factory = createLaunchpadContent(createBasicConfig());
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -190,7 +190,7 @@ describe("LaunchpadContent", () => {
 				...createBasicConfig(),
 				sources: [slowSource],
 			});
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -234,7 +234,7 @@ describe("LaunchpadContent", () => {
 				...createBasicConfig(),
 				sources: [slowSource],
 			});
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
@@ -257,7 +257,7 @@ describe("LaunchpadContent", () => {
 
 		it("should allow sequential commands to execute after first completes", async () => {
 			const factory = createLaunchpadContent(createBasicConfig());
-			const contentResult = await factory.setup(createMockSubsystemCtx());
+			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

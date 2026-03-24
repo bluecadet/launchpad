@@ -5,7 +5,7 @@
 
 import net from "node:net";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents, LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";

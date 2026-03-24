@@ -1,5 +1,5 @@
 /**
- * Monitor subsystem state.
+ * Monitor plugin state.
  * This represents the current state of the monitor system.
  */
 
@@ -34,7 +34,7 @@ export type MonitorState = {
 };
 
 declare module "@bluecadet/launchpad-utils/types" {
-	interface SubsystemsState {
+	interface PluginsState {
 		monitor: MonitorState;
 	}
 }

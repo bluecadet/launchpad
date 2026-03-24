@@ -1,82 +1,79 @@
+import type { InstantiatedPlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-patcher";
-import type { InstantiatedSubsystem } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import type { SystemState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { Patch } from "immer";
 
 /**
- * StateStore aggregates state from all registered subsystems.
+ * StateStore aggregates state from all registered plugins.
  *
  * Architecture:
  * - Controller owns system-level state (mode, uptime, version)
- * - Each subsystem owns and manages its own state
- * - StateStore queries subsystems via StateProvider interface
+ * - Each plugin owns and manages its own state
+ * - StateStore queries plugins via StateProvider interface
  * - No event subscriptions needed - state is pulled on demand
  *
  * Benefits:
- * - Single Responsibility: Subsystems manage their own state
- * - No tight coupling: Controller doesn't know subsystem state structure
- * - Type safety: Each subsystem exports its own state type
+ * - Single Responsibility: Plugins manage their own state
+ * - No tight coupling: Controller doesn't know plugin state structure
+ * - Type safety: Each plugin exports its own state type
  * - Simple: StateStore is just a thin aggregation layer
  */
 export class StateStore {
 	private _systemState: SystemState;
-	private _subsystems: Map<string, InstantiatedSubsystem>;
+	private _plugins: Map<string, InstantiatedPlugin>;
 	private _stateVersion = 0;
 	private _patchHandlers: PatchHandlerWithVersion[] = [];
 
-	constructor(
-		subsystems: Map<string, InstantiatedSubsystem>,
-		mode: "task" | "persistent" = "task",
-	) {
-		this._subsystems = subsystems;
+	constructor(plugins: Map<string, InstantiatedPlugin>, mode: "task" | "persistent" = "task") {
+		this._plugins = plugins;
 		this._systemState = {
 			startTime: new Date(),
 			version: "0.1.0", // TODO: Read from package.json
 			mode,
 		};
 
-		for (const [name, subsystem] of this._subsystems) {
-			if (subsystem.onStatePatch) {
-				subsystem.onStatePatch(this._relaySubsystemPatch.bind(this, name));
+		for (const [name, plugin] of this._plugins) {
+			if (plugin.onStatePatch) {
+				plugin.onStatePatch(this._relayPluginPatch.bind(this, name));
 			}
 		}
 	}
 
-	registerSubsystem(name: string, instance: InstantiatedSubsystem): void {
-		this._subsystems.set(name, instance);
+	registerPlugin(name: string, instance: InstantiatedPlugin): void {
+		this._plugins.set(name, instance);
 
 		if (instance.onStatePatch) {
-			instance.onStatePatch(this._relaySubsystemPatch.bind(this, name));
+			instance.onStatePatch(this._relayPluginPatch.bind(this, name));
 		}
 	}
 
 	/**
-	 * Get the complete aggregated state from all subsystems
+	 * Get the complete aggregated state from all plugins
 	 */
 	getState(): VersionedLaunchpadState {
-		const subsystemStates: Record<string, unknown> = {};
+		const pluginStates: Record<string, unknown> = {};
 
-		// Query each subsystem for its state (if it provides one)
-		for (const [name, subsystem] of this._subsystems) {
-			if (subsystem.getState) {
-				subsystemStates[name] = subsystem.getState();
+		// Query each plugin for its state (if it provides one)
+		for (const [name, plugin] of this._plugins) {
+			if (plugin.getState) {
+				pluginStates[name] = plugin.getState();
 			}
 		}
 
 		return {
 			system: this._systemState,
-			subsystems: subsystemStates,
+			plugins: pluginStates,
 			_version: this._stateVersion,
 		};
 	}
 
 	/**
-	 * Get state from a specific subsystem
+	 * Get state from a specific plugin
 	 */
-	getSubsystemState<TState = unknown>(name: string): TState | undefined {
-		const subsystem = this._subsystems.get(name);
-		if (subsystem?.getState) {
-			return subsystem.getState() as TState;
+	getPluginState<TState = unknown>(name: string): TState | undefined {
+		const plugin = this._plugins.get(name);
+		if (plugin?.getState) {
+			return plugin.getState() as TState;
 		}
 		return undefined;
 	}
@@ -96,10 +93,10 @@ export class StateStore {
 		this._systemState[key] = value;
 	}
 
-	private _relaySubsystemPatch(subsystemName: string, patches: Patch[]): void {
-		// Adjust patch paths to point to subsystem within aggregate
-		// e.g., ["phase"] becomes ["subsystems", "content", "phase"]
-		const basePathSegments = ["subsystems", subsystemName];
+	private _relayPluginPatch(pluginName: string, patches: Patch[]): void {
+		// Adjust patch paths to point to plugin within aggregate
+		// e.g., ["phase"] becomes ["plugins", "content", "phase"]
+		const basePathSegments = ["plugins", pluginName];
 
 		const adjustedPatches: Patch[] = patches.map((patch) => ({
 			...patch,

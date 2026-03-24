@@ -2,7 +2,7 @@
 import "@bluecadet/launchpad-utils/types";
 
 /**
- * Monitor subsystem events.
+ * Monitor plugin events.
  */
 
 declare module "@bluecadet/launchpad-utils/types" {

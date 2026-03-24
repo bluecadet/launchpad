@@ -1,9 +1,9 @@
 /**
- * Content subsystem command types.
+ * Content plugin command types.
  * These commands are dispatched via the controller's executeCommand() method.
  */
 
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 
 /**
  * Fetch content from all or specific sources

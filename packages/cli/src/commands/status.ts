@@ -53,14 +53,14 @@ function stateToString(state: LaunchpadState): string {
 	}
 
 	// Monitor status
-	if (state.subsystems.monitor) {
+	if (state.plugins.monitor) {
 		output += `\n${chalk.bold("Monitor:")}\n`;
-		output += `  Connected: ${state.subsystems.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}\n`;
+		output += `  Connected: ${state.plugins.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}\n`;
 
 		// Apps
-		if (state.subsystems.monitor.apps && Object.keys(state.subsystems.monitor.apps).length > 0) {
+		if (state.plugins.monitor.apps && Object.keys(state.plugins.monitor.apps).length > 0) {
 			output += `\n${chalk.bold("Apps:")}\n`;
-			for (const [appName, appStatus] of Object.entries(state.subsystems.monitor.apps)) {
+			for (const [appName, appStatus] of Object.entries(state.plugins.monitor.apps)) {
 				const icon = appStatus.status === "online" ? "●" : "○";
 				const statusColor = appStatus.status === "online" ? chalk.green : chalk.red;
 				output += `  ${statusColor(icon)} ${appName}: ${statusColor(appStatus.status)}${appStatus.pid ? ` (PID: ${appStatus.pid})` : ""}\n`;
@@ -69,9 +69,9 @@ function stateToString(state: LaunchpadState): string {
 	}
 
 	// Content status
-	if (state.subsystems.content) {
+	if (state.plugins.content) {
 		output += `\n${chalk.bold("Content:")}\n`;
-		const contentState = state.subsystems.content;
+		const contentState = state.plugins.content;
 		const sources = contentState.sources;
 
 		// Show overall phase

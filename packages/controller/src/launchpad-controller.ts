@@ -4,10 +4,10 @@ import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type {
 	BaseCommand,
 	DisconnectReason,
-	InstantiatedSubsystem,
-	SubsystemConfig,
-	SubsystemContext,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+	InstantiatedPlugin,
+	PluginConfig,
+	PluginContext,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import {
 	type ControllerConfig,
@@ -25,10 +25,10 @@ import { createIPCTransport } from "./transports/ipc-transport.js";
  * LaunchpadController is the central orchestrator for Launchpad.
  *
  * Responsibilities:
- * - Event bus for inter-subsystem communication
+ * - Event bus for inter-plugin communication
  * - State management via event subscriptions
- * - Command dispatching to subsystems
- * - Subsystem lifecycle management
+ * - Command dispatching to plugins
+ * - Plugin lifecycle management
  * - IPC transport for daemon communication (persistent mode)
  * - Optional transports (WebSocket, OSC, etc.) - Future
  *
@@ -44,7 +44,7 @@ export class LaunchpadController {
 	private _eventBus: EventBus;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
-	private _subsystems = new Map<string, InstantiatedSubsystem>();
+	private _plugins = new Map<string, InstantiatedPlugin>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
 	// Future: private _transports: Transport[] = [];
@@ -55,51 +55,49 @@ export class LaunchpadController {
 		this._baseDir = baseDir;
 		this._eventBus = new EventBus();
 		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
-		this._stateStore = new StateStore(this._subsystems, this._mode);
+		this._stateStore = new StateStore(this._plugins, this._mode);
 	}
 
 	/**
-	 * Register a subsystem with the controller.
+	 * Register a plugin with the controller.
 	 * Must be called before start().
-	 *
-	 * If the subsystem implements EventBusAware, the EventBus will be injected.
 	 */
-	registerSubsystem(subsystem: SubsystemConfig): ResultAsync<void, Error> {
-		const name = subsystem.name;
+	registerPlugin(plugin: PluginConfig): ResultAsync<void, Error> {
+		const name = plugin.name;
 
-		return subsystem
-			.setup(this.getSubsystemCtx(name))
+		return plugin
+			.setup(this.getPluginCtx(name))
 			.map((instance) => {
-				this._subsystems.set(subsystem.name, instance);
-				this._stateStore.registerSubsystem(name, instance);
+				this._plugins.set(plugin.name, instance);
+				this._stateStore.registerPlugin(name, instance);
 
-				this._logger.verbose(`Registered subsystem '${name}'`);
+				this._logger.verbose(`Registered plugin '${name}'`);
 			})
 			.orElse((error) => {
-				this._logger.error(`Failed to register subsystem '${name}'`);
+				this._logger.error(`Failed to register plugin '${name}'`);
 				return errAsync(error);
 			});
 	}
 
 	/**
-	 * Get a registered subsystem by name
+	 * Get a registered plugin by name
 	 */
-	getSubsystem(name: string): InstantiatedSubsystem | undefined {
-		return this._subsystems.get(name);
+	getPlugin(name: string): InstantiatedPlugin | undefined {
+		return this._plugins.get(name);
 	}
 
 	/**
-	 * Check if a subsystem is registered
+	 * Check if a plugin is registered
 	 */
-	hasSubsystem(name: string): boolean {
-		return this._subsystems.has(name);
+	hasPlugin(name: string): boolean {
+		return this._plugins.has(name);
 	}
 
 	/**
-	 * Get all registered subsystem names
+	 * Get all registered plugin names
 	 */
-	getSubsystemNames(): string[] {
-		return Array.from(this._subsystems.keys());
+	getPluginNames(): string[] {
+		return Array.from(this._plugins.keys());
 	}
 
 	/**
@@ -114,8 +112,8 @@ export class LaunchpadController {
 
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
 
-		// Initialize command dispatcher with registered subsystems
-		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._subsystems);
+		// Initialize command dispatcher with registered plugins
+		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._plugins);
 
 		// Start IPC transport in persistent mode (built-in infrastructure)
 		if (this._mode === "persistent") {
@@ -134,7 +132,7 @@ export class LaunchpadController {
 				return errAsync(writePidResult.error);
 			}
 
-			return this.registerSubsystem(
+			return this.registerPlugin(
 				createIPCTransport({
 					socketPath,
 				}),
@@ -172,23 +170,23 @@ export class LaunchpadController {
 		const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 		deletePidFile(pidFile);
 
-		const disconnectResults = Array.from(this._subsystems.entries()).map(([name, subsystem]) => {
-			if (subsystem.disconnect) {
-				this._logger.verbose(`Disconnecting subsystem '${name}'`);
-				return subsystem.disconnect(reason);
+		const disconnectResults = Array.from(this._plugins.entries()).map(([name, plugin]) => {
+			if (plugin.disconnect) {
+				this._logger.verbose(`Disconnecting plugin '${name}'`);
+				return plugin.disconnect(reason);
 			}
 			return okAsync(undefined);
 		});
 
 		return ResultAsync.combine(disconnectResults).map(() => {
-			this._logger.verbose("All subsystems disconnected");
+			this._logger.verbose("All plugins disconnected");
 			return undefined;
 		});
 	}
 
 	/**
 	 * Stop the controller.
-	 * Stops IPC transport, disconnects subsystems, aborts pending operations,
+	 * Stops IPC transport, disconnects plugins, aborts pending operations,
 	 * and cleans up PID file (in persistent mode).
 	 */
 	stop(): ResultAsync<void, Error> {
@@ -207,7 +205,7 @@ export class LaunchpadController {
 	 * The controller must be started before executing commands.
 	 *
 	 * The controller treats commands generically - type safety is enforced
-	 * at the subsystem level via CommandExecutor<TCommand>.
+	 * at the plugin level via CommandExecutor<TCommand>.
 	 */
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
 		if (!this._isStarted) {
@@ -252,10 +250,10 @@ export class LaunchpadController {
 		return this._isStarted;
 	}
 
-	private getSubsystemCtx(subsystemName: string): SubsystemContext {
+	private getPluginCtx(pluginName: string): PluginContext {
 		return {
 			eventBus: this._eventBus,
-			logger: this._logger.child(subsystemName),
+			logger: this._logger.child(pluginName),
 			cwd: this._baseDir,
 			abortSignal: this._abortController.signal,
 			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),

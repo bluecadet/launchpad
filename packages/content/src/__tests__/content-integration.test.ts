@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
@@ -56,7 +56,7 @@ describe("Content Integration", () => {
 						maxConcurrent: 2,
 					}),
 				],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 
 			const result = await content._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
@@ -136,7 +136,7 @@ describe("Content Integration", () => {
 					}),
 				],
 				transforms: [sanityToHtml({ path: "$..content" })],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 
 			const result = await content._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
@@ -201,7 +201,7 @@ describe("Content Integration", () => {
 						maxConcurrent: 1, // Force sequential downloads to test deduplication
 					}),
 				],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 
 			expect(content).toBeOk();
 
@@ -246,7 +246,7 @@ describe("Content Integration", () => {
 						},
 					}),
 				],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 
 			const result = await content._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
@@ -290,7 +290,7 @@ describe("Content Integration", () => {
 				transforms: [
 					sanityToHtml({ path: "$..content" }), // This should fail on invalid content
 				],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 
 			const result = await content._unsafeUnwrap().executeCommand({
 				type: "content.fetch",

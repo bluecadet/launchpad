@@ -6,8 +6,12 @@
  */
 
 import chalk from "chalk";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import { ContentError } from "../content-plugin.js";
+import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
+import {
+	ContentError,
+	type ContentTransform,
+	type ContentTransformContext,
+} from "../content-transform.js";
 import type { ContentSource } from "../source.js";
 import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
@@ -41,19 +45,6 @@ export class ContentRecoveryError extends ContentError {
 		super(message, { cause });
 		this.name = "ContentRecoveryError";
 	}
-}
-
-/**
- * Stage 1: Run setup hooks.
- * Sources are already resolved before the pipeline starts.
- */
-export function setupHooksStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.debug("Beginning phase: running-setup-hooks");
-	return context.pluginDriver
-		.runHookSequential("onContentFetchSetup")
-		.mapErr(
-			(e) => new ContentError("Failed to run plugin onContentFetchSetup hooks", { cause: e }),
-		);
 }
 
 /**
@@ -212,14 +203,62 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
 }
 
 /**
- * Stage 5: Run done hooks.
+ * Stage 5: Run content transforms sequentially.
+ * Each transform's temp path is namespaced to the transform name.
  */
-export function doneHooksStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	context.logger.debug("Beginning phase: running-done-hooks");
+export function runTransformsStage(context: FetchStageContext): ResultAsync<void, ContentError> {
+	if (context.transforms.length === 0) {
+		return okAsync(undefined);
+	}
 
-	return context.pluginDriver
-		.runHookSequential("onContentFetchDone")
-		.mapErr((e) => new ContentError("Failed to run plugin onContentFetchDone hooks", { cause: e }));
+	context.logger.debug("Beginning phase: running-transforms");
+
+	const baseCtx = {
+		data: context.dataStore,
+		logger: context.logger,
+		contentOptions: context.config,
+		eventBus: context.eventBus,
+	};
+
+	return context.transforms.reduce(
+		(chain: ResultAsync<void, ContentError>, transform: ContentTransform) =>
+			chain.andThen(() => {
+				const startTime = Date.now();
+				context.eventBus.emit("content:transform:start", { transformName: transform.name });
+
+				const transformCtx: ContentTransformContext = {
+					...baseCtx,
+					paths: {
+						getDownloadPath: context.paths.getDownloadPath,
+						getBackupPath: context.paths.getBackupPath,
+						// Bind transform.name into getTempPath for namespace isolation
+						getTempPath: (source?: string) => context.paths.getTempPath(source, transform.name),
+					},
+				};
+
+				return ResultAsync.fromPromise(
+					transform.apply(transformCtx),
+					(e) =>
+						new ContentError(`Transform "${transform.name}" failed`, {
+							cause: e instanceof Error ? e : new Error(String(e)),
+						}),
+				)
+					.andTee(() => {
+						context.eventBus.emit("content:transform:done", {
+							transformName: transform.name,
+							duration: Date.now() - startTime,
+						});
+					})
+					.orElse((error) => {
+						context.eventBus.emit("content:transform:error", {
+							transformName: transform.name,
+							error,
+						});
+						return err(error);
+					});
+			}),
+		okAsync<void, ContentError>(undefined),
+	);
 }
 
 /**
@@ -250,13 +289,6 @@ export const errorRecoveryStage = (
 	context.eventBus?.emit("content:fetch:error", { error });
 
 	return okAsync()
-		.andTee(() =>
-			context.pluginDriver
-				.runHookSequential("onContentFetchError", error)
-				.mapErr(
-					(e) => new ContentError("Failed to run plugin onContentFetchError hooks", { cause: e }),
-				),
-		)
 		.andTee(() => {
 			context.logger.info("Restoring from backup...");
 		})

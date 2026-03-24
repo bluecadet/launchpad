@@ -7,15 +7,9 @@ import {
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 import type { ResolvedContentConfig } from "../../content-config.js";
+import type { ContentTransform } from "../../content-transform.js";
 import { createPathsHelper } from "../../utils/paths-helper.js";
 import type { FetchStageContext } from "../fetch-context.js";
-
-export const createMockPluginDriver = () => {
-	return {
-		runHookSequential: vi.fn(() => okAsync(undefined)),
-		runHookParallel: vi.fn(() => okAsync(undefined)),
-	} as any;
-};
 
 export const createMockDataStore = () => {
 	return {
@@ -51,7 +45,7 @@ export const createMockFetchContext = (overrides: Partial<FetchStageContext> = {
 		logger: mockLogger,
 		abortSignal: new AbortController().signal,
 		eventBus: mockEventBus,
-		pluginDriver: createMockPluginDriver(),
+		transforms: [] as ContentTransform[],
 		dataStore: createMockDataStore(),
 		paths: createPathsHelper(config, cwd),
 		sources: [],

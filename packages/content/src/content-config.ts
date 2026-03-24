@@ -1,9 +1,8 @@
-import { z } from "zod";
-import { ContentError, contentPluginSchema } from "./content-plugin.js";
-import { type ContentSource, contentSourceSchema } from "./source.js";
-// need to import so declaration merging works
-import "@bluecadet/launchpad-utils/types";
 import { ResultAsync } from "neverthrow";
+import { z } from "zod";
+import type { ContentTransform } from "./content-transform.js";
+import { ContentError } from "./content-transform.js";
+import { type ContentSource, contentSourceSchema } from "./source.js";
 
 export type ConfigContentSource = ContentSource | Promise<ContentSource>;
 
@@ -21,8 +20,11 @@ export const contentConfigSchema = z.object({
 			"A list of content source options. This defines which content is downloaded from where.",
 		)
 		.default([]),
-	/** A list of content plugin. */
-	plugins: z.array(contentPluginSchema).describe("A list of content plugin.").default([]),
+	/** A list of content transforms to run after fetching. */
+	transforms: z
+		.array(z.custom<ContentTransform>())
+		.describe("A list of content transforms to run after fetching.")
+		.default([]),
 	/** The path at which to store all downloaded files. Defaults to '.downloads/'. */
 	downloadPath: z
 		.string()
@@ -81,14 +83,4 @@ export function parseContentConfig(config: ContentConfig) {
 		contentConfigSchema.parseAsync(config),
 		(e) => new ContentError("Invalid content config", { cause: e }),
 	);
-}
-
-// Declaration merging to add content config to LaunchpadConfig
-declare module "@bluecadet/launchpad-utils/types" {
-	interface LaunchpadConfig {
-		/**
-		 * Content system configuration.
-		 */
-		content?: ContentConfig;
-	}
 }

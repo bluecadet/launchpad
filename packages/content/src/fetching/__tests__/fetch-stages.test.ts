@@ -1,7 +1,7 @@
 import { vol } from "memfs";
 import { errAsync, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContentError } from "../../content-plugin.js";
+import { ContentError } from "../../content-transform.js";
 import { defineSource } from "../../source.js";
 import {
 	backupStage,
@@ -9,11 +9,10 @@ import {
 	ContentRecoveryError,
 	cleanupStage,
 	clearOldDataStage,
-	doneHooksStage,
 	errorRecoveryStage,
 	fetchSourcesStage,
 	finalizingStage,
-	setupHooksStage,
+	runTransformsStage,
 } from "../fetch-stages.js";
 import {
 	createMockContentConfig,
@@ -30,29 +29,6 @@ describe("Fetch Stages", () => {
 	afterEach(() => {
 		vol.reset();
 		vi.clearAllMocks();
-	});
-
-	describe("setupHooksStage", () => {
-		it("should run setup hooks successfully", async () => {
-			const context = createMockFetchContext();
-			const result = await setupHooksStage(context);
-
-			expect(result).toBeOk();
-			expect(context.pluginDriver.runHookSequential).toHaveBeenCalledWith("onContentFetchSetup");
-		});
-
-		it("should return error if hooks fail", async () => {
-			const context = createMockFetchContext();
-			const hookError = new Error("Hook failed");
-			vi.mocked(context.pluginDriver.runHookSequential).mockReturnValue(errAsync(hookError as any));
-
-			const result = await setupHooksStage(context);
-
-			expect(result).toBeErr();
-			const error = result._unsafeUnwrapErr();
-			expect(error).toBeInstanceOf(ContentError);
-			expect(error.message).toContain("onContentFetchSetup");
-		});
 	});
 
 	describe("backupStage", () => {
@@ -195,23 +171,56 @@ describe("Fetch Stages", () => {
 		});
 	});
 
-	describe("doneHooksStage", () => {
-		it("should run done hooks", async () => {
-			const context = createMockFetchContext();
-			const result = await doneHooksStage(context);
-
+	describe("runTransformsStage", () => {
+		it("should skip when no transforms", async () => {
+			const context = createMockFetchContext({ transforms: [] });
+			const result = await runTransformsStage(context);
 			expect(result).toBeOk();
-			expect(context.pluginDriver.runHookSequential).toHaveBeenCalledWith("onContentFetchDone");
 		});
 
-		it("should return error if hooks fail", async () => {
-			const context = createMockFetchContext();
-			const hookError = new Error("Hook failed");
-			vi.mocked(context.pluginDriver.runHookSequential).mockReturnValue(errAsync(hookError as any));
+		it("should run transforms sequentially and emit events", async () => {
+			const order: string[] = [];
+			const context = createMockFetchContext({
+				transforms: [
+					{
+						name: "t1",
+						apply: async () => {
+							order.push("t1");
+						},
+					},
+					{
+						name: "t2",
+						apply: async () => {
+							order.push("t2");
+						},
+					},
+				],
+			});
 
-			const result = await doneHooksStage(context);
+			const result = await runTransformsStage(context);
+
+			expect(result).toBeOk();
+			expect(order).toEqual(["t1", "t2"]);
+			expect(context.eventBus.getEventsOfType("content:transform:start")).toHaveLength(2);
+			expect(context.eventBus.getEventsOfType("content:transform:done")).toHaveLength(2);
+		});
+
+		it("should return error when a transform fails", async () => {
+			const context = createMockFetchContext({
+				transforms: [
+					{
+						name: "failing",
+						apply: async () => {
+							throw new Error("transform error");
+						},
+					},
+				],
+			});
+
+			const result = await runTransformsStage(context);
 
 			expect(result).toBeErr();
+			expect(context.eventBus.getEventsOfType("content:transform:error")).toHaveLength(1);
 		});
 	});
 
@@ -253,18 +262,6 @@ describe("Fetch Stages", () => {
 	});
 
 	describe("errorRecoveryStage", () => {
-		it("should run error hooks", async () => {
-			const context = createMockFetchContext();
-			const error = new ContentError("Test error");
-
-			await errorRecoveryStage(context, error);
-
-			expect(context.pluginDriver.runHookSequential).toHaveBeenCalledWith(
-				"onContentFetchError",
-				error,
-			);
-		});
-
 		it("should emit fetch:error event", async () => {
 			const context = createMockFetchContext();
 			const error = new ContentError("Test error");

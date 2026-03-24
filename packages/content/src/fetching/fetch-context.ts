@@ -7,7 +7,7 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { ResolvedContentConfig } from "../content-config.js";
-import type { ContentPluginDriver } from "../content-plugin.js";
+import type { ContentTransform } from "../content-transform.js";
 import type { ContentSource } from "../source.js";
 import type { DataStore } from "../utils/data-store.js";
 import type { PathsHelper } from "../utils/paths-helper.js";
@@ -17,7 +17,7 @@ import type { PathsHelper } from "../utils/paths-helper.js";
  *
  * This context is created fresh for each fetch operation:
  * - config, logger, cwd: Come from LaunchpadContent.constructor
- * - pluginDriver: Created in LaunchpadContent.constructor
+ * - transforms: From resolved config
  * - dataStore: Created fresh for each fetch in LaunchpadContent.start()
  * - Path functions: Bound methods from LaunchpadContent
  * - eventBus: Injected via setEventBus()
@@ -38,7 +38,7 @@ export type FetchStageContext = {
 	readonly eventBus: EventBus;
 
 	// Mutable during fetch - created fresh for each fetch
-	pluginDriver: ContentPluginDriver;
+	transforms: ContentTransform[];
 	dataStore: DataStore;
 
 	// Path resolution functions

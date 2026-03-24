@@ -52,7 +52,8 @@ export async function applyTransformToFiles({
 			chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`),
 		);
 
-		await document.apply(path, transformFn);
+		const applyResult = await document.apply(path, transformFn);
+		if (applyResult.isErr()) throw applyResult.error;
 	}
 }
 

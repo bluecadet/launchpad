@@ -157,33 +157,30 @@ describe("controller-execution", () => {
 		it.each([
 			["task", true],
 			["persistent", false],
-		] as const)(
-			"should use local controller if daemon is not running in %s mode",
-			async (mode, shouldStop) => {
-				vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-				const mockController = createMockController();
-				vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
-				const ifDaemon = vi.fn();
-				const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
+		] as const)("should use local controller if daemon is not running in %s mode", async (mode, shouldStop) => {
+			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
+			const mockController = createMockController();
+			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
+			const ifDaemon = vi.fn();
+			const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
 
-				const result = await withDaemonOrController(baseDir, controllerConfig, {
-					mode,
-					ifDaemon,
-					otherwise,
-				});
+			const result = await withDaemonOrController(baseDir, controllerConfig, {
+				mode,
+				ifDaemon,
+				otherwise,
+			});
 
-				expect(result.isOk()).toBe(true);
-				expect(result._unsafeUnwrap()).toBe("local-result");
-				expect(ifDaemon).not.toHaveBeenCalled();
-				expect(otherwise).toHaveBeenCalledWith(mockController);
-				expect(mockController.start).toHaveBeenCalled();
-				if (shouldStop) {
-					expect(mockController.stop).toHaveBeenCalled();
-				} else {
-					expect(mockController.stop).not.toHaveBeenCalled();
-				}
-			},
-		);
+			expect(result.isOk()).toBe(true);
+			expect(result._unsafeUnwrap()).toBe("local-result");
+			expect(ifDaemon).not.toHaveBeenCalled();
+			expect(otherwise).toHaveBeenCalledWith(mockController);
+			expect(mockController.start).toHaveBeenCalled();
+			if (shouldStop) {
+				expect(mockController.stop).toHaveBeenCalled();
+			} else {
+				expect(mockController.stop).not.toHaveBeenCalled();
+			}
+		});
 
 		it("should stop controller in task mode but not in persistent mode", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));

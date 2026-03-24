@@ -21,7 +21,7 @@ describe("ProcessManager", () => {
 		pm2.start = vi.fn().mockImplementation((_options, cb) => cb(null, {}));
 		pm2.stop = vi.fn().mockImplementation((_name, cb) => cb(null, {}));
 		pm2.delete = vi.fn().mockImplementation((_name, cb) => cb(null, {}));
-		// @ts-ignore - this is a private api, so throws a type error
+		// @ts-expect-error - this is a private api, so throws a type error
 		pm2.Client = {
 			// eslint-disable-next-line n/no-callback-literal
 			pingDaemon: vi.fn().mockImplementation((cb) => cb(true)),

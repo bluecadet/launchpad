@@ -40,15 +40,18 @@ describe("SingleDocument", () => {
 		expect(result).toBeOk();
 
 		const namespace = result._unsafeUnwrap();
-		const doc = await namespace.insert(
+		const docResult = await namespace.insert(
 			"test-doc",
 			Promise.resolve({ content: "original content" }),
 		);
+		const doc = docResult._unsafeUnwrap();
 
-		await doc.update((data: any) => ({
-			...data,
-			content: "modified content",
-		}));
+		(
+			await doc.update((data: any) => ({
+				...data,
+				content: "modified content",
+			}))
+		)._unsafeUnwrap();
 
 		const originalContent = await vol.readFileSync(
 			path.resolve(TEST_DIR, "test-namespace", "test-doc.original.json"),
@@ -68,16 +71,19 @@ describe("SingleDocument", () => {
 		expect(result).toBeOk();
 
 		const namespace = result._unsafeUnwrap();
-		const doc = await namespace.insert(
+		const docResult = await namespace.insert(
 			"test-doc",
 			Promise.resolve({
 				nested: { content: "test content" },
 			}),
 		);
+		const doc = docResult._unsafeUnwrap();
 
-		await doc.apply("$.nested.content", (value: unknown) =>
-			typeof value === "string" ? value.toUpperCase() : value,
-		);
+		(
+			await doc.apply("$.nested.content", (value: unknown) =>
+				typeof value === "string" ? value.toUpperCase() : value,
+			)
+		)._unsafeUnwrap();
 
 		const fileContent = await vol.readFileSync(
 			path.resolve(TEST_DIR, "test-namespace", "test-doc.json"),
@@ -148,7 +154,7 @@ describe("BatchDocument", () => {
 			{ id: 3, content: "third" },
 		];
 
-		const _doc = await namespace.insert(
+		await namespace.insert(
 			"test-doc",
 			(async function* () {
 				for (const item of items) {
@@ -175,7 +181,7 @@ describe("BatchDocument", () => {
 		const namespace = result._unsafeUnwrap();
 		const items = [{ content: "first" }, { content: "second" }, { content: "third" }];
 
-		const doc = await namespace.insert(
+		const docResult = await namespace.insert(
 			"test-doc",
 			(async function* () {
 				for (const item of items) {
@@ -183,10 +189,13 @@ describe("BatchDocument", () => {
 				}
 			})(),
 		);
+		const doc = docResult._unsafeUnwrap();
 
-		await doc.apply("$.content", (value: unknown) =>
-			typeof value === "string" ? value.toUpperCase() : value,
-		);
+		(
+			await doc.apply("$.content", (value: unknown) =>
+				typeof value === "string" ? value.toUpperCase() : value,
+			)
+		)._unsafeUnwrap();
 
 		// Verify all documents were updated
 		for (let i = 0; i < items.length; i++) {
@@ -258,8 +267,12 @@ describe("DataStore", () => {
 		expect(nsResult).toBeOk();
 		const namespace = nsResult._unsafeUnwrap();
 
-		const doc1 = await namespace.insert("test-doc-1", Promise.resolve({ content: "content 1" }));
+		const doc1Result = await namespace.insert(
+			"test-doc-1",
+			Promise.resolve({ content: "content 1" }),
+		);
 		await namespace.insert("test-doc-2", Promise.resolve({ content: "content 2" }));
+		const doc1 = doc1Result._unsafeUnwrap();
 
 		const result = store.filter([["namespace1", doc1.id]]);
 		expect(result).toBeOk();

@@ -11,7 +11,7 @@ function buildTestBusManager() {
 
 	const busManager = new BusManager(mockLogger);
 
-	// @ts-ignore
+	// @ts-expect-error
 	vi.spyOn(pm2, "launchBus").mockImplementation((cb) => cb(null, mockSubEmitterSocket));
 
 	return { busManager, mockLogger, mockSubEmitterSocket, emit };

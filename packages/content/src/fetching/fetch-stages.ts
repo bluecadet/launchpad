@@ -180,7 +180,7 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
 
 		const insertResults = fetchArray.map((req) => {
 			const insertResultAsync = namespace
-				.safeInsert(req.id, req.data)
+				.insert(req.id, req.data)
 				.andTee(() => {
 					// Emit document:write event on success
 					// Construct the file path (Documents don't expose their path)
@@ -232,10 +232,9 @@ export function finalizingStage(context: FetchStageContext): ResultAsync<void, C
 		sources: context.sources?.map((s) => s.id) || [],
 	});
 
-	return ResultAsync.fromPromise(
-		context.dataStore.close(),
-		(error) => new ContentError("Failed to close data store", { cause: error }),
-	);
+	return context.dataStore
+		.close()
+		.mapErr((e) => new ContentError("Failed to close data store", { cause: e }));
 }
 
 /**

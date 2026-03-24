@@ -7,7 +7,6 @@ import { ProcessManager } from "../core/process-manager.js";
 import { PM2Error } from "../errors.js";
 import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
-import type { MonitorPlugin } from "../monitor-plugin.js";
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined
@@ -22,24 +21,6 @@ ProcessManager.prototype.deleteProcess = vi.fn();
 
 let processes: pm2.ProcessDescription[] = [];
 
-const mockPlugin = {
-	name: "test-plugin",
-	hooks: {
-		beforeConnect: vi.fn(),
-		afterConnect: vi.fn(),
-		beforeDisconnect: vi.fn(),
-		afterDisconnect: vi.fn(),
-		beforeAppStart: vi.fn(),
-		afterAppStart: vi.fn(),
-		beforeAppStop: vi.fn(),
-		afterAppStop: vi.fn(),
-		onAppError: vi.fn(),
-		onAppLog: vi.fn(),
-		onAppErrorLog: vi.fn(),
-		beforeShutdown: vi.fn(),
-	},
-} as MonitorPlugin;
-
 async function createTestMonitor(
 	config: MonitorConfig = {
 		apps: [
@@ -50,7 +31,6 @@ async function createTestMonitor(
 				},
 			},
 		],
-		plugins: [mockPlugin],
 	},
 	cwd?: string,
 ) {
@@ -60,7 +40,6 @@ async function createTestMonitor(
 	return {
 		monitor,
 		rootLogger: ctx.logger,
-		plugin: config.plugins![0] as MonitorPlugin,
 	};
 }
 
@@ -167,7 +146,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 					{ pm2: { name: "app-1", script: "app1.js" } },
 					{ pm2: { name: "app-2", script: "app2.js" } },
 				],
-				plugins: [mockPlugin],
 			});
 
 			const result = await monitor.executeCommand({ type: "monitor.start" });
@@ -227,7 +205,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 					{ pm2: { name: "app-1", script: "app1.js" } },
 					{ pm2: { name: "app-2", script: "app2.js" } },
 				],
-				plugins: [mockPlugin],
 			});
 
 			await monitor.executeCommand({ type: "monitor.start" });
@@ -305,7 +282,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 					{ pm2: { name: "app-2", script: "app2.js" } },
 					{ pm2: { name: "app-3", script: "app3.js" } },
 				],
-				plugins: [mockPlugin],
 			});
 
 			await monitor.executeCommand({ type: "monitor.start" });

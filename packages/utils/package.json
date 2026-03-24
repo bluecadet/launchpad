@@ -12,11 +12,7 @@
       "types": "./dist/fixed-tty-logger.d.ts",
       "default": "./dist/fixed-tty-logger.js"
     },
-    "./plugin-driver": {
-      "types": "./dist/plugin-driver.d.ts",
-      "default": "./dist/plugin-driver.js"
-    },
-    "./state-patcher": {
+"./state-patcher": {
       "types": "./dist/state-patcher.d.ts",
       "default": "./dist/state-patcher.js"
     },

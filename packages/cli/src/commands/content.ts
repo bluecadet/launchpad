@@ -1,6 +1,6 @@
-import { errAsync, ResultAsync } from "neverthrow";
+import { errAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
-import { ConfigError, ImportError } from "../errors.js";
+import { ConfigError } from "../errors.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 
@@ -8,13 +8,10 @@ export function content(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			if (!config.content) {
-				return errAsync(new ConfigError("No content config found in your config file."));
+			const contentSubsystem = config.subsystems?.find((s) => s.name === "content");
+			if (!contentSubsystem) {
+				return errAsync(new ConfigError("No content plugin found in your config file."));
 			}
-
-			// saving a reference here for type safety
-			// as config.content is possibly undefined later in the callbacks
-			const configContent = config.content;
 
 			return withDaemonOrController(dir, config.controller, {
 				mode: "task",
@@ -23,27 +20,11 @@ export function content(argv: GlobalLaunchpadArgs) {
 					return client.executeCommand({ type: "content.fetch" });
 				},
 				otherwise: (controller) => {
-					// No daemon - need to instantiate subsystem and register it
-					return importLaunchpadContent().andThen(({ createLaunchpadContent }) => {
-						return controller
-							.registerSubsystem(createLaunchpadContent(configContent))
-							.andThen(() => controller.executeCommand({ type: "content.fetch" }));
-					});
+					// No daemon - need to register subsystem and run command
+					return controller
+						.registerSubsystem(contentSubsystem)
+						.andThen(() => controller.executeCommand({ type: "content.fetch" }));
 				},
 			}).orElse((error) => handleFatalError(error));
 		});
-}
-
-export function importLaunchpadContent(): ResultAsync<
-	typeof import("@bluecadet/launchpad-content"),
-	Error
-> {
-	return ResultAsync.fromPromise(
-		import("@bluecadet/launchpad-content"),
-		(e: unknown) =>
-			new ImportError(
-				'Could not find module "@bluecadet/launchpad-content". Make sure you have installed it.',
-				{ cause: e instanceof Error ? e : new Error(String(e)) },
-			),
-	);
 }

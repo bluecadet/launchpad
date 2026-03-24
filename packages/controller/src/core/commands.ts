@@ -1,8 +1,8 @@
-import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 
 /**
  * System commands (controller-owned).
- * Subsystems define their own command types in their respective packages.
+ * Plugins define their own command types in their respective packages.
  */
 export type SystemCommand = {
 	type: "system.shutdown";
@@ -12,7 +12,7 @@ export type SystemCommand = {
 /**
  * Generic command type for the controller.
  * This is a union of all possible commands, but the controller treats them generically.
- * Type safety is enforced at the subsystem level.
+ * Type safety is enforced at the plugin level.
  */
 export type Command = BaseCommand;
 

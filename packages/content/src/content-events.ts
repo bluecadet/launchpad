@@ -2,7 +2,7 @@
 import "@bluecadet/launchpad-utils/types";
 
 /**
- * Content subsystem events.
+ * Content plugin events.
  *
  * This file uses TypeScript declaration merging to add content-specific
  * events to the LaunchpadEvents interface from the controller package.

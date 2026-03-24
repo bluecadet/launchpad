@@ -1,7 +1,4 @@
-import {
-	createMockSubsystemCtx,
-	type MockEventBus,
-} from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx, type MockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
@@ -27,7 +24,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -60,7 +57,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -96,7 +93,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -134,7 +131,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -176,7 +173,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 			const contentResult = await createLaunchpadContent({
 				downloadPath: "/downloads",
@@ -215,7 +212,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -262,7 +259,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
 			const contentResult = await createLaunchpadContent({
@@ -304,7 +301,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 			const contentResult = await createLaunchpadContent({
 				downloadPath: "/downloads",
@@ -357,7 +354,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 			const contentResult = await createLaunchpadContent({
 				downloadPath: "/downloads",
@@ -405,7 +402,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 			const contentResult = await createLaunchpadContent({
 				downloadPath: "/downloads",
@@ -448,7 +445,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const ctx = createMockSubsystemCtx();
+			const ctx = createMockPluginCtx();
 			const contentResult = await createLaunchpadContent({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
@@ -506,7 +503,7 @@ describe("Content Event Emissions", () => {
 						files: { "data.json": "https://api.example.com/data.json" },
 					}),
 				],
-			}).setup(createMockSubsystemCtx());
+			}).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 

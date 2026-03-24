@@ -10,20 +10,20 @@ export type DisconnectReason =
 	| { type: "signal"; signal: NodeJS.Signals };
 
 /**
- * Optional interface for subsystems that can be gracefully disconnected.
+ * Optional interface for plugins that can be gracefully disconnected.
  * The controller will call disconnect() during shutdown if implemented.
  */
 export interface Disconnectable {
 	/**
-	 * Gracefully disconnect this subsystem.
+	 * Gracefully disconnect this plugin.
 	 * Should clean up resources, close connections, stop processes, etc.
 	 */
 	disconnect(reason: DisconnectReason): ResultAsync<void, Error>;
 }
 
 /**
- * Base command structure that all subsystem commands must follow.
- * Subsystems define their own specific command types that extend this.
+ * Base command structure that all plugin commands must follow.
+ * Plugins define their own specific command types that extend this.
  */
 export type BaseCommand = {
 	type: string;
@@ -31,15 +31,15 @@ export type BaseCommand = {
 };
 
 /**
- * Optional interface for subsystems that can execute commands.
+ * Optional interface for plugins that can execute commands.
  * When implemented, the controller will route commands to this method.
- * The subsystem handles its own command routing internally.
+ * The plugin handles its own command routing internally.
  *
- * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
+ * @template TCommand - The command type this plugin accepts (must extend BaseCommand)
  */
 export interface CommandExecutor<TCommand extends BaseCommand = BaseCommand> {
 	/**
-	 * Execute a command on this subsystem.
+	 * Execute a command on this plugin.
 	 * @param command - Command object with type and parameters
 	 * @returns Result of command execution
 	 */
@@ -47,14 +47,14 @@ export interface CommandExecutor<TCommand extends BaseCommand = BaseCommand> {
 }
 
 /**
- * Optional interface for subsystems that provide queryable state.
- * When implemented, the controller can aggregate state from all subsystems.
+ * Optional interface for plugins that provide queryable state.
+ * When implemented, the controller can aggregate state from all plugins.
  *
- * @template TState - The state type this subsystem provides
+ * @template TState - The state type this plugin provides
  */
 export interface StateProvider<TState = unknown> {
 	/**
-	 * Get the current (immutable) state of this subsystem.
+	 * Get the current (immutable) state of this plugin.
 	 * This should be a lightweight, synchronous operation.
 	 * @returns Current state snapshot
 	 */
@@ -68,7 +68,7 @@ export interface StateProvider<TState = unknown> {
 	onStatePatch(handler: PatchHandler): () => void;
 }
 
-export interface SubsystemContext {
+export interface PluginContext {
 	readonly eventBus: EventBus;
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
@@ -79,61 +79,56 @@ export interface SubsystemContext {
 }
 
 /**
- * Generic subsystem type that can optionally implement any controller interfaces.
+ * Generic plugin type that can optionally implement any controller interfaces.
  *
- * @template TCommand - The command type this subsystem accepts (must extend BaseCommand)
- * @template TState - The state type this subsystem provides
+ * @template TCommand - The command type this plugin accepts (must extend BaseCommand)
+ * @template TState - The state type this plugin provides
  */
-export type InstantiatedSubsystem<
+export type InstantiatedPlugin<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
 > = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>>;
 
 /**
- * Interface for subsystems that require async setup/initialization.
+ * Interface for plugins that require async setup/initialization.
  * Factories implement this interface to provide a formalized setup flow.
  *
- * @template TCommand - The command type this subsystem accepts
- * @template TState - The state type this subsystem provides
+ * @template TCommand - The command type this plugin accepts
+ * @template TState - The state type this plugin provides
  * @template E - The error type returned on setup failure
- * @template TSubsystem - The actual subsystem type returned
+ * @template TPlugin - The actual plugin type returned
  */
-export interface SubsystemConfig<
+export interface PluginConfig<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
 	E = Error,
-	TSubsystem extends InstantiatedSubsystem<TCommand, TState> = InstantiatedSubsystem<
-		TCommand,
-		TState
-	>,
+	TPlugin extends InstantiatedPlugin<TCommand, TState> = InstantiatedPlugin<TCommand, TState>,
 > {
 	/**
-	 * Unique name of the subsystem.
+	 * Unique name of the plugin.
 	 */
 	name: string;
 	/**
-	 * Optional commands to dispatch after this subsystem is registered during startup.
-	 * The controller will dispatch these in order after all subsystems are registered.
+	 * Optional commands to dispatch after this plugin is registered during startup.
+	 * The controller will dispatch these in order after all plugins are registered.
 	 */
 	startupCommands?: BaseCommand[];
 	/**
-	 * Initialize a subsystem instance with the provided context.
-	 * This is called once during subsystem registration.
+	 * Initialize a plugin instance with the provided context.
+	 * This is called once during plugin registration.
 	 *
-	 * @param ctx Subsystem context (logger, eventBus, cwd)
-	 * @returns Configured subsystem instance that conforms to standard interfaces
+	 * @param ctx Plugin context (logger, eventBus, cwd)
+	 * @returns Configured plugin instance that conforms to standard interfaces
 	 */
-	setup(ctx: SubsystemContext): ResultAsync<TSubsystem, E>;
+	setup(ctx: PluginContext): ResultAsync<TPlugin, E>;
 }
 
 // Helper that validates conformance while preserving concrete type
-export function defineSubsystem<
+export function definePlugin<
 	TCommand extends BaseCommand,
 	TState,
 	E,
-	TSubsystem extends InstantiatedSubsystem<TCommand, TState>,
->(
-	factory: SubsystemConfig<TCommand, TState, E, TSubsystem>,
-): SubsystemConfig<TCommand, TState, E, TSubsystem> {
+	TPlugin extends InstantiatedPlugin<TCommand, TState>,
+>(factory: PluginConfig<TCommand, TState, E, TPlugin>): PluginConfig<TCommand, TState, E, TPlugin> {
 	return factory;
 }

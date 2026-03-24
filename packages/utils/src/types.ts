@@ -1,5 +1,5 @@
 /**
- * File for types that are augmented by subsystems via declaration merging.
+ * File for types that are augmented by plugins via declaration merging.
  */
 
 import type { LogEventPayload } from "./logger.js";
@@ -29,7 +29,7 @@ export interface LaunchpadEvents {
 }
 
 // biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
-export interface SubsystemsState {}
+export interface PluginsState {}
 
 /**
  * System-level state (controller-owned)
@@ -43,11 +43,11 @@ export type SystemState = {
 
 /**
  * Complete Launchpad state structure.
- * This is an aggregation of controller state + subsystem states.
+ * This is an aggregation of controller state + plugin states.
  */
 export type LaunchpadState = {
 	system: SystemState;
-	subsystems: Partial<SubsystemsState>;
+	plugins: Partial<PluginsState>;
 };
 
 /**

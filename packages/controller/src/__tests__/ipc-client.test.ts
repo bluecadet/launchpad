@@ -582,7 +582,7 @@ describe("IPCClient", () => {
 
 			(client as any)._lastState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
-				subsystems: { test: { x: 1 } },
+				plugins: { test: { x: 1 } },
 				_version: 1,
 			};
 
@@ -590,7 +590,7 @@ describe("IPCClient", () => {
 
 			const patch = {
 				type: "state-patch",
-				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
+				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
 				version: 2,
 			};
 			simulateData(patch);
@@ -606,7 +606,7 @@ describe("IPCClient", () => {
 
 			const initialState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
-				subsystems: { test: { x: 1 } },
+				plugins: { test: { x: 1 } },
 				_version: 1,
 			};
 
@@ -626,7 +626,7 @@ describe("IPCClient", () => {
 			// In-sequence patch (version 1 → 2)
 			simulateData({
 				type: "state-patch",
-				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
+				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
 				version: 2,
 			});
 
@@ -634,13 +634,13 @@ describe("IPCClient", () => {
 			expect(handler).toHaveBeenCalledTimes(1);
 			expect(handler).toHaveBeenCalledWith({
 				system: { mode: "task", startTime: initialState.system.startTime, version: "1.0.0" },
-				subsystems: { test: { x: 2 } },
+				plugins: { test: { x: 2 } },
 			});
 
 			// Next in-sequence patch (version 2 → 3)
 			simulateData({
 				type: "state-patch",
-				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 3 }],
+				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 3 }],
 				version: 3,
 			});
 
@@ -648,7 +648,7 @@ describe("IPCClient", () => {
 			expect(handler).toHaveBeenCalledTimes(2);
 			expect(handler).toHaveBeenCalledWith({
 				system: { mode: "task", startTime: initialState.system.startTime, version: "1.0.0" },
-				subsystems: { test: { x: 3 } },
+				plugins: { test: { x: 3 } },
 			});
 		});
 
@@ -657,7 +657,7 @@ describe("IPCClient", () => {
 
 			const initialState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
-				subsystems: { test: { x: 1 } },
+				plugins: { test: { x: 1 } },
 				_version: 1,
 			};
 
@@ -675,7 +675,7 @@ describe("IPCClient", () => {
 			// Out-of-sequence patch — should trigger a re-query
 			simulateData({
 				type: "state-patch",
-				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
+				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
 				version: 5,
 			});
 
@@ -688,7 +688,7 @@ describe("IPCClient", () => {
 
 			simulateData({
 				type: "state-patch",
-				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 1 }],
+				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 1 }],
 				version: 1,
 			});
 

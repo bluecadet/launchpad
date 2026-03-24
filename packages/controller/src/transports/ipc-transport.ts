@@ -7,9 +7,9 @@ import fs from "node:fs";
 import net from "node:net";
 import {
 	type DisconnectReason,
-	defineSubsystem,
-	type SubsystemContext,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+	definePlugin,
+	type PluginContext,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
@@ -52,10 +52,10 @@ export type IPCBroadcastMessage =
 	| { type: "state-patch"; patches: Patch[]; version: number };
 
 /**
- * Create an IPC Transport subsystem
+ * Create an IPC Transport plugin
  */
 export function createIPCTransport(options: IPCTransportOptions) {
-	return defineSubsystem({
+	return definePlugin({
 		name: "ipc-transport",
 		setup(ctx) {
 			const socketPath = getOSSocketPath(options.socketPath);
@@ -201,7 +201,7 @@ function safeCreateServer(path: string): ResultAsync<net.Server, TransportError>
 /**
  * Handle an IPC message
  */
-function handleMessage(message: IPCMessage, socket: net.Socket, ctx: SubsystemContext): void {
+function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginContext): void {
 	const { logger } = ctx;
 
 	switch (message.type) {

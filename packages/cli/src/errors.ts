@@ -39,7 +39,7 @@ export class ConfigError extends LaunchpadCLIError {
 }
 
 /**
- * Thrown when monitor subsystem encounters an error.
+ * Thrown when monitor plugin encounters an error.
  */
 export class MonitorError extends LaunchpadCLIError {
 	constructor(message: string, options?: { cause?: Error }) {

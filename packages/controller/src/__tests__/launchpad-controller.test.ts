@@ -1,15 +1,15 @@
 import {
 	type BaseCommand,
-	defineSubsystem,
-	type InstantiatedSubsystem,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+	definePlugin,
+	type InstantiatedPlugin,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { LaunchpadController } from "../launchpad-controller.js";
 
 declare module "@bluecadet/launchpad-utils/types" {
-	interface SubsystemsState {
+	interface PluginsState {
 		[test: string]: any;
 	}
 }
@@ -26,8 +26,8 @@ describe("LaunchpadController", () => {
 		);
 	}
 
-	function makeSubsystem(name: string, inner: InstantiatedSubsystem = {}) {
-		return defineSubsystem({ name, setup: () => okAsync(inner) });
+	function makePlugin(name: string, inner: InstantiatedPlugin = {}) {
+		return definePlugin({ name, setup: () => okAsync(inner) });
 	}
 
 	describe("constructor", () => {
@@ -51,49 +51,49 @@ describe("LaunchpadController", () => {
 		});
 	});
 
-	describe("registerSubsystem", () => {
-		it("should register a subsystem and make it accessible", async () => {
+	describe("registerPlugin", () => {
+		it("should register a plugin and make it accessible", async () => {
 			const controller = createController("task");
-			const subsystemInner: InstantiatedSubsystem = {};
+			const pluginInner: InstantiatedPlugin = {};
 
-			await controller.registerSubsystem(makeSubsystem("test", subsystemInner));
+			await controller.registerPlugin(makePlugin("test", pluginInner));
 
-			expect(controller.hasSubsystem("test")).toBe(true);
-			expect(controller.getSubsystem("test")).toBe(subsystemInner);
+			expect(controller.hasPlugin("test")).toBe(true);
+			expect(controller.getPlugin("test")).toBe(pluginInner);
 		});
 
-		it("should allow registering multiple subsystems", async () => {
+		it("should allow registering multiple plugins", async () => {
 			const controller = createController();
 
-			await controller.registerSubsystem(makeSubsystem("content"));
-			await controller.registerSubsystem(makeSubsystem("monitor"));
+			await controller.registerPlugin(makePlugin("content"));
+			await controller.registerPlugin(makePlugin("monitor"));
 
-			expect(controller.hasSubsystem("content")).toBe(true);
-			expect(controller.hasSubsystem("monitor")).toBe(true);
+			expect(controller.hasPlugin("content")).toBe(true);
+			expect(controller.hasPlugin("monitor")).toBe(true);
 		});
 
-		it("should return undefined for non-existent subsystem", () => {
+		it("should return undefined for non-existent plugin", () => {
 			const controller = createController();
 
-			expect(controller.getSubsystem("non-existent")).toBeUndefined();
-			expect(controller.hasSubsystem("non-existent")).toBe(false);
+			expect(controller.getPlugin("non-existent")).toBeUndefined();
+			expect(controller.hasPlugin("non-existent")).toBe(false);
 		});
 	});
 
-	describe("getSubsystemNames", () => {
-		it("should return array of registered subsystem names", async () => {
+	describe("getPluginNames", () => {
+		it("should return array of registered plugin names", async () => {
 			const controller = createController();
 
-			await controller.registerSubsystem(makeSubsystem("content"));
-			await controller.registerSubsystem(makeSubsystem("monitor"));
+			await controller.registerPlugin(makePlugin("content"));
+			await controller.registerPlugin(makePlugin("monitor"));
 
-			expect(controller.getSubsystemNames()).toEqual(["content", "monitor"]);
+			expect(controller.getPluginNames()).toEqual(["content", "monitor"]);
 		});
 
-		it("should return empty array when no subsystems registered", () => {
+		it("should return empty array when no plugins registered", () => {
 			const controller = createController();
 
-			expect(controller.getSubsystemNames()).toEqual([]);
+			expect(controller.getPluginNames()).toEqual([]);
 		});
 	});
 
@@ -121,7 +121,7 @@ describe("LaunchpadController", () => {
 		it("should initialize command dispatcher", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerSubsystem(makeSubsystem("test", { executeCommand }));
+			await controller.registerPlugin(makePlugin("test", { executeCommand }));
 
 			await controller.start();
 
@@ -160,10 +160,10 @@ describe("LaunchpadController", () => {
 			expect(controller.isStarted()).toBe(false);
 		});
 
-		it("should disconnect subsystems that implement Disconnectable", async () => {
+		it("should disconnect plugins that implement Disconnectable", async () => {
 			const controller = createController();
 			const disconnect = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerSubsystem(makeSubsystem("test", { disconnect }));
+			await controller.registerPlugin(makePlugin("test", { disconnect }));
 
 			await controller.start();
 			await controller.stop();
@@ -171,9 +171,9 @@ describe("LaunchpadController", () => {
 			expect(disconnect).toHaveBeenCalled();
 		});
 
-		it("should skip disconnecting subsystems without disconnect method", async () => {
+		it("should skip disconnecting plugins without disconnect method", async () => {
 			const controller = createController();
-			await controller.registerSubsystem(makeSubsystem("test"));
+			await controller.registerPlugin(makePlugin("test"));
 
 			await controller.start();
 
@@ -186,7 +186,7 @@ describe("LaunchpadController", () => {
 		it("should execute command through dispatcher and return result", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("result"));
-			await controller.registerSubsystem(makeSubsystem("test", { executeCommand }));
+			await controller.registerPlugin(makePlugin("test", { executeCommand }));
 
 			await controller.start();
 
@@ -211,16 +211,16 @@ describe("LaunchpadController", () => {
 	describe("getState", () => {
 		it("should return aggregated state", async () => {
 			const controller = createController();
-			const subsystem: InstantiatedSubsystem = {
+			const plugin: InstantiatedPlugin = {
 				getState: () => ({ value: "test-state" }),
 			};
-			await controller.registerSubsystem(makeSubsystem("test", subsystem));
+			await controller.registerPlugin(makePlugin("test", plugin));
 
 			const state = controller.getState();
 
 			expect(state.system).toBeDefined();
-			expect(state.subsystems).toBeDefined();
-			expect(state.subsystems.test).toEqual({ value: "test-state" });
+			expect(state.plugins).toBeDefined();
+			expect(state.plugins.test).toEqual({ value: "test-state" });
 		});
 	});
 
@@ -248,18 +248,14 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("integration", () => {
-		it("should coordinate multiple subsystems through controller", async () => {
+		it("should coordinate multiple plugins through controller", async () => {
 			const controller = createController();
 
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-done"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-done"));
 
-			await controller.registerSubsystem(
-				makeSubsystem("content", { executeCommand: contentExecute }),
-			);
-			await controller.registerSubsystem(
-				makeSubsystem("monitor", { executeCommand: monitorExecute }),
-			);
+			await controller.registerPlugin(makePlugin("content", { executeCommand: contentExecute }));
+			await controller.registerPlugin(makePlugin("monitor", { executeCommand: monitorExecute }));
 
 			await controller.start();
 
@@ -270,7 +266,7 @@ describe("LaunchpadController", () => {
 			expect(monitorExecute).toHaveBeenCalledWith({ type: "monitor.connect" });
 		});
 
-		it("should emit events and aggregate state across subsystems", async () => {
+		it("should emit events and aggregate state across plugins", async () => {
 			const controller = createController();
 			const eventBus = controller.getEventBus();
 			const events: (keyof LaunchpadEvents)[] = [];
@@ -279,8 +275,8 @@ describe("LaunchpadController", () => {
 
 			const contentState = { isFetching: false };
 
-			await controller.registerSubsystem(
-				makeSubsystem("content", {
+			await controller.registerPlugin(
+				makePlugin("content", {
 					executeCommand: () => {
 						contentState.isFetching = true;
 						return okAsync(undefined);
@@ -289,8 +285,8 @@ describe("LaunchpadController", () => {
 				}),
 			);
 
-			await controller.registerSubsystem(
-				makeSubsystem("monitor", {
+			await controller.registerPlugin(
+				makePlugin("monitor", {
 					executeCommand: () => okAsync(undefined),
 					getState: () => ({ isConnected: false }),
 				}),
@@ -302,7 +298,7 @@ describe("LaunchpadController", () => {
 
 			const state = controller.getState();
 
-			expect(state.subsystems.content).toEqual({ isFetching: true });
+			expect(state.plugins.content).toEqual({ isFetching: true });
 			expect(events).toContain("command:start");
 			expect(events).toContain("command:success");
 		});

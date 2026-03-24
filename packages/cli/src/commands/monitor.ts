@@ -8,8 +8,8 @@ export function monitor(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			const monitorSubsystem = config.subsystems?.find((s) => s.name === "monitor");
-			if (!monitorSubsystem) {
+			const monitorPlugin = config.plugins?.find((s) => s.name === "monitor");
+			if (!monitorPlugin) {
 				return errAsync(new ConfigError("No monitor plugin found in your config file."));
 			}
 
@@ -22,9 +22,9 @@ export function monitor(argv: GlobalLaunchpadArgs) {
 						.andThen(() => client.executeCommand({ type: "monitor.start" }));
 				},
 				otherwise: (controller) => {
-					// No daemon - need to register subsystem and run commands
+					// No daemon - need to register plugin and run commands
 					return controller
-						.registerSubsystem(monitorSubsystem)
+						.registerPlugin(monitorPlugin)
 						.andThen(() => controller.executeCommand({ type: "monitor.connect" }))
 						.andThen(() => controller.executeCommand({ type: "monitor.start" }));
 				},

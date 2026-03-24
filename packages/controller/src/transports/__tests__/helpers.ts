@@ -1,5 +1,5 @@
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { SubsystemContext } from "@bluecadet/launchpad-utils/subsystem-interfaces";
+import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
@@ -8,7 +8,7 @@ import { createIPCTransport } from "../ipc-transport.js";
 type Cb = (...args: any[]) => void;
 
 export type MutableContext = {
-	-readonly [K in keyof SubsystemContext]: SubsystemContext[K];
+	-readonly [K in keyof PluginContext]: PluginContext[K];
 };
 
 export const createMockSocket = () => {

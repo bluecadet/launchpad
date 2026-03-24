@@ -1,5 +1,5 @@
 /**
- * Content subsystem state exported for public API.
+ * Content plugin state exported for public API.
  */
 
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
@@ -73,7 +73,7 @@ export type ContentState = ContentPhase & {
 };
 
 declare module "@bluecadet/launchpad-utils/types" {
-	interface SubsystemsState {
+	interface PluginsState {
 		content: ContentState;
 	}
 }

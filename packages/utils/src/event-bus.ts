@@ -3,7 +3,7 @@ import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 
 /**
  * EventBus implementation using Node's EventEmitter.
- * Provides event-driven communication between subsystems with support for:
+ * Provides event-driven communication between plugins with support for:
  * - Type-safe predefined events
  * - Dynamic custom events
  * - Wildcard subscriptions

@@ -1,7 +1,4 @@
-import {
-	createMockSubsystemCtx,
-	type MockEventBus,
-} from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx, type MockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { describe, expect, it, vi } from "vitest";
 import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
@@ -15,7 +12,7 @@ vi.mock("../utils/debounce-results.ts", () => ({
 }));
 
 async function createTestMonitor(config: MonitorConfig = { apps: [] }, cwd?: string) {
-	const ctx = createMockSubsystemCtx(cwd);
+	const ctx = createMockPluginCtx(cwd);
 	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {

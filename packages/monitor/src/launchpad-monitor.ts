@@ -1,11 +1,11 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
 	type BaseCommand,
-	defineSubsystem,
-	type SubsystemContext,
-} from "@bluecadet/launchpad-utils/subsystem-interfaces";
+	definePlugin,
+	type PluginContext,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -20,7 +20,7 @@ import {
 } from "./monitor-config.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
-type MonitorActionContext = SubsystemContext & {
+type MonitorActionContext = PluginContext & {
 	processManager: ProcessManager;
 	busManager: BusManager;
 	appManager: AppManager;
@@ -55,7 +55,7 @@ export function killPM2(logger: Omit<Logger, "child">): ResultAsync<void, Error>
 
 function _handleExistingDaemon(
 	resolvedConfig: ResolvedMonitorConfig,
-	ctx: SubsystemContext,
+	ctx: PluginContext,
 	processManager: ProcessManager,
 ): ResultAsync<void, Error> {
 	if (resolvedConfig.deleteExistingBeforeConnect) {
@@ -73,7 +73,7 @@ function connect(ctx: MonitorActionContext, ensureDaemonOwnership = true) {
 
 	return ctx.busManager
 		.disconnect()
-		.andThen(() => ctx.processManager.isDaemonRunning())
+		.asyncAndThen(() => ctx.processManager.isDaemonRunning())
 		.andThen((isDaemonRunning) => {
 			if (ensureDaemonOwnership && isDaemonRunning) {
 				return _handleExistingDaemon(ctx.config, ctx, ctx.processManager);
@@ -101,7 +101,7 @@ function disconnect(ctx: MonitorActionContext): ResultAsync<void, Error> {
 
 	return ctx.busManager
 		.disconnect()
-		.andThen(() => ctx.processManager.isDaemonRunning())
+		.asyncAndThen(() => ctx.processManager.isDaemonRunning())
 		.andThen((isDaemonRunning) => {
 			if (isDaemonRunning) {
 				ctx.logger.verbose("Disconnecting from daemon");
@@ -235,13 +235,13 @@ function shutdown(
 }
 
 /**
- * Creates a LaunchpadMonitor subsystem factory.
+ * Creates a LaunchpadMonitor plugin factory.
  * Call setup() on the returned object to initialize the monitor.
  */
 export function createLaunchpadMonitor(config: MonitorConfig) {
-	return defineSubsystem({
+	return definePlugin({
 		name: "monitor",
-		setup(ctx: SubsystemContext) {
+		setup(ctx: PluginContext) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
@@ -338,7 +338,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 }
 
 /**
- * Creates a LaunchpadMonitor subsystem factory with startup commands.
+ * Creates a LaunchpadMonitor plugin factory with startup commands.
  * Use this in your launchpad config's plugins array.
  */
 export function monitor(config: MonitorConfig) {

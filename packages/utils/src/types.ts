@@ -3,9 +3,16 @@
  */
 
 import type { LogEventPayload } from "./logger.js";
+import type { SubsystemConfig } from "./subsystem-interfaces.js";
 
-// biome-ignore lint/suspicious/noEmptyInterface: this will be augmented via declaration merging
-export interface LaunchpadConfig {}
+export interface LaunchpadConfig {
+	/**
+	 * Subsystems to register with the controller.
+	 * Each subsystem is a factory that creates a subsystem instance.
+	 */
+	// biome-ignore lint/suspicious/noExplicitAny: SubsystemConfig has generic type params
+	subsystems?: SubsystemConfig<any, any, any, any>[];
+}
 
 export interface LaunchpadEvents {
 	"log:error": LogEventPayload;

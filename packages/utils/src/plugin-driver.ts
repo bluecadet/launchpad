@@ -1,8 +1,11 @@
 import chalk from "chalk";
-import { okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
+import { PluginNotFoundError } from "./errors.js";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
+
+export { PluginNotFoundError } from "./errors.js";
 
 export class PluginError extends Error {
 	pluginId?: string;
@@ -107,41 +110,41 @@ export class PluginDriver<T extends HookSet> {
 		}
 	}
 
-	#getBaseContext(plugin: Plugin<T>): BaseHookContext {
+	#getBaseContext(plugin: Plugin<T>): Result<BaseHookContext, PluginNotFoundError> {
 		const ctx = this.#baseHookContexts.get(plugin);
-
-		if (!ctx) {
-			throw new Error(`Plugin not found: ${plugin.name}`);
-		}
-
-		return ctx;
+		if (!ctx) return err(new PluginNotFoundError(plugin.name));
+		return ok(ctx);
 	}
 
 	#getHookCalls<K extends keyof T>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
+		contextGetter: (
+			plugin: Plugin<T>,
+		) => Result<Omit<Parameters<T[K]>[0], keyof BaseHookContext>, PluginNotFoundError>,
 		additionalArgs: Tail<Parameters<T[K]>>,
 	): (() => ResultAsync<void, PluginError>)[] {
 		return this.#plugins.map((plugin) => {
 			const hook = plugin.hooks[hookName];
 			if (hook) {
-				const context = {
-					...this.#getBaseContext(plugin),
-					...contextGetter(plugin),
-				};
-
-				const wrappedHookCall = async () => {
-					await hook(context, ...additionalArgs);
-				};
-
 				return () =>
-					ResultAsync.fromPromise(wrappedHookCall(), (e) => {
-						this.#getBaseContext(plugin).logger.error(
-							chalk.red(`Error in hook ${String(hookName)}`),
-						);
-						this.#getBaseContext(plugin).logger.error(chalk.red(e));
-						return new PluginError(e, { pluginId: plugin.name });
-					});
+					this.#getBaseContext(plugin).match(
+						(baseCtx) =>
+							contextGetter(plugin).match(
+								(extraCtx) =>
+									ResultAsync.fromPromise(
+										(async () => {
+											await hook({ ...baseCtx, ...extraCtx }, ...additionalArgs);
+										})(),
+										(e) => {
+											baseCtx.logger.error(chalk.red(`Error in hook ${String(hookName)}`));
+											baseCtx.logger.error(chalk.red(e));
+											return new PluginError(e, { pluginId: plugin.name });
+										},
+									),
+								(e) => errAsync(new PluginError(e, { pluginId: plugin.name })),
+							),
+						(e) => errAsync(new PluginError(e, { pluginId: plugin.name })),
+					);
 			}
 
 			return () => okAsync(undefined);
@@ -150,7 +153,9 @@ export class PluginDriver<T extends HookSet> {
 
 	_runHookSequentialWithCtx<K extends keyof T>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
+		contextGetter: (
+			plugin: Plugin<T>,
+		) => Result<Omit<Parameters<T[K]>[0], keyof BaseHookContext>, PluginNotFoundError>,
 		additionalArgs: Tail<Parameters<T[K]>>,
 	): ResultAsync<void, PluginError> {
 		let result: ResultAsync<void, PluginError> = okAsync(undefined);
@@ -166,7 +171,9 @@ export class PluginDriver<T extends HookSet> {
 
 	_runHookParallelWithCtx<K extends keyof T>(
 		hookName: K,
-		contextGetter: (plugin: Plugin<T>) => Omit<Parameters<T[K]>[0], keyof BaseHookContext>,
+		contextGetter: (
+			plugin: Plugin<T>,
+		) => Result<Omit<Parameters<T[K]>[0], keyof BaseHookContext>, PluginNotFoundError>,
 		additionalArgs: Tail<Parameters<T[K]>>,
 	): ResultAsync<void, PluginError[]> {
 		const hookCalls = this.#getHookCalls(hookName, contextGetter, additionalArgs);
@@ -174,16 +181,15 @@ export class PluginDriver<T extends HookSet> {
 		return ResultAsync.combineWithAllErrors(hookCalls.map((call) => call())).map(() => undefined);
 	}
 
-	async runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(
+	runHookSequential<K extends KeysWithFullContext<T, BaseHookContext>>(
 		hookName: K,
 		...additionalArgs: Tail<Parameters<T[K]>>
-	): Promise<void> {
-		for (const plugin of this.#plugins) {
-			const hook = plugin.hooks[hookName];
-			if (hook) {
-				await hook(this.#getBaseContext(plugin), ...additionalArgs);
-			}
-		}
+	): ResultAsync<void, PluginError> {
+		return this._runHookSequentialWithCtx(
+			hookName,
+			(_plugin) => ok({} as Omit<Parameters<T[K]>[0], keyof BaseHookContext>),
+			additionalArgs,
+		);
 	}
 }
 
@@ -204,8 +210,8 @@ export class HookContextProvider<T extends HookSet, C> {
 		// implement in subclass
 	}
 
-	protected _getPluginContext(_plugin: Plugin<T>): C {
-		throw new Error("_getPluginContext Not implemented");
+	protected _getPluginContext(_plugin: Plugin<T>): Result<C, PluginNotFoundError> {
+		return err(new PluginNotFoundError("_getPluginContext not implemented"));
 	}
 
 	add(plugins: Plugin<T> | Plugin<T>[]): void {

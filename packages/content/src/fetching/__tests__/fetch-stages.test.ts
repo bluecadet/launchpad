@@ -177,7 +177,7 @@ describe("Fetch Stages", () => {
 			vi.mocked(dataStore.namespace).mockReturnValue({
 				asyncAndThen: vi.fn((cb) =>
 					cb({
-						safeInsert: vi.fn(() => okAsync(undefined)),
+						insert: vi.fn(() => okAsync(undefined)),
 					}),
 				),
 			} as any);
@@ -242,7 +242,9 @@ describe("Fetch Stages", () => {
 
 		it("should return error if data store close fails", async () => {
 			const context = createMockFetchContext();
-			vi.mocked(context.dataStore.close).mockRejectedValue(new Error("Close failed"));
+			vi.mocked(context.dataStore.close).mockReturnValue(
+				errAsync(new Error("Close failed")) as any,
+			);
 
 			const result = await finalizingStage(context);
 

@@ -144,7 +144,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 				}>;
 
 				for (const source of filteredDocuments.value) {
-					await queryOrUpdate({
+					const queryResult = await queryOrUpdate({
 						documents,
 						queryJsonPath,
 						update: resolvedConfig.updateURLs,
@@ -181,6 +181,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 							return newLocalPath;
 						},
 					});
+					if (queryResult.isErr()) throw queryResult.error;
 				}
 
 				ctx.logger.info(`Transforming ${mediaTransformTasks.length} images...`);

@@ -256,7 +256,7 @@ export async function findMediaUrls(
 		const uniqueUrlSet = new Set();
 
 		for (const queryJsonPath of queryJsonPaths) {
-			await queryOrUpdate({
+			const queryResult = await queryOrUpdate({
 				documents: source.documents,
 				queryJsonPath,
 				update: options.updatePaths,
@@ -278,6 +278,7 @@ export async function findMediaUrls(
 					return localPath;
 				},
 			});
+			if (queryResult.isErr()) throw queryResult.error;
 		}
 	}
 

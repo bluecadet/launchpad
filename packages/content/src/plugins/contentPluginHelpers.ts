@@ -2,8 +2,9 @@ import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
+import { ResultAsync } from "neverthrow";
 import type { z } from "zod";
-import type { Document } from "../utils/data-store.js";
+import { DataStoreError, type Document } from "../utils/data-store.js";
 
 export class ContentPluginError extends Error {
 	constructor(pluginName: string, message: string, cause?: Error) {
@@ -25,7 +26,7 @@ export function parsePluginConfig<T extends z.ZodTypeAny>(
 	}
 }
 
-export async function queryOrUpdate<T>({
+export function queryOrUpdate<T>({
 	documents,
 	callback,
 	queryJsonPath,
@@ -35,26 +36,40 @@ export async function queryOrUpdate<T>({
 	queryJsonPath: string;
 	callback: (value: unknown) => T | Promise<T>;
 	update: boolean;
-}): Promise<T[]> {
-	const results: T[] = [];
+}): ResultAsync<T[], DataStoreError | ContentPluginError> {
+	const documentArray = Array.from(documents);
 
-	for (const document of documents) {
-		if (update) {
-			await document.apply(queryJsonPath, async (value: unknown) => {
-				const result = await callback(value);
-				results.push(result);
-				return result;
-			});
-		} else {
-			const values = await document.query(queryJsonPath);
-			for (const value of values) {
-				const result = await callback(value);
-				results.push(result);
-			}
-		}
+	if (update) {
+		return ResultAsync.combine(
+			documentArray.map((doc) => {
+				const itemResults: T[] = [];
+				return doc
+					.apply(queryJsonPath, async (value: unknown) => {
+						const result = await callback(value);
+						itemResults.push(result);
+						return result;
+					})
+					.map(() => itemResults);
+			}),
+		).map((nestedResults) => nestedResults.flat());
 	}
 
-	return Promise.all(results);
+	return ResultAsync.combine(
+		documentArray.map((doc) =>
+			doc
+				.query(queryJsonPath)
+				.andThen((values) =>
+					ResultAsync.combine(
+						values.map((value) =>
+							ResultAsync.fromPromise(
+								Promise.resolve(callback(value)),
+								(e) => new DataStoreError("Error in queryOrUpdate callback", { cause: e as Error }),
+							),
+						),
+					),
+				),
+		),
+	).map((nestedResults) => nestedResults.flat());
 }
 
 export class CacheProgressLogger extends FixedTTYLogger {

@@ -1,3 +1,4 @@
+import { ok } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import type { HookSet, Plugin } from "../plugin-driver.js";
 import { HookContextProvider, PluginDriver, PluginError } from "../plugin-driver.js";
@@ -68,7 +69,7 @@ describe("PluginDriver", () => {
 					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 					[plugin1, plugin2],
 				);
-				await driver.runHookSequential("testHook");
+				(await driver.runHookSequential("testHook"))._unsafeUnwrap();
 
 				expect(order).toEqual([1, 2]);
 			});
@@ -98,7 +99,7 @@ describe("PluginDriver", () => {
 					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 					[plugin1, plugin2],
 				);
-				const result = await driver._runHookSequentialWithCtx("testHook", () => ({}), []);
+				const result = await driver._runHookSequentialWithCtx("testHook", () => ok({}), []);
 
 				expect(result.isErr()).toBe(true);
 				expect(order).toEqual([1]); // Second plugin should not run
@@ -134,7 +135,7 @@ describe("PluginDriver", () => {
 					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 					[plugin1, plugin2],
 				);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const result = await driver._runHookParallelWithCtx("testHook", () => ok({}), []);
 
 				expect(result.isOk()).toBe(true);
 				expect(executions).toHaveLength(2);
@@ -167,7 +168,7 @@ describe("PluginDriver", () => {
 					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 					[plugin1, plugin2],
 				);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const result = await driver._runHookParallelWithCtx("testHook", () => ok({}), []);
 
 				expect(result.isErr()).toBe(true);
 				const unwrapped = result._unsafeUnwrapErr();
@@ -202,7 +203,7 @@ describe("PluginDriver", () => {
 					{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 					[plugin1, plugin2],
 				);
-				const result = await driver._runHookParallelWithCtx("testHook", () => ({}), []);
+				const result = await driver._runHookParallelWithCtx("testHook", () => ok({}), []);
 
 				expect(result.isErr()).toBe(true);
 				expect(executed).toContain("plugin1");
@@ -226,7 +227,7 @@ describe("PluginDriver", () => {
 				{ logger: mockLogger, eventBus: {} as any, abortSignal: new AbortController().signal },
 				[plugin],
 			);
-			await driver.runHookSequential("testHook");
+			(await driver.runHookSequential("testHook"))._unsafeUnwrap();
 		});
 	});
 });
@@ -235,7 +236,7 @@ describe("HookContextProvider", () => {
 	it("should provide additional context to hooks", async () => {
 		class TestContextProvider extends HookContextProvider<HookSet, { testValue: string }> {
 			override _getPluginContext() {
-				return { testValue: "test" };
+				return ok({ testValue: "test" });
 			}
 		}
 
@@ -262,7 +263,7 @@ describe("HookContextProvider", () => {
 	it("should support both sequential and parallel execution", async () => {
 		class TestContextProvider extends HookContextProvider<HookSet, { testValue: string }> {
 			override _getPluginContext() {
-				return { testValue: "test" };
+				return ok({ testValue: "test" });
 			}
 		}
 
@@ -294,7 +295,7 @@ describe("HookContextProvider", () => {
 
 		// Test sequential
 		order.length = 0;
-		await provider.runHookSequential("testHook");
+		(await provider.runHookSequential("testHook"))._unsafeUnwrap();
 		expect(order).toEqual([1, 2]);
 
 		// Test parallel

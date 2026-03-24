@@ -34,7 +34,7 @@ export class AppNotFoundError extends MonitorError {
  * Thrown when appNames parameter has an invalid type.
  */
 export class InvalidAppNamesError extends MonitorError {
-	constructor(message = "appNames must be null, a string, or an iterable array/set of strings") {
+	constructor(message = "Invalid appNames argument") {
 		super(message);
 		this.name = "InvalidAppNamesError";
 	}
@@ -57,15 +57,8 @@ export class ProcessNotFoundError extends MonitorError {
  * Thrown when Windows API calls fail.
  */
 export class WindowsApiError extends MonitorError {
-	constructor(cause?: unknown) {
-		super("Failed to apply window settings", {
-			cause:
-				cause !== undefined
-					? cause instanceof Error
-						? cause
-						: new Error(String(cause))
-					: undefined,
-		});
+	constructor(options?: { cause?: Error }) {
+		super("Failed to apply window settings", options);
 		this.name = "WindowsApiError";
 	}
 }

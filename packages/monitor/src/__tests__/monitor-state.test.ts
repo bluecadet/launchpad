@@ -4,6 +4,7 @@ import type pm2 from "pm2";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
 import { ProcessManager } from "../core/process-manager.js";
+import { PM2Error } from "../errors.js";
 import { createLaunchpadMonitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 import type { MonitorPlugin } from "../monitor-plugin.js";
@@ -135,7 +136,7 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should mark app as errored when start fails", async () => {
 			const { monitor } = await createTestMonitor();
 
-			const testError = new Error("Failed to start app");
+			const testError = new PM2Error("Failed to start app");
 			vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(errAsync(testError));
 
 			const result = await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
@@ -276,7 +277,7 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should update error state and track lastError timestamp on start failure", async () => {
 			const { monitor } = await createTestMonitor();
 
-			const testError = new Error("Failed to start app");
+			const testError = new PM2Error("Failed to start app");
 			vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(errAsync(testError));
 
 			const beforeError = new Date();

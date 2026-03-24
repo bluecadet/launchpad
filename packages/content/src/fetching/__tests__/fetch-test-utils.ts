@@ -21,9 +21,9 @@ export const createMockDataStore = () => {
 	return {
 		createNamespace: vi.fn(() => okAsync(undefined)),
 		namespace: vi.fn(() => ({
-			asyncAndThen: vi.fn((cb) => cb({ safeInsert: vi.fn(() => okAsync(undefined)) })),
+			asyncAndThen: vi.fn((cb) => cb({ insert: vi.fn(() => okAsync(undefined)) })),
 		})),
-		close: vi.fn(() => Promise.resolve()),
+		close: vi.fn(() => okAsync(undefined)),
 	} as any;
 };
 

@@ -1,6 +1,7 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
+	type BaseCommand,
 	defineSubsystem,
 	type SubsystemContext,
 } from "@bluecadet/launchpad-utils/subsystem-interfaces";
@@ -225,6 +226,17 @@ function clear(
 		})
 		.map(() => undefined) // Map to void
 		.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
+}
+
+/**
+ * Creates a LaunchpadContent subsystem factory with startup commands.
+ * Use this in your launchpad config's plugins array.
+ */
+export function content(config: ContentConfig) {
+	return {
+		...createLaunchpadContent(config),
+		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
+	};
 }
 
 /**

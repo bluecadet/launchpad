@@ -3,15 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandInProgressError, SingleCommandGuard } from "../command-guard.js";
 
 describe("CommandInProgressError", () => {
-	it("should create an error with the correct message", () => {
-		const error = new CommandInProgressError();
-		expect(error.message).toBe("A command is already in progress.");
-		expect(error.name).toBe("CommandInProgressError");
-	});
-
-	it("should be an instance of Error", () => {
+	it("should be an Error with the correct name and message", () => {
 		const error = new CommandInProgressError();
 		expect(error).toBeInstanceOf(Error);
+		expect(error.name).toBe("CommandInProgressError");
+		expect(error.message).toBe("A command is already in progress.");
 	});
 });
 
@@ -35,20 +31,6 @@ describe("SingleCommandGuard", () => {
 			expect(result).toBeOk();
 			expect(result._unsafeUnwrap()).toBe(42);
 			expect(fn).toHaveBeenCalledOnce();
-		});
-
-		it("should unlock after successful execution", async () => {
-			const fn1 = vi.fn(() => okAsync(1));
-			const fn2 = vi.fn(() => okAsync(2));
-
-			const result1 = await guard.run(fn1);
-			expect(result1).toBeOk();
-
-			const result2 = await guard.run(fn2);
-			expect(result2).toBeOk();
-
-			expect(fn1).toHaveBeenCalledOnce();
-			expect(fn2).toHaveBeenCalledOnce();
 		});
 
 		it("should return the function's result", async () => {
@@ -75,10 +57,6 @@ describe("SingleCommandGuard", () => {
 			expect(result2).toBeErr();
 			expect(result2._unsafeUnwrapErr()).toBeInstanceOf(CommandInProgressError);
 			expect(fn).toHaveBeenCalledOnce();
-
-			const error = result2._unsafeUnwrapErr();
-			expect(error).toBeInstanceOf(CommandInProgressError);
-			expect(error.message).toBe("A command is already in progress.");
 		});
 
 		it("should allow execution after lock is released", async () => {
@@ -110,22 +88,13 @@ describe("SingleCommandGuard", () => {
 			expect(fn2).toHaveBeenCalledOnce();
 		});
 
-		it("should preserve error type from function", async () => {
+		it("should propagate the error value unchanged", async () => {
 			const customError = { code: "CUSTOM_ERROR", message: "Something went wrong" };
 			const fn = vi.fn(() => errAsync(customError));
 
 			const result = await guard.run(fn);
 			expect(result).toBeErr();
 			expect(result._unsafeUnwrapErr()).toEqual(customError);
-		});
-
-		it("should handle different error types", async () => {
-			const stringError = "string error";
-			const fn = vi.fn(() => errAsync(stringError));
-
-			const result = await guard.run(fn);
-			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr()).toBe(stringError);
 		});
 
 		it("should not execute concurrent function if first one errors", async () => {
@@ -148,26 +117,7 @@ describe("SingleCommandGuard", () => {
 	});
 
 	describe("multiple guard instances", () => {
-		it("should have independent locks", async () => {
-			const guard1 = new SingleCommandGuard();
-			const guard2 = new SingleCommandGuard();
-
-			const fn1 = vi.fn(() => okAsync(1));
-			const fn2 = vi.fn(() => okAsync(2));
-
-			const result1Promise = guard1.run(fn1);
-			const result2Promise = guard2.run(fn2);
-
-			const result1 = await result1Promise;
-			const result2 = await result2Promise;
-
-			expect(result1).toBeOk();
-			expect(result2).toBeOk();
-			expect(fn1).toHaveBeenCalledOnce();
-			expect(fn2).toHaveBeenCalledOnce();
-		});
-
-		it("should not interfere with each other during concurrent execution", async () => {
+		it("should have independent locks that do not interfere with each other", async () => {
 			const guard1 = new SingleCommandGuard();
 			const guard2 = new SingleCommandGuard();
 
@@ -183,9 +133,12 @@ describe("SingleCommandGuard", () => {
 			const result1b = await result1bPromise;
 			const result2 = await result2Promise;
 
+			// guard1's second call is blocked, but guard2 is unaffected
 			expect(result1a).toBeOk();
 			expect(result1b).toBeErr();
 			expect(result2).toBeOk();
+			expect(fn1a).toHaveBeenCalledOnce();
+			expect(fn2).toHaveBeenCalledOnce();
 		});
 	});
 });

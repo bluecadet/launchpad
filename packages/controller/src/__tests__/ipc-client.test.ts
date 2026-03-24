@@ -4,75 +4,7 @@ import { IPCClient } from "../ipc-client.js";
 import type { IPCEvent, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
-
-type Cb = (...args: any[]) => void;
-
-function createTestClient() {
-	const writeMock = vi.fn((_data: string, cb?: Cb) => {
-		if (cb) cb();
-	});
-	const endMock = vi.fn();
-	const socketListeners: { [key: string]: Cb[] } = {};
-
-	const mockSocket = {
-		write: writeMock,
-		end: endMock,
-		on: vi.fn((event: string, handler: Cb) => {
-			if (!socketListeners[event]) {
-				socketListeners[event] = [];
-			}
-			socketListeners[event].push(handler);
-		}),
-		removeListener: vi.fn(),
-		removeAllListeners: vi.fn(),
-	} as any as net.Socket;
-
-	vi.spyOn(net, "createConnection").mockImplementationOnce((_path, cb) => {
-		if (cb) setTimeout(cb, 0);
-		return mockSocket;
-	});
-
-	const client = new IPCClient();
-
-	function simulateEvent(event: string, ...args: any[]) {
-		const handlers = socketListeners[event] || [];
-		for (const handler of handlers) {
-			handler(...args);
-		}
-	}
-
-	function simulateData(data: any) {
-		simulateEvent("data", Buffer.from(`${IPCSerializer.serialize(data)}\n`));
-	}
-
-	function setInternalState(state: any) {
-		(client as any)._lastState = state;
-	}
-
-	function parsedWriteCall(callNumber?: number): any {
-		if (callNumber === undefined) {
-			expect(writeMock).toHaveBeenCalled();
-			const lastCall = writeMock.mock.lastCall!;
-			return IPCSerializer.deserialize(lastCall[0].trim());
-		}
-
-		expect(writeMock).toHaveBeenCalledTimes(callNumber);
-		const call = writeMock.mock.calls[callNumber - 1]!;
-		return IPCSerializer.deserialize(call[0].trim());
-	}
-
-	return {
-		client,
-		writeMock,
-		endMock,
-		mockSocket,
-		simulateEvent,
-		simulateData,
-		setInternalState,
-		socketListeners,
-		parsedWriteCall,
-	};
-}
+import { createConnectedTestClient, createTestClient } from "./helpers.js";
 
 describe("IPCClient", () => {
 	afterEach(() => {
@@ -94,7 +26,7 @@ describe("IPCClient", () => {
 		it("should return error if connection fails", async () => {
 			vi.spyOn(net, "createConnection").mockImplementation((_socketPath, _callback) => {
 				const socket = {
-					on: vi.fn((event: string, handler: Cb) => {
+					on: vi.fn((event: string, handler: (...args: any[]) => void) => {
 						if (event === "error") {
 							setTimeout(() => handler(new Error("Connection refused")), 0);
 						}
@@ -113,8 +45,7 @@ describe("IPCClient", () => {
 
 	describe("disconnect", () => {
 		it("should disconnect from the socket", async () => {
-			const { client, mockSocket } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, mockSocket } = await createConnectedTestClient();
 			client.disconnect();
 
 			expect(mockSocket.end).toHaveBeenCalled();
@@ -126,8 +57,7 @@ describe("IPCClient", () => {
 		});
 
 		it("should be safe to call multiple times", async () => {
-			const { client, mockSocket } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, mockSocket } = await createConnectedTestClient();
 			client.disconnect();
 			client.disconnect();
 
@@ -137,12 +67,10 @@ describe("IPCClient", () => {
 
 	describe("queryState", () => {
 		it("should query controller state", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 
-			// Simulate server response
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -157,12 +85,10 @@ describe("IPCClient", () => {
 		});
 
 		it("should handle error response", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 
-			// Simulate error response
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
@@ -178,17 +104,11 @@ describe("IPCClient", () => {
 		});
 
 		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 
-			// Simulate unexpected response
-			const response = {
-				id: "msg-0",
-				type: "unexpected",
-				data: {},
-			};
+			const response = { id: "msg-0", type: "unexpected", data: {} };
 			simulateData(response);
 
 			const result = await queryPromise;
@@ -207,13 +127,18 @@ describe("IPCClient", () => {
 	});
 
 	describe("executeCommand", () => {
-		it("should execute a command on the controller", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+		it("should send the command and return the result", async () => {
+			const { client, simulateData, parsedWriteCall } = await createConnectedTestClient();
 
-			const commandPromise = client.executeCommand({ type: "content.fetch" });
+			const commandPromise = client.executeCommand({
+				type: "monitor.connect",
+				data: { app: "test-app" },
+			} as any);
 
-			// Simulate server response
+			const sentMessage = parsedWriteCall();
+			expect(sentMessage.type).toBe("execute-command");
+			expect(sentMessage.data).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
+
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "result",
@@ -228,12 +153,10 @@ describe("IPCClient", () => {
 		});
 
 		it("should handle error response from command", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const commandPromise = client.executeCommand({ type: "content.fetch" });
 
-			// Simulate error response
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
@@ -251,35 +174,17 @@ describe("IPCClient", () => {
 		});
 
 		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const commandPromise = client.executeCommand({ type: "content.fetch" });
 
-			// Simulate unexpected response
-			const response = {
-				id: "msg-0",
-				type: "state",
-				data: {},
-			};
+			const response = { id: "msg-0", type: "state", data: {} };
 			simulateData(response);
 
 			const result = await commandPromise;
 
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Unexpected response type");
-		});
-
-		it("should pass command data correctly", async () => {
-			const { client, parsedWriteCall } = createTestClient();
-			await client.connect("/test/socket");
-
-			client.executeCommand({ type: "monitor.connect", data: { app: "test-app" } });
-
-			// Get the message that was sent
-			const parsedMessage = parsedWriteCall();
-			expect(parsedMessage.type).toBe("execute-command");
-			expect(parsedMessage.data).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
 		});
 
 		it("should return error if not connected", async () => {
@@ -293,16 +198,11 @@ describe("IPCClient", () => {
 
 	describe("shutdown", () => {
 		it("should send shutdown command to the controller", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const shutdownPromise = client.shutdown();
 
-			// Simulate server response
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "ack",
-			};
+			const response: IPCResponse = { id: "msg-0", type: "ack" };
 			simulateData(response);
 
 			const result = await shutdownPromise;
@@ -312,12 +212,10 @@ describe("IPCClient", () => {
 		});
 
 		it("should handle error response from shutdown", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const shutdownPromise = client.shutdown();
 
-			// Simulate error response
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "error",
@@ -333,17 +231,11 @@ describe("IPCClient", () => {
 		});
 
 		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const shutdownPromise = client.shutdown();
 
-			// Simulate unexpected response
-			const response = {
-				id: "msg-0",
-				type: "state",
-				data: {},
-			};
+			const response = { id: "msg-0", type: "state", data: {} };
 			simulateData(response);
 
 			const result = await shutdownPromise;
@@ -363,13 +255,11 @@ describe("IPCClient", () => {
 
 	describe("message handling", () => {
 		it("should handle multiple messages in one data chunk", async () => {
-			const { client, simulateEvent } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateEvent } = await createConnectedTestClient();
 
 			const query1Promise = client.queryState();
 			const query2Promise = client.queryState();
 
-			// Simulate multiple messages in one data chunk
 			const response1: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -392,13 +282,11 @@ describe("IPCClient", () => {
 			expect(result2._unsafeUnwrap()).toEqual({ system: { mode: "persistent" } });
 		});
 
-		it("should handle incomplete messages", async () => {
-			const { client, simulateEvent } = createTestClient();
-			await client.connect("/test/socket");
+		it("should handle incomplete messages split across chunks", async () => {
+			const { client, simulateEvent } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 
-			// Simulate incomplete message (no newline)
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -406,8 +294,7 @@ describe("IPCClient", () => {
 			};
 			simulateEvent("data", Buffer.from(IPCSerializer.serialize(response)));
 
-			// Message should not be processed yet
-			// Send the rest of the message with newline
+			// Message should not be processed yet — send the terminating newline
 			simulateEvent("data", Buffer.from("\n"));
 
 			const result = await queryPromise;
@@ -417,42 +304,18 @@ describe("IPCClient", () => {
 		});
 
 		it("should ignore malformed JSON messages", async () => {
-			const { client, simulateEvent } = createTestClient();
-			await client.connect("/test/socket");
+			const { simulateEvent } = await createConnectedTestClient();
 
-			// Should not throw
 			expect(() => {
 				simulateEvent("data", Buffer.from("invalid json\n"));
 			}).not.toThrow();
 		});
 
-		it("should ignore empty lines", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
-
-			const queryPromise = client.queryState();
-
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { system: { mode: "task" } } as any,
-			};
-			// Send empty line then valid message
-			simulateData(response);
-
-			const result = await queryPromise;
-
-			expect(result.isOk()).toBe(true);
-			expect(result._unsafeUnwrap()).toEqual({ system: { mode: "task" } });
-		});
-
 		it("should reject pending requests when socket closes", async () => {
-			const { client, socketListeners } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, socketListeners } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 
-			// Simulate socket close
 			const closeHandler = socketListeners.close![0]!;
 			closeHandler();
 
@@ -464,14 +327,12 @@ describe("IPCClient", () => {
 	});
 
 	describe("integration", () => {
-		it("should handle sequential requests", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+		it("should correlate sequential requests to their responses by ID", async () => {
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const query1Promise = client.queryState();
 			const query2Promise = client.queryState();
 
-			// Respond to first query
 			const response1: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -479,7 +340,6 @@ describe("IPCClient", () => {
 			};
 			simulateData(response1);
 
-			// Respond to second query
 			const response2: IPCResponse = {
 				id: "msg-1",
 				type: "state",
@@ -494,14 +354,12 @@ describe("IPCClient", () => {
 			expect(result2._unsafeUnwrap()).toEqual({ second: true });
 		});
 
-		it("should handle mixed request types", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+		it("should handle mixed request types in flight simultaneously", async () => {
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 			const commandPromise = client.executeCommand({ type: "test.command" });
 
-			// Respond to query
 			const queryResponse: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -509,7 +367,6 @@ describe("IPCClient", () => {
 			};
 			simulateData(queryResponse);
 
-			// Respond to command
 			const commandResponse: IPCResponse = {
 				id: "msg-1",
 				type: "result",
@@ -527,13 +384,11 @@ describe("IPCClient", () => {
 
 	describe("event handling", () => {
 		it("should emit events to registered listeners", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.on("command:start", handler);
 
-			// Simulate event from server
 			const event: IPCEvent = {
 				type: "event",
 				name: "command:start",
@@ -541,13 +396,11 @@ describe("IPCClient", () => {
 			};
 			simulateData(event);
 
-			// Handler should be called with event data
 			expect(handler).toHaveBeenCalledWith({ commandType: "test.command" });
 		});
 
 		it("should support multiple listeners for the same event", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler1 = vi.fn();
 			const handler2 = vi.fn();
@@ -572,8 +425,7 @@ describe("IPCClient", () => {
 		});
 
 		it("should support once() for single-fire listeners", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.once("system:shutdown", handler);
@@ -584,18 +436,15 @@ describe("IPCClient", () => {
 				data: { code: 0 },
 			};
 
-			// Emit event twice
 			simulateData(event);
 			simulateData(event);
 
-			// Handler should only be called once
 			expect(handler).toHaveBeenCalledTimes(1);
 			expect(handler).toHaveBeenCalledWith({ code: 0 });
 		});
 
 		it("should support off() to unsubscribe from events", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.on("command:error", handler);
@@ -608,18 +457,15 @@ describe("IPCClient", () => {
 			};
 			simulateData(event);
 
-			// Handler should not be called after unsubscribing
 			expect(handler).not.toHaveBeenCalled();
 		});
 
 		it("should support onAny() for wildcard listeners", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.onAny(handler);
 
-			// Emit multiple events
 			const event1: IPCEvent = {
 				type: "event",
 				name: "command:start",
@@ -634,11 +480,8 @@ describe("IPCClient", () => {
 			simulateData(event1);
 			simulateData(event2);
 
-			// Handler should be called for both events with event name and data
 			expect(handler).toHaveBeenCalledTimes(2);
-			expect(handler).toHaveBeenNthCalledWith(1, "command:start", {
-				commandType: "cmd1",
-			});
+			expect(handler).toHaveBeenNthCalledWith(1, "command:start", { commandType: "cmd1" });
 			expect(handler).toHaveBeenNthCalledWith(2, "command:success", {
 				commandType: "cmd1",
 				result: { value: 42 },
@@ -646,8 +489,7 @@ describe("IPCClient", () => {
 		});
 
 		it("should support offAny() to unsubscribe from wildcard listeners", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.onAny(handler);
@@ -660,19 +502,16 @@ describe("IPCClient", () => {
 			};
 			simulateData(event);
 
-			// Handler should not be called after unsubscribing
 			expect(handler).not.toHaveBeenCalled();
 		});
 
 		it("should handle mixed request-response and event messages", async () => {
-			const { client, simulateEvent } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateEvent } = await createConnectedTestClient();
 
 			const queryPromise = client.queryState();
 			const eventHandler = vi.fn();
 			client.on("command:success", eventHandler);
 
-			// Send event and response mixed
 			const event: IPCEvent = {
 				type: "event",
 				name: "command:success",
@@ -689,7 +528,6 @@ describe("IPCClient", () => {
 
 			const result = await queryPromise;
 
-			// Both event listener and query response should work correctly
 			expect(eventHandler).toHaveBeenCalledWith({
 				commandType: "test.command",
 				result: { success: true },
@@ -699,26 +537,20 @@ describe("IPCClient", () => {
 		});
 
 		it("should handle multiple events in sequence", async () => {
-			const { client, simulateEvent } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateEvent } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.on("command:start", handler);
 
-			// Send multiple events
 			const event1: IPCEvent = {
 				type: "event",
 				name: "command:start",
-				data: {
-					commandType: "lorem",
-				},
+				data: { commandType: "lorem" },
 			};
 			const event2: IPCEvent = {
 				type: "event",
 				name: "command:start",
-				data: {
-					commandType: "ipsum",
-				},
+				data: { commandType: "ipsum" },
 			};
 
 			simulateEvent(
@@ -727,35 +559,27 @@ describe("IPCClient", () => {
 			);
 
 			expect(handler).toHaveBeenCalledTimes(2);
-			expect(handler).toHaveBeenNthCalledWith(1, {
-				commandType: "lorem",
-			});
-			expect(handler).toHaveBeenNthCalledWith(2, {
-				commandType: "ipsum",
-			});
+			expect(handler).toHaveBeenNthCalledWith(1, { commandType: "lorem" });
+			expect(handler).toHaveBeenNthCalledWith(2, { commandType: "ipsum" });
 		});
 	});
 
 	describe("state patches and onStateChange", () => {
-		it("should register onStateChange listener", async () => {
-			const { client } = createTestClient();
-			await client.connect("/test/socket");
+		it("should register onStateChange listener and return unsubscribe function", async () => {
+			const { client } = await createConnectedTestClient();
 
 			const listener = vi.fn();
 			const unsubscribe = client.onStateChange(listener);
 
-			// Listener should be registered (can't easily test the call without full integration)
 			expect(typeof unsubscribe).toBe("function");
 		});
 
-		it("should unsubscribe from onStateChange", async () => {
-			const { client, simulateData } = createTestClient();
-			await client.connect("/test/socket");
+		it("should not call listener after unsubscribe", async () => {
+			const { client, simulateData } = await createConnectedTestClient();
 
 			const listener = vi.fn();
 			const unsubscribe = client.onStateChange(listener);
 
-			// Set initial state
 			(client as any)._lastState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
 				subsystems: { test: { x: 1 } },
@@ -764,27 +588,22 @@ describe("IPCClient", () => {
 
 			unsubscribe();
 
-			// Send patch
 			const patch = {
 				type: "state-patch",
 				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
 				version: 2,
 			};
-
 			simulateData(patch);
 
-			// Listener should not be called after unsubscribe (sync check)
 			expect(listener).not.toHaveBeenCalled();
 		});
 
-		it("should handle patch messages", async () => {
-			const { client, simulateData, writeMock } = createTestClient();
-			await client.connect("/test/socket");
+		it("should apply patches and call onStateChange listeners", async () => {
+			const { client, simulateData, writeMock } = await createConnectedTestClient();
 
 			const handler = vi.fn();
 			client.onStateChange(handler);
 
-			// Set initial state by triggering a query
 			const initialState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
 				subsystems: { test: { x: 1 } },
@@ -793,7 +612,6 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			// Simulate server response for initial state
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -805,38 +623,28 @@ describe("IPCClient", () => {
 
 			expect(writeMock).toHaveBeenCalledTimes(1);
 
-			// Send out-of-sequence patch (should trigger queryState)
-			let patch = {
+			// In-sequence patch (version 1 → 2)
+			simulateData({
 				type: "state-patch",
 				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
-				version: 2, // Skip version, should trigger re-query
-			};
+				version: 2,
+			});
 
-			simulateData(patch);
-
-			// it shouldn't have queried state again since version is correct
-			expect(writeMock).toHaveBeenCalledTimes(1);
-
-			// should patch state and call handler
+			expect(writeMock).toHaveBeenCalledTimes(1); // no re-query needed
 			expect(handler).toHaveBeenCalledTimes(1);
 			expect(handler).toHaveBeenCalledWith({
 				system: { mode: "task", startTime: initialState.system.startTime, version: "1.0.0" },
 				subsystems: { test: { x: 2 } },
 			});
 
-			// Send in-sequence patch
-			patch = {
+			// Next in-sequence patch (version 2 → 3)
+			simulateData({
 				type: "state-patch",
 				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 3 }],
 				version: 3,
-			};
+			});
 
-			simulateData(patch);
-
-			// it shouldn't have queried state again since version is correct
 			expect(writeMock).toHaveBeenCalledTimes(1);
-
-			// should patch state and call handler again
 			expect(handler).toHaveBeenCalledTimes(2);
 			expect(handler).toHaveBeenCalledWith({
 				system: { mode: "task", startTime: initialState.system.startTime, version: "1.0.0" },
@@ -845,10 +653,8 @@ describe("IPCClient", () => {
 		});
 
 		it("should query state on version mismatch", async () => {
-			const { client, simulateData, parsedWriteCall } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData, parsedWriteCall } = await createConnectedTestClient();
 
-			// Set initial state by triggering a query
 			const initialState = {
 				system: { mode: "task", startTime: new Date(), version: "1.0.0" },
 				subsystems: { test: { x: 1 } },
@@ -857,7 +663,6 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			// Simulate server response for initial state
 			const response: IPCResponse = {
 				id: "msg-0",
 				type: "state",
@@ -867,54 +672,28 @@ describe("IPCClient", () => {
 
 			await queryPromise;
 
-			// Send out-of-sequence patch (should trigger queryState)
-			const patch = {
+			// Out-of-sequence patch — should trigger a re-query
+			simulateData({
 				type: "state-patch",
 				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 2 }],
-				version: 5, // Skip version, should trigger re-query
-			};
+				version: 5,
+			});
 
-			simulateData(patch);
-
-			// Should trigger queryState due to version mismatch
 			const parsedMessage = parsedWriteCall();
 			expect(parsedMessage.type).toBe("query-state");
 		});
 
 		it("should trigger queryState if no initial state when patch arrives", async () => {
-			const { client, simulateData, parsedWriteCall } = createTestClient();
-			await client.connect("/test/socket");
+			const { client, simulateData, parsedWriteCall } = await createConnectedTestClient();
 
-			// Send patch without having set initial state
-			const patch = {
+			simulateData({
 				type: "state-patch",
 				patches: [{ op: "replace", path: ["subsystems", "test", "x"], value: 1 }],
 				version: 1,
-			};
+			});
 
-			simulateData(patch);
-
-			// Should trigger queryState because no initial state
 			const parsedMessage = parsedWriteCall();
 			expect(parsedMessage.type).toBe("query-state");
-		});
-
-		it("should support multiple onStateChange listeners", async () => {
-			const { client } = createTestClient();
-			await client.connect("/test/socket");
-
-			const listener1 = vi.fn();
-			const listener2 = vi.fn();
-
-			client.onStateChange(listener1);
-			client.onStateChange(listener2);
-
-			// Both listeners should be in the set (can't directly test, but unsubscribe should work)
-			const unsub1 = () => listener1;
-			const unsub2 = () => listener2;
-
-			expect(typeof unsub1).toBe("function");
-			expect(typeof unsub2).toBe("function");
 		});
 	});
 });

@@ -14,44 +14,12 @@ const _mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined);
 
 AppManager.prototype.applyWindowSettings = vi.fn().mockImplementation(() => okAsync({}));
 
-const processes: pm2.ProcessDescription[] = [];
-
 ProcessManager.prototype.connect = vi.fn().mockImplementation(() => okAsync(undefined));
 ProcessManager.prototype.disconnect = vi.fn().mockImplementation(() => okAsync(undefined));
-ProcessManager.prototype.startProcess = vi.fn().mockImplementation((options) => {
-	const existingProcess = processes.find((proc) => proc.name === options.name);
-	if (existingProcess) {
-		return okAsync(existingProcess);
-	}
-
-	const newProcess: pm2.ProcessDescription = {
-		pm_id: processes.length,
-		pm2_env: {
-			status: "online",
-		} as any,
-		pid: 1000 + processes.length,
-		name: options.name || `app-${processes.length}`,
-	} as pm2.ProcessDescription;
-
-	processes.push(newProcess);
-	return okAsync(newProcess);
-});
-
-ProcessManager.prototype.stopProcess = vi.fn().mockImplementation((appName: string) => {
-	const procIndex = processes.findIndex((proc) => proc.name === appName);
-	if (procIndex === -1) {
-		return okAsync(undefined);
-	}
-
-	const [stoppedProcess] = processes.splice(procIndex, 1);
-	return okAsync(stoppedProcess);
-});
-
 ProcessManager.prototype.isDaemonRunning = vi.fn().mockImplementation(() => okAsync(true));
-ProcessManager.prototype.getProcesses = vi
-	.fn()
-	.mockImplementation(() => okAsync(processes.slice()));
 ProcessManager.prototype.deleteProcess = vi.fn();
+
+let processes: pm2.ProcessDescription[] = [];
 
 const mockPlugin = {
 	name: "test-plugin",
@@ -102,7 +70,40 @@ vi.mock("../utils/debounce-results.ts", () => ({
 describe("LaunchpadMonitor - State Tracking", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		processes.length = 0;
+		processes = [];
+
+		ProcessManager.prototype.startProcess = vi.fn().mockImplementation((options) => {
+			const existingProcess = processes.find((proc) => proc.name === options.name);
+			if (existingProcess) {
+				return okAsync(existingProcess);
+			}
+
+			const newProcess: pm2.ProcessDescription = {
+				pm_id: processes.length,
+				pm2_env: {
+					status: "online",
+				} as any,
+				pid: 1000 + processes.length,
+				name: options.name || `app-${processes.length}`,
+			} as pm2.ProcessDescription;
+
+			processes.push(newProcess);
+			return okAsync(newProcess);
+		});
+
+		ProcessManager.prototype.stopProcess = vi.fn().mockImplementation((appName: string) => {
+			const procIndex = processes.findIndex((proc) => proc.name === appName);
+			if (procIndex === -1) {
+				return okAsync(undefined);
+			}
+
+			const [stoppedProcess] = processes.splice(procIndex, 1);
+			return okAsync(stoppedProcess);
+		});
+
+		ProcessManager.prototype.getProcesses = vi
+			.fn()
+			.mockImplementation(() => okAsync(processes.slice()));
 	});
 
 	describe("start - state updates", () => {
@@ -119,9 +120,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should update state with app status when app starts successfully", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// const mockProcess = createMockProcess("test-app", 12345, 0);
-			// vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(okAsync(mockProcess));
-
 			const result = await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 
 			expect(result).toBeOk();
@@ -132,18 +130,6 @@ describe("LaunchpadMonitor - State Tracking", () => {
 			expect(state.apps["test-app"]!.pid).toBe(1000);
 			expect(state.apps["test-app"]!.pm2Id).toBe(0);
 			expect(state.apps["test-app"]!.lastStart).toBeInstanceOf(Date);
-		});
-
-		it("should set correct pm2Id from process info", async () => {
-			const { monitor } = await createTestMonitor();
-
-			// const mockProcess = createMockProcess("test-app", 12345, 5);
-			// vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(okAsync(mockProcess));
-
-			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
-
-			const state = monitor.getState();
-			expect(state.apps["test-app"]!.pm2Id).toBe(0);
 		});
 
 		it("should mark app as errored when start fails", async () => {
@@ -157,25 +143,19 @@ describe("LaunchpadMonitor - State Tracking", () => {
 			expect(result).toBeErr();
 
 			const state = monitor.getState();
-			expect(state.apps["test-app"]!).toBeDefined();
 			expect(state.apps["test-app"]!.status).toBe("errored");
 			expect(state.apps["test-app"]!.lastError).toBeInstanceOf(Date);
 			expect(state.apps["test-app"]!.pid).toBeUndefined();
 		});
 
-		it("should track lastStart timestamp", async () => {
+		it("should track lastStart timestamp within expected range", async () => {
 			const { monitor } = await createTestMonitor();
-
-			// const mockProcess = createMockProcess("test-app");
-			// vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(okAsync(mockProcess));
 
 			const beforeStart = new Date();
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 			const afterStart = new Date();
 
-			const state = monitor.getState();
-			const lastStart = state.apps["test-app"]!.lastStart!;
-
+			const lastStart = monitor.getState().apps["test-app"]!.lastStart!;
 			expect(lastStart.getTime()).toBeGreaterThanOrEqual(beforeStart.getTime());
 			expect(lastStart.getTime()).toBeLessThanOrEqual(afterStart.getTime());
 		});
@@ -189,22 +169,13 @@ describe("LaunchpadMonitor - State Tracking", () => {
 				plugins: [mockPlugin],
 			});
 
-			// vi.mocked(ProcessManager.prototype.startProcess).mockImplementation((options) => {
-			// 	const appName = options.name!;
-			// 	const pid = appName === "app-1" ? 1001 : 1002;
-			// 	const pm2Id = appName === "app-1" ? 0 : 1;
-			// return okAsync(createMockProcess(appName, pid, pm2Id));
-			// });
-
 			const result = await monitor.executeCommand({ type: "monitor.start" });
 
 			expect(result).toBeOk();
 
 			const state = monitor.getState();
-			expect(state.apps["app-1"]!).toBeDefined();
 			expect(state.apps["app-1"]!.status).toBe("online");
 			expect(state.apps["app-1"]!.pid).toBe(1000);
-			expect(state.apps["app-2"]!).toBeDefined();
 			expect(state.apps["app-2"]!.status).toBe("online");
 			expect(state.apps["app-2"]!.pid).toBe(1001);
 		});
@@ -214,10 +185,9 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should update state when app stops", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// First start an app
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
+			expect(monitor.getState().apps["test-app"]!.pid).toBe(1000);
 
-			// Then stop it
 			const result = await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
 
 			expect(result).toBeOk();
@@ -228,38 +198,18 @@ describe("LaunchpadMonitor - State Tracking", () => {
 			expect(state.apps["test-app"]!.lastStop).toBeInstanceOf(Date);
 		});
 
-		it("should track lastStop timestamp", async () => {
+		it("should track lastStop timestamp within expected range", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// Start app first
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 
-			// Stop the app
 			const beforeStop = new Date();
 			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
 			const afterStop = new Date();
 
-			const state = monitor.getState();
-			const lastStop = state.apps["test-app"]!.lastStop!;
-
+			const lastStop = monitor.getState().apps["test-app"]!.lastStop!;
 			expect(lastStop.getTime()).toBeGreaterThanOrEqual(beforeStop.getTime());
 			expect(lastStop.getTime()).toBeLessThanOrEqual(afterStop.getTime());
-		});
-
-		it("should clear pid when app stops", async () => {
-			const { monitor } = await createTestMonitor();
-
-			// Start app
-			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
-
-			// Verify pid is set
-			expect(monitor.getState().apps["test-app"]!.pid).toBe(1000);
-
-			// Stop app
-			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
-
-			// Verify pid is cleared
-			expect(monitor.getState().apps["test-app"]!.pid).toBeUndefined();
 		});
 
 		it("should handle stopping app that was never started", async () => {
@@ -279,10 +229,8 @@ describe("LaunchpadMonitor - State Tracking", () => {
 				plugins: [mockPlugin],
 			});
 
-			// Start both apps
 			await monitor.executeCommand({ type: "monitor.start" });
 
-			// Stop both apps
 			const result = await monitor.executeCommand({ type: "monitor.stop" });
 
 			expect(result).toBeOk();
@@ -299,16 +247,12 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should preserve app state through start-stop cycles", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// Start
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
-			const stateAfterStart = monitor.getState();
-			const lastStartTime = stateAfterStart.apps["test-app"]!.lastStart;
+			const lastStartTime = monitor.getState().apps["test-app"]!.lastStart;
 
-			// Stop
 			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
 			const stateAfterStop = monitor.getState();
 
-			// Verify previous timestamps are preserved
 			expect(stateAfterStop.apps["test-app"]!.lastStart).toEqual(lastStartTime);
 			expect(stateAfterStop.apps["test-app"]!.lastStop).toBeInstanceOf(Date);
 		});
@@ -316,74 +260,44 @@ describe("LaunchpadMonitor - State Tracking", () => {
 		it("should update lastStart on restart", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// Start
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 			const firstLastStart = monitor.getState().apps["test-app"]!.lastStart;
 			expect(firstLastStart).toBeInstanceOf(Date);
 
-			// Stop
 			await monitor.executeCommand({ type: "monitor.stop", appNames: "test-app" });
-
-			// Restart - should create a new lastStart timestamp
 			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
 			const secondLastStart = monitor.getState().apps["test-app"]!.lastStart;
 
-			// Verify lastStart is a Date instance (it will be updated on restart)
 			expect(secondLastStart).toBeInstanceOf(Date);
-			expect(firstLastStart).toBeDefined();
-			expect(secondLastStart).toBeDefined();
 		});
 	});
 
 	describe("error state tracking", () => {
-		it("should handle start failure and update error state", async () => {
+		it("should update error state and track lastError timestamp on start failure", async () => {
 			const { monitor } = await createTestMonitor();
 
-			// Simulate start failure
 			const testError = new Error("Failed to start app");
 			vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(errAsync(testError));
 
+			const beforeError = new Date();
 			const result = await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
+			const afterError = new Date();
 
 			expect(result).toBeErr();
 
 			const state = monitor.getState();
 			expect(state.apps["test-app"]!.status).toBe("errored");
-			expect(state.apps["test-app"]!.lastError).toBeInstanceOf(Date);
 			expect(state.apps["test-app"]!.pid).toBeUndefined();
-		});
 
-		it("should track lastError timestamp", async () => {
-			const { monitor } = await createTestMonitor();
-
-			const testError = new Error("Start failed");
-			vi.mocked(ProcessManager.prototype.startProcess).mockReturnValueOnce(errAsync(testError));
-
-			const beforeError = new Date();
-			await monitor.executeCommand({ type: "monitor.start", appNames: "test-app" });
-			const afterError = new Date();
-
-			const state = monitor.getState();
 			const lastError = state.apps["test-app"]!.lastError!;
-
+			expect(lastError).toBeInstanceOf(Date);
 			expect(lastError.getTime()).toBeGreaterThanOrEqual(beforeError.getTime());
 			expect(lastError.getTime()).toBeLessThanOrEqual(afterError.getTime());
 		});
 	});
 
 	describe("getState", () => {
-		it("should return the current monitor state", async () => {
-			const { monitor } = await createTestMonitor();
-
-			const state = monitor.getState();
-
-			expect(state).toHaveProperty("isConnected");
-			expect(state).toHaveProperty("isShuttingDown");
-			expect(state).toHaveProperty("apps");
-			expect(typeof state.apps).toBe("object");
-		});
-
-		it("should reflect all apps in state", async () => {
+		it("should reflect state shape and all configured apps", async () => {
 			const { monitor } = await createTestMonitor({
 				apps: [
 					{ pm2: { name: "app-1", script: "app1.js" } },
@@ -393,17 +307,15 @@ describe("LaunchpadMonitor - State Tracking", () => {
 				plugins: [mockPlugin],
 			});
 
-			// const mockProcess = (appName: string) => createMockProcess(appName);
-			// vi.mocked(ProcessManager.prototype.startProcess).mockImplementation((options) =>
-			// 	okAsync(mockProcess(options.name!)),
-			// );
-
 			await monitor.executeCommand({ type: "monitor.start" });
 
 			const state = monitor.getState();
+			expect(state).toHaveProperty("isConnected");
+			expect(state).toHaveProperty("isShuttingDown");
+			expect(state).toHaveProperty("apps");
 			expect(Object.keys(state.apps)).toHaveLength(3);
-			expect(state.apps["app-1"]!).toBeDefined();
-			expect(state.apps["app-2"]!).toBeDefined();
+			expect(state.apps["app-1"]).toBeDefined();
+			expect(state.apps["app-2"]).toBeDefined();
 			expect(state.apps["app-3"]).toBeDefined();
 		});
 	});

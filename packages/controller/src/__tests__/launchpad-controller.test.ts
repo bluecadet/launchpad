@@ -26,6 +26,10 @@ describe("LaunchpadController", () => {
 		);
 	}
 
+	function makeSubsystem(name: string, inner: InstantiatedSubsystem = {}) {
+		return defineSubsystem({ name, setup: () => okAsync(inner) });
+	}
+
 	describe("constructor", () => {
 		it("should create controller in task mode by default", () => {
 			const controller = createController("task");
@@ -33,17 +37,11 @@ describe("LaunchpadController", () => {
 			expect(controller.getMode()).toBe("task");
 		});
 
-		it("should create controller in specified mode", () => {
+		it("should create controller in specified mode and reflect it in state", () => {
 			const controller = createController("persistent");
 
 			expect(controller.getMode()).toBe("persistent");
-		});
-
-		it("should initialize state with correct mode", () => {
-			const controller = createController("persistent");
-			const state = controller.getState();
-
-			expect(state.system.mode).toBe("persistent");
+			expect(controller.getState().system.mode).toBe("persistent");
 		});
 
 		it("should not be started after construction", () => {
@@ -54,17 +52,11 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("registerSubsystem", () => {
-		it("should register a subsystem", async () => {
+		it("should register a subsystem and make it accessible", async () => {
 			const controller = createController("task");
-
 			const subsystemInner: InstantiatedSubsystem = {};
 
-			const subsystem = defineSubsystem({
-				name: "test",
-				setup: () => okAsync(subsystemInner),
-			});
-
-			const _result = await controller.registerSubsystem(subsystem);
+			await controller.registerSubsystem(makeSubsystem("test", subsystemInner));
 
 			expect(controller.hasSubsystem("test")).toBe(true);
 			expect(controller.getSubsystem("test")).toBe(subsystemInner);
@@ -73,86 +65,29 @@ describe("LaunchpadController", () => {
 		it("should allow registering multiple subsystems", async () => {
 			const controller = createController();
 
-			const subsystem1 = defineSubsystem({
-				name: "content",
-				setup: () => okAsync({}),
-			});
-			const subsystem2 = defineSubsystem({
-				name: "monitor",
-				setup: () => okAsync({}),
-			});
-
-			await controller.registerSubsystem(subsystem1);
-			await controller.registerSubsystem(subsystem2);
+			await controller.registerSubsystem(makeSubsystem("content"));
+			await controller.registerSubsystem(makeSubsystem("monitor"));
 
 			expect(controller.hasSubsystem("content")).toBe(true);
 			expect(controller.hasSubsystem("monitor")).toBe(true);
-		});
-	});
-
-	describe("getSubsystem", () => {
-		it("should return registered subsystem", async () => {
-			const controller = createController();
-
-			const subsystemInner: InstantiatedSubsystem = {};
-
-			const subsystem = defineSubsystem({
-				name: "test",
-				setup: () => okAsync(subsystemInner),
-			});
-
-			await controller.registerSubsystem(subsystem);
-
-			expect(controller.getSubsystem("test")).toBe(subsystemInner);
 		});
 
 		it("should return undefined for non-existent subsystem", () => {
 			const controller = createController();
 
 			expect(controller.getSubsystem("non-existent")).toBeUndefined();
-		});
-	});
-
-	describe("hasSubsystem", () => {
-		it("should return true for registered subsystem", async () => {
-			const controller = createController();
-			const subsystem = defineSubsystem({
-				name: "test",
-				setup: () => okAsync({}),
-			});
-
-			await controller.registerSubsystem(subsystem);
-
-			expect(controller.hasSubsystem("test")).toBe(true);
-		});
-
-		it("should return false for non-existent subsystem", () => {
-			const controller = createController();
-
 			expect(controller.hasSubsystem("non-existent")).toBe(false);
 		});
 	});
 
 	describe("getSubsystemNames", () => {
-		it("should return array of subsystem names", async () => {
+		it("should return array of registered subsystem names", async () => {
 			const controller = createController();
 
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "content",
-					setup: () => okAsync({}),
-				}),
-			);
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "monitor",
-					setup: () => okAsync({}),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("content"));
+			await controller.registerSubsystem(makeSubsystem("monitor"));
 
-			const names = controller.getSubsystemNames();
-
-			expect(names).toEqual(["content", "monitor"]);
+			expect(controller.getSubsystemNames()).toEqual(["content", "monitor"]);
 		});
 
 		it("should return empty array when no subsystems registered", () => {
@@ -186,16 +121,10 @@ describe("LaunchpadController", () => {
 		it("should initialize command dispatcher", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync({ executeCommand }),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("test", { executeCommand }));
 
 			await controller.start();
 
-			// Should be able to execute commands after start
 			const command: BaseCommand = { type: "test.command" };
 			const result = await controller.executeCommand(command);
 
@@ -205,14 +134,18 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("stop", () => {
-		it("should stop the controller", async () => {
+		it("should stop the controller and abort its signal", async () => {
 			const controller = createController();
 			await controller.start();
+
+			const signal = controller.getAbortSignal();
+			expect(signal.aborted).toBe(false);
 
 			const result = await controller.stop();
 
 			expect(result.isOk()).toBe(true);
 			expect(controller.isStarted()).toBe(false);
+			expect(signal.aborted).toBe(true);
 		});
 
 		it("should be idempotent - multiple stops should succeed", async () => {
@@ -230,12 +163,7 @@ describe("LaunchpadController", () => {
 		it("should disconnect subsystems that implement Disconnectable", async () => {
 			const controller = createController();
 			const disconnect = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync({ disconnect }),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("test", { disconnect }));
 
 			await controller.start();
 			await controller.stop();
@@ -245,43 +173,20 @@ describe("LaunchpadController", () => {
 
 		it("should skip disconnecting subsystems without disconnect method", async () => {
 			const controller = createController();
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync({}),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("test"));
 
 			await controller.start();
 
-			// Should not throw
 			const result = await controller.stop();
 			expect(result.isOk()).toBe(true);
-		});
-
-		it("should abort pending operations", async () => {
-			const controller = createController();
-			await controller.start();
-
-			const signal = controller.getAbortSignal();
-			expect(signal.aborted).toBe(false);
-
-			await controller.stop();
-
-			expect(signal.aborted).toBe(true);
 		});
 	});
 
 	describe("executeCommand", () => {
-		it("should execute command through dispatcher", async () => {
+		it("should execute command through dispatcher and return result", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("result"));
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync({ executeCommand }),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("test", { executeCommand }));
 
 			await controller.start();
 
@@ -295,41 +200,11 @@ describe("LaunchpadController", () => {
 
 		it("should throw error when controller not started", () => {
 			const controller = createController();
-
 			const command: BaseCommand = { type: "test.command" };
 
 			expect(() => controller.executeCommand(command)).toThrow(
 				"Controller must be started before executing commands",
 			);
-		});
-
-		it("should pass through command execution errors", async () => {
-			const controller = createController();
-			const _error = new Error("Command failed");
-			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync({ executeCommand }),
-				}),
-			);
-
-			await controller.start();
-
-			const command: BaseCommand = { type: "test.command" };
-			await controller.executeCommand(command);
-
-			expect(executeCommand).toHaveBeenCalled();
-		});
-	});
-
-	describe("getMode", () => {
-		it("should return current mode", () => {
-			const controller1 = createController("task");
-			const controller2 = createController("persistent");
-
-			expect(controller1.getMode()).toBe("task");
-			expect(controller2.getMode()).toBe("persistent");
 		});
 	});
 
@@ -339,12 +214,7 @@ describe("LaunchpadController", () => {
 			const subsystem: InstantiatedSubsystem = {
 				getState: () => ({ value: "test-state" }),
 			};
-			await controller.registerSubsystem(
-				defineSubsystem({
-					name: "test",
-					setup: () => okAsync(subsystem),
-				}),
-			);
+			await controller.registerSubsystem(makeSubsystem("test", subsystem));
 
 			const state = controller.getState();
 
@@ -367,7 +237,7 @@ describe("LaunchpadController", () => {
 	});
 
 	describe("getAbortSignal", () => {
-		it("should return AbortSignal for controller lifecycle", () => {
+		it("should return a non-aborted AbortSignal before stop", () => {
 			const controller = createController();
 
 			const signal = controller.getAbortSignal();
@@ -375,41 +245,24 @@ describe("LaunchpadController", () => {
 			expect(signal).toBeInstanceOf(AbortSignal);
 			expect(signal.aborted).toBe(false);
 		});
-
-		it("should abort signal when controller stops", async () => {
-			const controller = createController();
-			const signal = controller.getAbortSignal();
-
-			await controller.start();
-			await controller.stop();
-
-			expect(signal.aborted).toBe(true);
-		});
 	});
 
 	describe("integration", () => {
 		it("should coordinate multiple subsystems through controller", async () => {
 			const controller = createController();
 
-			// Setup subsystems
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-done"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-done"));
 
-			const contentSubsystem = defineSubsystem({
-				name: "content",
-				setup: () => okAsync({ executeCommand: contentExecute }),
-			});
-			const monitorSubsystem = defineSubsystem({
-				name: "monitor",
-				setup: () => okAsync({ executeCommand: monitorExecute }),
-			});
-
-			await controller.registerSubsystem(contentSubsystem);
-			await controller.registerSubsystem(monitorSubsystem);
+			await controller.registerSubsystem(
+				makeSubsystem("content", { executeCommand: contentExecute }),
+			);
+			await controller.registerSubsystem(
+				makeSubsystem("monitor", { executeCommand: monitorExecute }),
+			);
 
 			await controller.start();
 
-			// Execute commands
 			await controller.executeCommand({ type: "content.fetch" });
 			await controller.executeCommand({ type: "monitor.connect" });
 
@@ -425,34 +278,23 @@ describe("LaunchpadController", () => {
 			eventBus.onAny((event) => events.push(event));
 
 			const contentState = { isFetching: false };
-			const monitorState = { isConnected: false };
 
-			const contentSubsystem = defineSubsystem({
-				name: "content",
-				setup: () =>
-					okAsync({
-						executeCommand: () => {
-							contentState.isFetching = true;
-							return okAsync(undefined);
-						},
-						getState: () => contentState,
-					}),
-			});
+			await controller.registerSubsystem(
+				makeSubsystem("content", {
+					executeCommand: () => {
+						contentState.isFetching = true;
+						return okAsync(undefined);
+					},
+					getState: () => contentState,
+				}),
+			);
 
-			const monitorSubsystem = defineSubsystem({
-				name: "monitor",
-				setup: () =>
-					okAsync({
-						executeCommand: () => {
-							monitorState.isConnected = true;
-							return okAsync(undefined);
-						},
-						getState: () => monitorState,
-					}),
-			});
-
-			await controller.registerSubsystem(contentSubsystem);
-			await controller.registerSubsystem(monitorSubsystem);
+			await controller.registerSubsystem(
+				makeSubsystem("monitor", {
+					executeCommand: () => okAsync(undefined),
+					getState: () => ({ isConnected: false }),
+				}),
+			);
 
 			await controller.start();
 

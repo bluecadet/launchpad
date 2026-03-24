@@ -12,8 +12,8 @@ describe("mdToHtml plugin", () => {
 			Promise.resolve({ content: "# Hello\n\nThis is **bold** and *italic*." }),
 		);
 
-		const plugin = mdToHtml({ path: "$.content" });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = mdToHtml({ path: "$.content" });
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).content).toBe(
@@ -26,8 +26,8 @@ describe("mdToHtml plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: "This is **bold** and *italic*." }));
 
-		const plugin = mdToHtml({ path: "$.content", simplified: true });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = mdToHtml({ path: "$.content", simplified: true });
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).content).toBe("This is <b>bold</b> and <i>italic</i>.");
@@ -40,8 +40,8 @@ describe("mdToHtml plugin", () => {
 		const namespaceSkip = (await ctx.data.createNamespace("skip"))._unsafeUnwrap();
 		await namespaceSkip.insert("doc2", Promise.resolve({ content: "# Hello" }));
 
-		const plugin = mdToHtml({ path: "$.content", keys: ["test"] });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = mdToHtml({ path: "$.content", keys: ["test"] });
+		await transform.apply(ctx);
 
 		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
@@ -58,8 +58,8 @@ describe("mdToHtml plugin", () => {
 			Promise.resolve({ content: 'Hello <script>alert("xss")</script>' }),
 		);
 
-		const plugin = mdToHtml({ path: "$.content" });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = mdToHtml({ path: "$.content" });
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).content).not.toContain("<script>");
@@ -70,9 +70,7 @@ describe("mdToHtml plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: { foo: "bar" } }));
 
-		const plugin = mdToHtml({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
-			"Error applying content transform",
-		);
+		const transform = mdToHtml({ path: "$.content" });
+		await expect(transform.apply(ctx)).rejects.toThrow("Error applying content transform");
 	});
 });

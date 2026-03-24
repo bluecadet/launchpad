@@ -49,7 +49,7 @@ describe("Content Integration", () => {
 						},
 					}),
 				],
-				plugins: [
+				transforms: [
 					mdToHtml({ path: "$.content" }),
 					mediaDownloader({
 						mediaPattern: /\.jpg$/,
@@ -135,7 +135,7 @@ describe("Content Integration", () => {
 						mergePages: true,
 					}),
 				],
-				plugins: [sanityToHtml({ path: "$..content" })],
+				transforms: [sanityToHtml({ path: "$..content" })],
 			}).setup(createMockSubsystemCtx());
 
 			const result = await content._unsafeUnwrap().executeCommand({
@@ -195,7 +195,7 @@ describe("Content Integration", () => {
 						},
 					}),
 				],
-				plugins: [
+				transforms: [
 					mediaDownloader({
 						mediaPattern: /\.jpg$/,
 						maxConcurrent: 1, // Force sequential downloads to test deduplication
@@ -287,7 +287,7 @@ describe("Content Integration", () => {
 						},
 					}),
 				],
-				plugins: [
+				transforms: [
 					sanityToHtml({ path: "$..content" }), // This should fail on invalid content
 				],
 			}).setup(createMockSubsystemCtx());

@@ -6,10 +6,10 @@ import type {
 	SanityReference,
 } from "@sanity/image-url/lib/types/types.js";
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { parseTransformConfig } from "./content-transform-helpers.js";
 
 const sanityImageUrlTransformSchema = z.object({
 	/** JSONPath to the content to transform. Defaults to all nodes with an `_type` of `image`. */
@@ -49,46 +49,44 @@ function tryImportSanityImage() {
 export default function sanityImageUrlTransform(
 	options: z.input<typeof sanityImageUrlTransformSchema>,
 ) {
-	const { path, keys, newProperty, buildUrl, ...rest } = parsePluginConfig(
+	const { path, keys, newProperty, buildUrl, ...rest } = parseTransformConfig(
 		"sanityToHtml",
 		sanityImageUrlTransformSchema,
 		options,
 	);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "sanity-to-html",
-		hooks: {
-			async onContentFetchDone(ctx) {
-				const { default: imageUrlBuilder } = await tryImportSanityImage();
+		async apply(ctx) {
+			const { default: imageUrlBuilder } = await tryImportSanityImage();
 
-				const builder = imageUrlBuilder(rest);
+			const builder = imageUrlBuilder(rest);
 
-				let transformCount = 0;
+			let transformCount = 0;
 
-				ctx.logger.info("Transforming URLs using Sanity Image URL Transform...");
+			ctx.logger.info("Transforming URLs using Sanity Image URL Transform...");
 
-				await applyTransformToFiles({
-					dataStore: ctx.data,
-					path,
-					keys,
-					logger: ctx.logger,
-					transformFn: (content) => {
-						if (!isValidImageObject(content)) {
-							throw new Error(`Invalid image object: ${JSON.stringify(content)}`);
-						}
+			await applyTransformToFiles({
+				dataStore: ctx.data,
+				path,
+				keys,
+				logger: ctx.logger,
+				transformFn: (content) => {
+					if (!isValidImageObject(content)) {
+						throw new Error(`Invalid image object: ${JSON.stringify(content)}`);
+					}
 
-						const transformedUrl = buildUrl(builder.image(content)).url();
-						transformCount++;
+					const transformedUrl = buildUrl(builder.image(content)).url();
+					transformCount++;
 
-						return {
-							...content,
-							[newProperty]: transformedUrl,
-						};
-					},
-				});
+					return {
+						...content,
+						[newProperty]: transformedUrl,
+					};
+				},
+			});
 
-				ctx.logger.info(`Transformed ${transformCount} URLs.`);
-			},
+			ctx.logger.info(`Transformed ${transformCount} URLs.`);
 		},
 	});
 }

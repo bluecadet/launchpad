@@ -6,15 +6,15 @@ import { ResultAsync } from "neverthrow";
 import type { z } from "zod";
 import { DataStoreError, type Document } from "../utils/data-store.js";
 
-export class ContentPluginError extends Error {
+export class ContentTransformError extends Error {
 	constructor(pluginName: string, message: string, cause?: Error) {
 		const newMessage = `Error in content plugin "${pluginName}": ${message}`;
 		super(newMessage, { cause });
-		this.name = "ContentPluginError";
+		this.name = "ContentTransformError";
 	}
 }
 
-export function parsePluginConfig<T extends z.ZodTypeAny>(
+export function parseTransformConfig<T extends z.ZodTypeAny>(
 	pluginName: string,
 	schema: T,
 	input: unknown,
@@ -22,7 +22,7 @@ export function parsePluginConfig<T extends z.ZodTypeAny>(
 	try {
 		return schema.parse(input);
 	} catch (err) {
-		throw new ContentPluginError(pluginName, "unable to parse config", err as Error);
+		throw new ContentTransformError(pluginName, "unable to parse config", err as Error);
 	}
 }
 
@@ -36,7 +36,7 @@ export function queryOrUpdate<T>({
 	queryJsonPath: string;
 	callback: (value: unknown) => T | Promise<T>;
 	update: boolean;
-}): ResultAsync<T[], DataStoreError | ContentPluginError> {
+}): ResultAsync<T[], DataStoreError | ContentTransformError> {
 	const documentArray = Array.from(documents);
 
 	if (update) {

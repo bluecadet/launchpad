@@ -337,12 +337,12 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const plugin = mediaDownloader({
+			const transform = mediaDownloader({
 				maxConcurrent: 2,
 				mediaPattern: /\.jpg$/i,
 			});
 
-			await plugin.hooks.onContentFetchDone!(ctx);
+			await transform.apply(ctx);
 
 			// Check all files were downloaded
 			const expectedFiles = ["1.jpg", "2.jpg", "3.jpg"];
@@ -372,12 +372,12 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const plugin = mediaDownloader({
+			const transform = mediaDownloader({
 				abortOnError: false,
 				mediaPattern: /\.jpg$/i,
 			});
 
-			await plugin.hooks.onContentFetchDone!(ctx);
+			await transform.apply(ctx);
 
 			// Success file should exist
 			const successPath = path.resolve(ctx.paths.getDownloadPath(), "test", "success.jpg");

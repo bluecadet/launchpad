@@ -26,6 +26,10 @@ export type ContentTransformContext = {
 	 * the runTransformsStage loop. The event bus is provided for TTY progress (log:tty) only.
 	 */
 	eventBus: EventBus;
+	/** Abort signal for the current run. */
+	abortSignal: AbortSignal;
+	/** Working directory for the current run. */
+	cwd: string;
 };
 
 export type ContentTransform = {

@@ -29,13 +29,13 @@ describe("sharp", () => {
 				}),
 			);
 
-			const plugin = sharp({
-				buildTransform: (transform: Sharp.Sharp) => transform.resize(100, 100),
+			const transform = sharp({
+				buildTransform: (t: Sharp.Sharp) => t.resize(100, 100),
 				updateURLs: true,
 			});
 
 			// First run - should transform image
-			await plugin.hooks.onContentFetchDone!(ctx);
+			await transform.apply(ctx);
 
 			// Check transformed file exists
 			const transformedPath = "/download/test/image@100x100-crop.jpg";
@@ -63,13 +63,13 @@ describe("sharp", () => {
 			await sharp({
 				buildTransform: (t) => t.resize(100, 100),
 				updateURLs: false,
-			}).hooks.onContentFetchDone!(ctx);
+			}).apply(ctx);
 
 			// Second transform - grayscale
 			await sharp({
 				buildTransform: (t) => t.grayscale(),
 				updateURLs: false,
-			}).hooks.onContentFetchDone!(ctx);
+			}).apply(ctx);
 
 			expect(vol.existsSync("/download/test/image@100x100-crop.jpg")).toBe(true);
 			expect(vol.existsSync("/download/test/image@greyscale.jpg")).toBe(true);
@@ -85,11 +85,11 @@ describe("sharp", () => {
 				}),
 			);
 
-			const plugin = sharp({
+			const transform = sharp({
 				buildTransform: (t) => t.resize(100, 100),
 			});
 
-			await expect(plugin.hooks.onContentFetchDone!(ctx)).rejects.toThrow(
+			await expect(transform.apply(ctx)).rejects.toThrow(
 				`Input file '${path.resolve("/download/test/nonexistent.jpg")}' does not exist`,
 			);
 		});
@@ -108,12 +108,12 @@ describe("sharp", () => {
 				}),
 			);
 
-			const plugin = sharp({
+			const transform = sharp({
 				mediaPattern: /\.png$/,
 				buildTransform: (t) => t.resize(100, 100),
 			});
 
-			await plugin.hooks.onContentFetchDone!(ctx);
+			await transform.apply(ctx);
 
 			expect(vol.existsSync("/download/test/image@100x100-crop.png")).toBe(true);
 			expect(vol.existsSync("/download/test/image@100x100-crop.jpg")).toBe(false);

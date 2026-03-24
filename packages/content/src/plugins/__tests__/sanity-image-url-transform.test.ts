@@ -41,12 +41,12 @@ describe("sanityImageUrlTransform plugin", () => {
 			Promise.resolve({ someContent: { image: validImageReference } }),
 		);
 
-		const plugin = sanityImageUrlTransform({
+		const transform = sanityImageUrlTransform({
 			projectId: "test-project",
 			buildUrl: (builder: ImageUrlBuilder) => builder.width(100),
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 
@@ -60,12 +60,12 @@ describe("sanityImageUrlTransform plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ someContent: { image: validImageAsset } }));
 
-		const plugin = sanityImageUrlTransform({
+		const transform = sanityImageUrlTransform({
 			projectId: "test-project",
 			buildUrl: (builder: ImageUrlBuilder) => builder.width(100),
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		const expected = `${BASE_TRANSFORMED_URL}?w=100`;
@@ -87,13 +87,13 @@ describe("sanityImageUrlTransform plugin", () => {
 			Promise.resolve({ someContent: { image: validImageObject } }),
 		);
 
-		const plugin = sanityImageUrlTransform({
+		const transform = sanityImageUrlTransform({
 			projectId: "test-project",
 			keys: ["test"],
 			buildUrl: (builder: ImageUrlBuilder) => builder.width(100),
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
@@ -110,13 +110,13 @@ describe("sanityImageUrlTransform plugin", () => {
 			Promise.resolve({ someContent: { image: validImageWithAssetStub } }),
 		);
 
-		const plugin = sanityImageUrlTransform({
+		const transform = sanityImageUrlTransform({
 			projectId: "test-project",
 			newProperty: "cdnUrl",
 			buildUrl: (builder: ImageUrlBuilder) => builder.width(100),
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).someContent.image.cdnUrl).toBeDefined();
@@ -128,12 +128,12 @@ describe("sanityImageUrlTransform plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ someContent: { image: { _type: "image" } } }));
 
-		const plugin = sanityImageUrlTransform({
+		const transform = sanityImageUrlTransform({
 			projectId: "test-project",
 			buildUrl: (builder: ImageUrlBuilder) => builder.width(100),
 		});
 
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
+		await expect(transform.apply(ctx)).rejects.toThrow(
 			"Error applying content transform to document doc1",
 		);
 	});

@@ -3,7 +3,8 @@ import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testi
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { vol } from "memfs";
 import { afterEach, vi } from "vitest";
-import { type ContentConfig, contentConfigSchema } from "../../content-config.js";
+import { contentConfigSchema } from "../../content-config.js";
+import type { ContentTransformContext } from "../../content-transform.js";
 import { DataStore } from "../../utils/data-store.js";
 
 afterEach(() => {
@@ -14,13 +15,11 @@ afterEach(() => {
  * Creates a test context with a DataStore and logger
  */
 export async function createTestPluginContext({
-	baseOptions = {},
 	logger = createMockLogger(),
 }: {
 	namespaces?: string[];
-	baseOptions?: ContentConfig;
 	logger?: Logger;
-} = {}) {
+} = {}): Promise<ContentTransformContext> {
 	const data = new DataStore("/");
 
 	return {
@@ -40,6 +39,6 @@ export async function createTestPluginContext({
 				.fn()
 				.mockImplementation((sourceId?: string) => path.resolve("backup", sourceId || "")),
 		},
-		contentOptions: await contentConfigSchema.parseAsync(baseOptions),
+		contentOptions: await contentConfigSchema.parseAsync({}),
 	};
 }

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { parseTransformConfig } from "./content-transform-helpers.js";
 
 const sanityToPlainSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -12,33 +12,31 @@ const sanityToPlainSchema = z.object({
 });
 
 export default function sanityToPlain(options: z.input<typeof sanityToPlainSchema>) {
-	const { path, keys } = parsePluginConfig("sanityToPlain", sanityToPlainSchema, options);
+	const { path, keys } = parseTransformConfig("sanityToPlain", sanityToPlainSchema, options);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "sanity-to-plain",
-		hooks: {
-			async onContentFetchDone(ctx) {
-				let transformCount = 0;
-				ctx.logger.info("Transforming sanity blocks to plain text...");
+		async apply(ctx) {
+			let transformCount = 0;
+			ctx.logger.info("Transforming sanity blocks to plain text...");
 
-				await applyTransformToFiles({
-					dataStore: ctx.data,
-					path,
-					keys,
-					logger: ctx.logger,
-					transformFn: (content) => {
-						if (!isBlockWithChildren(content)) {
-							throw new Error(`Content is not a valid Sanity text block: ${content}`);
-						}
+			await applyTransformToFiles({
+				dataStore: ctx.data,
+				path,
+				keys,
+				logger: ctx.logger,
+				transformFn: (content) => {
+					if (!isBlockWithChildren(content)) {
+						throw new Error(`Content is not a valid Sanity text block: ${content}`);
+					}
 
-						transformCount++;
+					transformCount++;
 
-						return content.children.map((child) => child.text).join("");
-					},
-				});
+					return content.children.map((child) => child.text).join("");
+				},
+			});
 
-				ctx.logger.info(`Transformed ${transformCount} Sanity blocks to plain text.`);
-			},
+			ctx.logger.info(`Transformed ${transformCount} Sanity blocks to plain text.`);
 		},
 	});
 }

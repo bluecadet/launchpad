@@ -112,6 +112,11 @@ export interface SubsystemConfig<
 	 */
 	name: string;
 	/**
+	 * Optional commands to dispatch after this subsystem is registered during startup.
+	 * The controller will dispatch these in order after all subsystems are registered.
+	 */
+	startupCommands?: BaseCommand[];
+	/**
 	 * Initialize a subsystem instance with the provided context.
 	 * This is called once during subsystem registration.
 	 *

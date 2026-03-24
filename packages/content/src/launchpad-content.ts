@@ -1,5 +1,4 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import { PluginDriver } from "@bluecadet/launchpad-utils/plugin-driver";
 import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import {
 	defineSubsystem,
@@ -12,18 +11,17 @@ import {
 	parseContentConfig,
 	type ResolvedContentConfig,
 } from "./content-config.js";
-import { ContentError, ContentPluginDriver } from "./content-plugin.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
+import { ContentError } from "./content-transform.js";
 import {
 	backupStage,
 	cleanupStage,
 	clearOldDataStage,
-	doneHooksStage,
 	errorRecoveryStage,
 	type FetchStageContext,
 	fetchSourcesStage,
 	finalizingStage,
-	setupHooksStage,
+	runTransformsStage,
 } from "./fetching/fetch-stages.js";
 import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
@@ -65,17 +63,9 @@ function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsy
 	// Instantiate data store only when fetch is called
 	const dataStore = new DataStore(ctx.resolvedConfig.downloadPath);
 	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
-	const basePluginDriver = new PluginDriver(ctx);
-	const pluginDriver = new ContentPluginDriver(basePluginDriver, {
-		dataStore: dataStore,
-		options: ctx.resolvedConfig,
-		eventBus: ctx.eventBus,
-		paths,
-	});
-	pluginDriver.add(ctx.resolvedConfig.plugins);
 
 	const context: FetchStageContext = {
-		pluginDriver,
+		transforms: ctx.resolvedConfig.transforms,
 		dataStore,
 		logger: ctx.logger,
 		eventBus: ctx.eventBus,
@@ -91,16 +81,14 @@ function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsy
 		ctx.stateManager.markSourceFetching(source.id);
 	}
 
-	ctx.stateManager.setPhase({ phase: "running-setup-hooks" });
-
-	return setupHooksStage(context)
-		.andThen((val) => {
-			if (ctx.resolvedConfig.backupAndRestore) {
-				ctx.stateManager.setPhase({ phase: "backing-up" });
-				return backupStage(context);
-			}
-			return ok(val);
-		})
+	return (
+		ctx.resolvedConfig.backupAndRestore
+			? (() => {
+					ctx.stateManager.setPhase({ phase: "backing-up" });
+					return backupStage(context);
+				})()
+			: okAsync(undefined)
+	)
 		.andThen(() => {
 			ctx.stateManager.setPhase({ phase: "clearing-old-data" });
 			return clearOldDataStage(context);
@@ -110,8 +98,8 @@ function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsy
 			return fetchSourcesStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "running-done-hooks" });
-			return doneHooksStage(context);
+			ctx.stateManager.setPhase({ phase: "running-transforms" });
+			return runTransformsStage(context);
 		})
 		.andThen(() => {
 			ctx.stateManager.setPhase({ phase: "finalizing", restored: false });

@@ -2,7 +2,7 @@ import path from "node:path";
 import { createMockSubsystemCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ContentError, type ContentPlugin } from "../content-plugin.js";
+import { ContentError, type ContentTransform } from "../content-transform.js";
 import { createLaunchpadContent } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
 
@@ -12,7 +12,7 @@ describe("LaunchpadContent", () => {
 		vi.clearAllMocks();
 	});
 
-	const createBasicConfig = (plugins: ContentPlugin[] = []) => {
+	const createBasicConfig = (transforms: ContentTransform[] = []) => {
 		return {
 			downloadPath: "downloads",
 			tempPath: "temp",
@@ -32,7 +32,7 @@ describe("LaunchpadContent", () => {
 					},
 				}),
 			],
-			plugins,
+			transforms,
 		};
 	};
 
@@ -101,63 +101,47 @@ describe("LaunchpadContent", () => {
 		});
 	});
 
-	describe("plugin system", () => {
-		it("should run plugins in correct order", async () => {
+	describe("transform system", () => {
+		it("should run transforms in order", async () => {
 			const order: string[] = [];
 
-			const plugin1 = {
-				name: "plugin1",
-				hooks: {
-					onContentFetchSetup: () => {
-						order.push("plugin1:setup");
-					},
-					onContentFetchDone: () => {
-						order.push("plugin1:done");
-					},
+			const transform1: ContentTransform = {
+				name: "transform1",
+				apply: async () => {
+					order.push("t1");
 				},
 			};
-			const plugin2 = {
-				name: "plugin2",
-				hooks: {
-					onContentFetchSetup: () => {
-						order.push("plugin2:setup");
-					},
-					onContentFetchDone: () => {
-						order.push("plugin2:done");
-					},
+			const transform2: ContentTransform = {
+				name: "transform2",
+				apply: async () => {
+					order.push("t2");
 				},
 			};
 
-			const factory = createLaunchpadContent(createBasicConfig([plugin1, plugin2]));
+			const factory = createLaunchpadContent(createBasicConfig([transform1, transform2]));
 			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
-				type: "content.fetch",
-			});
+			await content.executeCommand({ type: "content.fetch" });
 
-			expect(order).toEqual(["plugin1:setup", "plugin2:setup", "plugin1:done", "plugin2:done"]);
+			expect(order).toEqual(["t1", "t2"]);
 		});
 
-		it("should handle plugin errors", async () => {
-			const errorPlugin = {
-				name: "error-plugin",
-				hooks: {
-					onContentFetchDone: () => {
-						throw new Error("this is a error");
-					},
+		it("should handle transform errors", async () => {
+			const errorTransform: ContentTransform = {
+				name: "error-transform",
+				apply: async () => {
+					throw new Error("transform failed");
 				},
 			};
 
-			const factory = createLaunchpadContent(createBasicConfig([errorPlugin]));
+			const factory = createLaunchpadContent(createBasicConfig([errorTransform]));
 			const contentResult = await factory.setup(createMockSubsystemCtx());
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
-				type: "content.fetch",
-			});
+			const result = await content.executeCommand({ type: "content.fetch" });
 
 			expect(result).toBeErr();
 			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);

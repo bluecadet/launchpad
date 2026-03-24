@@ -56,18 +56,18 @@ declare module "@bluecadet/launchpad-utils/types" {
 			error: Error;
 		};
 
-		// Plugin events
-		"content:plugin:start": {
-			pluginName: string;
+		// Transform events
+		"content:transform:start": {
+			transformName: string;
 		};
 
-		"content:plugin:done": {
-			pluginName: string;
+		"content:transform:done": {
+			transformName: string;
 			duration: number;
 		};
 
-		"content:plugin:error": {
-			pluginName: string;
+		"content:transform:error": {
+			transformName: string;
 			error: Error;
 		};
 	}

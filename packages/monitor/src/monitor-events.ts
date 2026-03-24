@@ -79,6 +79,22 @@ declare module "@bluecadet/launchpad-utils/types" {
 			error: Error;
 		};
 
+		// App log events (from PM2 bus)
+		"monitor:app:log": {
+			appName: string;
+			data: string;
+		};
+
+		"monitor:app:errorLog": {
+			appName: string;
+			data: string;
+		};
+
+		// Shutdown lifecycle
+		"monitor:beforeShutdown": {
+			code?: number;
+		};
+
 		// Window management (Windows-specific)
 		"monitor:window:foreground": {
 			appName: string;

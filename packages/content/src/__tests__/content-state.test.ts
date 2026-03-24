@@ -140,20 +140,6 @@ describe("ContentState", () => {
 			}
 		});
 
-		it("should have state set to success after successful fetch", async () => {
-			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			await content.executeCommand({
-				type: "content.fetch",
-			});
-
-			const state = content.getState();
-			expect(state.sources["source-1"]?.state).toBe("success");
-		});
-
 		it("should track different timestamps for different sources", async () => {
 			const config = createBasicConfig(2);
 			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
@@ -224,41 +210,6 @@ describe("ContentState", () => {
 				expect(sourceState.error).toBeDefined();
 				expect(sourceState.attemptedAt.getTime()).toBeGreaterThanOrEqual(beforeFetch.getTime());
 			}
-		});
-
-		it("should have state set to error on fetch failure", async () => {
-			const failingConfig = {
-				downloadPath: "downloads",
-				tempPath: "temp",
-				backupPath: "backups",
-				backupAndRestore: false,
-				sources: [
-					defineSource({
-						id: "failing-source",
-						fetch: () => {
-							return [
-								{
-									id: "doc1",
-									data: Promise.reject(new Error("Fetch failed")),
-								},
-							];
-						},
-					}),
-				],
-			};
-
-			const contentResult = await createLaunchpadContent(failingConfig).setup(
-				createMockSubsystemCtx(),
-			);
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			await content.executeCommand({
-				type: "content.fetch",
-			});
-
-			const state = content.getState();
-			expect(state.sources["failing-source"]?.state).toBe("error");
 		});
 
 		it("should not clear lastFetchSuccess on error", async () => {
@@ -370,23 +321,6 @@ describe("ContentState", () => {
 					firstSourceState.startTime.getTime(),
 				);
 			}
-		});
-
-		it("should not lose state of other sources when one is updated", async () => {
-			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockSubsystemCtx());
-			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
-
-			await content.executeCommand({
-				type: "content.fetch",
-			});
-
-			const state = content.getState();
-			expect(state.sources["source-1"]).toBeDefined();
-			expect(state.sources["source-2"]).toBeDefined();
-			expect(state.sources["source-1"]?.state).toBe("success");
-			expect(state.sources["source-2"]?.state).toBe("success");
 		});
 
 		it("should have consistent state structure across all sources", async () => {

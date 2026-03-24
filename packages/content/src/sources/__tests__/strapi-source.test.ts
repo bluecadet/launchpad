@@ -1,33 +1,18 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { HttpResponse, http } from "msw";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { DataStore } from "../../utils/data-store.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import strapiSource from "../strapi-source.js";
+import { createFetchContext, setupMSWServer } from "./helpers.js";
 
-const server = setupServer();
+const { server } = setupMSWServer();
 
 beforeAll(() => {
-	server.listen({ onUnhandledRequest: "error" });
 	vi.useFakeTimers({
 		shouldAdvanceTime: true,
 	});
 });
 afterAll(() => {
-	server.close();
 	vi.useRealTimers();
 });
-afterEach(() => server.resetHandlers());
-
-function createFetchContext() {
-	const abortController = new AbortController();
-	return {
-		logger: createMockLogger(),
-		dataStore: new DataStore("/"),
-		abortSignal: abortController.signal,
-		_abortController: abortController,
-	};
-}
 
 const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!);
 

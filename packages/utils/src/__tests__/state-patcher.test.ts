@@ -11,7 +11,7 @@ interface TestState {
 
 describe("PatchedStateManager", () => {
 	describe("constructor and initialization", () => {
-		it("should initialize with provided state", () => {
+		it("should initialize with provided state and not invoke handlers on registration", () => {
 			const initialState: TestState = {
 				count: 0,
 				name: "test",
@@ -21,27 +21,14 @@ describe("PatchedStateManager", () => {
 			const manager = new PatchedStateManager(initialState);
 
 			expect(manager.state).toEqual(initialState);
-		});
 
-		it("should have empty patch handlers on initialization", () => {
-			const manager = new PatchedStateManager({ count: 0 });
-
-			// Verify no handlers are called initially
 			const handler = vi.fn();
 			manager.onPatch(handler);
-			// Just registering a handler shouldn't call it
 			expect(handler).not.toHaveBeenCalled();
 		});
 	});
 
 	describe("state getter", () => {
-		it("should return the current state", () => {
-			const initialState = { count: 5, name: "hello" };
-			const manager = new PatchedStateManager(initialState);
-
-			expect(manager.state).toEqual(initialState);
-		});
-
 		it("should return state after updates", () => {
 			const manager = new PatchedStateManager({ count: 0, name: "" });
 
@@ -96,26 +83,11 @@ describe("PatchedStateManager", () => {
 			expect(handler3).toHaveBeenCalledTimes(1);
 		});
 
-		it("should not call handler after unsubscribe", () => {
+		it("should stop calling handler after unsubscribe", () => {
 			const manager = new PatchedStateManager({ count: 0 });
 			const handler = vi.fn();
 
 			const unsubscribe = manager.onPatch(handler);
-			unsubscribe();
-
-			manager.updateState((draft) => {
-				draft.count = 1;
-			});
-
-			expect(handler).not.toHaveBeenCalled();
-		});
-
-		it("should return unsubscribe function", () => {
-			const manager = new PatchedStateManager({ count: 0 });
-			const handler = vi.fn();
-
-			const unsubscribe = manager.onPatch(handler);
-
 			expect(typeof unsubscribe).toBe("function");
 
 			manager.updateState((draft) => {

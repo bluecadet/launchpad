@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { parseTransformConfig } from "./content-transform-helpers.js";
 
 const sanityToMdSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -24,35 +24,33 @@ function tryImportBlockToMd() {
 }
 
 export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
-	const { path, keys } = parsePluginConfig("sanityToMd", sanityToMdSchema, options);
+	const { path, keys } = parseTransformConfig("sanityToMd", sanityToMdSchema, options);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "sanity-to-markdown",
-		hooks: {
-			async onContentFetchDone(ctx) {
-				const { default: toMarkdown } = await tryImportBlockToMd();
+		async apply(ctx) {
+			const { default: toMarkdown } = await tryImportBlockToMd();
 
-				let transformCount = 0;
-				ctx.logger.info("Transforming sanity blocks to markdown...");
+			let transformCount = 0;
+			ctx.logger.info("Transforming sanity blocks to markdown...");
 
-				await applyTransformToFiles({
-					dataStore: ctx.data,
-					path,
-					keys,
-					logger: ctx.logger,
-					transformFn: (content) => {
-						if (!isBlockContent(content)) {
-							throw new Error(`Content is not a valid Sanity text block: ${content}`);
-						}
+			await applyTransformToFiles({
+				dataStore: ctx.data,
+				path,
+				keys,
+				logger: ctx.logger,
+				transformFn: (content) => {
+					if (!isBlockContent(content)) {
+						throw new Error(`Content is not a valid Sanity text block: ${content}`);
+					}
 
-						transformCount++;
+					transformCount++;
 
-						return toMarkdown(content);
-					},
-				});
+					return toMarkdown(content);
+				},
+			});
 
-				ctx.logger.info(`Transformed ${transformCount} Sanity blocks to markdown.`);
-			},
+			ctx.logger.info(`Transformed ${transformCount} Sanity blocks to markdown.`);
 		},
 	});
 }

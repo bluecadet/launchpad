@@ -5,11 +5,15 @@ import chalk from "chalk";
 import PQueue from "p-queue";
 import type SharpType from "sharp";
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
-import { CacheProgressLogger, parsePluginConfig, queryOrUpdate } from "./contentPluginHelpers.js";
+import {
+	CacheProgressLogger,
+	parseTransformConfig,
+	queryOrUpdate,
+} from "./content-transform-helpers.js";
 
 const DEFAULT_IMAGE_PATTERN = /\.(jpe?g|png|webp|tiff|gif|svg)$/i;
 
@@ -105,125 +109,118 @@ async function transformImage(
 }
 
 export default function sharp(options: z.input<typeof sharpPluginSchema>) {
-	const resolvedConfig = parsePluginConfig("sharp", sharpPluginSchema, options);
+	const resolvedConfig = parseTransformConfig("sharp", sharpPluginSchema, options);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "sharp",
-		hooks: {
-			async onContentFetchDone(ctx) {
-				const { default: Sharp } = await tryImportSharp();
+		async apply(ctx) {
+			const { default: Sharp } = await tryImportSharp();
 
-				const matchingDocuments = getMatchingDocuments(ctx.data, resolvedConfig.keys);
+			const matchingDocuments = getMatchingDocuments(ctx.data, resolvedConfig.keys);
 
-				if (matchingDocuments.isErr()) {
-					throw matchingDocuments.error;
-				}
+			if (matchingDocuments.isErr()) {
+				throw matchingDocuments.error;
+			}
 
-				const documents = matchingDocuments.value;
+			const documents = matchingDocuments.value;
 
-				const queryJsonPath =
-					resolvedConfig.matchPath ?? regexToJSONPathQuery(resolvedConfig.mediaPattern);
+			const queryJsonPath =
+				resolvedConfig.matchPath ?? regexToJSONPathQuery(resolvedConfig.mediaPattern);
 
-				const transform = resolvedConfig.buildTransform(Sharp());
+			const transform = resolvedConfig.buildTransform(Sharp());
 
-				transform.setMaxListeners(0);
+			transform.setMaxListeners(0);
 
-				// make sure we don't transform the same image multiple times
-				const sourceUrls = new Set<string>();
+			// make sure we don't transform the same image multiple times
+			const sourceUrls = new Set<string>();
 
-				const filteredDocuments = ctx.data.filter(options.keys);
+			const filteredDocuments = ctx.data.filter(options.keys);
 
-				if (filteredDocuments.isErr()) {
-					throw filteredDocuments.error;
-				}
+			if (filteredDocuments.isErr()) {
+				throw filteredDocuments.error;
+			}
 
-				const mediaTransformTasks = [] as Array<{
-					inputPath: string;
-					outputPath: string;
-					backupPath: string;
-				}>;
+			const mediaTransformTasks = [] as Array<{
+				inputPath: string;
+				outputPath: string;
+				backupPath: string;
+			}>;
 
-				for (const source of filteredDocuments.value) {
-					const queryResult = await queryOrUpdate({
-						documents,
-						queryJsonPath,
-						update: resolvedConfig.updateURLs,
-						callback: async (val: unknown) => {
-							if (typeof val !== "string") {
-								throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
-							}
-
-							const newLocalPath = getOutputFilename(val, transform);
-
-							if (!sourceUrls.has(val)) {
-								sourceUrls.add(val);
-
-								const fullInputPath = path.resolve(
-									ctx.paths.getDownloadPath(source.namespaceId),
-									val,
-								);
-								const fullOutputPath = path.resolve(
-									ctx.paths.getTempPath(source.namespaceId),
-									newLocalPath,
-								);
-								const fullBackupPath = path.resolve(
-									ctx.paths.getBackupPath(source.namespaceId),
-									newLocalPath,
-								);
-
-								mediaTransformTasks.push({
-									inputPath: fullInputPath,
-									outputPath: fullOutputPath,
-									backupPath: fullBackupPath,
-								});
-							}
-
-							return newLocalPath;
-						},
-					});
-					if (queryResult.isErr()) throw queryResult.error;
-				}
-
-				ctx.logger.info(`Transforming ${mediaTransformTasks.length} images...`);
-
-				const queue = new PQueue({ concurrency: resolvedConfig.concurrency });
-
-				const progressLogger = new SharpProgressLogger(
-					ctx.logger,
-					ctx.eventBus,
-					mediaTransformTasks.length,
-				);
-
-				await queue.addAll(
-					mediaTransformTasks.map(({ inputPath, outputPath, backupPath }) => async () => {
-						const { fromCache } = await transformImage(
-							transform,
-							inputPath,
-							outputPath,
-							backupPath,
-						);
-
-						if (fromCache) {
-							progressLogger.addCached();
-						} else {
-							progressLogger.addFresh();
+			for (const source of filteredDocuments.value) {
+				const queryResult = await queryOrUpdate({
+					documents,
+					queryJsonPath,
+					update: resolvedConfig.updateURLs,
+					callback: async (val: unknown) => {
+						if (typeof val !== "string") {
+							throw new Error(`Expected value to be a string, but got '${typeof val}'.`);
 						}
-					}),
-				);
 
-				progressLogger.close();
+						const newLocalPath = getOutputFilename(val, transform);
 
-				ctx.logger.info(
-					`Of the ${chalk.cyan(mediaTransformTasks.length)} transform images files, ${chalk.green(
-						progressLogger.fresh,
-					)} were transformed and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
-				);
+						if (!sourceUrls.has(val)) {
+							sourceUrls.add(val);
 
-				// cleanup – move transformed images to download path and remove temp path
-				await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
-					.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
-					.mapErr((err) => new Error("Failed to cleanup after transform", err));
-			},
+							const fullInputPath = path.resolve(
+								ctx.paths.getDownloadPath(source.namespaceId),
+								val,
+							);
+							const fullOutputPath = path.resolve(
+								ctx.paths.getTempPath(source.namespaceId),
+								newLocalPath,
+							);
+							const fullBackupPath = path.resolve(
+								ctx.paths.getBackupPath(source.namespaceId),
+								newLocalPath,
+							);
+
+							mediaTransformTasks.push({
+								inputPath: fullInputPath,
+								outputPath: fullOutputPath,
+								backupPath: fullBackupPath,
+							});
+						}
+
+						return newLocalPath;
+					},
+				});
+				if (queryResult.isErr()) throw queryResult.error;
+			}
+
+			ctx.logger.info(`Transforming ${mediaTransformTasks.length} images...`);
+
+			const queue = new PQueue({ concurrency: resolvedConfig.concurrency });
+
+			const progressLogger = new SharpProgressLogger(
+				ctx.logger,
+				ctx.eventBus,
+				mediaTransformTasks.length,
+			);
+
+			await queue.addAll(
+				mediaTransformTasks.map(({ inputPath, outputPath, backupPath }) => async () => {
+					const { fromCache } = await transformImage(transform, inputPath, outputPath, backupPath);
+
+					if (fromCache) {
+						progressLogger.addCached();
+					} else {
+						progressLogger.addFresh();
+					}
+				}),
+			);
+
+			progressLogger.close();
+
+			ctx.logger.info(
+				`Of the ${chalk.cyan(mediaTransformTasks.length)} transform images files, ${chalk.green(
+					progressLogger.fresh,
+				)} were transformed and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
+			);
+
+			// cleanup – move transformed images to download path and remove temp path
+			await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
+				.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
+				.mapErr((err) => new Error("Failed to cleanup after transform", err));
 		},
 	});
 }

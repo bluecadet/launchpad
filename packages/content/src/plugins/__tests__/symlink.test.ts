@@ -21,14 +21,14 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 		});
 
 		vi.spyOn(fs, "symlink");
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(fs.symlink).toHaveBeenCalledWith(path.resolve("source"), path.resolve("destination"));
 	});
@@ -36,12 +36,12 @@ describe("symlink plugin", () => {
 	it("should throw error if target does not exist", async () => {
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "nonexistent",
 			path: "destination",
 		});
 
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Target directory");
+		await expect(transform.apply(ctx)).rejects.toThrow("Target directory");
 	});
 
 	it("should skip if symlink path already exists", async () => {
@@ -52,14 +52,14 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 		});
 
 		vi.spyOn(fs, "symlink");
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(fs.symlink).not.toHaveBeenCalled();
 	});
@@ -73,14 +73,14 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 		});
 
 		vi.spyOn(fs, "rm");
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(fs.rm).toHaveBeenCalledWith(path.resolve("destination"), {
 			recursive: true,
@@ -99,13 +99,13 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 			condition: false,
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(vol.existsSync("destination")).not.toBe(true);
 	});
@@ -116,13 +116,13 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 			condition: true,
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(vol.existsSync("destination")).toBe(true);
 		expect(vol.lstatSync("destination").isSymbolicLink()).toBe(true);
@@ -136,13 +136,13 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const conditionFn = vi.fn().mockReturnValue(true);
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 			condition: conditionFn,
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(conditionFn).toHaveBeenCalled();
 
@@ -158,13 +158,13 @@ describe("symlink plugin", () => {
 		const ctx = await createTestPluginContext();
 
 		const conditionFn = vi.fn().mockResolvedValueOnce(false);
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 			condition: conditionFn,
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(conditionFn).toHaveBeenCalled();
 		expect(vol.existsSync("destination")).not.toBe(true);
@@ -179,12 +179,12 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: "source",
 			path: "destination",
 		});
 
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow("Failed to create symlink");
+		await expect(transform.apply(ctx)).rejects.toThrow("Failed to create symlink");
 	});
 
 	it("should handle absolute paths", async () => {
@@ -196,12 +196,12 @@ describe("symlink plugin", () => {
 
 		const ctx = await createTestPluginContext();
 
-		const plugin = symlink({
+		const transform = symlink({
 			target: absoluteTarget,
 			path: absolutePath,
 		});
 
-		await plugin.hooks.onContentFetchDone(ctx);
+		await transform.apply(ctx);
 
 		expect(vol.existsSync("/absolute/destination")).toBe(true);
 		expect(vol.lstatSync("/absolute/destination").isSymbolicLink()).toBe(true);

@@ -218,6 +218,8 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 		logger: context.logger,
 		contentOptions: context.config,
 		eventBus: context.eventBus,
+		abortSignal: context.abortSignal,
+		cwd: context.cwd,
 	};
 
 	return context.transforms.reduce(

@@ -5,20 +5,18 @@ import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
 import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
-import { type ContentHookContext, defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import type { DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
 import { safeKy } from "../utils/safe-ky.js";
-import { CacheProgressLogger, parsePluginConfig, queryOrUpdate } from "./contentPluginHelpers.js";
+import {
+	CacheProgressLogger,
+	parseTransformConfig,
+	queryOrUpdate,
+} from "./content-transform-helpers.js";
 
 const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)?$/i;
-
-declare module "../content-plugin.js" {
-	interface ContentHookArgs {
-		"plugin:media-downloader:mediaDownloaded": { url: string; sourceId: string; localPath: string };
-	}
-}
 
 export const mediaDownloaderConfigSchema = z.object({
 	/** Data keys to search for media urls. If not provided, all keys will be searched. */
@@ -285,59 +283,65 @@ export async function findMediaUrls(
 	return returnUrls;
 }
 
+type TransformPaths = {
+	getTempPath: (sourceId?: string) => string;
+	getBackupPath: (sourceId?: string) => string;
+	getDownloadPath: (sourceId?: string) => string;
+};
+
 function setupDownloadDirectories(
-	ctx: ContentHookContext,
+	paths: TransformPaths,
 	config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<void, FileSystemError> {
 	return (
 		config.forceClearTempFiles
-			? FileUtils.remove(ctx.paths.getTempPath()).andThen(() =>
-					FileUtils.ensureDir(ctx.paths.getTempPath()),
+			? FileUtils.remove(paths.getTempPath()).andThen(() =>
+					FileUtils.ensureDir(paths.getTempPath()),
 				)
-			: FileUtils.ensureDir(ctx.paths.getTempPath())
+			: FileUtils.ensureDir(paths.getTempPath())
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
 
 function cleanupAfterDownload(
-	ctx: ContentHookContext,
+	paths: TransformPaths,
 	_config: MediaDownloaderConfigWithDefaults,
 ): ResultAsync<void, FileSystemError> {
-	return FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
-		.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
+	return FileUtils.copy(paths.getTempPath(), paths.getDownloadPath())
+		.andThen(() => FileUtils.remove(paths.getTempPath()))
 		.mapErr((err) => new FileSystemError("Failed to cleanup after download", err));
 }
 
 export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
-	const configWithDefaults = parsePluginConfig(
+	const configWithDefaults = parseTransformConfig(
 		"mediaDownloader",
 		mediaDownloaderConfigSchema,
 		config,
 	);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "media-downloader",
-		hooks: {
-			onContentFetchDone(ctx) {
-				if (
-					!configWithDefaults.ignoreCache &&
-					!configWithDefaults.enableIfModifiedSinceCheck &&
-					!configWithDefaults.enableContentLengthCheck
-				) {
-					ctx.logger.warn(
-						chalk.yellow(
-							"Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.",
-						),
-					);
-				}
+		apply(ctx) {
+			if (
+				!configWithDefaults.ignoreCache &&
+				!configWithDefaults.enableIfModifiedSinceCheck &&
+				!configWithDefaults.enableContentLengthCheck
+			) {
+				ctx.logger.warn(
+					chalk.yellow(
+						"Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.",
+					),
+				);
+			}
 
-				setMaxListeners(0, ctx.abortSignal);
+			setMaxListeners(0, ctx.abortSignal);
 
-				const queryJsonPath =
-					configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
+			const queryJsonPath =
+				configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
 
-				const queryJsonPathArray = Array.isArray(queryJsonPath) ? queryJsonPath : [queryJsonPath];
+			const queryJsonPathArray = Array.isArray(queryJsonPath) ? queryJsonPath : [queryJsonPath];
 
-				return setupDownloadDirectories(ctx, configWithDefaults)
+			return (
+				setupDownloadDirectories(ctx.paths, configWithDefaults)
 					.andThen(() =>
 						ResultAsync.fromPromise(
 							findMediaUrls(
@@ -428,15 +432,17 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 					})
 					.andThen(() => {
 						ctx.logger.verbose('Moving downloaded media files to "download" directory');
-						return cleanupAfterDownload(ctx, configWithDefaults);
+						return cleanupAfterDownload(ctx.paths, configWithDefaults);
 					})
-					.orElse((e) => {
-						throw e;
-					})
-					.then(() => {
-						// return void
-					});
-			},
+					// effectively cast to Promise<void>
+					// TODO: we should probably update the type signature of the apply function to allow for ResultAsync
+					.match(
+						() => {},
+						(e) => {
+							throw e;
+						},
+					)
+			);
 		},
 	});
 }

@@ -18,8 +18,8 @@ describe("sanityToHtml plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: validBlock }));
 
-		const plugin = sanityToHtml({ path: "$.content" });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = sanityToHtml({ path: "$.content" });
+		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		expect((result as any).content).toBe("<p>Hello world</p>");
@@ -32,8 +32,8 @@ describe("sanityToHtml plugin", () => {
 		await testNamespace.insert("doc1", Promise.resolve({ content: validBlock }));
 		await skipNamespace.insert("doc2", Promise.resolve({ content: validBlock }));
 
-		const plugin = sanityToHtml({ path: "$.content", keys: ["test"] });
-		await plugin.hooks.onContentFetchDone(ctx);
+		const transform = sanityToHtml({ path: "$.content", keys: ["test"] });
+		await transform.apply(ctx);
 
 		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
 		const skipped = await ctx.data.getDocument("skip", "doc2")._unsafeUnwrap()._read();
@@ -47,9 +47,7 @@ describe("sanityToHtml plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
-		const plugin = sanityToHtml({ path: "$.content" });
-		await expect(plugin.hooks.onContentFetchDone(ctx)).rejects.toThrow(
-			"Error applying content transform",
-		);
+		const transform = sanityToHtml({ path: "$.content" });
+		await expect(transform.apply(ctx)).rejects.toThrow("Error applying content transform");
 	});
 });

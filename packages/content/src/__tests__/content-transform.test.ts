@@ -22,6 +22,8 @@ describe("ContentTransform", () => {
 				getBackupPath: vi.fn(),
 			},
 			eventBus: createMockEventBus(),
+			abortSignal: new AbortController().signal,
+			cwd: "/",
 		};
 
 		await transform.apply(ctx);

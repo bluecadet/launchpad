@@ -2,11 +2,11 @@ import MarkdownIt from "markdown-it";
 import sanitizeHtml from "sanitize-html";
 
 import { z } from "zod";
-import { defineContentPlugin } from "../content-plugin.js";
+import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import markdownItItalicBold from "../utils/markdown-it-italic-bold.js";
-import { parsePluginConfig } from "./contentPluginHelpers.js";
+import { parseTransformConfig } from "./content-transform-helpers.js";
 
 const mdToHtmlSchema = z.object({
 	/** JSONPath to the content to transform */
@@ -21,41 +21,39 @@ const mdToHtmlSchema = z.object({
 });
 
 export default function mdToHtml(options: z.input<typeof mdToHtmlSchema>) {
-	const { path, keys, simplified } = parsePluginConfig("mdToHtml", mdToHtmlSchema, options);
+	const { path, keys, simplified } = parseTransformConfig("mdToHtml", mdToHtmlSchema, options);
 
-	return defineContentPlugin({
+	return defineContentTransform({
 		name: "md-to-html",
-		hooks: {
-			async onContentFetchDone(ctx) {
-				let transformCount = 0;
-				ctx.logger.info("Transforming Markdown strings to HTML...");
+		async apply(ctx) {
+			let transformCount = 0;
+			ctx.logger.info("Transforming Markdown strings to HTML...");
 
-				await applyTransformToFiles({
-					dataStore: ctx.data,
-					path,
-					keys,
-					logger: ctx.logger,
-					transformFn: (content) => {
-						if (typeof content !== "string") {
-							throw new Error("Can't convert non-string content to html.");
-						}
+			await applyTransformToFiles({
+				dataStore: ctx.data,
+				path,
+				keys,
+				logger: ctx.logger,
+				transformFn: (content) => {
+					if (typeof content !== "string") {
+						throw new Error("Can't convert non-string content to html.");
+					}
 
-						const sanitizedStr = sanitizeHtml(content);
-						const md = new MarkdownIt();
+					const sanitizedStr = sanitizeHtml(content);
+					const md = new MarkdownIt();
 
-						if (simplified) {
-							md.use(markdownItItalicBold);
-							return md.renderInline(sanitizedStr);
-						}
+					if (simplified) {
+						md.use(markdownItItalicBold);
+						return md.renderInline(sanitizedStr);
+					}
 
-						transformCount++;
+					transformCount++;
 
-						return md.render(sanitizedStr);
-					},
-				});
+					return md.render(sanitizedStr);
+				},
+			});
 
-				ctx.logger.info(`Transformed ${transformCount} Markdown strings.`);
-			},
+			ctx.logger.info(`Transformed ${transformCount} Markdown strings.`);
 		},
 	});
 }

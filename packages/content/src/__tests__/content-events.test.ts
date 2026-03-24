@@ -294,8 +294,8 @@ describe("Content Event Emissions", () => {
 		});
 	});
 
-	describe("Plugin Events", () => {
-		it("should emit plugin events for each plugin hook execution", async () => {
+	describe("Transform Events", () => {
+		it("should emit transform events for each plugin hook execution", async () => {
 			server.use(
 				http.get("https://api.example.com/data.json", () => {
 					return HttpResponse.json({
@@ -315,7 +315,7 @@ describe("Content Event Emissions", () => {
 						files: { "data.json": "https://api.example.com/data.json" },
 					}),
 				],
-				plugins: [mdToHtml({ path: "$.content" })],
+				transforms: [mdToHtml({ path: "$.content" })],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
 			const content = contentResult._unsafeUnwrap();
@@ -325,22 +325,24 @@ describe("Content Event Emissions", () => {
 			});
 
 			// Check plugin:start events
-			const startEvents = eventBus.getEventsOfType<{ pluginName: string }>("content:plugin:start");
+			const startEvents = eventBus.getEventsOfType<{ transformName: string }>(
+				"content:transform:start",
+			);
 			expect(startEvents.length).toBeGreaterThan(0);
-			const mdPluginStarts = startEvents.filter((e) => e.pluginName === "md-to-html");
+			const mdPluginStarts = startEvents.filter((e) => e.transformName === "md-to-html");
 			expect(mdPluginStarts.length).toBeGreaterThan(0);
 
 			// Check plugin:done events
-			const doneEvents = eventBus.getEventsOfType<{ pluginName: string; duration: number }>(
-				"content:plugin:done",
+			const doneEvents = eventBus.getEventsOfType<{ transformName: string; duration: number }>(
+				"content:transform:done",
 			);
 			expect(doneEvents.length).toBeGreaterThan(0);
-			const mdPluginDone = doneEvents.filter((e) => e.pluginName === "md-to-html");
+			const mdPluginDone = doneEvents.filter((e) => e.transformName === "md-to-html");
 			expect(mdPluginDone.length).toBeGreaterThan(0);
 			expect(mdPluginDone[0]!.duration).toBeGreaterThanOrEqual(0);
 		});
 
-		it("should track plugin execution via events", async () => {
+		it("should track transform execution via events", async () => {
 			server.use(
 				http.get("https://api.example.com/data.json", () => {
 					return HttpResponse.json({
@@ -366,7 +368,7 @@ describe("Content Event Emissions", () => {
 						files: { "data.json": "https://api.example.com/data.json" },
 					}),
 				],
-				plugins: [
+				transforms: [
 					mediaDownloader({
 						mediaPattern: /\.jpg$/,
 						maxConcurrent: 1,
@@ -384,11 +386,11 @@ describe("Content Event Emissions", () => {
 			// Check that plugin events were emitted
 			const pluginEvents = eventBus
 				.getEmittedEvents()
-				.filter((e) => e.event.startsWith("content:plugin:"));
+				.filter((e) => e.event.startsWith("content:transform:"));
 			expect(pluginEvents.length).toBeGreaterThan(0);
 		});
 
-		it("should emit plugin events for multiple plugins", async () => {
+		it("should emit transform events for multiple plugins", async () => {
 			server.use(
 				http.get("https://api.example.com/data.json", () => {
 					return HttpResponse.json({
@@ -414,7 +416,7 @@ describe("Content Event Emissions", () => {
 						files: { "data.json": "https://api.example.com/data.json" },
 					}),
 				],
-				plugins: [
+				transforms: [
 					mdToHtml({ path: "$.content" }),
 					mediaDownloader({
 						mediaPattern: /\.jpg$/,
@@ -429,8 +431,10 @@ describe("Content Event Emissions", () => {
 				type: "content.fetch",
 			});
 
-			const startEvents = eventBus.getEventsOfType<{ pluginName: string }>("content:plugin:start");
-			const pluginNames = [...new Set(startEvents.map((e) => e.pluginName))];
+			const startEvents = eventBus.getEventsOfType<{ transformName: string }>(
+				"content:transform:start",
+			);
+			const pluginNames = [...new Set(startEvents.map((e) => e.transformName))];
 			expect(pluginNames).toContain("md-to-html");
 			expect(pluginNames).toContain("media-downloader");
 		});

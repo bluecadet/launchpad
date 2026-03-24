@@ -1,7 +1,7 @@
 import { fork } from "node:child_process";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/subsystem-interfaces";
 import chalk from "chalk";
-import { fromPromise, ok, okAsync, type ResultAsync } from "neverthrow";
+import { fromPromise, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
@@ -13,8 +13,6 @@ import {
 	sendReadyMessage,
 } from "../utils/detached-messaging.js";
 import { onTerminate } from "../utils/on-terminate.js";
-import { importLaunchpadContent } from "./content.js";
-import { importLaunchpadMonitor } from "./monitor.js";
 
 export function start(argv: GlobalLaunchpadArgs & { detach?: boolean }): ResultAsync<void, Error> {
 	// If detach mode is requested, fork the process
@@ -83,9 +81,6 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			// Build startup commands based on config
-			const startupCommands: Array<BaseCommand> = [];
-
 			return withDaemonOrController(dir, config.controller, {
 				mode: "persistent",
 				ifDaemon: (_client, pid) => {
@@ -104,42 +99,28 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 						controller.stop();
 					});
 
-					return okAsync<void, Error>(undefined)
-						.andThrough(() => {
-							// Dynamically import and register content if configured
-							if (config.content) {
-								startupCommands.push({ type: "content.fetch" });
+					const subsystems = config.subsystems ?? [];
 
-								const contentConfig = config.content;
-								return importLaunchpadContent().andThen(({ createLaunchpadContent }) => {
-									return controller.registerSubsystem(createLaunchpadContent(contentConfig));
-								});
-							}
-							return ok();
-						})
-						.andThrough(() => {
-							// Dynamically import and register monitor if configured
-							if (config.monitor) {
-								startupCommands.push({ type: "monitor.connect" }, { type: "monitor.start" });
-
-								const monitorConfig = config.monitor;
-								return importLaunchpadMonitor().andThen(({ createLaunchpadMonitor }) => {
-									return controller.registerSubsystem(createLaunchpadMonitor(monitorConfig));
-								});
-							}
-							return ok();
-						})
-						.andThen(() => {
-							let resultChain: ResultAsync<unknown, Error> = okAsync(undefined);
-
-							// Execute startup commands if any
-							if (startupCommands.length > 0) {
-								for (const command of startupCommands) {
-									resultChain = resultChain.andThen(() => controller.executeCommand(command));
-								}
-							}
-
-							return resultChain.map(() => undefined);
+					// Register all subsystems in sequence, collecting startup commands
+					return subsystems
+						.reduce(
+							(chain, subsystem) =>
+								chain.andThen(({ commands }) =>
+									controller.registerSubsystem(subsystem).map(() => ({
+										commands: [...commands, ...(subsystem.startupCommands ?? [])],
+									})),
+								),
+							okAsync<{ commands: BaseCommand[] }, Error>({ commands: [] }),
+						)
+						.andThen(({ commands }) => {
+							// Execute all startup commands in sequence
+							return commands
+								.reduce(
+									(chain: ResultAsync<unknown, Error>, command) =>
+										chain.andThen(() => controller.executeCommand(command)),
+									okAsync(undefined),
+								)
+								.map(() => undefined);
 						})
 						.andTee(() => {
 							cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");

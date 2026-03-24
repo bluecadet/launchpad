@@ -59,7 +59,10 @@ export function stop(argv: GlobalLaunchpadArgs) {
 							});
 					});
 			}).orElse((e) => {
-				if (e instanceof DaemonNotRunningError && config.monitor !== undefined) {
+				if (
+					e instanceof DaemonNotRunningError &&
+					config.plugins?.some((p) => p.name === "monitor")
+				) {
 					// try to just stop the monitor process if possible
 					// This is for compatibility with older versions of launchpad, where the 'stop' command only managed the pm2 process
 					// TODO: in a future major version, we can probably remove this fallback or move it to a separate command

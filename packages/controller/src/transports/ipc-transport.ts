@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import net from "node:net";
+import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import {
 	type DisconnectReason,
@@ -73,8 +74,9 @@ export function createIPCTransport(options: IPCTransportOptions) {
 				);
 			}
 
-			return safeCreateServer(socketPath).andThen((server) => {
+			return safeCreateServer(socketPath, ctx.logger).andThen((server) => {
 				const clients = new Set<net.Socket>();
+				let isDisconnected = false;
 
 				// maintain client connections
 				server.on("connection", (socket) => {
@@ -157,21 +159,29 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 				return ok({
 					disconnect(_reason: DisconnectReason) {
+						if (isDisconnected) {
+							return okAsync(undefined);
+						}
+
+						isDisconnected = true;
 						ctx.logger.verbose("IPC Transport is shutting down");
 						ctx.eventBus.offAny(handleEvent);
 						unsubscribePatch();
 						clients.forEach((client) => client.end());
-						server?.close();
-						if (fs.existsSync(socketPath)) {
-							try {
-								fs.unlinkSync(socketPath);
-							} catch (e) {
-								ctx.logger.warn(`Failed to clean up socket: ${e}`);
-							}
-						}
-						ctx.logger.info("IPC transport closed");
 
-						return okAsync();
+						return ResultAsync.fromPromise(
+							new Promise<void>((resolve) => {
+								server.close(() => {
+									cleanupUnixSocketPath(socketPath, ctx.logger);
+									ctx.logger.info("IPC transport closed");
+									resolve();
+								});
+							}),
+							(error) =>
+								new TransportError("Failed to close IPC server", {
+									cause: ensureError(error),
+								}),
+						);
 					},
 				});
 			});
@@ -182,21 +192,109 @@ export function createIPCTransport(options: IPCTransportOptions) {
 /**
  * create a net.Server with neverthrow error handling
  */
-function safeCreateServer(path: string): ResultAsync<net.Server, TransportError> {
+function safeCreateServer(
+	path: string,
+	logger: PluginContext["logger"],
+): ResultAsync<net.Server, TransportError> {
 	return ResultAsync.fromPromise(
-		new Promise<net.Server>((resolve, reject) => {
-			const server = net.createServer();
-
-			server.on("error", (error) => {
-				reject(error);
-			});
-
-			server.listen(path, () => {
-				resolve(server);
-			});
-		}),
+		createServerWithSocketRecovery(path, logger),
 		(e) => new TransportError("Failed to create IPC server", { cause: e as Error }),
 	);
+}
+
+async function createServerWithSocketRecovery(
+	socketPath: string,
+	logger: PluginContext["logger"],
+): Promise<net.Server> {
+	ensureUnixSocketDirectory(socketPath);
+
+	try {
+		return await listenOnSocketPath(socketPath);
+	} catch (error) {
+		const normalizedError = ensureError(error);
+		if (!(await shouldRecoverFromListenError(socketPath, normalizedError))) {
+			throw normalizedError;
+		}
+
+		logger.warn(`Removing stale IPC socket at "${socketPath}"`);
+		cleanupUnixSocketPath(socketPath, logger);
+		return listenOnSocketPath(socketPath);
+	}
+}
+
+function ensureUnixSocketDirectory(socketPath: string): void {
+	if (process.platform === "win32") {
+		return;
+	}
+
+	fs.mkdirSync(path.dirname(socketPath), { recursive: true });
+}
+
+async function shouldRecoverFromListenError(socketPath: string, error: Error): Promise<boolean> {
+	if (process.platform === "win32") {
+		return false;
+	}
+
+	const errorCode = getErrorCode(error);
+	if (errorCode !== "EADDRINUSE") {
+		return false;
+	}
+
+	return !(await canConnectToSocket(socketPath));
+}
+
+function listenOnSocketPath(socketPath: string): Promise<net.Server> {
+	return new Promise<net.Server>((resolve, reject) => {
+		const server = net.createServer();
+		const handleError = (error: Error) => {
+			server.removeListener("listening", handleListening);
+			reject(error);
+		};
+		const handleListening = () => {
+			server.removeListener("error", handleError);
+			resolve(server);
+		};
+
+		server.once("error", handleError);
+		server.once("listening", handleListening);
+		server.listen(socketPath);
+	});
+}
+
+function canConnectToSocket(socketPath: string): Promise<boolean> {
+	return new Promise<boolean>((resolve, reject) => {
+		const socket = net.createConnection(socketPath);
+
+		socket.once("connect", () => {
+			socket.end();
+			resolve(true);
+		});
+
+		socket.once("error", (error) => {
+			const errorCode = getErrorCode(error);
+			if (errorCode === "ECONNREFUSED" || errorCode === "ENOENT") {
+				resolve(false);
+				return;
+			}
+			reject(error);
+		});
+	});
+}
+
+function cleanupUnixSocketPath(socketPath: string, logger: PluginContext["logger"]): void {
+	if (process.platform === "win32" || !fs.existsSync(socketPath)) {
+		return;
+	}
+
+	try {
+		fs.unlinkSync(socketPath);
+	} catch (error) {
+		logger.warn(`Failed to clean up socket: ${ensureError(error).message}`);
+	}
+}
+
+function getErrorCode(error: Error): string | undefined {
+	return (error as NodeJS.ErrnoException).code;
 }
 
 /**

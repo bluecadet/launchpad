@@ -17,9 +17,17 @@ vi.mock("@bluecadet/launchpad-controller/pid-utils", () => ({
 	deletePidFile: vi.fn(),
 	getDaemonPid: vi.fn(),
 }));
+vi.mock("@bluecadet/launchpad-monitor/launchpad-monitor", async () => {
+	const { okAsync } = await import("neverthrow");
+	return {
+		killPM2: vi.fn().mockReturnValue(okAsync(undefined)),
+	};
+});
 
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
+import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
+import { killPM2 } from "@bluecadet/launchpad-monitor/launchpad-monitor";
 import { createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
@@ -50,7 +58,7 @@ describe("stop", () => {
 		vi.mocked(isProcessRunning).mockReturnValue(false);
 
 		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
-			op(mockClient as any, 999),
+			op(mockClient as unknown as IPCClient, 999),
 		);
 
 		const resultPromise = stop({});
@@ -63,16 +71,32 @@ describe("stop", () => {
 	});
 
 	it("daemon not running (no monitor plugin) — handleFatalError is called", async () => {
-		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()) as any);
+		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
 
 		await expect(stop({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalledWith(expect.any(DaemonNotRunningError));
 	});
 
 	it("loadConfigAndEnv fails — handleFatalError called", async () => {
-		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new Error("config load failed")) as any);
+		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new Error("config load failed")));
 
 		await expect(stop({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("daemon not running with monitor plugin — killPM2 is called, handleFatalError is not", async () => {
+		const configWithMonitor = resolveLaunchpadConfig({
+			plugins: [{ name: "monitor", setup: vi.fn() }],
+		});
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithMonitor }),
+		);
+		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
+		vi.mocked(killPM2).mockReturnValue(okAsync(undefined));
+
+		await stop({});
+
+		expect(vi.mocked(killPM2)).toHaveBeenCalled();
+		expect(vi.mocked(handleFatalError)).not.toHaveBeenCalled();
 	});
 });

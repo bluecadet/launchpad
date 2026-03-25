@@ -29,7 +29,7 @@ describe("IPC round-trip", () => {
 			if (msg.type === "shutdown") {
 				return { id: msg.id, type: "ack" };
 			}
-			return { id: (msg as { id: string }).id, type: "error", error: new Error("unhandled") };
+			return { id: msg.id, type: "error", error: new Error("unhandled") };
 		});
 
 		client = new IPCClient();

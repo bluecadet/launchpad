@@ -49,6 +49,7 @@ export class IPCClient {
 				});
 
 				this._socket.on("error", (error) => {
+					this._socket = null;
 					reject(
 						new IPCConnectionError(`Failed to connect to IPC socket at "${socketPath}"`, {
 							cause: ensureError(error),
@@ -61,6 +62,7 @@ export class IPCClient {
 				});
 
 				this._socket.on("close", () => {
+					this._socket = null;
 					// Reject all pending requests
 					for (const request of this._pendingRequests.values()) {
 						request.reject(new IPCConnectionError("Socket closed unexpectedly"));

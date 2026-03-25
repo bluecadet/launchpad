@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPCSerializer } from "../../utils/ipc-serializer.js";
@@ -14,23 +15,47 @@ const createMockNetServer = () => {
 	const mockServerListeners: { [key: string]: Cb[] } = {};
 	connectionCallback = null;
 
+	const addListener = (event: string, handler: Cb) => {
+		if (!mockServerListeners[event]) {
+			mockServerListeners[event] = [];
+		}
+		mockServerListeners[event].push(handler);
+
+		if (event === "connection") {
+			connectionCallback = handler;
+		}
+	};
+
 	mockServer = {
-		listen: vi.fn((_socketPath: string, callback: Cb) => {
-			callback();
+		listen: vi.fn((_socketPath: string) => {
+			mockServer.emit("listening");
 		}),
 		close: vi.fn((callback?: Cb) => {
 			if (callback) callback();
 		}),
 		on: vi.fn((event: string, handler: Cb) => {
-			if (!mockServerListeners[event]) {
-				mockServerListeners[event] = [];
-			}
-			mockServerListeners[event].push(handler);
-
-			if (event === "connection") {
-				connectionCallback = handler;
-			}
+			addListener(event, handler);
+			return mockServer;
 		}),
+		once: vi.fn((event: string, handler: Cb) => {
+			const wrappedHandler: Cb = (...args) => {
+				mockServer.removeListener(event, wrappedHandler);
+				handler(...args);
+			};
+			addListener(event, wrappedHandler);
+			return mockServer;
+		}),
+		removeListener: vi.fn((event: string, handler: Cb) => {
+			mockServerListeners[event] = (mockServerListeners[event] || []).filter(
+				(listener) => listener !== handler,
+			);
+			return mockServer;
+		}),
+		emit: (event: string, ...args: unknown[]) => {
+			for (const handler of mockServerListeners[event] || []) {
+				handler(...args);
+			}
+		},
 	};
 
 	return mockServer;
@@ -46,6 +71,9 @@ describe("ipc-transport", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		(vi.spyOn(net, "createServer" as any) as any).mockImplementation(() => createMockNetServer());
+		vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
+		vi.spyOn(fs, "existsSync").mockReturnValue(false);
+		vi.spyOn(fs, "unlinkSync").mockImplementation(() => undefined);
 	});
 
 	afterEach(() => {
@@ -57,6 +85,77 @@ describe("ipc-transport", () => {
 			await createStartedIPCTransport();
 
 			expect(net.createServer).toHaveBeenCalled();
+		});
+
+		it("should remove a stale socket file and retry on EADDRINUSE", async () => {
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+
+			const staleSocketProbe = {
+				once: vi.fn((event: string, handler: Cb) => {
+					if (event === "error") {
+						handler(Object.assign(new Error("Connection refused"), { code: "ECONNREFUSED" }));
+					}
+					return staleSocketProbe;
+				}),
+				end: vi.fn(),
+			};
+
+			(vi.spyOn(net, "createConnection") as any).mockReturnValue(staleSocketProbe);
+
+			const firstServer = createMockNetServer();
+			firstServer.listen.mockImplementationOnce((_socketPath: string) => {
+				firstServer.emit(
+					"error",
+					Object.assign(new Error("Address in use"), { code: "EADDRINUSE" }),
+				);
+			});
+
+			const secondServer = createMockNetServer();
+
+			(vi.spyOn(net, "createServer" as any) as any)
+				.mockImplementationOnce(() => firstServer)
+				.mockImplementationOnce(() => secondServer);
+
+			const { transport, context } = createTestIPCTransport();
+			const result = await transport.setup(context);
+
+			expect(result.isOk()).toBe(true);
+			expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
+			expect(context.logger.warn).toHaveBeenCalledWith(
+				'Removing stale IPC socket at "/test/socket"',
+			);
+			expect(net.createServer).toHaveBeenCalledTimes(2);
+		});
+
+		it("should fail startup when the socket is already owned by a live server", async () => {
+			const activeSocketProbe = {
+				once: vi.fn((event: string, handler: Cb) => {
+					if (event === "connect") {
+						handler();
+					}
+					return activeSocketProbe;
+				}),
+				end: vi.fn(),
+			};
+
+			(vi.spyOn(net, "createConnection") as any).mockReturnValue(activeSocketProbe);
+
+			const liveServer = createMockNetServer();
+			liveServer.listen.mockImplementationOnce((_socketPath: string) => {
+				liveServer.emit(
+					"error",
+					Object.assign(new Error("Address in use"), { code: "EADDRINUSE" }),
+				);
+			});
+
+			(vi.spyOn(net, "createServer" as any) as any).mockImplementationOnce(() => liveServer);
+
+			const { transport, context } = createTestIPCTransport();
+			const result = await transport.setup(context);
+
+			expect(result.isErr()).toBe(true);
+			expect(fs.unlinkSync).not.toHaveBeenCalled();
+			expect(net.createServer).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -72,6 +171,17 @@ describe("ipc-transport", () => {
 
 			expect(stopResult.isOk()).toBe(true);
 			expect(mockServer.close).toHaveBeenCalled();
+		});
+
+		it("should remove the socket file after closing", async () => {
+			vi.mocked(fs.existsSync).mockReturnValue(true);
+
+			const { transport, context } = createTestIPCTransport();
+			const result = await transport.setup(context);
+			const stopResult = await result._unsafeUnwrap().disconnect({ type: "manual" });
+
+			expect(stopResult.isOk()).toBe(true);
+			expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
 		});
 
 		it("should handle already stopped transport", async () => {

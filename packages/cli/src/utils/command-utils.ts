@@ -1,4 +1,5 @@
 import path from "node:path";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import chalk from "chalk";
 import { errAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -42,7 +43,7 @@ export function loadConfigAndEnv(
 		loadConfigFromFile(configPath),
 		(e) =>
 			new ConfigError(`Failed to load config file at path: ${chalk.white(configPath)}`, {
-				cause: e instanceof Error ? e : new Error(String(e)),
+				cause: ensureError(e),
 			}),
 	).map((config) => ({ dir: configDir, config: resolveLaunchpadConfig(config) }));
 }

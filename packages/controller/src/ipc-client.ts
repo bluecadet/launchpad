@@ -4,6 +4,7 @@
  */
 
 import net from "node:net";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents, LaunchpadState } from "@bluecadet/launchpad-utils/types";
@@ -50,7 +51,7 @@ export class IPCClient {
 				this._socket.on("error", (error) => {
 					reject(
 						new IPCConnectionError(`Failed to connect to IPC socket at "${socketPath}"`, {
-							cause: error instanceof Error ? error : new Error(String(error)),
+							cause: ensureError(error),
 						}),
 					);
 				});
@@ -69,7 +70,7 @@ export class IPCClient {
 			}),
 			(e) =>
 				new IPCConnectionError("IPC connection failed", {
-					cause: e instanceof Error ? e : new Error(String(e)),
+					cause: ensureError(e),
 				}),
 		);
 	}
@@ -283,7 +284,7 @@ export class IPCClient {
 						this._pendingRequests.delete(message.id);
 						reject(
 							new IPCConnectionError("Failed to send IPC message", {
-								cause: error instanceof Error ? error : new Error(String(error)),
+								cause: ensureError(error),
 							}),
 						);
 					}
@@ -293,7 +294,7 @@ export class IPCClient {
 				e instanceof IPCConnectionError || e instanceof IPCTimeoutError
 					? e
 					: new IPCMessageError("Failed to process IPC response", {
-							cause: e instanceof Error ? e : new Error(String(e)),
+							cause: ensureError(e),
 						}),
 		);
 	}
@@ -336,7 +337,7 @@ export class IPCClient {
 			} catch (e) {
 				// Reject all pending requests with parse error
 				// This shouldn't happen with well-formed messages, but we need to handle it
-				const error = e instanceof Error ? e : new Error(String(e));
+				const error = ensureError(e);
 				for (const request of this._pendingRequests.values()) {
 					request.reject(
 						new IPCMessageError("Failed to parse IPC response", {

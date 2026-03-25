@@ -1,5 +1,6 @@
 import path from "node:path";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
@@ -95,7 +96,7 @@ function safeKill(pid: number, signal: NodeJS.Signals): Result<void, Error> {
 		process.kill(pid, signal);
 		return ok();
 	} catch (e) {
-		const cause = e instanceof Error ? e : new Error(String(e));
+		const cause = ensureError(e);
 		return err(new Error(`Failed to send ${signal} to process ${pid}`, { cause }));
 	}
 }

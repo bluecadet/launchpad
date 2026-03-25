@@ -5,6 +5,7 @@
  * Stages are composed in LaunchpadContent._executeFetchPipeline.
  */
 
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import chalk from "chalk";
 import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
 import {
@@ -242,7 +243,7 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 					transform.apply(transformCtx),
 					(e) =>
 						new ContentError(`Transform "${transform.name}" failed`, {
-							cause: e instanceof Error ? e : new Error(String(e)),
+							cause: ensureError(e),
 						}),
 				)
 					.andTee(() => {

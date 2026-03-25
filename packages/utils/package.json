@@ -35,6 +35,10 @@
     "./command-guard": {
       "types": "./dist/command-guard.d.ts",
       "default": "./dist/command-guard.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
     }
   },
   "files": [

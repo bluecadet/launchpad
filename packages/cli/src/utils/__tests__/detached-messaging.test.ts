@@ -101,15 +101,15 @@ describe("detached-messaging", () => {
 
 	describe("isValidChildLogMessage", () => {
 		it.each([
-			[{ type: "log", level: "info", payload: {} }, true],
-			[{ type: "log" }, true],
-			[{ type: "ready" }, false],
-			[null, false],
-			["string", false],
-			[42, false],
-			[undefined, false],
-			[{}, false],
-		])("returns %s for input %j", async (input, expected) => {
+			[true, { type: "log", level: "info", payload: {} }],
+			[true, { type: "log" }],
+			[false, { type: "ready" }],
+			[false, null],
+			[false, "string"],
+			[false, 42],
+			[false, undefined],
+			[false, {}],
+		])("returns %s for input %j", async (expected, input) => {
 			const mod = await import("../detached-messaging.js");
 			expect(mod.isValidChildLogMessage(input)).toBe(expected);
 		});
@@ -117,14 +117,14 @@ describe("detached-messaging", () => {
 
 	describe("isValidReadyMessage", () => {
 		it.each([
-			[{ type: "ready" }, true],
-			[{ type: "log", level: "info" }, false],
-			[null, false],
-			["string", false],
-			[42, false],
-			[undefined, false],
-			[{}, false],
-		])("returns %s for input %j", async (input, expected) => {
+			[true, { type: "ready" }],
+			[false, { type: "log", level: "info" }],
+			[false, null],
+			[false, "string"],
+			[false, 42],
+			[false, undefined],
+			[false, {}],
+		])("returns %s for input %j", async (expected, input) => {
 			const mod = await import("../detached-messaging.js");
 			expect(mod.isValidReadyMessage(input)).toBe(expected);
 		});

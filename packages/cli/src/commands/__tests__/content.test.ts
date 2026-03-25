@@ -13,12 +13,14 @@ vi.mock("../../utils/cli-logger.js", async () => ({
 	},
 }));
 
+import type { LaunchpadController } from "@bluecadet/launchpad-controller";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
+import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import {
 	createMockController,
 	createMockIPCClient,
 } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { okAsync } from "neverthrow";
+import { errAsync, okAsync } from "neverthrow";
 import { ConfigError } from "../../errors.js";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
@@ -58,7 +60,7 @@ describe("content", () => {
 		const mockClient = createMockIPCClient();
 		// Return the ResultAsync directly (no async wrapper) so .orElse() works
 		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
-			opts.ifDaemon(mockClient as any, 999),
+			opts.ifDaemon(mockClient as unknown as IPCClient, 999),
 		);
 
 		const result = await content({});
@@ -77,7 +79,7 @@ describe("content", () => {
 		const mockController = createMockController();
 		// Return the ResultAsync directly (no async wrapper) so .orElse() works
 		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
-			opts.otherwise(mockController as any),
+			opts.otherwise(mockController as unknown as LaunchpadController),
 		);
 
 		const result = await content({});
@@ -87,5 +89,13 @@ describe("content", () => {
 		expect(vi.mocked(mockController.executeCommand)).toHaveBeenCalledWith({
 			type: "content.fetch",
 		});
+	});
+
+	it("calls handleFatalError when loadConfigAndEnv fails", async () => {
+		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("no config")));
+		vi.mocked(handleFatalError).mockImplementation(() => {
+			throw new Error("fatal");
+		});
+		await expect(content({})).rejects.toThrow("fatal");
 	});
 });

@@ -20,7 +20,10 @@ vi.mock("../../utils/detached-messaging.js", () => ({
 	isValidChildLogMessage: vi.fn().mockReturnValue(false),
 	isValidReadyMessage: vi.fn((msg) => {
 		return (
-			typeof msg === "object" && msg !== null && "type" in msg && (msg as any).type === "ready"
+			typeof msg === "object" &&
+			msg !== null &&
+			"type" in msg &&
+			(msg as Record<string, unknown>).type === "ready"
 		);
 	}),
 	sendReadyMessage: vi.fn(),
@@ -32,6 +35,7 @@ vi.mock("node:child_process", () => ({
 
 import { fork } from "node:child_process";
 import { EventEmitter } from "node:events";
+import type { LaunchpadController } from "@bluecadet/launchpad-controller";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import { createMockController } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
@@ -80,7 +84,9 @@ describe("start", () => {
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) => {
 				// Calling ifDaemon will throw because of our process.exit mock
 				try {
-					return opts.ifDaemon({} as any, 999) as any;
+					return opts.ifDaemon({} as unknown as LaunchpadController, 999) as ReturnType<
+						typeof withDaemonOrController
+					>;
 				} catch (e) {
 					throw e;
 				}
@@ -94,7 +100,7 @@ describe("start", () => {
 			const mockController = createMockController();
 			// Return the ResultAsync directly (no async wrapper) so .orElse() works
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
-				opts.otherwise(mockController as any),
+				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
 			const result = await start({ detach: false });
@@ -117,7 +123,7 @@ describe("start", () => {
 			const mockController = createMockController();
 			// Return the ResultAsync directly (no async wrapper) so .orElse() works
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
-				opts.otherwise(mockController as any),
+				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
 			const result = await start({ detach: false });
@@ -135,7 +141,7 @@ describe("start", () => {
 
 		it("child sends ready message — start resolves successfully", async () => {
 			const child = createMockChild();
-			vi.mocked(fork).mockReturnValue(child as any);
+			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
 			const resultPromise = start({ detach: true });
 
@@ -150,7 +156,7 @@ describe("start", () => {
 
 		it("child exits with non-zero before sending ready — start rejects with error", async () => {
 			const child = createMockChild();
-			vi.mocked(fork).mockReturnValue(child as any);
+			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
 			const resultPromise = start({ detach: true });
 

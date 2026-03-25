@@ -17,6 +17,7 @@ vi.mock("../../utils/on-terminate.js", () => ({
 }));
 
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
+import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createEmptyState, createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
@@ -45,11 +46,11 @@ describe("status", () => {
 	it("queries state and calls cliLogger.fixed() with output containing 'Launchpad Status:'", async () => {
 		const mockClient = createMockIPCClient();
 		const state = createEmptyState();
-		vi.mocked(mockClient.queryState).mockReturnValue(okAsync(state) as any);
+		mockClient.queryState.mockReturnValue(okAsync(state));
 
 		// Return ResultAsync directly (no async wrapper) so .orElse() works
 		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
-			op(mockClient as any, 999),
+			op(mockClient as unknown as IPCClient, 999),
 		);
 
 		const result = await status({});
@@ -65,11 +66,11 @@ describe("status", () => {
 		const state = createEmptyState({
 			system: { mode: "task", startTime: new Date(Date.now() - 65_000), version: "0" },
 		});
-		vi.mocked(mockClient.queryState).mockReturnValue(okAsync(state) as any);
+		mockClient.queryState.mockReturnValue(okAsync(state));
 
 		// Return ResultAsync directly (no async wrapper) so .orElse() works
 		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
-			op(mockClient as any, 999),
+			op(mockClient as unknown as IPCClient, 999),
 		);
 
 		await status({});
@@ -82,7 +83,7 @@ describe("status", () => {
 	it("watch mode — calls client.onStateChange()", async () => {
 		const mockClient = createMockIPCClient();
 		const state = createEmptyState();
-		vi.mocked(mockClient.queryState).mockReturnValue(okAsync(state) as any);
+		mockClient.queryState.mockReturnValue(okAsync(state));
 
 		// Resolve onTerminate immediately so the neverResolve promise settles
 		vi.mocked(onTerminate).mockImplementation((cb) => {
@@ -91,7 +92,7 @@ describe("status", () => {
 
 		// Return ResultAsync directly (no async wrapper) so .orElse() works
 		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
-			op(mockClient as any, 999),
+			op(mockClient as unknown as IPCClient, 999),
 		);
 
 		const result = await status({ watch: true });
@@ -101,7 +102,7 @@ describe("status", () => {
 	});
 
 	it("DaemonNotRunningError from withDaemon — handleFatalError is called via orElse", async () => {
-		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()) as any);
+		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
 
 		await expect(status({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();

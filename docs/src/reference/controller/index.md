@@ -89,28 +89,34 @@ await controller.executeCommand({
 
 ## Integration with Subsystems
 
-Subsystems integrate with the controller through duck-typed interfaces:
+Plugins integrate with the controller through two complementary contracts:
+
+**Plugin properties** — capabilities the plugin *offers* to the controller:
 
 ```typescript
-interface Subsystem<TCommand, TState> = Partial<
-  EventBusAware &        // Receive EventBus instance
+type InstantiatedPlugin<TCommand> = Partial<
   CommandExecutor<TCommand> &  // Execute commands
-  StateProvider<TState> &      // Provide state
-  Disconnectable              // Clean disconnect
+  Disconnectable               // Clean disconnect
 >;
 ```
 
-### EventBusAware
-Subsystems that emit events implement `setEventBus()`:
+**PluginContext** — infrastructure the controller *provides* to the plugin:
 
 ```typescript
-interface EventBusAware {
-  setEventBus(eventBus: EventBus): void;
+interface PluginContext<TState = unknown> {
+  eventBus: EventBus;          // Type-safe event bus
+  logger: Logger;              // Scoped logger
+  abortSignal: AbortSignal;    // Cancelled on controller shutdown
+  cwd: string;                 // Working directory
+  dispatchCommand: (command) => ResultAsync<unknown, Error>;
+  updateState: (producer: (draft: TState) => void) => void;
+  getGlobalState: () => VersionedLaunchpadState;
+  onGlobalStatePatch: (handler) => () => void;
 }
 ```
 
 ### CommandExecutor
-Subsystems that handle commands implement `executeCommand()`:
+Plugins that handle commands implement `executeCommand()`:
 
 ```typescript
 interface CommandExecutor<TCommand> {
@@ -118,22 +124,35 @@ interface CommandExecutor<TCommand> {
 }
 ```
 
-### StateProvider
-Subsystems that expose state implement `getState()`:
+### State Management
+Plugins own their domain logic; the controller owns the state infrastructure. Plugins call `ctx.updateState()` to establish and mutate their state slice — the controller lazily creates a scoped store on first call and handles patch generation, versioning, and broadcasting.
 
 ```typescript
-interface StateProvider<TState> {
-  getState(): TState;
-  onStatePatch(handler: PatchHandler): () => void;
-}
+definePlugin({
+  name: 'my-plugin',
+  setup(ctx: PluginContext<MyState>) {
+    // Establish initial state
+    ctx.updateState(() => ({ count: 0 }));
+
+    return okAsync({
+      executeCommand(command) {
+        // Mutate state via immer producer
+        ctx.updateState(draft => { draft.count++; });
+        return okAsync(undefined);
+      }
+    });
+  }
+});
 ```
 
+To read the full aggregated state (all plugins + system), use `ctx.getGlobalState()`. Prefer `ctx.eventBus` or `ctx.dispatchCommand` for cross-plugin communication over polling global state.
+
 ### Disconnectable
-Subsystems that need cleanup implement `disconnect()`:
+Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.
 
 ```typescript
 interface Disconnectable {
-  disconnect(): ResultAsync<void, Error>;
+  disconnect(reason: DisconnectReason): ResultAsync<void, Error>;
 }
 ```
 

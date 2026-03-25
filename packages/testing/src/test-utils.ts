@@ -1,6 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 
@@ -111,6 +111,10 @@ export type MockIPCClient = {
 	connect: ReturnType<typeof vi.fn>;
 	disconnect: ReturnType<typeof vi.fn>;
 	on: ReturnType<typeof vi.fn>;
+	off: ReturnType<typeof vi.fn>;
+	once: ReturnType<typeof vi.fn>;
+	onAny: ReturnType<typeof vi.fn>;
+	offAny: ReturnType<typeof vi.fn>;
 	shutdown: ReturnType<typeof vi.fn>;
 	queryState: ReturnType<typeof vi.fn>;
 	executeCommand: ReturnType<typeof vi.fn>;
@@ -118,12 +122,20 @@ export type MockIPCClient = {
 };
 
 export function createMockIPCClient(overrides?: Partial<MockIPCClient>): MockIPCClient {
+	const emptyState: LaunchpadState = {
+		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
+		plugins: {},
+	};
 	return {
 		connect: vi.fn().mockReturnValue(okAsync(undefined)),
 		disconnect: vi.fn(),
 		on: vi.fn(),
+		off: vi.fn(),
+		once: vi.fn(),
+		onAny: vi.fn(),
+		offAny: vi.fn(),
 		shutdown: vi.fn().mockReturnValue(okAsync(undefined)),
-		queryState: vi.fn().mockReturnValue(okAsync(createEmptyState())),
+		queryState: vi.fn().mockReturnValue(okAsync(emptyState)),
 		executeCommand: vi.fn().mockReturnValue(okAsync(undefined)),
 		onStateChange: vi.fn().mockReturnValue(() => {}),
 		...overrides,

@@ -50,7 +50,7 @@ describe("controller-execution", () => {
 		socketPath: "socket",
 	});
 
-	const createMockIPCClient = (
+	const makeIPCClientStub = (
 		connectResult: ResultAsync<unknown, unknown> = okAsync(undefined),
 	) => ({
 		connect: vi.fn().mockReturnValue(connectResult),
@@ -58,7 +58,7 @@ describe("controller-execution", () => {
 		on: vi.fn(),
 	});
 
-	const createMockController = (
+	const makeControllerStub = (
 		startResult: ResultAsync<unknown, unknown> = okAsync(undefined),
 		stopResult: ResultAsync<unknown, unknown> = okAsync(undefined),
 	) => ({
@@ -79,7 +79,7 @@ describe("controller-execution", () => {
 	describe("withDaemon", () => {
 		it("should execute operation with connected IPC client when daemon is running", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
-			const mockClient = createMockIPCClient();
+			const mockClient = makeIPCClientStub();
 			vi.mocked(IPCClient).mockImplementation(() => mockClient as any);
 			const operation = vi.fn().mockReturnValue(okAsync("result"));
 
@@ -108,7 +108,7 @@ describe("controller-execution", () => {
 
 		it("should propagate operation errors", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
-			const mockClient = createMockIPCClient();
+			const mockClient = makeIPCClientStub();
 			vi.mocked(IPCClient).mockImplementation(() => mockClient as any);
 			const operation = vi.fn().mockReturnValue(errAsync(new Error("Operation failed")));
 
@@ -121,7 +121,7 @@ describe("controller-execution", () => {
 
 		it("should return error if connect fails", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
-			const mockClient = createMockIPCClient(errAsync(new Error("Connect failed")));
+			const mockClient = makeIPCClientStub(errAsync(new Error("Connect failed")));
 			vi.mocked(IPCClient).mockImplementation(() => mockClient as any);
 			const operation = vi.fn();
 
@@ -136,7 +136,7 @@ describe("controller-execution", () => {
 	describe("withDaemonOrController", () => {
 		it("should use daemon via IPC if daemon is running", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
-			const mockClient = createMockIPCClient();
+			const mockClient = makeIPCClientStub();
 			vi.mocked(IPCClient).mockImplementation(() => mockClient as any);
 			const ifDaemon = vi.fn().mockReturnValue(okAsync("daemon-result"));
 			const otherwise = vi.fn();
@@ -157,34 +157,37 @@ describe("controller-execution", () => {
 		it.each([
 			["task", true],
 			["persistent", false],
-		] as const)("should use local controller if daemon is not running in %s mode", async (mode, shouldStop) => {
-			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController();
-			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
-			const ifDaemon = vi.fn();
-			const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
+		] as const)(
+			"should use local controller if daemon is not running in %s mode",
+			async (mode, shouldStop) => {
+				vi.mocked(getDaemonPid).mockReturnValue(ok(null));
+				const mockController = makeControllerStub();
+				vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
+				const ifDaemon = vi.fn();
+				const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
 
-			const result = await withDaemonOrController(baseDir, controllerConfig, {
-				mode,
-				ifDaemon,
-				otherwise,
-			});
+				const result = await withDaemonOrController(baseDir, controllerConfig, {
+					mode,
+					ifDaemon,
+					otherwise,
+				});
 
-			expect(result.isOk()).toBe(true);
-			expect(result._unsafeUnwrap()).toBe("local-result");
-			expect(ifDaemon).not.toHaveBeenCalled();
-			expect(otherwise).toHaveBeenCalledWith(mockController);
-			expect(mockController.start).toHaveBeenCalled();
-			if (shouldStop) {
-				expect(mockController.stop).toHaveBeenCalled();
-			} else {
-				expect(mockController.stop).not.toHaveBeenCalled();
-			}
-		});
+				expect(result.isOk()).toBe(true);
+				expect(result._unsafeUnwrap()).toBe("local-result");
+				expect(ifDaemon).not.toHaveBeenCalled();
+				expect(otherwise).toHaveBeenCalledWith(mockController);
+				expect(mockController.start).toHaveBeenCalled();
+				if (shouldStop) {
+					expect(mockController.stop).toHaveBeenCalled();
+				} else {
+					expect(mockController.stop).not.toHaveBeenCalled();
+				}
+			},
+		);
 
 		it("should stop controller in task mode but not in persistent mode", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController();
+			const mockController = makeControllerStub();
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
 			const otherwise = vi.fn().mockReturnValue(okAsync("result"));
 
@@ -196,7 +199,7 @@ describe("controller-execution", () => {
 			expect(mockController.stop).toHaveBeenCalled();
 
 			vi.clearAllMocks();
-			const mockController2 = createMockController();
+			const mockController2 = makeControllerStub();
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController2 as any);
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
 
@@ -210,7 +213,7 @@ describe("controller-execution", () => {
 
 		it("should return error if controller start fails", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController(errAsync(new Error("Start failed")));
+			const mockController = makeControllerStub(errAsync(new Error("Start failed")));
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
 
 			const result = await withDaemonOrController(baseDir, controllerConfig, {
@@ -225,7 +228,7 @@ describe("controller-execution", () => {
 
 		it("should propagate operation errors in task mode", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController();
+			const mockController = makeControllerStub();
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
 			const otherwise = vi.fn().mockReturnValue(errAsync(new Error("Operation failed")));
 
@@ -242,7 +245,7 @@ describe("controller-execution", () => {
 
 		it("should pass correct mode to LaunchpadController", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController();
+			const mockController = makeControllerStub();
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
 			const otherwise = vi.fn().mockReturnValue(okAsync("result"));
 
@@ -257,7 +260,7 @@ describe("controller-execution", () => {
 
 		it("should log when using daemon", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
-			const mockClient = createMockIPCClient();
+			const mockClient = makeIPCClientStub();
 			vi.mocked(IPCClient).mockImplementation(() => mockClient as any);
 
 			await withDaemonOrController(baseDir, controllerConfig, {
@@ -273,7 +276,7 @@ describe("controller-execution", () => {
 
 		it("should log when starting local controller", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const mockController = createMockController();
+			const mockController = makeControllerStub();
 			vi.mocked(LaunchpadController).mockImplementation(() => mockController as any);
 
 			await withDaemonOrController(baseDir, controllerConfig, {

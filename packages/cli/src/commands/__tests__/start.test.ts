@@ -38,7 +38,7 @@ import { EventEmitter } from "node:events";
 import type { LaunchpadController } from "@bluecadet/launchpad-controller";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import { createMockController } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { errAsync, okAsync } from "neverthrow";
+import { okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
 import { withDaemonOrController } from "../../utils/controller-execution.js";
@@ -82,14 +82,9 @@ describe("start", () => {
 
 			// withDaemonOrController calls ifDaemon which calls process.exit(1) synchronously
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) => {
-				// Calling ifDaemon will throw because of our process.exit mock
-				try {
-					return opts.ifDaemon({} as unknown as LaunchpadController, 999) as ReturnType<
-						typeof withDaemonOrController
-					>;
-				} catch (e) {
-					throw e;
-				}
+				return opts.ifDaemon({} as unknown as LaunchpadController, 999) as ReturnType<
+					typeof withDaemonOrController
+				>;
 			});
 
 			await expect(start({ detach: false })).rejects.toThrow("process.exit");

@@ -28,7 +28,6 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~2.1.0",
     "sudo-prompt": "^9.2.1"
   },
   "devDependencies": {

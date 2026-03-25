@@ -7,7 +7,6 @@
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "ky": "^1.7.2",
     "memfs": "^4.14.0",
-    "msw": "^2.6.6",
     "neverthrow": "^8.1.1",
     "winston": "^3.17.0",
     "winston-transport": "^4.9.0"

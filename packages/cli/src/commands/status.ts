@@ -2,6 +2,10 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
+// We need to import launchpad-content/state somewhere for the decl merging to work.
+// TODO: we should have an API for plugins to register their own CLI state renderer,
+// rather than relying on decl merging and importing the entire state module here.
+import type {} from "@bluecadet/launchpad-content/state";
 import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";

@@ -1,6 +1,6 @@
 import { createMockPluginCtx, type MockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { describe, expect, it, vi } from "vitest";
-import { createLaunchpadMonitor } from "../launchpad-monitor.js";
+import { monitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
 // Mock process.exit to prevent tests from actually exiting
@@ -13,10 +13,10 @@ vi.mock("../utils/debounce-results.ts", () => ({
 
 async function createTestMonitor(config: MonitorConfig = { apps: [] }, cwd?: string) {
 	const ctx = createMockPluginCtx(cwd);
-	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
+	const instance = (await monitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {
-		monitor,
+		monitor: instance,
 		rootLogger: ctx.logger,
 		eventBus: ctx.eventBus as MockEventBus,
 	};

@@ -236,11 +236,15 @@ function shutdown(
 
 /**
  * Creates a LaunchpadMonitor plugin factory.
- * Call setup() on the returned object to initialize the monitor.
+ * Use this in your launchpad config's plugins array.
  */
-export function createLaunchpadMonitor(config: MonitorConfig) {
+export function monitor(config: MonitorConfig) {
 	return definePlugin({
 		name: "monitor",
+		startupCommands: [
+			{ type: "monitor.connect" },
+			{ type: "monitor.start" },
+		] satisfies BaseCommand[],
 		setup(ctx: PluginContext) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
@@ -331,16 +335,7 @@ export function createLaunchpadMonitor(config: MonitorConfig) {
 				disconnect() {
 					return shutdown(actionCtx);
 				},
-				startupCommands: [{ type: "monitor.connect" }, { type: "monitor.start" }],
 			});
 		},
 	});
-}
-
-/**
- * Creates a LaunchpadMonitor plugin factory with startup commands.
- * Use this in your launchpad config's plugins array.
- */
-export function monitor(config: MonitorConfig) {
-	return createLaunchpadMonitor(config);
 }

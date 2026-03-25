@@ -3,7 +3,7 @@ import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createLaunchpadContent } from "../launchpad-content.js";
+import { content } from "../launchpad-content.js";
 import mdToHtml from "../plugins/md-to-html.js";
 import mediaDownloader from "../plugins/media-downloader.js";
 import jsonSource from "../sources/json-source.js";
@@ -27,7 +27,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -38,9 +38,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -60,7 +60,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -71,9 +71,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -96,7 +96,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -108,9 +108,9 @@ describe("Content Event Emissions", () => {
 			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -134,7 +134,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -146,9 +146,9 @@ describe("Content Event Emissions", () => {
 			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -175,7 +175,7 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -186,9 +186,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -215,7 +215,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -234,9 +234,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -262,7 +262,7 @@ describe("Content Event Emissions", () => {
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -273,9 +273,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -303,7 +303,7 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -315,9 +315,9 @@ describe("Content Event Emissions", () => {
 				transforms: [mdToHtml({ path: "$.content" })],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -356,7 +356,7 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -374,9 +374,9 @@ describe("Content Event Emissions", () => {
 			}).setup(ctx);
 
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -404,7 +404,7 @@ describe("Content Event Emissions", () => {
 
 			const ctx = createMockPluginCtx();
 			const eventBus = ctx.eventBus as MockEventBus;
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -422,9 +422,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -446,7 +446,7 @@ describe("Content Event Emissions", () => {
 			);
 
 			const ctx = createMockPluginCtx();
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -457,9 +457,9 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -494,7 +494,7 @@ describe("Content Event Emissions", () => {
 				}),
 			);
 
-			const contentResult = await createLaunchpadContent({
+			const contentResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -505,10 +505,10 @@ describe("Content Event Emissions", () => {
 				],
 			}).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// Do not set eventBus - should still work
-			await expect(content.executeCommand({ type: "content.fetch" })).resolves.toBeOk();
+			await expect(instance.executeCommand({ type: "content.fetch" })).resolves.toBeOk();
 		});
 	});
 });

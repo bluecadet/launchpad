@@ -229,23 +229,13 @@ function clear(
 }
 
 /**
- * Creates a LaunchpadContent plugin factory with startup commands.
+ * Creates a LaunchpadContent plugin factory.
  * Use this in your launchpad config's plugins array.
  */
 export function content(config: ContentConfig) {
-	return {
-		...createLaunchpadContent(config),
-		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
-	};
-}
-
-/**
- * Creates a LaunchpadContent plugin factory.
- * Call setup() on the returned object to initialize the content system.
- */
-export function createLaunchpadContent(config: ContentConfig) {
 	return definePlugin({
 		name: "content",
+		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
 		setup(ctx: PluginContext) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {

@@ -95,3 +95,56 @@ export function createMockPluginCtx(cwd = "/") {
 		updateState: vi.fn(),
 	} satisfies PluginContext;
 }
+
+export function createEmptyState(
+	overrides?: Partial<VersionedLaunchpadState>,
+): VersionedLaunchpadState {
+	return {
+		system: { mode: "task" },
+		plugins: {},
+		_version: 0,
+		...overrides,
+	};
+}
+
+export type MockIPCClient = {
+	connect: ReturnType<typeof vi.fn>;
+	disconnect: ReturnType<typeof vi.fn>;
+	on: ReturnType<typeof vi.fn>;
+	shutdown: ReturnType<typeof vi.fn>;
+	queryState: ReturnType<typeof vi.fn>;
+	executeCommand: ReturnType<typeof vi.fn>;
+	onStateChange: ReturnType<typeof vi.fn>;
+};
+
+export function createMockIPCClient(overrides?: Partial<MockIPCClient>): MockIPCClient {
+	return {
+		connect: vi.fn().mockReturnValue(okAsync(undefined)),
+		disconnect: vi.fn(),
+		on: vi.fn(),
+		shutdown: vi.fn().mockReturnValue(okAsync(undefined)),
+		queryState: vi.fn().mockReturnValue(okAsync(createEmptyState())),
+		executeCommand: vi.fn().mockReturnValue(okAsync(undefined)),
+		onStateChange: vi.fn().mockReturnValue(() => {}),
+		...overrides,
+	};
+}
+
+export type MockController = {
+	start: ReturnType<typeof vi.fn>;
+	stop: ReturnType<typeof vi.fn>;
+	registerPlugin: ReturnType<typeof vi.fn>;
+	executeCommand: ReturnType<typeof vi.fn>;
+	getEventBus: ReturnType<typeof vi.fn>;
+};
+
+export function createMockController(overrides?: Partial<MockController>): MockController {
+	return {
+		start: vi.fn().mockReturnValue(okAsync(undefined)),
+		stop: vi.fn().mockReturnValue(okAsync(undefined)),
+		registerPlugin: vi.fn().mockReturnValue(okAsync(undefined)),
+		executeCommand: vi.fn().mockReturnValue(okAsync(undefined)),
+		getEventBus: vi.fn().mockReturnValue(createMockEventBus()),
+		...overrides,
+	};
+}

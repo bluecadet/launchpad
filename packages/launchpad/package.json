@@ -148,10 +148,6 @@
       "default": "./dist/monitor/launchpad-monitor.js",
       "types": "./dist/monitor/launchpad-monitor.d.ts"
     },
-    "./monitor/plugin": {
-      "default": "./dist/monitor/plugin.js",
-      "types": "./dist/monitor/plugin.d.ts"
-    },
     "./monitor/commands": {
       "default": "./dist/monitor/commands.js",
       "types": "./dist/monitor/commands.d.ts"

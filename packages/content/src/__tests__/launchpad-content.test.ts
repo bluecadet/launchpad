@@ -3,7 +3,7 @@ import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts"
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContentError, type ContentTransform } from "../content-transform.js";
-import { createLaunchpadContent } from "../launchpad-content.js";
+import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
 
 describe("LaunchpadContent", () => {
@@ -38,12 +38,12 @@ describe("LaunchpadContent", () => {
 
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {
-			const factory = createLaunchpadContent(createBasicConfig());
+			const factory = content(createBasicConfig());
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -65,12 +65,12 @@ describe("LaunchpadContent", () => {
 				keep: [".keep"],
 			};
 
-			const factory = createLaunchpadContent(config);
+			const factory = content(config);
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -83,18 +83,18 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should clear data store between runs", async () => {
-			const factory = createLaunchpadContent(createBasicConfig());
+			const factory = content(createBasicConfig());
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 			expect(result).toBeOk();
 
 			// Run download again to ensure no residual data
-			const result2 = await content.executeCommand({
+			const result2 = await instance.executeCommand({
 				type: "content.fetch",
 			});
 			expect(result2).toBeOk();
@@ -118,12 +118,12 @@ describe("LaunchpadContent", () => {
 				},
 			};
 
-			const factory = createLaunchpadContent(createBasicConfig([transform1, transform2]));
+			const factory = content(createBasicConfig([transform1, transform2]));
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({ type: "content.fetch" });
+			await instance.executeCommand({ type: "content.fetch" });
 
 			expect(order).toEqual(["t1", "t2"]);
 		});
@@ -136,12 +136,12 @@ describe("LaunchpadContent", () => {
 				},
 			};
 
-			const factory = createLaunchpadContent(createBasicConfig([errorTransform]));
+			const factory = content(createBasicConfig([errorTransform]));
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({ type: "content.fetch" });
+			const result = await instance.executeCommand({ type: "content.fetch" });
 
 			expect(result).toBeErr();
 			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
@@ -157,12 +157,12 @@ describe("LaunchpadContent", () => {
 
 	describe("executeCommand", () => {
 		it("should allow a single command to execute", async () => {
-			const factory = createLaunchpadContent(createBasicConfig());
+			const factory = content(createBasicConfig());
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -186,21 +186,21 @@ describe("LaunchpadContent", () => {
 				},
 			});
 
-			const factory = createLaunchpadContent({
+			const factory = content({
 				...createBasicConfig(),
 				sources: [slowSource],
 			});
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// First command takes time
-			const firstCommand = content.executeCommand({
+			const firstCommand = instance.executeCommand({
 				type: "content.fetch",
 			});
 
 			// Try second command immediately (will be rejected because first is in progress)
-			const secondCommand = content.executeCommand({
+			const secondCommand = instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -230,21 +230,21 @@ describe("LaunchpadContent", () => {
 				},
 			});
 
-			const factory = createLaunchpadContent({
+			const factory = content({
 				...createBasicConfig(),
 				sources: [slowSource],
 			});
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// Start a fetch
-			const fetchCommand = content.executeCommand({
+			const fetchCommand = instance.executeCommand({
 				type: "content.fetch",
 			});
 
 			// Try to execute clear while fetch is in progress
-			const clearCommand = content.executeCommand({
+			const clearCommand = instance.executeCommand({
 				type: "content.clear",
 			});
 
@@ -256,18 +256,18 @@ describe("LaunchpadContent", () => {
 		});
 
 		it("should allow sequential commands to execute after first completes", async () => {
-			const factory = createLaunchpadContent(createBasicConfig());
+			const factory = content(createBasicConfig());
 			const contentResult = await factory.setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result1 = await content.executeCommand({
+			const result1 = await instance.executeCommand({
 				type: "content.fetch",
 			});
 
 			expect(result1).toBeOk();
 
-			const result2 = await content.executeCommand({
+			const result2 = await instance.executeCommand({
 				type: "content.fetch",
 			});
 

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
 import { ProcessManager } from "../core/process-manager.js";
 import { PM2Error } from "../errors.js";
-import { createLaunchpadMonitor } from "../launchpad-monitor.js";
+import { monitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
 // Mock process.exit to prevent tests from actually exiting
@@ -35,10 +35,10 @@ async function createTestMonitor(
 	cwd?: string,
 ) {
 	const ctx = createMockPluginCtx(cwd);
-	const monitor = (await createLaunchpadMonitor(config).setup(ctx))._unsafeUnwrap();
+	const instance = (await monitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {
-		monitor,
+		monitor: instance,
 		rootLogger: ctx.logger,
 	};
 }

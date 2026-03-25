@@ -1,7 +1,7 @@
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLaunchpadContent } from "../launchpad-content.js";
+import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
 
 describe("ContentState", () => {
@@ -41,11 +41,11 @@ describe("ContentState", () => {
 	describe("initialization", () => {
 		it("should initialize with empty sources record", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			const state = content.getState();
+			const state = instance.getState();
 
 			// After init but before download, sources should have pending states
 			expect(state.sources["source-1"]).toBeDefined();
@@ -58,15 +58,15 @@ describe("ContentState", () => {
 	describe("per-source state tracking", () => {
 		it("should initialize source state when fetch starts", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("success");
 			if (state.sources["source-1"]?.state === "success") {
@@ -77,15 +77,15 @@ describe("ContentState", () => {
 
 		it("should track multiple sources independently", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-2"]).toBeDefined();
 			expect(state.sources["source-3"]).toBeDefined();
@@ -97,17 +97,17 @@ describe("ContentState", () => {
 	describe("fetch lifecycle state updates", () => {
 		it("should set startTime timestamp when fetch begins", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			const beforeFetch = new Date();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
 			expect(sourceState?.state).toBe("success");
@@ -119,18 +119,18 @@ describe("ContentState", () => {
 
 		it("should set finishedAt timestamp after successful fetch", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			const beforeFetch = new Date();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 			expect(result).toBeOk();
 
-			const state = content.getState();
+			const state = instance.getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
 			expect(sourceState?.state).toBe("success");
@@ -142,15 +142,15 @@ describe("ContentState", () => {
 
 		it("should track different timestamps for different sources", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 			const source1State = state.sources["source-1"];
 			const source2State = state.sources["source-2"];
 
@@ -190,20 +190,18 @@ describe("ContentState", () => {
 				],
 			};
 
-			const contentResult = await createLaunchpadContent(failingConfig).setup(
-				createMockPluginCtx(),
-			);
+			const contentResult = await content(failingConfig).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			const beforeFetch = new Date();
 
-			const result = await content.executeCommand({
+			const result = await instance.executeCommand({
 				type: "content.fetch",
 			});
 			expect(result).toBeErr();
 
-			const state = content.getState();
+			const state = instance.getState();
 			const sourceState = state.sources["failing-source"];
 			expect(sourceState?.state).toBe("error");
 			if (sourceState?.state === "error") {
@@ -214,17 +212,17 @@ describe("ContentState", () => {
 
 		it("should not clear lastFetchSuccess on error", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// First successful fetch
-			const result1 = await content.executeCommand({
+			const result1 = await instance.executeCommand({
 				type: "content.fetch",
 			});
 			expect(result1).toBeOk();
 
-			const state1 = content.getState();
+			const state1 = instance.getState();
 			const sourceState = state1.sources["source-1"];
 			expect(sourceState?.state).toBe("success");
 
@@ -237,11 +235,11 @@ describe("ContentState", () => {
 		it("should emit events when state is updated", async () => {
 			const config = createBasicConfig(1);
 			const ctx = createMockPluginCtx();
-			const contentResult = await createLaunchpadContent(config).setup(ctx);
+			const contentResult = await content(config).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -261,11 +259,11 @@ describe("ContentState", () => {
 		it("should emit source-specific events", async () => {
 			const config = createBasicConfig(1);
 			const ctx = createMockPluginCtx();
-			const contentResult = await createLaunchpadContent(config).setup(ctx);
+			const contentResult = await content(config).setup(ctx);
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
@@ -288,27 +286,27 @@ describe("ContentState", () => {
 	describe("state consistency", () => {
 		it("should maintain state across multiple operations", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// First operation
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			let state = content.getState();
+			let state = instance.getState();
 			const firstSourceState = state.sources["source-1"];
 
 			// State should be preserved
-			state = content.getState();
+			state = instance.getState();
 			const firstSourceStateAgain = state.sources["source-1"];
 			expect(firstSourceStateAgain?.state).toBe(firstSourceState?.state);
 
 			// Second operation
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			state = content.getState();
+			state = instance.getState();
 			const secondSourceState = state.sources["source-1"];
 
 			// Both should be success
@@ -325,15 +323,15 @@ describe("ContentState", () => {
 
 		it("should have consistent state structure across all sources", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 			for (const sourceId of ["source-1", "source-2", "source-3"]) {
 				const sourceState = state.sources[sourceId];
 				expect(sourceState).toBeDefined();
@@ -350,15 +348,15 @@ describe("ContentState", () => {
 	describe("state mutations during operations", () => {
 		it("should return frozen state objects", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = content.getState();
+			const state = instance.getState();
 
 			// State should be frozen to prevent mutations
 			expect(Object.isFrozen(state)).toBe(true);
@@ -366,20 +364,20 @@ describe("ContentState", () => {
 
 		it("should reflect state changes through getState()", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await createLaunchpadContent(config).setup(createMockPluginCtx());
+			const contentResult = await content(config).setup(createMockPluginCtx());
 			expect(contentResult).toBeOk();
-			const content = contentResult._unsafeUnwrap();
+			const instance = contentResult._unsafeUnwrap();
 
 			// Before fetch
-			let state = content.getState();
+			let state = instance.getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("pending");
 
 			// After fetch
-			await content.executeCommand({
+			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			state = content.getState();
+			state = instance.getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("success");
 		});

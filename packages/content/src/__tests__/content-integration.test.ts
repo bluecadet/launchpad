@@ -4,7 +4,7 @@ import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createLaunchpadContent } from "../launchpad-content.js";
+import { content } from "../launchpad-content.js";
 import mdToHtml from "../plugins/md-to-html.js";
 import mediaDownloader from "../plugins/media-downloader.js";
 import sanityToHtml from "../plugins/sanity-to-html.js";
@@ -38,7 +38,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = await createLaunchpadContent({
+			const setupResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -58,7 +58,7 @@ describe("Content Integration", () => {
 				],
 			}).setup(createMockPluginCtx());
 
-			const result = await content._unsafeUnwrap().executeCommand({
+			const result = await setupResult._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
 			});
 
@@ -123,7 +123,7 @@ describe("Content Integration", () => {
 				),
 			);
 
-			const content = await createLaunchpadContent({
+			const setupResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -138,7 +138,7 @@ describe("Content Integration", () => {
 				transforms: [sanityToHtml({ path: "$..content" })],
 			}).setup(createMockPluginCtx());
 
-			const result = await content._unsafeUnwrap().executeCommand({
+			const result = await setupResult._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
 			});
 
@@ -178,7 +178,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = await createLaunchpadContent({
+			const setupResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				sources: [
@@ -203,9 +203,9 @@ describe("Content Integration", () => {
 				],
 			}).setup(createMockPluginCtx());
 
-			expect(content).toBeOk();
+			expect(setupResult).toBeOk();
 
-			const result = await content._unsafeUnwrap().executeCommand({
+			const result = await setupResult._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
 			});
 
@@ -234,7 +234,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = await createLaunchpadContent({
+			const setupResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				backupPath: "/backups",
@@ -248,7 +248,7 @@ describe("Content Integration", () => {
 				],
 			}).setup(createMockPluginCtx());
 
-			const result = await content._unsafeUnwrap().executeCommand({
+			const result = await setupResult._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
 			});
 
@@ -275,7 +275,7 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = await createLaunchpadContent({
+			const setupResult = await content({
 				downloadPath: "/downloads",
 				tempPath: "/temp",
 				backupPath: "/backups",
@@ -292,7 +292,7 @@ describe("Content Integration", () => {
 				],
 			}).setup(createMockPluginCtx());
 
-			const result = await content._unsafeUnwrap().executeCommand({
+			const result = await setupResult._unsafeUnwrap().executeCommand({
 				type: "content.fetch",
 			});
 

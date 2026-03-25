@@ -38,9 +38,9 @@ import { LaunchpadController } from '@bluecadet/launchpad-controller';
 
 const controller = new LaunchpadController(config, logger);
 
-// Register subsystems
-controller.registerSubsystem(contentSubsystem);
-controller.registerSubsystem(monitorSubsystem);
+// Register plugins
+controller.registerPlugin(contentSubsystem);
+controller.registerPlugin(monitorSubsystem);
 
 // Start the controller
 await controller.start();

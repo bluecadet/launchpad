@@ -285,6 +285,47 @@ eventBus.on('monitor:app:crash', (data) => {
 });
 ```
 
+---
+
+### `monitor:app:log`
+Emitted when an app outputs to stdout.
+
+**Payload:**
+```typescript
+{
+  appName: string;  // Name of the app
+  data: string;     // Log output
+}
+```
+
+---
+
+### `monitor:app:errorLog`
+Emitted when an app outputs to stderr.
+
+**Payload:**
+```typescript
+{
+  appName: string;  // Name of the app
+  data: string;     // Error log output
+}
+```
+
+## Shutdown Events
+
+### `monitor:beforeShutdown`
+Emitted just before the monitor begins shutting down.
+
+**Payload:**
+```typescript
+{
+  code?: number;  // Optional exit code
+}
+```
+
+> [!NOTE]
+> This event is fire-and-forget — the monitor does not wait for listeners to complete before proceeding with shutdown. Plugins that need to react to monitor shutdown should use their own `disconnect()` lifecycle on the controller.
+
 ## Window Management Events
 
 These events are Windows-specific and only emitted when window management features are used.

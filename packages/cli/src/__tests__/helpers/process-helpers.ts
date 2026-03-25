@@ -19,15 +19,23 @@ export async function spawnServerProcess(timeoutMs = 8_000): Promise<ServerHandl
 	const socketPath = path.join(runDir, "ipc.sock");
 	const pidFile = path.join(runDir, "launchpad.pid");
 
-	const fixtureFile = fileURLToPath(new URL("../fixtures/server-process.ts", import.meta.url));
+	// Plain JS fixture — no TypeScript compilation or experimental flags needed.
+	const fixtureFile = fileURLToPath(new URL("../fixtures/ipc-server.mjs", import.meta.url));
 
 	const serverProcess = fork(fixtureFile, [], {
 		env: { ...process.env, LP_SOCKET_PATH: socketPath, LP_PID_FILE: pidFile },
-		stdio: "pipe",
-		execArgv: ["--experimental-strip-types", "--experimental-vm-modules"],
+		stdio: ["ignore", "ignore", "pipe", "ipc"],
 	});
 
 	serverProcess.stderr?.on("data", (data: Buffer) => process.stderr.write(data));
+
+	let processExited = false;
+	const exitPromise = new Promise<void>((resolve) => {
+		serverProcess.once("exit", () => {
+			processExited = true;
+			resolve();
+		});
+	});
 
 	await waitForSocket(socketPath, timeoutMs);
 
@@ -36,11 +44,10 @@ export async function spawnServerProcess(timeoutMs = 8_000): Promise<ServerHandl
 		pidFile,
 		runDir,
 		teardown: async () => {
-			serverProcess.kill("SIGTERM");
-			await new Promise<void>((resolve) => serverProcess.on("exit", () => resolve()));
-			try {
-				fs.unlinkSync(socketPath);
-			} catch {}
+			if (!processExited) {
+				serverProcess.kill("SIGTERM");
+				await exitPromise;
+			}
 			try {
 				fs.rmSync(runDir, { recursive: true });
 			} catch {}

@@ -19,8 +19,7 @@ describe("stop command — real IPC", () => {
 	beforeAll(async () => {
 		server = await spawnServerProcess();
 
-		// Write a minimal config file that points to the absolute socket + pid file paths.
-		// Using .js extension so jiti can load it without TypeScript compilation.
+		// Write a minimal config pointing at the fixture's socket + pid file.
 		configPath = path.join(server.runDir, "launchpad.config.js");
 		fs.writeFileSync(
 			configPath,
@@ -38,24 +37,13 @@ describe("stop command — real IPC", () => {
 		await server.teardown();
 	});
 
-	it("gracefully stops the running controller via IPC", async () => {
+	it("sends shutdown via IPC and deletes pid file when process exits", async () => {
 		const { stop } = await import("../commands/stop.js");
 
 		const result = await stop({ config: configPath });
 
 		expect(result.isOk()).toBe(true);
-
-		// After stop, the pid file should have been deleted by the stop command
-		const deadline = Date.now() + 5_000;
-		let pidFileGone = false;
-		while (Date.now() < deadline) {
-			if (!fs.existsSync(server.pidFile)) {
-				pidFileGone = true;
-				break;
-			}
-			await new Promise((r) => setTimeout(r, 100));
-		}
-
-		expect(pidFileGone).toBe(true);
+		// The fixture exits on shutdown; stop.ts deletes the pid file once isProcessRunning() is false.
+		expect(fs.existsSync(server.pidFile)).toBe(false);
 	}, 15_000);
 });

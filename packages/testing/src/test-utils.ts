@@ -90,7 +90,8 @@ export function createMockPluginCtx(cwd = "/") {
 		cwd,
 		abortSignal: new AbortController().signal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
-		getState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
-		onStatePatch: vi.fn().mockReturnValue(() => {}),
+		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
+		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
+		updateState: vi.fn(),
 	} satisfies PluginContext;
 }

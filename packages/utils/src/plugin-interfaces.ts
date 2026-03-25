@@ -1,3 +1,22 @@
+/**
+ * Plugin system contracts.
+ *
+ * The architecture follows a two-sided contract:
+ *
+ * **Plugin properties** = capabilities the plugin OFFERS to the controller.
+ *   - `CommandExecutor` — plugin can receive and process commands
+ *   - `Disconnectable` — plugin can perform graceful resource cleanup
+ *
+ * **PluginContext** = infrastructure the controller PROVIDES to the plugin.
+ *   - Communication: `eventBus`, `dispatchCommand`
+ *   - Environment: `logger`, `cwd`
+ *   - Lifecycle: `abortSignal`
+ *   - State: `updateState` (write this plugin's slice), `getGlobalState` (read the whole system)
+ *
+ * State management is controller-owned: plugins call `ctx.updateState()` at the top of `setup()`
+ * to establish their initial state, and the controller lazily creates the underlying state store
+ * on first call. The controller owns patch generation, versioning, and broadcasting.
+ */
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
@@ -10,8 +29,13 @@ export type DisconnectReason =
 	| { type: "signal"; signal: NodeJS.Signals };
 
 /**
- * Optional interface for plugins that can be gracefully disconnected.
- * The controller will call disconnect() during shutdown if implemented.
+ * Optional interface for plugins that need explicit resource teardown.
+ * The controller calls disconnect() during shutdown AFTER aborting the AbortSignal,
+ * so in-flight async operations are already cancelled by the time disconnect() runs.
+ *
+ * Use `Disconnectable` when the plugin manages long-lived resources (connections,
+ * child processes) that require deliberate cleanup. Plugins that only perform
+ * HTTP requests or file I/O can rely solely on `abortSignal` cancellation.
  */
 export interface Disconnectable {
 	/**
@@ -68,26 +92,33 @@ export interface StateProvider<TState = unknown> {
 	onStatePatch(handler: PatchHandler): () => void;
 }
 
-export interface PluginContext {
+export interface PluginContext<TState = unknown> {
 	readonly eventBus: EventBus;
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
 	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
-	readonly getState: () => VersionedLaunchpadState;
-	readonly onStatePatch: (handler: PatchHandlerWithVersion) => () => void;
+	/** Read the full aggregated system state (all plugins + system). Use sparingly — prefer eventBus or dispatchCommand for cross-plugin communication. */
+	readonly getGlobalState: () => VersionedLaunchpadState;
+	readonly onGlobalStatePatch: (handler: PatchHandlerWithVersion) => () => void;
+	/**
+	 * Update this plugin's state slice.
+	 *
+	 * Call this at the top of `setup()` with a complete initial value (returning the state object
+	 * directly) to establish state. For subsequent updates, use a standard Immer producer that
+	 * mutates the draft. The controller lazily creates the state manager on first call.
+	 */
+	readonly updateState: (producer: (draft: TState) => void) => void;
 }
 
 /**
  * Generic plugin type that can optionally implement any controller interfaces.
  *
  * @template TCommand - The command type this plugin accepts (must extend BaseCommand)
- * @template TState - The state type this plugin provides
  */
-export type InstantiatedPlugin<
-	TCommand extends BaseCommand = BaseCommand,
-	TState = unknown,
-> = Partial<Disconnectable & CommandExecutor<TCommand> & StateProvider<TState>>;
+export type InstantiatedPlugin<TCommand extends BaseCommand = BaseCommand> = Partial<
+	Disconnectable & CommandExecutor<TCommand>
+>;
 
 /**
  * Interface for plugins that require async setup/initialization.
@@ -102,7 +133,7 @@ export interface PluginConfig<
 	TCommand extends BaseCommand = BaseCommand,
 	TState = unknown,
 	E = Error,
-	TPlugin extends InstantiatedPlugin<TCommand, TState> = InstantiatedPlugin<TCommand, TState>,
+	TPlugin extends InstantiatedPlugin<TCommand> = InstantiatedPlugin<TCommand>,
 > {
 	/**
 	 * Unique name of the plugin.
@@ -120,7 +151,7 @@ export interface PluginConfig<
 	 * @param ctx Plugin context (logger, eventBus, cwd)
 	 * @returns Configured plugin instance that conforms to standard interfaces
 	 */
-	setup(ctx: PluginContext): ResultAsync<TPlugin, E>;
+	setup(ctx: PluginContext<TState>): ResultAsync<TPlugin, E>;
 }
 
 // Helper that validates conformance while preserving concrete type
@@ -128,7 +159,7 @@ export function definePlugin<
 	TCommand extends BaseCommand,
 	TState,
 	E,
-	TPlugin extends InstantiatedPlugin<TCommand, TState>,
+	TPlugin extends InstantiatedPlugin<TCommand>,
 >(factory: PluginConfig<TCommand, TState, E, TPlugin>): PluginConfig<TCommand, TState, E, TPlugin> {
 	return factory;
 }

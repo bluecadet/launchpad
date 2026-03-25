@@ -206,7 +206,7 @@ describe("ipc-transport", () => {
 			const { context } = await createStartedIPCTransport();
 
 			const testState = { system: { mode: "persistent", uptime: 1000 } };
-			context.getState = vi.fn().mockReturnValue(testState);
+			context.getGlobalState = vi.fn().mockReturnValue(testState);
 
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
@@ -407,7 +407,7 @@ describe("ipc-transport", () => {
 			const { transport, context } = createTestIPCTransport();
 			await transport.setup(context);
 
-			context.getState = vi.fn().mockImplementation(() => {
+			context.getGlobalState = vi.fn().mockImplementation(() => {
 				throw new Error("State retrieval failed");
 			});
 
@@ -431,19 +431,19 @@ describe("ipc-transport", () => {
 		it("should subscribe to stateStore patches on start", async () => {
 			const { transport, context } = createTestIPCTransport();
 
-			context.onStatePatch = vi.fn().mockReturnValue(() => {});
+			context.onGlobalStatePatch = vi.fn().mockReturnValue(() => {});
 
 			const result = await transport.setup(context);
 
 			expect(result.isOk()).toBe(true);
-			expect(context.onStatePatch).toHaveBeenCalled();
+			expect(context.onGlobalStatePatch).toHaveBeenCalled();
 		});
 
 		it("should send state-patch message to client when patch arrives", async () => {
 			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.onStatePatch = vi.fn((handler) => {
+			context.onGlobalStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				return () => {};
 			});
@@ -470,7 +470,7 @@ describe("ipc-transport", () => {
 			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.onStatePatch = vi.fn((handler) => {
+			context.onGlobalStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				return () => {};
 			});
@@ -505,7 +505,7 @@ describe("ipc-transport", () => {
 			const { transport, context } = createTestIPCTransport();
 			let patchHandler: ((patches: any[], version: number) => void) | undefined;
 
-			context.onStatePatch = vi.fn((handler) => {
+			context.onGlobalStatePatch = vi.fn((handler) => {
 				patchHandler = handler;
 				return () => {};
 			});

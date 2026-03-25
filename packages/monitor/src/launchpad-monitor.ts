@@ -5,7 +5,6 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -20,7 +19,7 @@ import {
 } from "./monitor-config.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
-type MonitorActionContext = PluginContext & {
+type MonitorActionContext = PluginContext<MonitorState> & {
 	processManager: ProcessManager;
 	busManager: BusManager;
 	appManager: AppManager;
@@ -55,7 +54,7 @@ export function killPM2(logger: Omit<Logger, "child">): ResultAsync<void, Error>
 
 function _handleExistingDaemon(
 	resolvedConfig: ResolvedMonitorConfig,
-	ctx: PluginContext,
+	ctx: MonitorActionContext,
 	processManager: ProcessManager,
 ): ResultAsync<void, Error> {
 	if (resolvedConfig.deleteExistingBeforeConnect) {
@@ -245,7 +244,7 @@ export function monitor(config: MonitorConfig) {
 			{ type: "monitor.connect" },
 			{ type: "monitor.start" },
 		] satisfies BaseCommand[],
-		setup(ctx: PluginContext) {
+		setup(ctx: PluginContext<MonitorState>) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
@@ -256,7 +255,7 @@ export function monitor(config: MonitorConfig) {
 			const processManager = new ProcessManager(ctx.logger);
 			const busManager = new BusManager(ctx.logger);
 			const appManager = new AppManager(ctx.logger, processManager, resolvedConfig, ctx.cwd);
-			const stateManager = new MonitorStateManager();
+			const stateManager = new MonitorStateManager(ctx.updateState);
 
 			// Initialize app states
 			for (const appConf of resolvedConfig.apps) {
@@ -325,12 +324,6 @@ export function monitor(config: MonitorConfig) {
 							);
 						}
 					}
-				},
-				getState(): MonitorState {
-					return stateManager.state;
-				},
-				onStatePatch(handler: PatchHandler): () => void {
-					return stateManager.onPatch(handler);
 				},
 				disconnect() {
 					return shutdown(actionCtx);

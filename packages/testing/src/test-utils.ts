@@ -83,7 +83,7 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
-export function createMockPluginCtx(cwd = "/") {
+export function createMockPluginCtx(cwd = "/"): PluginContext {
 	return {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
@@ -100,7 +100,7 @@ export function createEmptyState(
 	overrides?: Partial<VersionedLaunchpadState>,
 ): VersionedLaunchpadState {
 	return {
-		system: { mode: "task" },
+		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
 		plugins: {},
 		_version: 0,
 		...overrides,

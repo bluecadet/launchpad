@@ -279,15 +279,11 @@ class BatchDocument<T = unknown> extends Document<T> {
 	}
 
 	override async _update(cb: (data: T) => T | Promise<T>) {
-		for (const doc of this.#documents) {
-			await doc._update(cb);
-		}
+		await Promise.all(this.#documents.map((doc) => doc._update(cb)));
 	}
 
 	override async _apply(pathExpression: string, fn: (x: unknown) => unknown) {
-		for (const doc of this.#documents) {
-			await doc._apply(pathExpression, fn);
-		}
+		await Promise.all(this.#documents.map((doc) => doc._apply(pathExpression, fn)));
 	}
 
 	override async _query(pathExpression: string): Promise<unknown[]> {

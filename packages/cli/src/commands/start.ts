@@ -15,12 +15,10 @@ import {
 import { onTerminate } from "../utils/on-terminate.js";
 
 export function start(argv: GlobalLaunchpadArgs & { detach?: boolean }): ResultAsync<void, Error> {
-	// If detach mode is requested, fork the process
 	if (argv.detach) {
 		return startDetached(argv);
 	}
 
-	// Otherwise, run in foreground
 	return startForeground(argv);
 }
 
@@ -35,7 +33,6 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 
 			cliLogger.info("Starting Launchpad in background...");
 
-			// Fork the CLI process to run the same command without --detach / -d flags
 			const child = fork(mod as string, args, {
 				detached: true,
 				stdio: "ignore", // Ignore stdin, pipe stdout/stderr, keep IPC channel

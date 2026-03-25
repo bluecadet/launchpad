@@ -1,3 +1,4 @@
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand, InstantiatedPlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, type ResultAsync } from "neverthrow";
@@ -100,7 +101,7 @@ export class CommandDispatcher {
 					error instanceof CommandExecutionError
 						? error
 						: new CommandExecutionError("Plugin command execution failed", {
-								cause: error instanceof Error ? error : new Error(String(error)),
+								cause: ensureError(error),
 								commandType: command.type,
 							});
 				this._eventBus.emit("command:error", {
@@ -115,7 +116,7 @@ export class CommandDispatcher {
 			error instanceof CommandExecutionError
 				? error
 				: new CommandExecutionError("Plugin command execution failed", {
-						cause: error instanceof Error ? error : new Error(String(error)),
+						cause: ensureError(error),
 						commandType: command.type,
 					}),
 		);

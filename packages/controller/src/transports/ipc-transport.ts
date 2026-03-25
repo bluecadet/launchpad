@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import net from "node:net";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import {
 	type DisconnectReason,
 	definePlugin,
@@ -96,7 +97,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 								const message = IPCSerializer.deserialize(line) as IPCMessage;
 								handleMessage(message, socket, ctx);
 							} catch (e) {
-								const error = e instanceof Error ? e : new Error(String(e));
+								const error = ensureError(e);
 								ctx.logger.error(`Failed to parse IPC message: ${error.message}`);
 								sendError(
 									socket,
@@ -214,7 +215,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 					data: state,
 				});
 			} catch (e) {
-				const error = e instanceof Error ? e : new Error(String(e));
+				const error = ensureError(e);
 				logger.error(`Failed to get state: ${error.message}`);
 				sendError(
 					socket,
@@ -244,7 +245,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 						socket,
 						message.id,
 						new CommandExecutionError("IPC command execution failed", {
-							cause: error instanceof Error ? error : new Error(String(error)),
+							cause: ensureError(error),
 						}),
 					);
 				},

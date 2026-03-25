@@ -39,6 +39,7 @@ export class PatchedStateManager<TState> {
 	 */
 	updateState(producer: Producer<TState>) {
 		this._state = produce(this._state, producer, (patches) => {
+			if (patches.length === 0) return;
 			this._patchHandlers.forEach((handler) => handler(patches));
 		});
 		return this._state;

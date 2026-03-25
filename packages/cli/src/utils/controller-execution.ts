@@ -9,11 +9,15 @@ import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/c
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-import { errAsync, type ResultAsync } from "neverthrow";
+import { errAsync, type Result, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
 import { cliLogger } from "./cli-logger.js";
 
 export { DaemonNotRunningError, IPCConnectionError };
+
+type WithDaemonDeps = {
+	resolvePid?: (pidFile: string) => Result<number | null, Error>;
+};
 
 /**
  * Execute a function with a connected IPC client if daemon is running.
@@ -25,12 +29,13 @@ export function withDaemon<T>(
 	controllerConfig: ResolvedControllerConfig,
 	relayLogs: boolean,
 	operation: (client: IPCClient, pid: number) => ResultAsync<T, IPCConnectionError>,
+	deps?: WithDaemonDeps,
 ): ResultAsync<T, DaemonNotRunningError | IPCConnectionError> {
 	const pidFile = path.resolve(baseDir, controllerConfig.pidFile);
 	const socketPath = path.resolve(baseDir, controllerConfig.socketPath);
 
 	// Check if daemon is running
-	const daemonPidResult = getDaemonPid(pidFile);
+	const daemonPidResult = (deps?.resolvePid ?? getDaemonPid)(pidFile);
 	if (daemonPidResult.isErr() || daemonPidResult.value === null) {
 		return errAsync(new DaemonNotRunningError());
 	}
@@ -42,10 +47,14 @@ export function withDaemon<T>(
 		addLogListeners(client);
 	}
 
-	// Connect and execute operation
+	// Connect and execute operation, disconnecting on both success and error
 	return client.connect(socketPath).andThen(() => {
-		const result = operation(client, pid);
-		return result.andTee(() => client.disconnect());
+		return operation(client, pid)
+			.andTee(() => client.disconnect())
+			.orElse((e) => {
+				client.disconnect();
+				return errAsync(e);
+			});
 	});
 }
 

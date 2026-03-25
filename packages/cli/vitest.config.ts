@@ -5,5 +5,12 @@ export default defineConfig({
 		globals: true,
 		environment: 'node',
 		setupFiles: ['@bluecadet/launchpad-testing/setup.ts'],
+		testTimeout: 15_000,
+		hookTimeout: 10_000,
+		server: {
+			deps: {
+				inline: ['jiti'],
+			},
+		},
 	},
 });

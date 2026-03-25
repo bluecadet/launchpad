@@ -52,7 +52,6 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
-    "auto-bind": "^5.0.1",
     "chalk": "^5.0.0",
     "cross-spawn": "^7.0.3",
     "neverthrow": "^8.1.1",

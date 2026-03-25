@@ -60,7 +60,6 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "chalk": "^5.0.0",
     "immer": "^10.2.0",
     "neverthrow": "^8.1.1"
   },

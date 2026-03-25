@@ -1,6 +1,6 @@
 # Content Config
 
-Configuration for managing content sources, plugins, and file handling settings.
+Configuration for managing content sources, transforms, and file handling settings.
 
 ## Options
 
@@ -13,14 +13,14 @@ A list of content source options that defines where content is downloaded from. 
 
 For detailed source configuration options, see [Sources Reference](./sources/index.md).
 
-### `plugins`
+### `transforms`
 
-- **Type:** `Array<ContentPlugin>`
+- **Type:** `Array<ContentTransform>`
 - **Default:** `[]`
 
-A list of content transformation plugins that process content after download. Plugins can modify, analyze, or enhance content before final output.
+A list of content transforms that process content after download. Transforms can modify, analyze, or enhance content before final output.
 
-See [Content Plugin Reference](./plugins/index.md) for available plugins and usage.
+See [Content Transforms Reference](./plugins/index.md) for available transforms and usage.
 
 ### `downloadPath`
 

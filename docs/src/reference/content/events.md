@@ -168,62 +168,62 @@ eventBus.on('content:document:error', (data) => {
 });
 ```
 
-## Plugin Events
+## Transform Events
 
-### `content:plugin:start`
-Emitted when a content plugin begins processing.
+### `content:transform:start`
+Emitted when a content transform begins processing.
 
 **Payload:**
 ```typescript
 {
-  pluginName: string;  // Name of the plugin
+  transformName: string;  // Name of the transform
 }
 ```
 
 **Example:**
 ```typescript
-eventBus.on('content:plugin:start', (data) => {
-  console.log(`Running plugin: ${data.pluginName}`);
+eventBus.on('content:transform:start', (data) => {
+  console.log(`Running transform: ${data.transformName}`);
 });
 ```
 
 ---
 
-### `content:plugin:done`
-Emitted when a plugin completes successfully.
+### `content:transform:done`
+Emitted when a transform completes successfully.
 
 **Payload:**
 ```typescript
 {
-  pluginName: string;  // Name of the plugin
-  duration: number;    // Time taken in milliseconds
+  transformName: string;  // Name of the transform
+  duration: number;       // Time taken in milliseconds
 }
 ```
 
 **Example:**
 ```typescript
-eventBus.on('content:plugin:done', (data) => {
-  console.log(`Plugin ${data.pluginName} completed in ${data.duration}ms`);
+eventBus.on('content:transform:done', (data) => {
+  console.log(`Transform ${data.transformName} completed in ${data.duration}ms`);
 });
 ```
 
 ---
 
-### `content:plugin:error`
-Emitted when a plugin encounters an error.
+### `content:transform:error`
+Emitted when a transform encounters an error.
 
 **Payload:**
 ```typescript
 {
-  pluginName: string;  // Name of the plugin
-  error: Error;        // The error that occurred
+  transformName: string;  // Name of the transform
+  error: Error;           // The error that occurred
 }
 ```
 
 **Example:**
 ```typescript
-eventBus.on('content:plugin:error', (data) => {
-  console.error(`Plugin ${data.pluginName} failed:`, data.error);
+eventBus.on('content:transform:error', (data) => {
+  console.error(`Transform ${data.transformName} failed:`, data.error);
 });
 ```
 

@@ -9,22 +9,25 @@ Content fetching requires a `ContentConfig` object in your Launchpad configurati
 ```js
 // launchpad.config.js
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
 import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
-  content: {
-    sources: [
-      jsonSource({
-        id: "example-source",
-        files: {
-          "example.json": "https://example.com/api/data",
-        },
-      }),
-    ],
-    plugins: [], // Add plugins here
-    downloadPath: './content',
-    backupAndRestore: true,
-  },
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: "example-source",
+          files: {
+            "example.json": "https://example.com/api/data",
+          },
+        }),
+      ],
+      transforms: [], // Add transforms here
+      downloadPath: './content',
+      backupAndRestore: true,
+    }),
+  ],
 });
 ```
 
@@ -53,16 +56,16 @@ Sources define where your content comes from. Launchpad includes several built-i
 
 Check the [Content Sources Reference](../reference/content/sources/index.md) to learn more about available sources and how to create custom ones.
 
-## Transform with Plugins
+## Transforms
 
-Plugins process your content after it's downloaded. Common use cases include:
+Transforms process your content after it's downloaded. Common use cases include:
 
 - Converting Markdown to HTML
 - Resizing images
 - Validating data
 - Custom transformations
 
-Learn more in the [Plugins Reference](../reference/content/plugins/index.md).
+Learn more in the [Transforms Reference](../reference/content/plugins/index.md).
 
 ## Best Practices
 
@@ -76,7 +79,7 @@ Learn more in the [Plugins Reference](../reference/content/plugins/index.md).
 
 - Read about [Content Configuration](../reference/content/content-config.md)
 - Learn about [Content Sources](../reference/content/sources/index.md)
-- Explore [Plugin Development](../reference/content/plugins/index.md)
+- Explore [Transforms](../reference/content/plugins/index.md)
 - Understanding [Error Handling](../reference/content/index.md#error-handling)
 
 For complete API documentation, visit the [Content Reference Documentation](../reference/content/index.md).

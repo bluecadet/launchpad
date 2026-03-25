@@ -36,35 +36,35 @@ npm install @bluecadet/launchpad
 ```js
 // launchpad.config.js (or launchpad.config.ts, launchpad.config.mjs, etc.)
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { monitor } from '@bluecadet/launchpad-monitor';
 import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
-  content: {
-    // Content management configuration
-    sources: [
-      jsonSource({
-        id: "flickr-images",
-        files: {
-          "spaceships.json":
-            "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
-          "rockets.json":
-            "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket",
-        },
-      }),
-    ]
-  },
-  monitor: {
-    // Process management configuration
-    apps: [
-      {
-        pm2: {
-          name: "my-app",
-          script: "my-app.exe",
-          cwd: "./builds/",
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: "flickr-images",
+          files: {
+            "spaceships.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
+            "rockets.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket",
+          },
+        }),
+      ]
+    }),
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: "my-app",
+            script: "my-app.exe",
+            cwd: "./builds/",
+          }
         }
-      }
-    ]
-  }
+      ]
+    }),
+  ]
 });
 ```
 

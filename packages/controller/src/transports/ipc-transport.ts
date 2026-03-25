@@ -155,7 +155,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						}
 					});
 				};
-				const unsubscribePatch = ctx.onStatePatch(handlePatch);
+				const unsubscribePatch = ctx.onGlobalStatePatch(handlePatch);
 
 				return ok({
 					disconnect(_reason: DisconnectReason) {
@@ -306,7 +306,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 	switch (message.type) {
 		case "query-state": {
 			try {
-				const state = ctx.getState();
+				const state = ctx.getGlobalState();
 				sendResponse(socket, {
 					id: message.id,
 					type: "state",

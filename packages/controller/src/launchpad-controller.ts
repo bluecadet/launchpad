@@ -55,7 +55,7 @@ export class LaunchpadController {
 		this._baseDir = baseDir;
 		this._eventBus = new EventBus();
 		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
-		this._stateStore = new StateStore(this._plugins, this._mode);
+		this._stateStore = new StateStore(this._mode);
 	}
 
 	/**
@@ -65,11 +65,12 @@ export class LaunchpadController {
 	registerPlugin(plugin: PluginConfig): ResultAsync<void, Error> {
 		const name = plugin.name;
 
+		const updateState = this._stateStore.getPluginUpdater(plugin.name);
+
 		return plugin
-			.setup(this.getPluginCtx(name))
+			.setup(this.getPluginCtx(name, updateState))
 			.map((instance) => {
 				this._plugins.set(plugin.name, instance);
-				this._stateStore.registerPlugin(name, instance);
 
 				this._logger.verbose(`Registered plugin '${name}'`);
 			})
@@ -250,15 +251,19 @@ export class LaunchpadController {
 		return this._isStarted;
 	}
 
-	private getPluginCtx(pluginName: string): PluginContext {
+	private getPluginCtx(
+		pluginName: string,
+		updateState: (producer: (draft: unknown) => void) => void,
+	): PluginContext<unknown> {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),
 			cwd: this._baseDir,
 			abortSignal: this._abortController.signal,
 			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),
-			getState: () => this.getState(),
-			onStatePatch: (handler) => this._stateStore.onPatch(handler),
+			getGlobalState: () => this.getState(),
+			onGlobalStatePatch: (handler) => this._stateStore.onPatch(handler),
+			updateState,
 		};
 	}
 }

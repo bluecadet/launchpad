@@ -3,7 +3,6 @@
  * This represents the current state of the monitor system.
  */
 
-import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 // Need to import so that declaration merging works
 import "@bluecadet/launchpad-utils/types";
 
@@ -39,13 +38,9 @@ declare module "@bluecadet/launchpad-utils/types" {
 	}
 }
 
-export class MonitorStateManager extends PatchedStateManager<MonitorState> {
-	constructor() {
-		super({
-			isConnected: false,
-			isShuttingDown: false,
-			apps: {},
-		});
+export class MonitorStateManager {
+	constructor(private readonly updateState: (producer: (draft: MonitorState) => void) => void) {
+		this.updateState(() => ({ isConnected: false, isShuttingDown: false, apps: {} }));
 	}
 
 	setConnected(isConnected: boolean): void {

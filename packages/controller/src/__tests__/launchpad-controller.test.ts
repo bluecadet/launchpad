@@ -211,10 +211,15 @@ describe("LaunchpadController", () => {
 	describe("getState", () => {
 		it("should return aggregated state", async () => {
 			const controller = createController();
-			const plugin: InstantiatedPlugin = {
-				getState: () => ({ value: "test-state" }),
-			};
-			await controller.registerPlugin(makePlugin("test", plugin));
+			await controller.registerPlugin(
+				definePlugin({
+					name: "test",
+					setup(ctx) {
+						ctx.updateState(() => ({ value: "test-state" }));
+						return okAsync({});
+					},
+				}),
+			);
 
 			const state = controller.getState();
 
@@ -273,22 +278,32 @@ describe("LaunchpadController", () => {
 
 			eventBus.onAny((event) => events.push(event));
 
-			const contentState = { isFetching: false };
-
 			await controller.registerPlugin(
-				makePlugin("content", {
-					executeCommand: () => {
-						contentState.isFetching = true;
-						return okAsync(undefined);
+				definePlugin({
+					name: "content",
+					setup(ctx) {
+						ctx.updateState(() => ({ isFetching: false }));
+						return okAsync({
+							executeCommand: () => {
+								ctx.updateState((draft: { isFetching: boolean }) => {
+									draft.isFetching = true;
+								});
+								return okAsync(undefined);
+							},
+						});
 					},
-					getState: () => contentState,
 				}),
 			);
 
 			await controller.registerPlugin(
-				makePlugin("monitor", {
-					executeCommand: () => okAsync(undefined),
-					getState: () => ({ isConnected: false }),
+				definePlugin({
+					name: "monitor",
+					setup(ctx) {
+						ctx.updateState(() => ({ isConnected: false }));
+						return okAsync({
+							executeCommand: () => okAsync(undefined),
+						});
+					},
 				}),
 			);
 

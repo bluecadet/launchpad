@@ -1,4 +1,5 @@
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { produce } from "immer";
 import { errAsync, okAsync } from "neverthrow";
 import type pm2 from "pm2";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +8,7 @@ import { ProcessManager } from "../core/process-manager.js";
 import { PM2Error } from "../errors.js";
 import { monitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
+import type { MonitorState } from "../monitor-state.js";
 
 // Mock process.exit to prevent tests from actually exiting
 // @ts-expect-error - mockImplementation returns undefined
@@ -21,6 +23,21 @@ ProcessManager.prototype.deleteProcess = vi.fn();
 
 let processes: pm2.ProcessDescription[] = [];
 
+function createTestCtx(cwd?: string) {
+	const baseCtx = createMockPluginCtx(cwd);
+	let capturedState: MonitorState = { isConnected: false, isShuttingDown: false, apps: {} };
+
+	const updateState = vi.fn((producer: (draft: MonitorState) => MonitorState | void) => {
+		capturedState = produce(capturedState, producer);
+	});
+
+	return {
+		...baseCtx,
+		updateState,
+		getState: () => capturedState,
+	};
+}
+
 async function createTestMonitor(
 	config: MonitorConfig = {
 		apps: [
@@ -34,11 +51,14 @@ async function createTestMonitor(
 	},
 	cwd?: string,
 ) {
-	const ctx = createMockPluginCtx(cwd);
+	const ctx = createTestCtx(cwd);
 	const instance = (await monitor(config).setup(ctx))._unsafeUnwrap();
 
 	return {
-		monitor: instance,
+		monitor: {
+			...instance,
+			getState: ctx.getState,
+		},
 		rootLogger: ctx.logger,
 	};
 }

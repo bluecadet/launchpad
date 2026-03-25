@@ -4,7 +4,6 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { PatchHandler } from "@bluecadet/launchpad-utils/state-patcher";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
@@ -236,7 +235,7 @@ export function content(config: ContentConfig) {
 	return definePlugin({
 		name: "content",
 		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
-		setup(ctx: PluginContext) {
+		setup(ctx: PluginContext<ContentState>) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
 					if (resolvedConfig.sources.length === 0) {
@@ -246,7 +245,7 @@ export function content(config: ContentConfig) {
 				.andThen((resolvedConfig) => {
 					// initialize persistent services (services that live for the lifetime of the plugin, not per-command)
 
-					const stateManager = new ContentStateManager();
+					const stateManager = new ContentStateManager(ctx.updateState);
 					const sourceRegistry = new Map<string, ContentSource>();
 
 					// Check for duplicates
@@ -299,12 +298,6 @@ export function content(config: ContentConfig) {
 									);
 								}
 							}
-						},
-						getState(): ContentState {
-							return stateManager.state;
-						},
-						onStatePatch(handler: PatchHandler): () => void {
-							return stateManager.onPatch(handler);
 						},
 					});
 				});

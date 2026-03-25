@@ -2,7 +2,6 @@
  * Content plugin state exported for public API.
  */
 
-import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 import type { ContentError } from "./content-transform.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
@@ -78,12 +77,9 @@ declare module "@bluecadet/launchpad-utils/types" {
 	}
 }
 
-export class ContentStateManager extends PatchedStateManager<ContentState> {
-	constructor() {
-		super({
-			phase: "idle",
-			sources: {},
-		});
+export class ContentStateManager {
+	constructor(private readonly updateState: (producer: (draft: ContentState) => void) => void) {
+		this.updateState(() => ({ phase: "idle", sources: {} }));
 	}
 
 	setPhase(newPhase: ContentPhase): void {

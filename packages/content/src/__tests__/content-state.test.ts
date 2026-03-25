@@ -1,8 +1,33 @@
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { produce } from "immer";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ContentState } from "../content-state.js";
 import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
+
+function createTestCtx(cwd?: string) {
+	const baseCtx = createMockPluginCtx(cwd);
+	let capturedState: ContentState = { phase: "idle", sources: {} };
+
+	const updateState = vi.fn((producer: (draft: ContentState) => ContentState | void) => {
+		capturedState = produce(capturedState, producer);
+	});
+
+	return {
+		...baseCtx,
+		updateState,
+		getState: () => capturedState,
+	};
+}
+
+async function setupContent(config: Parameters<typeof content>[0]) {
+	const ctx = createTestCtx();
+	const result = await content(config).setup(ctx);
+	if (result.isErr()) throw result.error;
+	const instance = result._unsafeUnwrap();
+	return { instance, getState: ctx.getState };
+}
 
 describe("ContentState", () => {
 	afterEach(() => {
@@ -41,11 +66,9 @@ describe("ContentState", () => {
 	describe("initialization", () => {
 		it("should initialize with empty sources record", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance: _, getState } = await setupContent(config);
 
-			const state = instance.getState();
+			const state = getState();
 
 			// After init but before download, sources should have pending states
 			expect(state.sources["source-1"]).toBeDefined();
@@ -58,15 +81,13 @@ describe("ContentState", () => {
 	describe("per-source state tracking", () => {
 		it("should initialize source state when fetch starts", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("success");
 			if (state.sources["source-1"]?.state === "success") {
@@ -77,15 +98,13 @@ describe("ContentState", () => {
 
 		it("should track multiple sources independently", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-2"]).toBeDefined();
 			expect(state.sources["source-3"]).toBeDefined();
@@ -97,9 +116,7 @@ describe("ContentState", () => {
 	describe("fetch lifecycle state updates", () => {
 		it("should set startTime timestamp when fetch begins", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			const beforeFetch = new Date();
 
@@ -107,7 +124,7 @@ describe("ContentState", () => {
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
 			expect(sourceState?.state).toBe("success");
@@ -119,9 +136,7 @@ describe("ContentState", () => {
 
 		it("should set finishedAt timestamp after successful fetch", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			const beforeFetch = new Date();
 
@@ -130,7 +145,7 @@ describe("ContentState", () => {
 			});
 			expect(result).toBeOk();
 
-			const state = instance.getState();
+			const state = getState();
 			const sourceState = state.sources["source-1"];
 			expect(sourceState).toBeDefined();
 			expect(sourceState?.state).toBe("success");
@@ -142,15 +157,13 @@ describe("ContentState", () => {
 
 		it("should track different timestamps for different sources", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 			const source1State = state.sources["source-1"];
 			const source2State = state.sources["source-2"];
 
@@ -190,9 +203,7 @@ describe("ContentState", () => {
 				],
 			};
 
-			const contentResult = await content(failingConfig).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(failingConfig);
 
 			const beforeFetch = new Date();
 
@@ -201,7 +212,7 @@ describe("ContentState", () => {
 			});
 			expect(result).toBeErr();
 
-			const state = instance.getState();
+			const state = getState();
 			const sourceState = state.sources["failing-source"];
 			expect(sourceState?.state).toBe("error");
 			if (sourceState?.state === "error") {
@@ -212,9 +223,7 @@ describe("ContentState", () => {
 
 		it("should not clear lastFetchSuccess on error", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			// First successful fetch
 			const result1 = await instance.executeCommand({
@@ -222,7 +231,7 @@ describe("ContentState", () => {
 			});
 			expect(result1).toBeOk();
 
-			const state1 = instance.getState();
+			const state1 = getState();
 			const sourceState = state1.sources["source-1"];
 			expect(sourceState?.state).toBe("success");
 
@@ -286,19 +295,17 @@ describe("ContentState", () => {
 	describe("state consistency", () => {
 		it("should maintain state across multiple operations", async () => {
 			const config = createBasicConfig(2);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			// First operation
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			let state = instance.getState();
+			let state = getState();
 			const firstSourceState = state.sources["source-1"];
 
 			// State should be preserved
-			state = instance.getState();
+			state = getState();
 			const firstSourceStateAgain = state.sources["source-1"];
 			expect(firstSourceStateAgain?.state).toBe(firstSourceState?.state);
 
@@ -306,7 +313,7 @@ describe("ContentState", () => {
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			state = instance.getState();
+			state = getState();
 			const secondSourceState = state.sources["source-1"];
 
 			// Both should be success
@@ -323,15 +330,13 @@ describe("ContentState", () => {
 
 		it("should have consistent state structure across all sources", async () => {
 			const config = createBasicConfig(3);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 			for (const sourceId of ["source-1", "source-2", "source-3"]) {
 				const sourceState = state.sources[sourceId];
 				expect(sourceState).toBeDefined();
@@ -348,15 +353,13 @@ describe("ContentState", () => {
 	describe("state mutations during operations", () => {
 		it("should return frozen state objects", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
 
-			const state = instance.getState();
+			const state = getState();
 
 			// State should be frozen to prevent mutations
 			expect(Object.isFrozen(state)).toBe(true);
@@ -364,12 +367,10 @@ describe("ContentState", () => {
 
 		it("should reflect state changes through getState()", async () => {
 			const config = createBasicConfig(1);
-			const contentResult = await content(config).setup(createMockPluginCtx());
-			expect(contentResult).toBeOk();
-			const instance = contentResult._unsafeUnwrap();
+			const { instance, getState } = await setupContent(config);
 
 			// Before fetch
-			let state = instance.getState();
+			let state = getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("pending");
 
@@ -377,7 +378,7 @@ describe("ContentState", () => {
 			await instance.executeCommand({
 				type: "content.fetch",
 			});
-			state = instance.getState();
+			state = getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("success");
 		});

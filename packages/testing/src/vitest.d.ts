@@ -1,3 +1,4 @@
+/// <reference types="vitest/globals" />
 import "vitest";
 
 interface CustomMatchers<R = unknown> {

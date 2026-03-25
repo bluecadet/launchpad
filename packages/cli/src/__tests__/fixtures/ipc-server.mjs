@@ -19,6 +19,12 @@ if (!socketPath || !pidFile) {
 // Write own PID so getDaemonPid() sees a real, running process.
 writeFileSync(pidFile, String(process.pid));
 
+const state = {
+	_version: 0,
+	system: { startTime: new Date(), version: "test", mode: "persistent" },
+	plugins: {},
+};
+
 const server = createServer((socket) => {
 	let buf = "";
 	socket.on("data", (data) => {
@@ -28,10 +34,14 @@ const server = createServer((socket) => {
 		for (const line of lines) {
 			if (!line.trim()) continue;
 			const msg = parse(line);
-			socket.write(`${stringify({ id: msg.id, type: "ack" })}\n`);
-			if (msg.type === "shutdown") {
+			if (msg.type === "query-state") {
+				socket.write(`${stringify({ id: msg.id, type: "state", data: state })}\n`);
+			} else if (msg.type === "shutdown") {
+				socket.write(`${stringify({ id: msg.id, type: "ack" })}\n`);
 				// Small delay to let the ack be flushed before exiting.
 				setTimeout(() => process.exit(0), 50);
+			} else {
+				socket.write(`${stringify({ id: msg.id, type: "ack" })}\n`);
 			}
 		}
 	});

@@ -108,4 +108,118 @@ describe("status", () => {
 		await expect(status({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
+
+	it("queryState fails — handleFatalError called", async () => {
+		const mockClient = createMockIPCClient({
+			queryState: vi.fn().mockReturnValue(errAsync(new Error("connection lost"))),
+		});
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await expect(status({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("watch mode: onStateChange callback fires — fixed called with updated state", async () => {
+		const mockClient = createMockIPCClient();
+		const initialState = createEmptyState();
+		mockClient.queryState.mockReturnValue(okAsync(initialState));
+
+		let stateChangeCb: ((state: typeof initialState) => void) | undefined;
+		mockClient.onStateChange.mockImplementation((cb) => {
+			stateChangeCb = cb;
+			return () => {};
+		});
+
+		vi.mocked(onTerminate).mockImplementation((cb) => {
+			cb();
+			return () => {};
+		});
+
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({ watch: true });
+
+		// Trigger a state change after the initial render
+		const updatedState = createEmptyState({
+			system: { mode: "task", startTime: new Date(), version: "1" },
+		});
+		stateChangeCb?.(updatedState);
+
+		// fixed called once for initial render, once for the state change callback
+		expect(vi.mocked(cliLogger.fixed)).toHaveBeenCalledTimes(2);
+	});
+
+	it("state with monitor plugin — output includes 'Monitor:' section and connection status", async () => {
+		const mockClient = createMockIPCClient();
+		const state = createEmptyState({
+			plugins: {
+				monitor: { isConnected: true, isShuttingDown: false, apps: {} },
+			},
+		});
+		mockClient.queryState.mockReturnValue(okAsync(state));
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({});
+
+		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
+		expect(output).toContain("Monitor:");
+		expect(output).toContain("Connected:");
+	});
+
+	it("state with content plugin in idle phase — output includes 'Content:' and phase", async () => {
+		const mockClient = createMockIPCClient();
+		const state = createEmptyState({
+			plugins: {
+				content: { phase: "idle", sources: {} },
+			},
+		});
+		mockClient.queryState.mockReturnValue(okAsync(state));
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({});
+
+		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
+		expect(output).toContain("Content:");
+		expect(output).toContain("Phase: idle");
+	});
+
+	it("state with content source in error state — output shows error message and restored status", async () => {
+		const mockClient = createMockIPCClient();
+		const state = createEmptyState({
+			plugins: {
+				content: {
+					phase: "error",
+					error: new Error("unknown content error"),
+					restored: true,
+					sources: {
+						"my-source": {
+							state: "error",
+							error: new Error("fetch timed out"),
+							attemptedAt: new Date(),
+							restored: true,
+						},
+					},
+				},
+			},
+		});
+		mockClient.queryState.mockReturnValue(okAsync(state));
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({});
+
+		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
+		expect(output).toContain("my-source");
+		expect(output).toContain("fetch timed out");
+		expect(output).toContain("restored from backup");
+	});
 });

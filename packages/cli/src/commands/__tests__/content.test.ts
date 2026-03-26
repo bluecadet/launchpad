@@ -98,4 +98,58 @@ describe("content", () => {
 		});
 		await expect(content({})).rejects.toThrow("fatal");
 	});
+
+	it("executeCommand fails via IPC — handleFatalError called", async () => {
+		const mockContentPlugin = { name: "content" as const, setup: vi.fn() };
+		const configWithContent = resolveLaunchpadConfig({ plugins: [mockContentPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithContent }),
+		);
+
+		const mockClient = createMockIPCClient({
+			executeCommand: vi.fn().mockReturnValue(errAsync(new Error("network error"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.ifDaemon(mockClient as unknown as IPCClient, 999),
+		);
+
+		await expect(content({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("registerPlugin fails locally — handleFatalError called", async () => {
+		const mockContentPlugin = { name: "content" as const, setup: vi.fn() };
+		const configWithContent = resolveLaunchpadConfig({ plugins: [mockContentPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithContent }),
+		);
+
+		const mockController = createMockController({
+			registerPlugin: vi.fn().mockReturnValue(errAsync(new Error("plugin init failed"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.otherwise(mockController as unknown as LaunchpadController),
+		);
+
+		await expect(content({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("executeCommand fails locally — handleFatalError called", async () => {
+		const mockContentPlugin = { name: "content" as const, setup: vi.fn() };
+		const configWithContent = resolveLaunchpadConfig({ plugins: [mockContentPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithContent }),
+		);
+
+		const mockController = createMockController({
+			executeCommand: vi.fn().mockReturnValue(errAsync(new Error("fetch failed"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.otherwise(mockController as unknown as LaunchpadController),
+		);
+
+		await expect(content({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
 });

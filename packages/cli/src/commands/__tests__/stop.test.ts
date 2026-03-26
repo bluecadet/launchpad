@@ -30,6 +30,7 @@ import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller
 import { killPM2 } from "@bluecadet/launchpad-monitor/launchpad-monitor";
 import { createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
+import { ConfigError } from "../../errors.js";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
 import { DaemonNotRunningError, withDaemon } from "../../utils/controller-execution.js";
@@ -78,7 +79,7 @@ describe("stop", () => {
 	});
 
 	it("loadConfigAndEnv fails — handleFatalError called", async () => {
-		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new Error("config load failed")));
+		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("config load failed")));
 
 		await expect(stop({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();

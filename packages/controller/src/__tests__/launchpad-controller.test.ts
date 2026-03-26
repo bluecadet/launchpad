@@ -1,3 +1,4 @@
+import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import {
 	type BaseCommand,
 	definePlugin,
@@ -281,7 +282,7 @@ describe("LaunchpadController", () => {
 			await controller.registerPlugin(
 				definePlugin({
 					name: "content",
-					setup(ctx) {
+					setup(ctx: PluginContext<{ isFetching: boolean }>) {
 						ctx.updateState(() => ({ isFetching: false }));
 						return okAsync({
 							executeCommand: () => {

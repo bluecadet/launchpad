@@ -47,6 +47,7 @@ export function createTestIPCTransport() {
 		dispatchCommand: vi.fn().mockReturnValue(okAsync({ result: "success" })),
 		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" } }),
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
+		updateState: vi.fn(),
 	};
 
 	const transport = createIPCTransport({ socketPath: "/test/socket" });

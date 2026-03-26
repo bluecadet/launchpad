@@ -18,7 +18,7 @@ export function createFetchContext() {
 	return {
 		logger: createMockLogger(),
 		dataStore: new DataStore("/"),
-		abortSignal: abortController.signal,
+		abortSignal: abortController.signal as AbortSignal,
 		_abortController: abortController,
 	};
 }

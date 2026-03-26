@@ -10,8 +10,12 @@ export class PatchedStateManager<TState> {
 	private _state: Readonly<TState>;
 	private _patchHandlers: PatchHandler[] = [];
 
-	constructor(initialState: TState) {
-		this._state = initialState;
+	constructor(initialState?: TState) {
+		if (initialState !== undefined) {
+			this._state = initialState;
+		} else {
+			this._state = {} as TState;
+		}
 	}
 
 	/**

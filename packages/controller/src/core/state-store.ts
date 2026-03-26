@@ -1,6 +1,7 @@
 import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-patcher";
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 import type { SystemState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { Producer } from "immer";
 
 /**
  * StateStore aggregates state from all registered plugins.
@@ -43,11 +44,11 @@ export class StateStore {
 	 * @param name - Unique plugin name (used as key in the plugins state tree)
 	 * @returns An updateState function: `(producer) => void`
 	 */
-	getPluginUpdater(name: string): (producer: (draft: unknown) => void) => void {
+	getPluginUpdater<TState = unknown>(name: string): (producer: Producer<TState>) => void {
 		return (producer) => {
-			let manager = this._pluginManagers.get(name);
+			let manager = this._pluginManagers.get(name) as PatchedStateManager<TState> | undefined;
 			if (!manager) {
-				manager = new PatchedStateManager(undefined as unknown);
+				manager = new PatchedStateManager<TState>();
 				this._pluginManagers.set(name, manager);
 				manager.onPatch((patches) => {
 					const adjusted = patches.map((p) => ({

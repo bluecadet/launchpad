@@ -29,8 +29,10 @@ const sanityImageUrlTransformSchema = z.object({
 	newProperty: z.string().describe("New Property name").default("transformedUrl"),
 	/** Function to build the image URL */
 	buildUrl: z
-		.function(z.tuple([z.custom<ImageUrlBuilder>()]))
-		.returns(z.custom<ImageUrlBuilder>())
+		.function({
+			input: [z.custom<ImageUrlBuilder>()],
+			output: z.custom<ImageUrlBuilder>(),
+		})
 		.default((bldr) => bldr)
 		.describe("Function to build the image URL"),
 });

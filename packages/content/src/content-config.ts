@@ -19,7 +19,7 @@ export const contentConfigSchema = z.object({
 		.describe(
 			"A list of content source options. This defines which content is downloaded from where.",
 		)
-		.default([]),
+		.prefault([]),
 	/** A list of content transforms to run after fetching. */
 	transforms: z
 		.array(z.custom<ContentTransform>())

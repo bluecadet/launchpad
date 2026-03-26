@@ -14,10 +14,9 @@ const symlinkSchema = z.object({
 	condition: z
 		.union([
 			z.boolean(),
-			z
-				.function()
-				.args()
-				.returns(z.union([z.promise(z.boolean()), z.boolean()])),
+			z.function({
+				output: z.custom<Promise<boolean> | boolean>(),
+			}),
 		])
 		.optional()
 		.describe("Condition to check before creating symlink"),

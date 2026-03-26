@@ -14,7 +14,7 @@ export class ContentTransformError extends Error {
 	}
 }
 
-export function parseTransformConfig<T extends z.ZodTypeAny>(
+export function parseTransformConfig<T extends z.ZodType>(
 	pluginName: string,
 	schema: T,
 	input: unknown,

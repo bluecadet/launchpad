@@ -21,19 +21,17 @@ const contentfulCredentialsSchema = z.union(
 		}),
 	],
 	{
-		errorMap: (error) => {
+		error: (error) => {
 			if (error.code === "invalid_union")
-				return {
-					message: "You must provide either a `deliveryToken` or a `previewToken`.",
-				};
+				return "You must provide either a `deliveryToken` or a `previewToken`.";
 
-			return { message: error.message ?? "" };
+			return error.message ?? "";
 		},
 	},
 );
 
 const contentfulSourceSchema = z
-	.object({
+	.looseObject({
 		/** Required field to identify this source. Will be used as download path. */
 		id: z
 			.string()
@@ -74,12 +72,11 @@ const contentfulSourceSchema = z
 				Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.",
 		),
 		/** Optional. Supports anything from https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters */
-		searchParams: z.record(z.unknown()).default({
+		searchParams: z.record(z.string(), z.unknown()).default({
 			limit: 1000, // This is the max that Contentful supports,
 			include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
 		}),
 	})
-	.passthrough()
 	.and(contentfulCredentialsSchema);
 
 export default async function contentfulSource(options: z.input<typeof contentfulSourceSchema>) {

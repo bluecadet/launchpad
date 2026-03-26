@@ -33,7 +33,7 @@ export const controllerConfigSchema = z
 		// Future: transports array will go here in Phase 2+
 	})
 	.optional()
-	.default({});
+	.prefault({});
 
 export type ControllerConfig = z.input<typeof controllerConfigSchema>;
 export type ResolvedControllerConfig = z.output<typeof controllerConfigSchema>;

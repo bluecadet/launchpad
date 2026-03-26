@@ -42,8 +42,10 @@ const sharpPluginSchema = z.object({
 		.describe("Update URLs in the content to point to the transformed images"),
 	/** The sharp transform to apply to the images. */
 	buildTransform: z
-		.function(z.tuple([z.custom<SharpType.Sharp>()]))
-		.returns(z.custom<SharpType.Sharp>())
+		.function({
+			input: [z.custom<SharpType.Sharp>()],
+			output: z.custom<SharpType.Sharp>(),
+		})
 		.describe("The sharp transform to apply to the images."),
 	/** The number of images to transform concurrently. Defaults to 4. */
 	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),

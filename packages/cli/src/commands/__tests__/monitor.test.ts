@@ -102,4 +102,79 @@ describe("monitor", () => {
 		});
 		await expect(monitor({})).rejects.toThrow("fatal");
 	});
+
+	it("monitor.connect fails via IPC — handleFatalError called", async () => {
+		const mockMonitorPlugin = { name: "monitor" as const, setup: vi.fn() };
+		const configWithMonitor = resolveLaunchpadConfig({ plugins: [mockMonitorPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithMonitor }),
+		);
+
+		const mockClient = createMockIPCClient({
+			executeCommand: vi.fn().mockReturnValue(errAsync(new Error("connect failed"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.ifDaemon(mockClient as unknown as IPCClient, 999),
+		);
+
+		await expect(monitor({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("monitor.start fails via IPC after connect succeeds — handleFatalError called", async () => {
+		const mockMonitorPlugin = { name: "monitor" as const, setup: vi.fn() };
+		const configWithMonitor = resolveLaunchpadConfig({ plugins: [mockMonitorPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithMonitor }),
+		);
+
+		const mockClient = createMockIPCClient({
+			executeCommand: vi
+				.fn()
+				.mockReturnValueOnce(okAsync(undefined)) // monitor.connect succeeds
+				.mockReturnValueOnce(errAsync(new Error("start failed"))), // monitor.start fails
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.ifDaemon(mockClient as unknown as IPCClient, 999),
+		);
+
+		await expect(monitor({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("registerPlugin fails locally — handleFatalError called", async () => {
+		const mockMonitorPlugin = { name: "monitor" as const, setup: vi.fn() };
+		const configWithMonitor = resolveLaunchpadConfig({ plugins: [mockMonitorPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithMonitor }),
+		);
+
+		const mockController = createMockController({
+			registerPlugin: vi.fn().mockReturnValue(errAsync(new Error("plugin init failed"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.otherwise(mockController as unknown as LaunchpadController),
+		);
+
+		await expect(monitor({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("monitor.connect command fails locally — handleFatalError called", async () => {
+		const mockMonitorPlugin = { name: "monitor" as const, setup: vi.fn() };
+		const configWithMonitor = resolveLaunchpadConfig({ plugins: [mockMonitorPlugin] });
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({ dir: "/test", config: configWithMonitor }),
+		);
+
+		const mockController = createMockController({
+			executeCommand: vi.fn().mockReturnValue(errAsync(new Error("connect failed"))),
+		});
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.otherwise(mockController as unknown as LaunchpadController),
+		);
+
+		await expect(monitor({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
 });

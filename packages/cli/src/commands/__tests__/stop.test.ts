@@ -30,8 +30,9 @@ import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller
 import { killPM2 } from "@bluecadet/launchpad-monitor/launchpad-monitor";
 import { createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
-import { ConfigError } from "../../errors.js";
+import { ConfigError, IPCConnectionError } from "../../errors.js";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
+import { cliLogger } from "../../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
 import { DaemonNotRunningError, withDaemon } from "../../utils/controller-execution.js";
 import { stop } from "../stop.js";
@@ -80,6 +81,71 @@ describe("stop", () => {
 
 	it("loadConfigAndEnv fails — handleFatalError called", async () => {
 		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("config load failed")));
+
+		await expect(stop({})).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("process still running after IPC shutdown — SIGTERM sent, then process stops", async () => {
+		const mockClient = createMockIPCClient();
+		vi.mocked(isProcessRunning)
+			.mockReturnValueOnce(true) // still running after shutdown + wait
+			.mockReturnValueOnce(false); // stopped after SIGTERM + wait
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+		const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+
+		const resultPromise = stop({});
+		await vi.runAllTimersAsync();
+		const result = await resultPromise;
+
+		expect(result.isOk()).toBe(true);
+		expect(killSpy).toHaveBeenCalledWith(999, "SIGTERM");
+		expect(vi.mocked(deletePidFile)).toHaveBeenCalled();
+	});
+
+	it("process still running after SIGTERM — SIGKILL sent, force-stop warning logged", async () => {
+		const mockClient = createMockIPCClient();
+		vi.mocked(isProcessRunning)
+			.mockReturnValueOnce(true) // still running after shutdown
+			.mockReturnValueOnce(true); // still running after SIGTERM
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+		const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
+
+		const resultPromise = stop({});
+		await vi.runAllTimersAsync();
+		const result = await resultPromise;
+
+		expect(result.isOk()).toBe(true);
+		expect(killSpy).toHaveBeenCalledWith(999, "SIGTERM");
+		expect(killSpy).toHaveBeenCalledWith(999, "SIGKILL");
+		expect(vi.mocked(deletePidFile)).toHaveBeenCalled();
+		expect(vi.mocked(cliLogger.warn)).toHaveBeenCalledWith(
+			expect.stringContaining("force stopped"),
+		);
+	});
+
+	it("process.kill throws on SIGTERM — error propagated to handleFatalError", async () => {
+		const mockClient = createMockIPCClient();
+		vi.mocked(isProcessRunning).mockReturnValueOnce(true);
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+		vi.spyOn(process, "kill").mockImplementation(() => {
+			throw new Error("EPERM");
+		});
+
+		const resultPromise = stop({});
+		await vi.runAllTimersAsync();
+		await expect(resultPromise).rejects.toThrow("fatal");
+		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+	});
+
+	it("withDaemon fails with non-DaemonNotRunningError — handleFatalError called", async () => {
+		vi.mocked(withDaemon).mockReturnValue(errAsync(new IPCConnectionError("IPC connection reset")));
 
 		await expect(stop({})).rejects.toThrow("fatal");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();

@@ -96,9 +96,11 @@ export function createMockPluginCtx(cwd = "/") {
 	} satisfies PluginContext;
 }
 
-export function createEmptyState(
-	overrides?: Partial<VersionedLaunchpadState>,
-): VersionedLaunchpadState {
+type TestStateOverrides = Partial<Omit<VersionedLaunchpadState, "plugins">> & {
+	plugins?: Record<string, unknown>;
+};
+
+export function createEmptyState(overrides?: TestStateOverrides): VersionedLaunchpadState {
 	return {
 		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
 		plugins: {},

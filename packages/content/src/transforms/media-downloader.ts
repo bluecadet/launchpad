@@ -157,7 +157,7 @@ export function checkCacheStatus(
 
 					// only check content length if the response says it's new
 					if (isRemoteNew && config.enableContentLengthCheck) {
-						const remoteSize = Number.parseInt(res.headers.get("content-length") ?? "");
+						const remoteSize = Number.parseInt(res.headers.get("content-length") ?? "", 10);
 						const localSize = result.stats.size;
 						isRemoteNew = remoteSize !== localSize;
 					}
@@ -359,7 +359,6 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 						ctx.logger.info(`Syncing ${chalk.cyan(mediaItems.length)} files`);
 
 						const progressLogger = new MediaDownloaderProgressLogger(
-							ctx.logger,
 							ctx.eventBus,
 							mediaItems.length,
 						);

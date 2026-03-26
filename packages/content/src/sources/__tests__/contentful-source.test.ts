@@ -47,7 +47,7 @@ describe("contentfulSource", () => {
 				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
 				({ request }) => {
 					const url = new URL(request.url);
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					// Return empty results after first page
 					if (skip > 0) {
@@ -116,7 +116,7 @@ describe("contentfulSource", () => {
 				"https://preview.contentful.com/spaces/test-space/environments/master/entries",
 				({ request }) => {
 					const url = new URL(request.url);
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					if (skip > 0) {
 						return HttpResponse.json({
@@ -249,7 +249,7 @@ describe("contentfulSource", () => {
 
 					expect(contentType).toBe("article");
 
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					if (skip > 0) {
 						return HttpResponse.json({

@@ -154,7 +154,10 @@ export default defineConfig({
 									{ text: "sanityToHtml", link: "/reference/content/transforms/sanity-to-html" },
 									{ text: "sanityToPlain", link: "/reference/content/transforms/sanity-to-plain" },
 									{ text: "sanityToMd", link: "/reference/content/transforms/sanity-to-md" },
-									{ text: "mediaDownloader", link: "/reference/content/transforms/media-downloader" },
+									{
+										text: "mediaDownloader",
+										link: "/reference/content/transforms/media-downloader",
+									},
 									{ text: "sharp", link: "/reference/content/transforms/sharp" },
 									{
 										text: "sanityImageUrlTransform",

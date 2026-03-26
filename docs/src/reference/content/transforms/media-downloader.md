@@ -9,7 +9,7 @@ Downloaded media files are colocated with the sources that reference them.
 To use the `mediaDownloader` plugin, include it in the list of content plugins in your configuration:
 
 ```typescript{1,6-8}
-import { mediaDownloader } from '@bluecadet/launchpad-content/plugins/media-downloader';
+import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
 
 export default defineConfig({
   content: {

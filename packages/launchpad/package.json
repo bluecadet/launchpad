@@ -55,45 +55,41 @@
       "types": "./dist/content/state.d.ts",
       "default": "./dist/content/state.js"
     },
-    "./content/plugin": {
-      "types": "./dist/content/plugin.d.ts",
-      "default": "./dist/content/plugin.js"
+    "./content/transforms": {
+      "types": "./dist/content/transforms.d.ts",
+      "default": "./dist/content/transforms.js"
     },
-    "./content/plugins": {
-      "types": "./dist/content/plugins.d.ts",
-      "default": "./dist/content/plugins.js"
+    "./content/transforms/md-to-html": {
+      "types": "./dist/content/transforms/md-to-html.d.ts",
+      "default": "./dist/content/transforms/md-to-html.js"
     },
-    "./content/plugins/md-to-html": {
-      "types": "./dist/content/plugins/md-to-html.d.ts",
-      "default": "./dist/content/plugins/md-to-html.js"
+    "./content/transforms/media-downloader": {
+      "types": "./dist/content/transforms/media-downloader.d.ts",
+      "default": "./dist/content/transforms/media-downloader.js"
     },
-    "./content/plugins/media-downloader": {
-      "types": "./dist/content/plugins/media-downloader.d.ts",
-      "default": "./dist/content/plugins/media-downloader.js"
+    "./content/transforms/sanity-image-url-transform": {
+      "types": "./dist/content/transforms/sanity-image-url-transform.d.ts",
+      "default": "./dist/content/transforms/sanity-image-url-transform.js"
     },
-    "./content/plugins/sanity-image-url-transform": {
-      "types": "./dist/content/plugins/sanity-image-url-transform.d.ts",
-      "default": "./dist/content/plugins/sanity-image-url-transform.js"
+    "./content/transforms/sanity-to-html": {
+      "types": "./dist/content/transforms/sanity-to-html.d.ts",
+      "default": "./dist/content/transforms/sanity-to-html.js"
     },
-    "./content/plugins/sanity-to-html": {
-      "types": "./dist/content/plugins/sanity-to-html.d.ts",
-      "default": "./dist/content/plugins/sanity-to-html.js"
+    "./content/transforms/sanity-to-markdown": {
+      "types": "./dist/content/transforms/sanity-to-markdown.d.ts",
+      "default": "./dist/content/transforms/sanity-to-markdown.js"
     },
-    "./content/plugins/sanity-to-markdown": {
-      "types": "./dist/content/plugins/sanity-to-markdown.d.ts",
-      "default": "./dist/content/plugins/sanity-to-markdown.js"
+    "./content/transforms/sanity-to-plain": {
+      "types": "./dist/content/transforms/sanity-to-plain.d.ts",
+      "default": "./dist/content/transforms/sanity-to-plain.js"
     },
-    "./content/plugins/sanity-to-plain": {
-      "types": "./dist/content/plugins/sanity-to-plain.d.ts",
-      "default": "./dist/content/plugins/sanity-to-plain.js"
+    "./content/transforms/sharp": {
+      "types": "./dist/content/transforms/sharp.d.ts",
+      "default": "./dist/content/transforms/sharp.js"
     },
-    "./content/plugins/sharp": {
-      "types": "./dist/content/plugins/sharp.d.ts",
-      "default": "./dist/content/plugins/sharp.js"
-    },
-    "./content/plugins/symlink": {
-      "types": "./dist/content/plugins/symlink.d.ts",
-      "default": "./dist/content/plugins/symlink.js"
+    "./content/transforms/symlink": {
+      "types": "./dist/content/transforms/symlink.d.ts",
+      "default": "./dist/content/transforms/symlink.js"
     },
     "./content/source": {
       "types": "./dist/content/source.d.ts",

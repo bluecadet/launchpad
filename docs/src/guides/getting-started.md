@@ -27,7 +27,7 @@ npm install @bluecadet/launchpad
 > [!TIP]
 > These docs assume you have installed the packages individually. If you installed the monorepo package (`@bluecadet/launchpad`), you can adjust the import paths by replacing `@bluecadet/launchpad-` with `@bluecadet/launchpad/`.
 > 
-> For example, `@bluecadet/launchpad-content/plugins/sharp` becomes `@bluecadet/launchpad/content/plugins/sharp`.
+> For example, `@bluecadet/launchpad-content/transforms/sharp` becomes `@bluecadet/launchpad/content/transforms/sharp`.
 
 ## Basic Setup
 

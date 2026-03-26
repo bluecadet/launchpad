@@ -5,11 +5,11 @@ import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { content } from "../launchpad-content.js";
-import mdToHtml from "../plugins/md-to-html.js";
-import mediaDownloader from "../plugins/media-downloader.js";
-import sanityToHtml from "../plugins/sanity-to-html.js";
 import jsonSource from "../sources/json-source.js";
 import sanitySource from "../sources/sanity-source.js";
+import mdToHtml from "../transforms/md-to-html.js";
+import mediaDownloader from "../transforms/media-downloader.js";
+import sanityToHtml from "../transforms/sanity-to-html.js";
 
 describe("Content Integration", () => {
 	const server = setupServer();

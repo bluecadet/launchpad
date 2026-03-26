@@ -32,45 +32,41 @@
       "types": "./dist/content-state.d.ts",
       "default": "./dist/content-state.js"
     },
-    "./plugin": {
-      "types": "./dist/content-plugin.d.ts",
-      "default": "./dist/content-plugin.js"
+    "./transforms": {
+      "types": "./dist/transforms/index.d.ts",
+      "default": "./dist/transforms/index.js"
     },
-    "./plugins": {
-      "types": "./dist/plugins/index.d.ts",
-      "default": "./dist/plugins/index.js"
+    "./transforms/md-to-html": {
+      "types": "./dist/transforms/md-to-html.d.ts",
+      "default": "./dist/transforms/md-to-html.js"
     },
-    "./plugins/md-to-html": {
-      "types": "./dist/plugins/md-to-html.d.ts",
-      "default": "./dist/plugins/md-to-html.js"
+    "./transforms/media-downloader": {
+      "types": "./dist/transforms/media-downloader.d.ts",
+      "default": "./dist/transforms/media-downloader.js"
     },
-    "./plugins/media-downloader": {
-      "types": "./dist/plugins/media-downloader.d.ts",
-      "default": "./dist/plugins/media-downloader.js"
+    "./transforms/sanity-image-url-transform": {
+      "types": "./dist/transforms/sanity-image-url-transform.d.ts",
+      "default": "./dist/transforms/sanity-image-url-transform.js"
     },
-    "./plugins/sanity-image-url-transform": {
-      "types": "./dist/plugins/sanity-image-url-transform.d.ts",
-      "default": "./dist/plugins/sanity-image-url-transform.js"
+    "./transforms/sanity-to-html": {
+      "types": "./dist/transforms/sanity-to-html.d.ts",
+      "default": "./dist/transforms/sanity-to-html.js"
     },
-    "./plugins/sanity-to-html": {
-      "types": "./dist/plugins/sanity-to-html.d.ts",
-      "default": "./dist/plugins/sanity-to-html.js"
+    "./transforms/sanity-to-markdown": {
+      "types": "./dist/transforms/sanity-to-markdown.d.ts",
+      "default": "./dist/transforms/sanity-to-markdown.js"
     },
-    "./plugins/sanity-to-markdown": {
-      "types": "./dist/plugins/sanity-to-markdown.d.ts",
-      "default": "./dist/plugins/sanity-to-markdown.js"
+    "./transforms/sanity-to-plain": {
+      "types": "./dist/transforms/sanity-to-plain.d.ts",
+      "default": "./dist/transforms/sanity-to-plain.js"
     },
-    "./plugins/sanity-to-plain": {
-      "types": "./dist/plugins/sanity-to-plain.d.ts",
-      "default": "./dist/plugins/sanity-to-plain.js"
+    "./transforms/sharp": {
+      "types": "./dist/transforms/sharp.d.ts",
+      "default": "./dist/transforms/sharp.js" 
     },
-    "./plugins/sharp": {
-      "types": "./dist/plugins/sharp.d.ts",
-      "default": "./dist/plugins/sharp.js" 
-    },
-    "./plugins/symlink": {
-      "types": "./dist/plugins/symlink.d.ts",
-      "default": "./dist/plugins/symlink.js"
+    "./transforms/symlink": {
+      "types": "./dist/transforms/symlink.d.ts",
+      "default": "./dist/transforms/symlink.js"
     },
     "./source": {
       "types": "./dist/source.d.ts",

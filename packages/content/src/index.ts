@@ -4,5 +4,5 @@ export {
 	defineContentTransform,
 } from "./content-transform.js";
 export { content } from "./launchpad-content.js";
-export * from "./plugins/index.js";
 export * from "./sources/index.js";
+export * from "./transforms/index.js";

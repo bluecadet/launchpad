@@ -22,7 +22,11 @@ const packages = [
 /**
  * @type {Record<string, { default: string; types: string }>}
  */
-const reExports = {};
+const reExports = {
+	"./package.json": {
+		default: "./package.json",
+	},
+};
 
 // for each export in the package.json of each package, generate a corresponding .js and .d.ts file
 for (const pkg of packages) {
@@ -75,8 +79,8 @@ for (const pkg of packages) {
 			fs.writeFileSync(dtsFilePath, content, "utf-8");
 
 			reExports[`./${pkg.alias}${exportPathForImport}`] = {
-				default: `./dist/${pkg.alias}/${exportKey}.js`,
 				types: `./dist/${pkg.alias}/${exportKey}.d.ts`,
+				default: `./dist/${pkg.alias}/${exportKey}.js`,
 			};
 		}
 	} catch (error) {

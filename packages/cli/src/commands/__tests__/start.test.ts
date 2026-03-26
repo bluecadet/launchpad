@@ -37,6 +37,7 @@ import { fork } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { LaunchpadController } from "@bluecadet/launchpad-controller";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
+import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createMockController } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
@@ -82,7 +83,7 @@ describe("start", () => {
 
 			// withDaemonOrController calls ifDaemon which calls process.exit(1) synchronously
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) => {
-				return opts.ifDaemon({} as unknown as LaunchpadController, 999) as ReturnType<
+				return opts.ifDaemon({} as unknown as IPCClient, 999) as ReturnType<
 					typeof withDaemonOrController
 				>;
 			});

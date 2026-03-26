@@ -58,11 +58,14 @@ describe("StateStore", () => {
 
 		it("should reflect state changes made via the returned updater", () => {
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("content");
+
+			type ContentState = { isFetching: boolean; totalSources: number };
+
+			const update = store.getPluginUpdater<ContentState>("content");
 
 			update(() => ({ isFetching: false, totalSources: 0 }));
 
-			update((draft: { isFetching: boolean; totalSources: number }) => {
+			update((draft: ContentState) => {
 				draft.isFetching = true;
 				draft.totalSources = 7;
 			});
@@ -99,7 +102,7 @@ describe("StateStore", () => {
 		it("should return the latest state after an update", () => {
 			type TestState = { count: number };
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("test");
+			const update = store.getPluginUpdater<TestState>("test");
 
 			update(() => ({ count: 0 }) satisfies TestState);
 
@@ -135,15 +138,17 @@ describe("StateStore", () => {
 
 	describe("patch handling", () => {
 		it("should relay plugin patches with adjusted paths", () => {
+			type TestState = { data: { count: number } };
+
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("testSubsystem");
+			const update = store.getPluginUpdater<TestState>("testSubsystem");
 
 			update(() => ({ data: { count: 0 } }));
 
 			const onPatchSpy = vi.fn<PatchHandlerWithVersion>();
 			store.onPatch(onPatchSpy);
 
-			update((draft: { data: { count: number } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 5;
 			});
 
@@ -154,20 +159,21 @@ describe("StateStore", () => {
 		});
 
 		it("should relay multiple patches in one update", () => {
+			type TestState = { data: { count: number; newField: number | undefined } };
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("testSubsystem");
+			const update = store.getPluginUpdater<TestState>("testSubsystem");
 
-			update(() => ({ data: { count: 0, newField: undefined as number | undefined } }));
+			update(() => ({ data: { count: 0, newField: undefined } }));
 
 			const onPatchSpy = vi.fn<PatchHandlerWithVersion>();
 			store.onPatch(onPatchSpy);
 
-			update((draft: { data: { count: number; newField: number | undefined } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 1;
 				draft.data.newField = 10;
 			});
 
-			const [patches] = onPatchSpy.mock.calls[0];
+			const [patches] = onPatchSpy.mock.calls[0]!;
 			const countPatch = patches.find((p) => p.path.at(-1) === "count");
 			const newFieldPatch = patches.find((p) => p.path.at(-1) === "newField");
 
@@ -183,8 +189,10 @@ describe("StateStore", () => {
 		});
 
 		it("should increment version number on each patch emission", () => {
+			type TestState = { data: { count: number } };
+
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("testSubsystem");
+			const update = store.getPluginUpdater<TestState>("testSubsystem");
 
 			update(() => ({ data: { count: 0 } }));
 
@@ -193,13 +201,13 @@ describe("StateStore", () => {
 
 			expect(store.getState()._version).toBe(1);
 
-			update((draft: { data: { count: number } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 5;
 			});
 			expect(onPatchSpy).toHaveBeenCalledWith(expect.anything(), 2);
 			expect(store.getState()._version).toBe(2);
 
-			update((draft: { data: { count: number } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 6;
 			});
 			expect(onPatchSpy).toHaveBeenLastCalledWith(expect.anything(), 3);
@@ -224,22 +232,24 @@ describe("StateStore", () => {
 		});
 
 		it("should support unsubscribing from patches", () => {
+			type TestState = { data: { count: number } };
+
 			const store = createEmptyStore();
-			const update = store.getPluginUpdater("testSubsystem");
+			const update = store.getPluginUpdater<TestState>("testSubsystem");
 
 			update(() => ({ data: { count: 0 } }));
 
 			const onPatchSpy = vi.fn<PatchHandlerWithVersion>();
 			const unsubscribe = store.onPatch(onPatchSpy);
 
-			update((draft: { data: { count: number } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 1;
 			});
 			expect(onPatchSpy).toHaveBeenCalledTimes(1);
 
 			unsubscribe();
 
-			update((draft: { data: { count: number } }) => {
+			update((draft: TestState) => {
 				draft.data.count = 2;
 			});
 			expect(onPatchSpy).toHaveBeenCalledTimes(1); // still 1, not called again

@@ -14,7 +14,14 @@ describe("ContentTransform", () => {
 		const data = new DataStore("/");
 		const ctx = {
 			data,
-			logger: { info: vi.fn(), warn: vi.fn(), verbose: vi.fn(), error: vi.fn(), debug: vi.fn() },
+			logger: {
+				info: vi.fn(),
+				warn: vi.fn(),
+				verbose: vi.fn(),
+				error: vi.fn(),
+				debug: vi.fn(),
+				child: () => ctx.logger,
+			},
 			contentOptions: {} as any,
 			paths: {
 				getDownloadPath: vi.fn(),

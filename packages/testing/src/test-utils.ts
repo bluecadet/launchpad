@@ -83,12 +83,12 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
-export function createMockPluginCtx(cwd = "/"): PluginContext {
+export function createMockPluginCtx(cwd = "/") {
 	return {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		cwd,
-		abortSignal: new AbortController().signal,
+		abortSignal: new AbortController().signal as AbortSignal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
 		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),

@@ -88,6 +88,7 @@ describe("status", () => {
 		// Resolve onTerminate immediately so the neverResolve promise settles
 		vi.mocked(onTerminate).mockImplementation((cb) => {
 			cb();
+			return () => {};
 		});
 
 		// Return ResultAsync directly (no async wrapper) so .orElse() works

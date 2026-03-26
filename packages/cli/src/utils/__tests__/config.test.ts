@@ -86,7 +86,7 @@ describe("config", () => {
 		it("returns the resolved value from jiti.import (the default export)", async () => {
 			const mockConfig = { apps: [] };
 			const mockJiti = { import: vi.fn().mockResolvedValue(mockConfig) };
-			vi.mocked(createJiti).mockReturnValue(mockJiti as ReturnType<typeof createJiti>);
+			vi.mocked(createJiti).mockReturnValue(mockJiti as unknown as ReturnType<typeof createJiti>);
 
 			const result = await loadConfigFromFile("/some/path/launchpad.config.ts");
 
@@ -99,7 +99,7 @@ describe("config", () => {
 		it("throws 'Unable to load config file' error when jiti.import throws", async () => {
 			const jitiError = new Error("jiti parse error");
 			const mockJiti = { import: vi.fn().mockRejectedValue(jitiError) };
-			vi.mocked(createJiti).mockReturnValue(mockJiti as ReturnType<typeof createJiti>);
+			vi.mocked(createJiti).mockReturnValue(mockJiti as unknown as ReturnType<typeof createJiti>);
 
 			await expect(loadConfigFromFile("/some/path/launchpad.config.ts")).rejects.toThrow(
 				"Unable to load config file '/some/path/launchpad.config.ts'",
@@ -109,7 +109,7 @@ describe("config", () => {
 		it("includes the original jiti error as .cause", async () => {
 			const jitiError = new Error("jiti parse error");
 			const mockJiti = { import: vi.fn().mockRejectedValue(jitiError) };
-			vi.mocked(createJiti).mockReturnValue(mockJiti as ReturnType<typeof createJiti>);
+			vi.mocked(createJiti).mockReturnValue(mockJiti as unknown as ReturnType<typeof createJiti>);
 
 			let thrownError: Error | undefined;
 			try {

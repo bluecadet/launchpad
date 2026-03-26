@@ -29,4 +29,4 @@ npx launchpad scaffold
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

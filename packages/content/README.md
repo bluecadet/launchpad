@@ -44,4 +44,4 @@ export default defineConfig({
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

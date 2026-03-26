@@ -34,4 +34,4 @@ npx launchpad stop
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

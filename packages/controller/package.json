@@ -42,7 +42,7 @@
     "node": ">=18"
   },
   "author": "Bluecadet",
-  "license": "MIT",
+  "license": "ISC",
   "bugs": {
     "url": "https://github.com/bluecadet/launchpad/issues"
   },

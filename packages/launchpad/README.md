@@ -43,4 +43,4 @@ This is a meta-package that includes no code of its own. It simply installs all 
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

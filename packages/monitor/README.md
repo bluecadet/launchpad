@@ -38,4 +38,4 @@ await monitor.start();
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

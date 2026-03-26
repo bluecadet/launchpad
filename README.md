@@ -22,4 +22,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-MIT © Bluecadet
+ISC © Bluecadet

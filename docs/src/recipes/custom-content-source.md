@@ -69,11 +69,13 @@ Add it to your Launchpad config:
 import { defineConfig } from '@bluecadet/launchpad-cli';
 
 export default defineConfig({
-  content: {
-    sources: [
-      myApiSource
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        myApiSource
+      ]
+    })
+  ],
 });
 ```
 

@@ -6,31 +6,34 @@ When working with Sanity.io images, you can leverage Sanity's built-in image tra
 
 First, ensure your GROQ query includes all necessary image fields:
 
-```typescript{12-17}
+```typescript{14-19}
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
 import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
 
 export default defineConfig({
-  content: {
-    sources: [
-      sanitySource({
-        id: 'content',
-        projectId: 'your-project-id',
-        queries: [{
-          id: 'pages',
-          query: `*[_type == "page"]{
-            image { 
-              ...,
-              asset->
-            }
-          }`
-        }]
-      })
-    ],
-    plugins: [
-      mediaDownloader()
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        sanitySource({
+          id: 'content',
+          projectId: 'your-project-id',
+          queries: [{
+            id: 'pages',
+            query: `*[_type == "page"]{
+              image { 
+                ...,
+                asset->
+              }
+            }`
+          }]
+        })
+      ],
+      transforms: [
+        mediaDownloader()
+      ]
+    })
+  ]
 });
 ```
 
@@ -40,33 +43,37 @@ The `asset->` reference is crucial for accessing the full image data, including 
 
 Add the `sanityImageUrlTransform` plugin to transform image references into URLs:
 
-```typescript{15-23}
+```typescript{4,18-26}
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
 import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
 import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
+import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
 
 export default defineConfig({
-  content: {
-    sources: [
-      sanitySource({
-        id: 'content',
-        projectId: 'your-project-id',
-        queries: [/* ... */]
-      })
-    ],
-    plugins: [
-      sanityImageUrlTransform({
-        projectId: 'your-project-id',
-        dataset: 'production',
-        buildUrl: (builder) => builder
-          .width(800)
-          .format('webp')
-          .fit('crop')
-          .crop('center')
-      }),
-      mediaDownloader()
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        sanitySource({
+          id: 'content',
+          projectId: 'your-project-id',
+          queries: [/* ... */]
+        })
+      ],
+      transforms: [
+        sanityImageUrlTransform({
+          projectId: 'your-project-id',
+          dataset: 'production',
+          buildUrl: (builder) => builder
+            .width(800)
+            .format('webp')
+            .fit('crop')
+            .crop('center')
+        }),
+        mediaDownloader()
+      ]
+    }),
+  ]
 });
 ```
 
@@ -78,35 +85,40 @@ export default defineConfig({
 Sanity's image URL builder supports many transformations:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-core';
-import { sanityImageUrlTransform, sanitySource } from '@bluecadet/launchpad-content';
+import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
+import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
 
 export default defineConfig({
-  content: {
-    sources: [
-      sanitySource({
-        id: 'content',
-        projectId: 'your-project-id',
-        queries: [/* ... */]
-      })
-    ],
-    plugins: [
-      sanityImageUrlTransform({
-        projectId: 'your-project-id',
-        dataset: 'production',
-        buildUrl: (builder) => builder
-          .width(800)                    // Set width
-          .height(600)                   // Set height
-          .format('webp')               // Convert format
-          .quality(80)                  // Adjust quality
-          .auto('format')               // Auto-select best format
-          .fit('crop')                  // Crop fitting
-          .crop('center')               // Crop position
-          .blur(10)                     // Apply blur
-      }),
-      mediaDownloader()
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        sanitySource({
+          id: 'content',
+          projectId: 'your-project-id',
+          queries: [/* ... */]
+        })
+      ],
+      transforms: [
+        sanityImageUrlTransform({
+          projectId: 'your-project-id',
+          dataset: 'production',
+          buildUrl: (builder) => builder
+            .width(800)                   // Set width
+            .height(600)                  // Set height
+            .format('webp')               // Convert format
+            .quality(80)                  // Adjust quality
+            .auto('format')               // Auto-select best format
+            .fit('crop')                  // Crop fitting
+            .crop('center')               // Crop position
+            .blur(10)                     // Apply blur
+        }),
+        mediaDownloader()
+      ]
+    })
+  ]
 });
 ```
 

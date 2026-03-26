@@ -6,17 +6,19 @@ The `sanityToPlain` plugin is used to transform Sanity.io Portable Text content 
 
 To use the `sanityToPlain` plugin, include it in the list of content plugins in your configuration:
 
-```typescript{1,6-8}
-import { sanityToPlain } from '@bluecadet/launchpad-content/transforms/sanity-to-plain';
+```typescript
+import { sanityToPlain } from '@bluecadet/launchpad-content/transforms/sanity-to-plain'; // [!code highlight]
 
 export default defineConfig({
-  content: {
-    plugins: [
-      sanityToPlain({
-        path: '$.item.content'
-      })
-    ]
-  }  
+  plugins: [
+    content({
+      transforms: [
+        sanityToPlain({ // [!code highlight:3]
+          path: '$.item.content'
+        })
+      ]
+    })
+  ]  
 });
 ```
 

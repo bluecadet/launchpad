@@ -12,7 +12,7 @@
       "types": "./dist/fixed-tty-logger.d.ts",
       "default": "./dist/fixed-tty-logger.js"
     },
-"./state-patcher": {
+    "./state-patcher": {
       "types": "./dist/state-patcher.d.ts",
       "default": "./dist/state-patcher.js"
     },
@@ -27,10 +27,6 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "default": "./dist/types.js"
-    },
-    "./on-exit": {
-      "types": "./dist/on-exit.d.ts",
-      "default": "./dist/on-exit.js"
     },
     "./command-guard": {
       "types": "./dist/command-guard.d.ts",

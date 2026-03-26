@@ -24,149 +24,152 @@
     "dist/**/*.d.ts"
   ],
   "exports": {
+    "./package.json": {
+      "default": "./package.json"
+    },
     "./cli": {
-      "default": "./dist/cli/index.js",
-      "types": "./dist/cli/index.d.ts"
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     },
     "./content": {
-      "default": "./dist/content/index.js",
-      "types": "./dist/content/index.d.ts"
+      "types": "./dist/content/index.d.ts",
+      "default": "./dist/content/index.js"
     },
     "./content/launchpad-content": {
-      "default": "./dist/content/launchpad-content.js",
-      "types": "./dist/content/launchpad-content.d.ts"
+      "types": "./dist/content/launchpad-content.d.ts",
+      "default": "./dist/content/launchpad-content.js"
     },
     "./content/commands": {
-      "default": "./dist/content/commands.js",
-      "types": "./dist/content/commands.d.ts"
+      "types": "./dist/content/commands.d.ts",
+      "default": "./dist/content/commands.js"
     },
     "./content/config": {
-      "default": "./dist/content/config.js",
-      "types": "./dist/content/config.d.ts"
+      "types": "./dist/content/config.d.ts",
+      "default": "./dist/content/config.js"
     },
     "./content/events": {
-      "default": "./dist/content/events.js",
-      "types": "./dist/content/events.d.ts"
+      "types": "./dist/content/events.d.ts",
+      "default": "./dist/content/events.js"
     },
     "./content/state": {
-      "default": "./dist/content/state.js",
-      "types": "./dist/content/state.d.ts"
+      "types": "./dist/content/state.d.ts",
+      "default": "./dist/content/state.js"
     },
     "./content/plugin": {
-      "default": "./dist/content/plugin.js",
-      "types": "./dist/content/plugin.d.ts"
+      "types": "./dist/content/plugin.d.ts",
+      "default": "./dist/content/plugin.js"
     },
     "./content/plugins": {
-      "default": "./dist/content/plugins.js",
-      "types": "./dist/content/plugins.d.ts"
+      "types": "./dist/content/plugins.d.ts",
+      "default": "./dist/content/plugins.js"
     },
     "./content/plugins/md-to-html": {
-      "default": "./dist/content/plugins/md-to-html.js",
-      "types": "./dist/content/plugins/md-to-html.d.ts"
+      "types": "./dist/content/plugins/md-to-html.d.ts",
+      "default": "./dist/content/plugins/md-to-html.js"
     },
     "./content/plugins/media-downloader": {
-      "default": "./dist/content/plugins/media-downloader.js",
-      "types": "./dist/content/plugins/media-downloader.d.ts"
+      "types": "./dist/content/plugins/media-downloader.d.ts",
+      "default": "./dist/content/plugins/media-downloader.js"
     },
     "./content/plugins/sanity-image-url-transform": {
-      "default": "./dist/content/plugins/sanity-image-url-transform.js",
-      "types": "./dist/content/plugins/sanity-image-url-transform.d.ts"
+      "types": "./dist/content/plugins/sanity-image-url-transform.d.ts",
+      "default": "./dist/content/plugins/sanity-image-url-transform.js"
     },
     "./content/plugins/sanity-to-html": {
-      "default": "./dist/content/plugins/sanity-to-html.js",
-      "types": "./dist/content/plugins/sanity-to-html.d.ts"
+      "types": "./dist/content/plugins/sanity-to-html.d.ts",
+      "default": "./dist/content/plugins/sanity-to-html.js"
     },
     "./content/plugins/sanity-to-markdown": {
-      "default": "./dist/content/plugins/sanity-to-markdown.js",
-      "types": "./dist/content/plugins/sanity-to-markdown.d.ts"
+      "types": "./dist/content/plugins/sanity-to-markdown.d.ts",
+      "default": "./dist/content/plugins/sanity-to-markdown.js"
     },
     "./content/plugins/sanity-to-plain": {
-      "default": "./dist/content/plugins/sanity-to-plain.js",
-      "types": "./dist/content/plugins/sanity-to-plain.d.ts"
+      "types": "./dist/content/plugins/sanity-to-plain.d.ts",
+      "default": "./dist/content/plugins/sanity-to-plain.js"
     },
     "./content/plugins/sharp": {
-      "default": "./dist/content/plugins/sharp.js",
-      "types": "./dist/content/plugins/sharp.d.ts"
+      "types": "./dist/content/plugins/sharp.d.ts",
+      "default": "./dist/content/plugins/sharp.js"
     },
     "./content/plugins/symlink": {
-      "default": "./dist/content/plugins/symlink.js",
-      "types": "./dist/content/plugins/symlink.d.ts"
+      "types": "./dist/content/plugins/symlink.d.ts",
+      "default": "./dist/content/plugins/symlink.js"
     },
     "./content/source": {
-      "default": "./dist/content/source.js",
-      "types": "./dist/content/source.d.ts"
+      "types": "./dist/content/source.d.ts",
+      "default": "./dist/content/source.js"
     },
     "./content/sources": {
-      "default": "./dist/content/sources.js",
-      "types": "./dist/content/sources.d.ts"
+      "types": "./dist/content/sources.d.ts",
+      "default": "./dist/content/sources.js"
     },
     "./content/sources/airtable": {
-      "default": "./dist/content/sources/airtable.js",
-      "types": "./dist/content/sources/airtable.d.ts"
+      "types": "./dist/content/sources/airtable.d.ts",
+      "default": "./dist/content/sources/airtable.js"
     },
     "./content/sources/contentful": {
-      "default": "./dist/content/sources/contentful.js",
-      "types": "./dist/content/sources/contentful.d.ts"
+      "types": "./dist/content/sources/contentful.d.ts",
+      "default": "./dist/content/sources/contentful.js"
     },
     "./content/sources/json": {
-      "default": "./dist/content/sources/json.js",
-      "types": "./dist/content/sources/json.d.ts"
+      "types": "./dist/content/sources/json.d.ts",
+      "default": "./dist/content/sources/json.js"
     },
     "./content/sources/sanity": {
-      "default": "./dist/content/sources/sanity.js",
-      "types": "./dist/content/sources/sanity.d.ts"
+      "types": "./dist/content/sources/sanity.d.ts",
+      "default": "./dist/content/sources/sanity.js"
     },
     "./content/sources/strapi": {
-      "default": "./dist/content/sources/strapi.js",
-      "types": "./dist/content/sources/strapi.d.ts"
+      "types": "./dist/content/sources/strapi.d.ts",
+      "default": "./dist/content/sources/strapi.js"
     },
     "./controller": {
-      "default": "./dist/controller/index.js",
-      "types": "./dist/controller/index.d.ts"
+      "types": "./dist/controller/index.d.ts",
+      "default": "./dist/controller/index.js"
     },
     "./controller/config": {
-      "default": "./dist/controller/config.js",
-      "types": "./dist/controller/config.d.ts"
+      "types": "./dist/controller/config.d.ts",
+      "default": "./dist/controller/config.js"
     },
     "./controller/ipc-client": {
-      "default": "./dist/controller/ipc-client.js",
-      "types": "./dist/controller/ipc-client.d.ts"
+      "types": "./dist/controller/ipc-client.d.ts",
+      "default": "./dist/controller/ipc-client.js"
     },
     "./controller/pid-utils": {
-      "default": "./dist/controller/pid-utils.js",
-      "types": "./dist/controller/pid-utils.d.ts"
+      "types": "./dist/controller/pid-utils.d.ts",
+      "default": "./dist/controller/pid-utils.js"
     },
     "./controller/transports/ipc": {
-      "default": "./dist/controller/transports/ipc.js",
-      "types": "./dist/controller/transports/ipc.d.ts"
+      "types": "./dist/controller/transports/ipc.d.ts",
+      "default": "./dist/controller/transports/ipc.js"
     },
     "./monitor": {
-      "default": "./dist/monitor/index.js",
-      "types": "./dist/monitor/index.d.ts"
+      "types": "./dist/monitor/index.d.ts",
+      "default": "./dist/monitor/index.js"
     },
     "./monitor/launchpad-monitor": {
-      "default": "./dist/monitor/launchpad-monitor.js",
-      "types": "./dist/monitor/launchpad-monitor.d.ts"
+      "types": "./dist/monitor/launchpad-monitor.d.ts",
+      "default": "./dist/monitor/launchpad-monitor.js"
     },
     "./monitor/commands": {
-      "default": "./dist/monitor/commands.js",
-      "types": "./dist/monitor/commands.d.ts"
+      "types": "./dist/monitor/commands.d.ts",
+      "default": "./dist/monitor/commands.js"
     },
     "./monitor/config": {
-      "default": "./dist/monitor/config.js",
-      "types": "./dist/monitor/config.d.ts"
+      "types": "./dist/monitor/config.d.ts",
+      "default": "./dist/monitor/config.js"
     },
     "./monitor/events": {
-      "default": "./dist/monitor/events.js",
-      "types": "./dist/monitor/events.d.ts"
+      "types": "./dist/monitor/events.d.ts",
+      "default": "./dist/monitor/events.js"
     },
     "./monitor/state": {
-      "default": "./dist/monitor/state.js",
-      "types": "./dist/monitor/state.d.ts"
+      "types": "./dist/monitor/state.d.ts",
+      "default": "./dist/monitor/state.js"
     },
     "./scaffold": {
-      "default": "./dist/scaffold/index.js",
-      "types": "./dist/scaffold/index.d.ts"
+      "types": "./dist/scaffold/index.d.ts",
+      "default": "./dist/scaffold/index.js"
     }
   },
   "maintainers": [

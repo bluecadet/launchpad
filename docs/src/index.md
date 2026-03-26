@@ -85,4 +85,4 @@ npx launchpad start
 
 ---
 
-Developed with ❤️ by [Bluecadet](https://bluecadet.com), available free and open-source under the MIT license.
+Developed with ❤️ by [Bluecadet](https://bluecadet.com), available free and open-source under the ISC license.

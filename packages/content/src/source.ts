@@ -20,20 +20,6 @@ export type FetchContext = {
 	abortSignal: AbortSignal;
 };
 
-function asyncIterableSchema<T = unknown>(): z.ZodType<AsyncIterable<T>> {
-	return z.custom<AsyncIterable<T>>(
-		(data) => {
-			if (typeof data[Symbol.asyncIterator] === "function") {
-				return true;
-			}
-			return false;
-		},
-		{
-			message: "Expected an AsyncIterable",
-		},
-	);
-}
-
 const sourceFetchResultDocumentSchema = z.object({
 	/** Id of the document, which is how it will be referenced in the data store */
 	id: z
@@ -41,7 +27,15 @@ const sourceFetchResultDocumentSchema = z.object({
 		.describe("Id of the document, which is how it will be referenced in the data store"),
 	/** Either a promise returning a single document, or an async iterable returning multiple documents. */
 	data: z
-		.union([z.promise(z.unknown()), asyncIterableSchema()])
+		.custom<Promise<unknown> | AsyncIterable<unknown>>((data) => {
+			if (data instanceof Promise) {
+				return true;
+			}
+			if (data && typeof data === "object" && Symbol.asyncIterator in data) {
+				return true;
+			}
+			return false;
+		})
 		.describe(
 			"Either a promise returning a single document, or an async iterable returning multiple documents.",
 		),
@@ -56,8 +50,10 @@ export const contentSourceSchema = z.object({
 		),
 	/** Fetches the documents from the source. Returns either an array of documents or a single document. */
 	fetch: z
-		.function(z.tuple([z.custom<FetchContext>().describe("Fetch context object.")]))
-		.returns(z.union([z.array(sourceFetchResultDocumentSchema), sourceFetchResultDocumentSchema]))
+		.function({
+			input: z.tuple([z.custom<FetchContext>().describe("Fetch context object.")]),
+			output: z.union([z.array(sourceFetchResultDocumentSchema), sourceFetchResultDocumentSchema]),
+		})
 		.describe(
 			"Fetches the documents from the source. Returns either an array of documents or a single document.",
 		),

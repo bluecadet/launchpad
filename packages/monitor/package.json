@@ -59,7 +59,7 @@
     "pm2": "^6.0.14",
     "semver": "^7.3.5",
     "tail": "^2.2.4",
-    "zod": "^3.23.8"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",

@@ -48,16 +48,15 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		).rejects.toThrowErrorMatchingInlineSnapshot(`
 			[ZodError: [
 			  {
-			    "received": "5",
-			    "code": "invalid_enum_value",
-			    "options": [
+			    "code": "invalid_value",
+			    "values": [
 			      "3",
 			      "4"
 			    ],
 			    "path": [
 			      "version"
 			    ],
-			    "message": "Invalid enum value. Expected '3' | '4', received '5'"
+			    "message": "Invalid option: expected one of \\"3\\"|\\"4\\""
 			  }
 			]]
 		`);

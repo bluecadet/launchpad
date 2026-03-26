@@ -51,7 +51,7 @@ export const logModesSchema = z.enum([
 	"bus",
 ]);
 
-export const LogModes = logModesSchema.Enum;
+export const LogModes = logModesSchema.enum;
 
 /**
  * Options for how an app's logs should be saved, routed and displayed.
@@ -105,11 +105,11 @@ const appConfigSchema = z.object({
 		.describe(
 			"Optional settings for moving this app's main windows to the foreground, minimize or hide them.",
 		)
-		.default({}),
+		.prefault({}),
 	/** Optional settings for how to log this app's output. */
 	logging: appLogConfigSchema
 		.describe("Optional settings for how to log this app's output.")
-		.default({}),
+		.prefault({}),
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -132,7 +132,7 @@ export const monitorConfigSchema = z.object({
 		.describe(
 			"Advanced configuration for the Windows API, e.g. for managing foreground/minimized/hidden windows.",
 		)
-		.default({}),
+		.prefault({}),
 	/** Will listen for exit events. Defaults to true. */
 	shutdownOnExit: z
 		.boolean()

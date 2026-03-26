@@ -19,13 +19,11 @@ const strapiCredentialsSchema = z.union(
 		}),
 	],
 	{
-		errorMap: (error) => {
+		error: (error) => {
 			if (error.code === "invalid_union")
-				return {
-					message: "Either `identifier` and `password` OR a `token` must be provided.",
-				};
+				return "Either `identifier` and `password` OR a `token` must be provided.";
 
-			return { message: error.message ?? "" };
+			return error.message ?? "";
 		},
 	},
 );
@@ -49,7 +47,10 @@ const strapiSourceSchema = z
 		 */
 		queries: z
 			.array(
-				z.union([z.string(), z.object({ contentType: z.string(), params: z.record(z.any()) })]),
+				z.union([
+					z.string(),
+					z.object({ contentType: z.string(), params: z.record(z.string(), z.any()) }),
+				]),
 			)
 			.describe(
 				"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \

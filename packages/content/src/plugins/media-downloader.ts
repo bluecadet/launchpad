@@ -39,7 +39,7 @@ export const mediaDownloaderConfigSchema = z.object({
 			"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
 		),
 	/** Number of concurrent downloads */
-	maxConcurrent: z.number().int().positive().describe("Number of concurrent downloads").default(4),
+	maxConcurrent: z.int().positive().describe("Number of concurrent downloads").default(4),
 	/** Will always download files regardless of whether they've been cached. Defaults to false. */
 	ignoreCache: z
 		.boolean()
@@ -66,16 +66,14 @@ export const mediaDownloaderConfigSchema = z.object({
 		.default(false),
 	/** Function to transform the local path of the downloaded file. */
 	transformLocalPath: z
-		.function(z.tuple([z.string()]), z.string())
+		.function({
+			input: [z.string()],
+			output: z.string(),
+		})
 		.describe("Function to transform the local path of the downloaded file.")
 		.optional(),
 	/** Maximum timeout for the HTTP request. Defaults to 10 seconds. */
-	maxTimeout: z
-		.number()
-		.int()
-		.positive()
-		.describe("Maximum timeout for the HTTP request.")
-		.default(10000),
+	maxTimeout: z.int().positive().describe("Maximum timeout for the HTTP request.").default(10000),
 	/** If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw. Defaults to true. */
 	abortOnError: z
 		.boolean()

@@ -55,7 +55,7 @@
     "neverthrow": "^8.1.1",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^4.5.5",
-    "zod": "^3.23.8"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",

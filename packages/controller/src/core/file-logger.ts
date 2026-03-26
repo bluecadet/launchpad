@@ -47,7 +47,7 @@ export const logConfigSchema = z
 			.default(process.env.NODE_ENV !== "test")
 			.describe("Whether to override the console methods."),
 	})
-	.default({});
+	.prefault({});
 
 export type LogConfig = z.input<typeof logConfigSchema>;
 export type ResolvedLogConfig = z.output<typeof logConfigSchema>;

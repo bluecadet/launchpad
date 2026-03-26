@@ -14,7 +14,7 @@ afterAll(() => {
 	vi.useRealTimers();
 });
 
-const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!);
+const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!, 10);
 
 describe.runIf(majorNodeVersion < 20)("strapiSource - unsupported", () => {
 	it("should fail with unsupported node version", async () => {
@@ -83,7 +83,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 					expect(authHeader).toBe("Bearer test-token");
 
 					const url = new URL(request.url);
-					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1");
+					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1", 10);
 
 					// Return empty results after first page
 					if (page > 1) {
@@ -248,7 +248,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 					expect(authHeader).toBe("Bearer test-token");
 
 					const url = new URL(request.url);
-					const start = Number.parseInt(url.searchParams.get("_start") || "0");
+					const start = Number.parseInt(url.searchParams.get("_start") || "0", 10);
 
 					// Return empty results after first page
 					if (start > 0) {

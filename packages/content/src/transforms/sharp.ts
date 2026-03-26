@@ -193,11 +193,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 
 			const queue = new PQueue({ concurrency: resolvedConfig.concurrency });
 
-			const progressLogger = new SharpProgressLogger(
-				ctx.logger,
-				ctx.eventBus,
-				mediaTransformTasks.length,
-			);
+			const progressLogger = new SharpProgressLogger(ctx.eventBus, mediaTransformTasks.length);
 
 			await queue.addAll(
 				mediaTransformTasks.map(({ inputPath, outputPath, backupPath }) => async () => {

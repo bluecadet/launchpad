@@ -236,7 +236,7 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 }
 
 export default async function strapiSource(options: z.input<typeof strapiSourceSchema>) {
-	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0");
+	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0", 10);
 
 	if (majorNodeVersion < 20) {
 		throw new Error(
@@ -294,7 +294,7 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 
 							const transformedContent = versionUtils.transformResult(response);
 
-							if (!transformedContent || !transformedContent.length) {
+							if (!transformedContent?.length) {
 								return null; // trigger end of pagination
 							}
 

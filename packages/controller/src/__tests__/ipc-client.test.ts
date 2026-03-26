@@ -684,7 +684,7 @@ describe("IPCClient", () => {
 		});
 
 		it("should trigger queryState if no initial state when patch arrives", async () => {
-			const { client, simulateData, parsedWriteCall } = await createConnectedTestClient();
+			const { simulateData, parsedWriteCall } = await createConnectedTestClient();
 
 			simulateData({
 				type: "state-patch",

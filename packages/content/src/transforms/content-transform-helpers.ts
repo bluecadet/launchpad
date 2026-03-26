@@ -1,6 +1,5 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
-import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import { ResultAsync } from "neverthrow";
 import type { z } from "zod";
@@ -89,11 +88,7 @@ export class CacheProgressLogger extends FixedTTYLogger {
 		return this.#total;
 	}
 
-	constructor(
-		private logger: Logger,
-		eventBus: EventBus,
-		total: number,
-	) {
+	constructor(eventBus: EventBus, total: number) {
 		super(eventBus);
 		this.#total = total;
 	}

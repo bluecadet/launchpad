@@ -1,4 +1,4 @@
-import type { ImageUrlBuilder } from "@sanity/image-url/lib/types/builder.js";
+import type { ImageUrlBuilder } from "@sanity/image-url";
 import { describe, expect, it } from "vitest";
 import sanityImageUrlTransform from "../sanity-image-url-transform.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";

@@ -52,23 +52,23 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
-    "chalk": "^5.0.0",
-    "cross-spawn": "^7.0.3",
-    "neverthrow": "^8.1.1",
+    "chalk": "^5.6.2",
+    "cross-spawn": "^7.0.6",
+    "neverthrow": "^8.2.0",
     "node-window-manager": "^2.2.4",
     "pm2": "^6.0.14",
-    "semver": "^7.3.5",
-    "tail": "^2.2.4",
+    "semver": "^7.7.4",
+    "tail": "^2.2.6",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
-    "@types/cross-spawn": "^6.0.2",
-    "@types/semver": "^7.5.8",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/semver": "^7.7.1",
     "@types/tail": "2.2",
     "axon": "^2.0.3",
-    "vitest": "^3.0.7"
+    "vitest": "^4.1.2"
   }
 }

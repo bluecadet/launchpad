@@ -1,30 +1,21 @@
-import {
-	type ControllerConfig,
-	controllerConfigSchema,
-} from "@bluecadet/launchpad-controller/config";
+import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import z from "zod";
 
-export type LaunchpadConfig = {
-	/**
-	 * The controller configuration.
-	 */
-	controller?: ControllerConfig;
-	/**
-	 * Plugins to register with the controller.
-	 * Each plugin is a factory that creates a plugin instance.
-	 */
-	plugins?: PluginConfig[];
-};
+export const launchpadConfigSchema = z
+	.object({
+		controller: controllerConfigSchema.prefault({}),
+		plugins: z.array(z.custom<PluginConfig>()).prefault([]),
+	})
+	.prefault({});
+
+export type LaunchpadConfig = z.input<typeof launchpadConfigSchema>;
 
 /**
  * Applies defaults to the provided launchpad config.
  */
 export function resolveLaunchpadConfig(config: LaunchpadConfig) {
-	return {
-		...config,
-		// Apply controller config defaults via Zod schema
-		controller: controllerConfigSchema.parse(config.controller),
-	};
+	return launchpadConfigSchema.parse(config);
 }
 
 export type ResolvedLaunchpadOptions = ReturnType<typeof resolveLaunchpadConfig>;

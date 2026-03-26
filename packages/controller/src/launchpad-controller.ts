@@ -9,12 +9,7 @@ import type {
 	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import {
-	type ControllerConfig,
-	type ControllerMode,
-	controllerConfigSchema,
-	type ResolvedControllerConfig,
-} from "./controller-config.js";
+import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { createFileLogger } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
@@ -49,8 +44,8 @@ export class LaunchpadController {
 	private _isStarted = false;
 	// Future: private _transports: Transport[] = [];
 
-	constructor(config: ControllerConfig, baseDir: string, mode: ControllerMode = "task") {
-		this._config = controllerConfigSchema.parse(config);
+	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
+		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
 		this._eventBus = new EventBus();
@@ -71,8 +66,8 @@ export class LaunchpadController {
 			.setup(this.getPluginCtx(name, updateState))
 			.map((instance) => {
 				this._plugins.set(plugin.name, instance);
-
 				this._logger.verbose(`Registered plugin '${name}'`);
+				return undefined;
 			})
 			.orElse((error) => {
 				this._logger.error(`Failed to register plugin '${name}'`);

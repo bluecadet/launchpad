@@ -45,8 +45,8 @@ const content = await createLaunchpadContent({
   sources: [
     // Content source configurations
   ],
-  plugins: [
-    // Plugin configurations
+  transforms: [
+    // Transform configurations
   ],
   downloadPath: './content'
 }).setup(subsystemContext);
@@ -60,22 +60,22 @@ await content.start();
 Content operations are configured through a `ContentConfig` object that specifies:
 
 - **Sources**: Array of content sources to fetch from
-- **Plugins**: Array of plugins for content processing
+- **Transforms**: Array of transforms for content processing
 - **Paths**: Various path configurations for content storage
 - **Backup Options**: Settings for content backup and restoration
 
 See the [Content Config](./content-config) section for detailed configuration options.
 
-## Plugins
+## Transforms
 
-The plugin system is core to the content package's functionality. Plugins can:
+The transform system is core to the content package's functionality. Transforms can:
 
 - Transform content formats
 - Process media files
 - Add custom processing steps
 - Handle errors and logging
 
-Learn more about available plugins and creating custom ones in the [Plugins](./plugins/index.md) section.
+Learn more about available transforms and creating custom ones in the [Transforms](./transforms/index.md) section.
 
 ## Error Handling
 

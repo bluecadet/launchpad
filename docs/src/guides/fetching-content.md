@@ -65,7 +65,7 @@ Transforms process your content after it's downloaded. Common use cases include:
 - Validating data
 - Custom transformations
 
-Learn more in the [Transforms Reference](../reference/content/plugins/index.md).
+Learn more in the [Transforms Reference](../reference/content/transforms/index.md).
 
 ## Best Practices
 
@@ -79,7 +79,7 @@ Learn more in the [Transforms Reference](../reference/content/plugins/index.md).
 
 - Read about [Content Configuration](../reference/content/content-config.md)
 - Learn about [Content Sources](../reference/content/sources/index.md)
-- Explore [Transforms](../reference/content/plugins/index.md)
+- Explore [Transforms](../reference/content/transforms/index.md)
 - Understanding [Error Handling](../reference/content/index.md#error-handling)
 
 For complete API documentation, visit the [Content Reference Documentation](../reference/content/index.md).

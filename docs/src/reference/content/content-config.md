@@ -20,7 +20,7 @@ For detailed source configuration options, see [Sources Reference](./sources/ind
 
 A list of content transforms that process content after download. Transforms can modify, analyze, or enhance content before final output.
 
-See [Content Transforms Reference](./plugins/index.md) for available transforms and usage.
+See [Content Transforms Reference](./transforms/index.md) for available transforms and usage.
 
 ### `downloadPath`
 

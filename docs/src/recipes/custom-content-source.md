@@ -131,6 +131,6 @@ const streamingSource = defineSource({
 ## Next Steps
 
 - Learn about [Content Sources](../reference/content/sources/index.md) for full API details
-- Explore [Content Plugins](../reference/content/plugins/index.md) to process your fetched data
+- Explore [Content Plugins](../reference/content/transforms/index.md) to process your fetched data
 - See the [Content Configuration Reference](../reference/content/content-config.md) for config options
 - Check [Built-in Sources](../reference/content/sources/index.md) for implementation examples

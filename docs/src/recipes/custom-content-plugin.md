@@ -138,9 +138,9 @@ const bestPracticePlugin = {
 
 ## Going Further
 
-- See [Plugin Reference](../reference/content/plugins/index.md) for API details
-- Check [Content Plugin Context](../reference/content/plugins/index.md#content-plugin-context) for full context documentation
-- Explore [Built-in Plugins](../reference/content/plugins/index.md) for examples
+- See [Plugin Reference](../reference/content/transforms/index.md) for API details
+- Check [Content Plugin Context](../reference/content/transforms/index.md#content-plugin-context) for full context documentation
+- Explore [Built-in Plugins](../reference/content/transforms/index.md) for examples
 
 >[!NOTE]
 >Remember to handle errors appropriately and clean up any temporary files your plugin creates.

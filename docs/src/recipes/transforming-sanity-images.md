@@ -43,7 +43,7 @@ Add the `sanityImageUrlTransform` plugin to transform image references into URLs
 ```typescript{15-23}
 import { defineConfig } from '@bluecadet/launchpad-cli';
 import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
-import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/plugins/sanity-image-url-transform';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
 
 export default defineConfig({
   content: {
@@ -114,7 +114,7 @@ export default defineConfig({
 
 - [Sanity Image URLs Reference](https://www.sanity.io/docs/image-url)
 - [Image Image Presentation Documentation](https://www.sanity.io/docs/presenting-images)
-- [sanityImageUrlTransform Plugin](../reference/content/plugins/sanity-image-url-transform.md)
+- [sanityImageUrlTransform Plugin](../reference/content/transforms/sanity-image-url-transform.md)
 - [Sanity Content Source](../reference/content/sources/sanity-source.md)
 
 Unlike the `sharp` plugin, Sanity's image transformations are performed on their CDN, reducing your build time and server load.

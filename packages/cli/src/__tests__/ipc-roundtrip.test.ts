@@ -1,11 +1,3 @@
-// These vi.unmock calls are hoisted by Vitest before any imports.
-// They override the global memfs mocks from setup.ts so integration tests
-// use the real filesystem.
-vi.unmock("node:fs");
-vi.unmock("node:fs/promises");
-vi.unmock("fs");
-vi.unmock("fs/promises");
-
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createEmptyState } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

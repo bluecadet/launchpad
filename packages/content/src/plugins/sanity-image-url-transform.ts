@@ -1,10 +1,10 @@
-import type { ImageUrlBuilder } from "@sanity/image-url/lib/types/builder.js";
 import type {
+	ImageUrlBuilder,
 	SanityAsset,
 	SanityImageObject,
 	SanityImageWithAssetStub,
 	SanityReference,
-} from "@sanity/image-url/lib/types/types.js";
+} from "@sanity/image-url";
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";

@@ -102,7 +102,7 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 		assembled.searchParams["sys.contentType.sys.id[in]"] = assembled.contentTypes.join(",");
 	}
 
-	const { createClient } = await tryImportContentful();
+	const createClient = await tryImportContentful();
 
 	const client = createClient({
 		...assembled,
@@ -128,9 +128,8 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 							);
 						}
 
-						const page = rawPage.toPlainObject();
-						const entries = parseEntries(page);
-						const assets = parseAssets(page, assembled.protocol);
+						const entries = parseEntries(rawPage);
+						const assets = parseAssets(rawPage, assembled.protocol);
 
 						if (!entries.length) {
 							return null; // No more pages left
@@ -142,7 +141,7 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 					logger: ctx.logger,
 					mergePages: true,
 				}).then((fetchResult) => {
-					return fetchResult.reduce<{ entries: Entry<unknown>[]; assets: Asset[] }>(
+					return fetchResult.reduce<{ entries: Entry[]; assets: Asset[] }>(
 						(acc, page) => {
 							return {
 								entries: [...acc.entries, ...page.entries],
@@ -162,7 +161,7 @@ export default async function contentfulSource(options: z.input<typeof contentfu
  */
 
 // biome-ignore lint/suspicious/noExplicitAny: unknown type from CMS
-function parseEntries(responseObj: any): Array<Entry<unknown>> {
+function parseEntries(responseObj: any): Array<Entry> {
 	const entries = responseObj.entries || [];
 	if (responseObj.items) {
 		for (const item of responseObj.items) {
@@ -185,9 +184,15 @@ function parseAssets(responseObj: any, protocol: string): Array<Asset> {
 		for (const [key, items] of Object.entries(responseObj.includes)) {
 			if (key === "Asset") {
 				const withMediaProtocols = (items as Array<Asset>).map((asset) => {
-					if (asset.fields.file.url.startsWith("//")) {
+					if (!asset.fields.file?.url) {
+						// no url to update, do nothing
+						return asset;
+					}
+
+					if (asset.fields.file.url.toString().startsWith("//")) {
 						asset.fields.file.url = `${protocol}:${asset.fields.file.url}`;
 					}
+
 					return asset;
 				});
 
@@ -201,7 +206,7 @@ function parseAssets(responseObj: any, protocol: string): Array<Asset> {
 async function tryImportContentful() {
 	try {
 		const contentful = await import("contentful");
-		return contentful.default;
+		return contentful.createClient;
 	} catch (error) {
 		throw new Error('Could not find module "contentful". Make sure you have installed it.', {
 			cause: error,

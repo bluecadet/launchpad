@@ -5,19 +5,20 @@ The `symlink` plugin is used to create symbolic links between files or directori
 ## Usage
 
 ```typescript
-import { symlink } from '@bluecadet/launchpad-content/transforms/symlink';
+import { symlink } from '@bluecadet/launchpad-content/transforms/symlink'; // [!code highlight]
 
 export default defineConfig({
-  content: {
-    // ...
-    plugins: [
-      symlink({
-        target: 'path/to/target/file-or-directory',
-        path: 'path/to/symlink/file-or-directory',
-        condition: () => fs.existsSync('path/to/target') // Ex: only create symlink if target exists
-      })
-    ]
-  }
+  plugins: [
+    content({
+      transforms: [
+        symlink({ // [!code highlight:5]
+          target: 'path/to/target/file-or-directory',
+          path: 'path/to/symlink/file-or-directory',
+          condition: () => fs.existsSync('path/to/target') // Ex: only create symlink if target exists
+        })
+      ]
+    })
+  ]  
 });
 ```
 

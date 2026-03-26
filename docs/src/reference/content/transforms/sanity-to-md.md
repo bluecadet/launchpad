@@ -6,17 +6,19 @@ The `sanityToMd` plugin is used to transform Sanity.io Portable Text content int
 
 To use the `sanityToMd` plugin, include it in the list of content plugins in your configuration:
 
-```typescript{1,6-8}
-import { sanityToMd } from '@bluecadet/launchpad-content/transforms/sanity-to-md';
+```typescript
+import { sanityToMd } from '@bluecadet/launchpad-content/transforms/sanity-to-md'; // [!code highlight]
 
 export default defineConfig({
-  content: {
-    plugins: [
-      sanityToMd({
-        path: '$.item.content'
-      })
-    ]
-  }  
+  plugins: [
+    content({
+      transforms: [
+        sanityToMd({ // [!code highlight:3]
+          path: '$.item.content'
+        })
+      ]
+    })
+  ]  
 });
 ```
 

@@ -107,10 +107,10 @@ export default defineConfig({
 				text: "Recipes",
 				items: [
 					{ text: "Custom Content Source", link: "/recipes/custom-content-source" },
-					{ text: "Custom Content Plugin", link: "/recipes/custom-content-plugin" },
-					{ text: "Custom Monitor Plugin", link: "/recipes/custom-monitor-plugin" },
+					{ text: "Custom Content Transform", link: "/recipes/custom-content-transform" },
 					{ text: "Transforming Sanity Images", link: "/recipes/transforming-sanity-images" },
 					{ text: "Serving Static Web Apps", link: "/recipes/static-web-monitor" },
+					{ text: "Custom Plugin", link: "/recipes/custom-plugin" },
 				],
 			},
 			{
@@ -147,8 +147,8 @@ export default defineConfig({
 								],
 							},
 							{
-								text: "Plugins",
-								link: "/reference/content/plugins",
+								text: "Transforms",
+								link: "/reference/content/transforms",
 								items: [
 									{ text: "mdToHtml", link: "/reference/content/transforms/md-to-html" },
 									{ text: "sanityToHtml", link: "/reference/content/transforms/sanity-to-html" },

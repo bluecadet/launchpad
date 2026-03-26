@@ -23,30 +23,33 @@ npm install @bluecadet/launchpad-cli @bluecadet/launchpad-monitor
 
 ```js
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { monitor } from '@bluecadet/launchpad-monitor';
 
 export default defineConfig({
-  monitor: {
-    apps: [
-      {
-        pm2: {
-          name: "my-app",
-          script: "./app.exe",
-          cwd: "./builds/",
-          // Optional: environment variables
-          env: {
-            PORT: "3000"
+  plugins: [
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: "my-app",
+            script: "./app.exe",
+            cwd: "./builds/",
+            // Optional: environment variables
+            env: {
+              PORT: "3000"
+            }
           }
         }
-      }
-    ]
-  }
+      ]
+    })
+  ]
 });
 ```
 
 >[!WARNING]
 >Always test your configuration in a development environment first
 
-3. Start your application
+1. Start your application
 
 ```bash
 npx launchpad monitor start

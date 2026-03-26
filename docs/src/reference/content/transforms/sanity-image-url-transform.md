@@ -6,24 +6,26 @@ The `sanityImageUrlTransform` plugin transforms Sanity image references into usa
 
 To use the `sanityImageUrlTransform` plugin, include it in your configuration before your `mediaDownloader` plugin:
 
-```typescript{1,6-12}
-import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
+```typescript
+import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform'; // [!code highlight]
 
 export default defineConfig({
-  content: {
-    plugins: [
-      sanityImageUrlTransform({
-        projectId: 'your-project-id',
-        dataset: 'production',
-        buildUrl: (builder) => builder
-          .width(800)
-          .format('webp')
-      }),
-      mediaDownloader({
-        //...
-      })
-    ]
-  }  
+  plugins: [
+    content({
+      transforms: [
+        sanityImageUrlTransform({ // [!code highlight:7]
+          projectId: 'your-project-id',
+          dataset: 'production',
+          buildUrl: (builder) => builder
+            .width(800)
+            .format('webp')
+        }),
+        mediaDownloader({
+          //...
+        })
+      ]
+    })
+  ]  
 });
 ```
 

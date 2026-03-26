@@ -301,16 +301,19 @@ Create a `launchpad.config.ts` in your test project:
 
 ```javascript
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { monitor } from '@bluecadet/launchpad-monitor';
 
 export default defineConfig({
-  content: {
-    sources: [],      // Add your content sources
-    plugins: [],      // Add your plugins
-  },
-  monitor: {
-    apps: [],         // Add your apps to monitor
-    plugins: [],      // Add your plugins
-  },
+  plugins: [
+    content({
+      sources: [],      // Add your content sources
+      transforms: [],   // Add your plugins
+    }),
+    monitor({
+      apps: [],         // Add your apps to monitor
+    }),
+  ]
 });
 ```
 

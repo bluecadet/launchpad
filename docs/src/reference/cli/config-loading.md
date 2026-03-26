@@ -23,12 +23,9 @@ The search starts in the current working directory and recursively searches up p
 import { defineConfig } from '@bluecadet/launchpad-cli';
 
 export default defineConfig({
-  content: {
-    // Content management configuration
-  },
-  monitor: {
-    // Process monitoring configuration
-  },
+  plugins: [
+    // Your plugin configurations here
+  ]
 });
 ```
 
@@ -36,8 +33,8 @@ export default defineConfig({
 
 Your config file can include settings for any of Launchpad's main modules:
 
-- `content` - Content management settings ([Content Config Reference](../content/content-config))
-- `monitor` - Process monitoring settings ([Monitor Config Reference](../monitor/monitor-config))
+- `content()` - Content management settings ([Content Config Reference](../content/content-config))
+- `monitor()` - Process monitoring settings ([Monitor Config Reference](../monitor/monitor-config))
 
 ## Environment Variables
 
@@ -56,29 +53,33 @@ When using TypeScript or an editor with TypeScript support (like VS Code), the `
 
 ```js
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { monitor } from '@bluecadet/launchpad-monitor';
 import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
 
 export default defineConfig({
-  content: {
-    sources: [
-      jsonSource({
-        id: "api-data",
-        files: {
-          "data.json": process.env.API_ENDPOINT
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: "api-data",
+          files: {
+            "data.json": process.env.API_ENDPOINT
+          }
+        })
+      ],
+      downloadPath: "./content"
+    }),
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: "exhibit-app",
+            script: "./app.exe"
+          }
         }
-      })
-    ],
-    downloadPath: "./content"
-  },
-  monitor: {
-    apps: [
-      {
-        pm2: {
-          name: "exhibit-app",
-          script: "./app.exe"
-        }
-      }
-    ]
-  }
+      ]
+    })
+  ],
 });
 ```

@@ -7,8 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/src/**/*.ts", "**/docs/**/*.ts", "**/docs/**/*.mts", "**/scripts/**/*.ts"],
-		"experimentalScannerIgnores": [".worktrees/**"]
+		"includes": ["**/src/**/*.ts", "**/docs/**/*.ts", "**/docs/**/*.mts", "**/scripts/**/*.ts"]
 	},
 	"formatter": {
 		"enabled": true,
@@ -32,6 +31,9 @@
 				"useNumberNamespace": "error",
 				"noInferrableTypes": "error",
 				"noUselessElse": "error"
+			},
+			"suspicious": {
+				"useIterableCallbackReturn": "off"
 			}
 		}
 	},

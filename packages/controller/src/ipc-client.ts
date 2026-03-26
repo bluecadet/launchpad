@@ -304,7 +304,7 @@ export class IPCClient {
 	/**
 	 * Handle incoming data from socket
 	 */
-	private _handleData(data: Buffer): void {
+	private _handleData(data: Buffer | string): void {
 		this._buffer += data.toString();
 
 		// Process complete messages (newline-delimited JSON)

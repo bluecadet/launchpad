@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		"esModuleInterop": true,
 		"skipLibCheck": true,
-		"target": "es2022",
+		"target": "es2025",
 		"allowJs": true,
 		"resolveJsonModule": true,
 		"moduleDetection": "force",
@@ -12,11 +12,21 @@
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
 		"module": "NodeNext",
-		"outDir": "dist",
+		"outDir": "${configDir}/dist",
+		"rootDir": "${configDir}/src",
 		"sourceMap": true,
 		"declaration": true,
 		"composite": true,
 		"declarationMap": true,
-		"lib": ["es2022"]
-	}
+		"lib": ["es2025"],
+		"types": ["node"],
+		"tsBuildInfoFile": "${configDir}/dist/tsconfig.src.tsbuildinfo"
+	},
+	"include": [
+		"${configDir}/src/**/*.ts"
+	],
+	"exclude": [
+		"${configDir}/**/*.test.ts",
+		"${configDir}/**/__tests__/*"
+	]
 }

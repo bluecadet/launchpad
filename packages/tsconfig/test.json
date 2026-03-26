@@ -2,6 +2,14 @@
   "$schema": "https://json.schemastore.org/tsconfig",
 	"extends": "./base.json",
 	"compilerOptions": {
-		"noEmit": true
-	}
+		"noEmit": true,
+		"rootDir": "${configDir}",
+		"tsBuildInfoFile": "${configDir}/dist/tsconfig.test.tsbuildinfo"
+	},
+	"include": [
+		"${configDir}/src/**/*.test.ts",
+		"${configDir}/src/**/__tests__",
+		"${configDir}/vitest.config.ts"
+	],
+	"exclude": []
 }

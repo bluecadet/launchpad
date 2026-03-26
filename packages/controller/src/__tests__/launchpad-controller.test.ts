@@ -7,6 +7,7 @@ import {
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
+import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
 
 declare module "@bluecadet/launchpad-utils/types" {
@@ -16,15 +17,10 @@ declare module "@bluecadet/launchpad-utils/types" {
 }
 
 describe("LaunchpadController", () => {
+	const config = controllerConfigSchema.parse({ pidFile: "./pid", socketPath: "./socket" });
+
 	function createController(mode?: "task" | "persistent") {
-		return new LaunchpadController(
-			{
-				pidFile: "./pid",
-				socketPath: "./socket",
-			},
-			"/test",
-			mode,
-		);
+		return new LaunchpadController(config, "/test", mode);
 	}
 
 	function makePlugin(name: string, inner: InstantiatedPlugin = {}) {

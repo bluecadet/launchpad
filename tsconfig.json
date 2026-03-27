@@ -21,6 +21,9 @@
 		},
 		{
 			"path": "packages/launchpad"
+		},
+		{
+			"path": "packages/create"
 		}
 	],
   "include": []

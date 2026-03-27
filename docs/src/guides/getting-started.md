@@ -1,6 +1,16 @@
 # Getting Started
 
-## Installation
+## Quick Start
+
+The fastest way to get set up is with the scaffolding tool:
+
+```bash
+npm create @bluecadet/launchpad
+```
+
+It will walk you through selecting plugins, sources, and transforms, then generate your `launchpad.config.ts` and update `package.json` automatically. See [Creating a Project](./creating-a-project.md) for details.
+
+## Manual Installation
 
 Launchpad is modular - you can install just the packages you need:
 

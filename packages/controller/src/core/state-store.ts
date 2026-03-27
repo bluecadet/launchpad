@@ -28,7 +28,6 @@ export class StateStore {
 	constructor(mode: "task" | "persistent" = "task") {
 		this._systemState = {
 			startTime: new Date(),
-			version: "0.1.0", // TODO: Read from package.json
 			mode,
 		};
 	}

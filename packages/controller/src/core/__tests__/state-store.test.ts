@@ -12,7 +12,6 @@ describe("StateStore", () => {
 			const store = createEmptyStore();
 
 			const systemState = store.getSystemState();
-			expect(systemState.version).toBe("0.1.0");
 			expect(systemState.mode).toBe("task");
 			expect(systemState.startTime).toBeInstanceOf(Date);
 		});
@@ -29,7 +28,6 @@ describe("StateStore", () => {
 
 			const state = store.getState();
 
-			expect(state.system).toHaveProperty("version");
 			expect(state.system).toHaveProperty("mode");
 			expect(state.system).toHaveProperty("startTime");
 			expect(state.plugins).toEqual({});

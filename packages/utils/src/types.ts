@@ -36,7 +36,6 @@ export interface PluginsState {}
  */
 export type SystemState = {
 	startTime: Date;
-	version: string;
 	mode: "task" | "persistent";
 	[key: string]: unknown;
 };

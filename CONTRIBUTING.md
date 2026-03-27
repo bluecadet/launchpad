@@ -308,7 +308,7 @@ export default defineConfig({
   plugins: [
     content({
       sources: [],      // Add your content sources
-      transforms: [],   // Add your plugins
+      transforms: [],   // Add your transforms
     }),
     monitor({
       apps: [],         // Add your apps to monitor

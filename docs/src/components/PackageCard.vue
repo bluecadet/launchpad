@@ -10,7 +10,7 @@ const props = defineProps<{
 
 <template>
   <li>
-    <a :href="href" class="card">
+    <a :href="href" class="card custom-block note">
       <h3>@bluecadet/launchpad-{{ package }}</h3>
       <p>{{ description }}</p>
       <Badge type="tip" :text="'v' + packageVersions[package]" />
@@ -25,17 +25,14 @@ const props = defineProps<{
 
   .card {
     display: flex;
-    border: 1px solid var(--vp-c-bg-soft);
     height: 100%;
-    background-color: var(--vp-c-bg-soft);
-    transition: border-color .25s,background-color .25s;
+    transition: border-color .2s,background-color .2s;
     flex-direction: column;
-    padding: 24px;
-    border-radius: 12px;
+    padding: 18px 24px;
     color: inherit;
     text-decoration: none;
     align-items: start;
-    
+    margin: 0;
   }
 
   .card:hover {

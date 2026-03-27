@@ -62,6 +62,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@bluecadet/launchpad-dashboard": "~2.0.0",
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",

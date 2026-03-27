@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import {
 	type BaseCommand,
+	type DisconnectReason,
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
@@ -171,7 +172,7 @@ export function dashboard(config: DashboardConfig) {
 						}
 					}
 				},
-				disconnect() {
+				disconnect(_reason: DisconnectReason) {
 					unsubscribe();
 					if (!activeServer) return okAsync(undefined);
 					const server = activeServer;

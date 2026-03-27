@@ -78,6 +78,18 @@ export function renderLayout(
     .page-nav__list li a:hover { background: #27272a; text-decoration: none; }
 
     .empty-state { color: #666; font-style: italic; }
+
+    .meta-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .meta-label { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-value { font-size: 13px; }
+    .text-muted { color: #666; }
+
+    .panel-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .btn--sm { padding: 0.25em 0.6em; font-size: 12px; }
+    .btn--icon { padding: 0.25em 0.5em; font-size: 13px; min-width: 2em; justify-content: center; }
+    .btn-group { display: flex; gap: 0.25rem; }
+
+    .source-error { font-size: 12px; color: #f87171; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>

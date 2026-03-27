@@ -56,21 +56,22 @@ npm install @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/lau
 
 2. Create a configuration file:
 
-```js
-// launchpad.config.js
+```ts
+// launchpad.config.ts
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { monitor } from '@bluecadet/launchpad-monitor';
 
 export default defineConfig({
-  content: {
-    sources: [
-      // Content source configurations
-    ]
-  },
-  monitor: {
-    apps: [
-      // Application configurations
-    ]
-  }
+  plugins: [
+    content({
+      sources: [],      // Add your content sources
+      transforms: [],   // Add your transforms
+    }),
+    monitor({
+      apps: [],         // Add your apps to monitor
+    }),
+  ]
 });
 ```
 

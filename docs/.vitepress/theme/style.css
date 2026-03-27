@@ -68,6 +68,10 @@
   --vp-c-danger-2: var(--vp-c-red-2);
   --vp-c-danger-3: var(--vp-c-red-3);
   --vp-c-danger-soft: var(--vp-c-red-soft);
+
+
+  /* overrides */
+  --vp-custom-block-note-bg: var(--vp-c-bg-soft);
 }
 
 /**

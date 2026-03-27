@@ -1,7 +1,7 @@
 import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import chalk from "chalk";
-import { errAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";
@@ -48,7 +48,7 @@ export function loadConfigAndEnv(
 	).map((config) => ({ dir: configDir, config: resolveLaunchpadConfig(config) }));
 }
 
-export function handleFatalError(error: Error): never {
+export function handleFatalError(error: Error) {
 	cliLogger.error(error);
-	process.exit(1);
+	return process.exit(1);
 }

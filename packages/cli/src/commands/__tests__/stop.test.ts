@@ -1,4 +1,4 @@
-vi.mock("../../utils/command-utils.js");
+vi.mock("../../utils/command-utils.js", { spy: true });
 vi.mock("../../utils/controller-execution.js");
 vi.mock("../../utils/cli-logger.js", async () => ({
 	cliLogger: {
@@ -45,8 +45,8 @@ describe("stop", () => {
 		vi.useFakeTimers();
 		vi.clearAllMocks();
 		vi.mocked(loadConfigAndEnv).mockReturnValue(okAsync({ dir: "/test", config: mockConfig }));
-		vi.mocked(handleFatalError).mockImplementation(() => {
-			throw new Error("fatal");
+		vi.spyOn(process, "exit").mockImplementation(() => {
+			throw new Error("exit");
 		});
 	});
 
@@ -75,14 +75,14 @@ describe("stop", () => {
 	it("daemon not running (no monitor plugin) — handleFatalError is called", async () => {
 		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
 
-		await expect(stop({})).rejects.toThrow("fatal");
+		await expect(stop({})).rejects.toThrow("exit");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalledWith(expect.any(DaemonNotRunningError));
 	});
 
 	it("loadConfigAndEnv fails — handleFatalError called", async () => {
 		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("config load failed")));
 
-		await expect(stop({})).rejects.toThrow("fatal");
+		await expect(stop({})).rejects.toThrow("exit");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
 
@@ -137,17 +137,21 @@ describe("stop", () => {
 		vi.spyOn(process, "kill").mockImplementation(() => {
 			throw new Error("EPERM");
 		});
+		// Override process.exit to not throw — throwing inside neverthrow's orElse creates a
+		// synchronously-rejected intermediate promise with a microtask-gap before its handler
+		// is attached, which triggers PromiseRejectionHandledWarning.
+		vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
 
 		const resultPromise = stop({});
 		await vi.runAllTimersAsync();
-		await expect(resultPromise).rejects.toThrow("fatal");
+		await resultPromise;
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
 
 	it("withDaemon fails with non-DaemonNotRunningError — handleFatalError called", async () => {
 		vi.mocked(withDaemon).mockReturnValue(errAsync(new IPCConnectionError("IPC connection reset")));
 
-		await expect(stop({})).rejects.toThrow("fatal");
+		await expect(stop({})).rejects.toThrow("exit");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
 

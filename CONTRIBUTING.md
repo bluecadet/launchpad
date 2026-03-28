@@ -277,11 +277,15 @@ cd ../utils
 npm link
 cd ../controller
 npm link
+cd ../dashboard
+npm link
+cd ../create
+npm link
 cd ../launchpad
 npm link
 
 # In your test project
-npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller
+npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/launchpad-dashboard @bluecadet/launchpad-create
 ```
 
 ### Development Workflow

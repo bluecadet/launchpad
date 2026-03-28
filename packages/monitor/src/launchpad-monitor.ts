@@ -1,5 +1,6 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
 	type BaseCommand,
 	definePlugin,
@@ -17,6 +18,7 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
+import { monitorPanel } from "./monitor-panel.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 
 type MonitorActionContext = PluginContext<MonitorState> & {
@@ -250,6 +252,8 @@ export function monitor(config: MonitorConfig) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
 			}
 			const resolvedConfig = configResult.data;
+
+			registry.contributePanel(monitorPanel);
 
 			// initialize persistent services
 			const processManager = new ProcessManager(ctx.logger);

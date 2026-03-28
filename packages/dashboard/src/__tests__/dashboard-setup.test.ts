@@ -85,14 +85,14 @@ describe("dashboard() setup validation", () => {
 		expect(result.isOk()).toBe(true);
 	});
 
-	it("subscribes to global state patches during setup", async () => {
+	it("does not subscribe to global state patches during setup (deferred to dashboard.start)", async () => {
 		const ctx = makeMockCtx();
 		const plugin = dashboard({ port: 3000 });
 		await plugin.setup(ctx);
-		expect(ctx.onGlobalStatePatch).toHaveBeenCalledOnce();
+		expect(ctx.onGlobalStatePatch).not.toHaveBeenCalled();
 	});
 
-	it("unsubscribes from state patches on disconnect", async () => {
+	it("does not call unsubscribe on disconnect when dashboard.start was never run", async () => {
 		const unsubscribe = vi.fn();
 		const ctx = makeMockCtx();
 		vi.mocked(ctx.onGlobalStatePatch).mockReturnValue(unsubscribe);
@@ -102,6 +102,6 @@ describe("dashboard() setup validation", () => {
 		const instance = result._unsafeUnwrap();
 
 		await instance.disconnect?.({ type: "manual" });
-		expect(unsubscribe).toHaveBeenCalledOnce();
+		expect(unsubscribe).not.toHaveBeenCalled();
 	});
 });

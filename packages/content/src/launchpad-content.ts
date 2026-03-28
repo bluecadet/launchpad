@@ -1,4 +1,5 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
+import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
 	type BaseCommand,
 	definePlugin,
@@ -11,6 +12,7 @@ import {
 	parseContentConfig,
 	type ResolvedContentConfig,
 } from "./content-config.js";
+import { contentPanel } from "./content-panel.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import { ContentError } from "./content-transform.js";
 import {
@@ -258,6 +260,7 @@ export function content(config: ContentConfig) {
 
 					const sourceIds = resolvedConfig.sources.map((s) => s.id);
 					stateManager.initializeSources(sourceIds);
+					registry.contributePanel(contentPanel);
 					if (sourceIds.length > 0) {
 						ctx.logger.info(`Initialized ${sourceIds.length} source(s)`);
 					}

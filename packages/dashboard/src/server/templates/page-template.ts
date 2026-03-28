@@ -44,11 +44,11 @@ export function renderPanelContainer(
 	state: VersionedLaunchpadState,
 ): string {
 	const content = renderPanelFragment(panel, state);
-	return `<div class="panel" id="panel-${escapeHtml(panel.id)}" sse-swap="${escapeHtml(panel.id)}" hx-swap="innerHTML">
+	return `<div class="panel" id="panel-${escapeHtml(panel.id)}">
   <div class="panel__header">
     <h2 class="panel__title">${escapeHtml(panel.title)}</h2>
   </div>
-  <div class="panel__body">${content}</div>
+  <div class="panel__body" sse-swap="${escapeHtml(panel.id)}" hx-swap="innerHTML">${content}</div>
 </div>`;
 }
 

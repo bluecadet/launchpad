@@ -1,4 +1,3 @@
-import type { DashboardPage } from "@bluecadet/launchpad-dashboard/page";
 import type { DashboardPanel, PanelRenderContext } from "@bluecadet/launchpad-dashboard/panel";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { ContentState, SourceFetchState } from "./content-state.js";
@@ -143,13 +142,4 @@ export const contentPanel: DashboardPanel = {
 	render(state: VersionedLaunchpadState, ctx: PanelRenderContext): string {
 		return renderContentBody(state.plugins.content, ctx);
 	},
-};
-
-/**
- * Full dashboard page for the content plugin.
- */
-export const contentPage: DashboardPage = {
-	id: "content",
-	title: "Content",
-	panels: [contentPanel],
 };

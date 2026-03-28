@@ -65,6 +65,8 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
     "h3": "^1.15.3",
+    "htmx-ext-sse": "^2.2.4",
+    "htmx.org": "^2.0.8",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },

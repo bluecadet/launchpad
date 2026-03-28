@@ -1,4 +1,7 @@
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
 	type BaseCommand,
 	type DisconnectReason,
@@ -13,20 +16,26 @@ import {
 	dashboardConfigSchema,
 	type ResolvedDashboardConfig,
 } from "./dashboard-config.js";
+import type { DashboardPage } from "./dashboard-page.js";
+import type { DashboardPanel } from "./dashboard-panel.js";
 import { type DashboardState, DashboardStateManager } from "./dashboard-state.js";
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
 import { SseManager } from "./server/sse-manager.js";
-import { collectAllPanels } from "./server/templates/page-template.js";
+
+const _require = createRequire(import.meta.url);
 
 function startServer(
 	config: ResolvedDashboardConfig,
+	panels: DashboardPanel[],
+	pages: DashboardPage[],
 	ctx: PluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
 ): ResultAsync<ReturnType<typeof createServer>, Error> {
 	const app = createH3App({
-		config,
+		panels,
+		pages,
 		getState: ctx.getGlobalState,
 		dispatchCommand: ctx.dispatchCommand,
 		sseManager,
@@ -84,12 +93,8 @@ function stopServer(
  * @example
  * ```ts
  * import { dashboard } from "@bluecadet/launchpad-dashboard";
- * import { monitorPanel } from "@bluecadet/launchpad-monitor";
  *
- * dashboard({
- *   port: 3000,
- *   panels: [monitorPanel],
- * })
+ * dashboard({ port: 3000 })
  * ```
  */
 export function dashboard(config: DashboardConfig) {
@@ -125,7 +130,23 @@ export function dashboard(config: DashboardConfig) {
 				seenPanelIds.add(panel.id);
 			}
 
-			const allPanels = collectAllPanels(resolvedConfig.pages, resolvedConfig.panels);
+			// Push config panels/pages into the shared registry.
+			// ContributedPanel/ContributedPage use `unknown` params for generality; cast is safe here.
+			if (resolvedConfig.panels.length > 0) {
+				registry.contributePanel(
+					...(resolvedConfig.panels as Parameters<typeof registry.contributePanel>),
+				);
+			}
+			if (resolvedConfig.pages.length > 0) {
+				registry.contributePage(
+					...(resolvedConfig.pages as Parameters<typeof registry.contributePage>),
+				);
+			}
+
+			// Contribute base assets via file paths — routes are created automatically.
+			registry.contributeStyle(fileURLToPath(new URL("./server/dashboard.css", import.meta.url)));
+			registry.contributeScript(_require.resolve("htmx.org/dist/htmx.min.js"), { defer: true });
+			registry.contributeScript(_require.resolve("htmx-ext-sse/sse.js"), { defer: true });
 
 			const stateManager = new DashboardStateManager(
 				ctx.updateState,
@@ -134,19 +155,9 @@ export function dashboard(config: DashboardConfig) {
 			);
 			const sseManager = new SseManager();
 
-			// Broadcast all panels to SSE clients on any state change
-			const unsubscribe = ctx.onGlobalStatePatch(() => {
-				const state = ctx.getGlobalState();
-				sseManager.broadcastAllPanels(allPanels, state).catch((err: unknown) => {
-					ctx.logger.error(
-						"SSE broadcast error",
-						err instanceof Error ? err : new Error(String(err)),
-					);
-				});
-			});
-
-			// Mutable server reference, managed by start/stop commands
+			// Mutable server reference and SSE unsubscribe, managed by start/stop commands
 			let activeServer: ReturnType<typeof createServer> | null = null;
+			let unsubscribe: (() => void) | null = null;
 
 			return okAsync({
 				executeCommand(command: DashboardCommand): ResultAsync<void, Error> {
@@ -155,9 +166,22 @@ export function dashboard(config: DashboardConfig) {
 							if (activeServer) {
 								return errAsync(new Error("Dashboard server is already running"));
 							}
-							return startServer(resolvedConfig, ctx, stateManager, sseManager).map((server) => {
-								activeServer = server;
+							const panels = registry.getPanels() as DashboardPanel[];
+							const pages = registry.getPages() as DashboardPage[];
+							unsubscribe = ctx.onGlobalStatePatch(() => {
+								const state = ctx.getGlobalState();
+								sseManager.broadcastAllPanels(panels, state).catch((err: unknown) => {
+									ctx.logger.error(
+										"SSE broadcast error",
+										err instanceof Error ? err : new Error(String(err)),
+									);
+								});
 							});
+							return startServer(resolvedConfig, panels, pages, ctx, stateManager, sseManager).map(
+								(server) => {
+									activeServer = server;
+								},
+							);
 						}
 						case "dashboard.stop": {
 							if (!activeServer) return okAsync(undefined);
@@ -173,7 +197,7 @@ export function dashboard(config: DashboardConfig) {
 					}
 				},
 				disconnect(_reason: DisconnectReason) {
-					unsubscribe();
+					unsubscribe?.();
 					if (!activeServer) return okAsync(undefined);
 					const server = activeServer;
 					activeServer = null;

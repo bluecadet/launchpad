@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import {
@@ -10,20 +12,17 @@ import {
 	setResponseHeader,
 } from "h3";
 import type { ResultAsync } from "neverthrow";
-import type { ResolvedDashboardConfig } from "../dashboard-config.js";
 import type { DashboardPage } from "../dashboard-page.js";
+import type { DashboardPanel } from "../dashboard-panel.js";
 import type { SseManager } from "./sse-manager.js";
 import { renderIndexPageBody } from "./templates/index-page.js";
 import { renderLayout } from "./templates/layout.js";
-import {
-	collectAllPanels,
-	renderPageBody,
-	renderPanelContainer,
-} from "./templates/page-template.js";
+import { renderPageBody, renderPanelContainer } from "./templates/page-template.js";
 import { renderPanelFragment } from "./templates/panel-fragment.js";
 
 export type ServerDeps = {
-	config: ResolvedDashboardConfig;
+	panels: DashboardPanel[];
+	pages: DashboardPage[];
 	getState: () => VersionedLaunchpadState;
 	dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
 	sseManager: SseManager;
@@ -33,14 +32,38 @@ export type ServerDeps = {
  * Build the h3 app with all dashboard routes.
  */
 export function createH3App(deps: ServerDeps) {
-	const { config, getState, dispatchCommand, sseManager } = deps;
-	const { pages, panels: overviewPanels } = config;
+	const { panels: allPanels, pages, getState, dispatchCommand, sseManager } = deps;
 
-	const allPanels = collectAllPanels(pages, overviewPanels);
 	const pageMap = new Map<string, DashboardPage>(pages.map((p) => [p.id, p]));
 
 	const app = createApp();
 	const router = createRouter();
+
+	// GET /assets/* — contributed scripts and styles, served from their source file paths.
+	// Files are read eagerly at app-creation time so each request is served from memory.
+	for (const script of registry.getScripts()) {
+		const content = readFileSync(script.filePath, "utf-8");
+		router.get(
+			script.url,
+			defineEventHandler((event) => {
+				setResponseHeader(event, "Content-Type", "application/javascript; charset=utf-8");
+				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
+				return content;
+			}),
+		);
+	}
+
+	for (const style of registry.getStyles()) {
+		const content = readFileSync(style.filePath, "utf-8");
+		router.get(
+			style.url,
+			defineEventHandler((event) => {
+				setResponseHeader(event, "Content-Type", "text/css; charset=utf-8");
+				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
+				return content;
+			}),
+		);
+	}
 
 	// GET / — index page
 	router.get(
@@ -48,7 +71,7 @@ export function createH3App(deps: ServerDeps) {
 		defineEventHandler((event) => {
 			setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 			const state = getState();
-			const body = renderIndexPageBody(pages, overviewPanels, state);
+			const body = renderIndexPageBody(pages, allPanels, state);
 			return renderLayout("Overview", body, pages, null);
 		}),
 	);
@@ -131,9 +154,3 @@ export function createH3App(deps: ServerDeps) {
 	app.use(router);
 	return app;
 }
-
-/**
- * Collect all panels referenced across pages and overview panels.
- * Re-exported for use in the plugin.
- */
-export { collectAllPanels };

@@ -1,4 +1,3 @@
-import type { DashboardPage } from "@bluecadet/launchpad-dashboard/page";
 import type { DashboardPanel, PanelRenderContext } from "@bluecadet/launchpad-dashboard/panel";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { MonitorState } from "./monitor-state.js";
@@ -111,14 +110,4 @@ export const monitorPanel: DashboardPanel = {
 	render(state: VersionedLaunchpadState, ctx: PanelRenderContext): string {
 		return renderMonitorContent(state.plugins.monitor, ctx);
 	},
-};
-
-/**
- * Full dashboard page for the monitor plugin.
- * Includes the monitor panel with space for future expansion.
- */
-export const monitorPage: DashboardPage = {
-	id: "monitor",
-	title: "Monitor",
-	panels: [monitorPanel],
 };

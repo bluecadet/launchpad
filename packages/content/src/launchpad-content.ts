@@ -5,6 +5,7 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./content-config.js";
 import { contentPanel } from "./content-panel.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
+import { contentStatusSection } from "./content-status-section.js";
 import { ContentError } from "./content-transform.js";
 import {
 	backupStage,
@@ -234,6 +236,7 @@ function clear(
  * Use this in your launchpad config's plugins array.
  */
 export function content(config: ContentConfig) {
+	statusRegistry.contributeStatusSection(contentStatusSection);
 	return definePlugin({
 		name: "content",
 		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],

@@ -39,6 +39,10 @@
     "./panel-registry": {
       "types": "./dist/panel-registry.d.ts",
       "default": "./dist/panel-registry.js"
+    },
+    "./status-registry": {
+      "types": "./dist/status-registry.d.ts",
+      "default": "./dist/status-registry.js"
     }
   },
   "files": [

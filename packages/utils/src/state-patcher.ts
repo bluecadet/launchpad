@@ -42,10 +42,13 @@ export class PatchedStateManager<TState> {
 	 * @returns The updated state
 	 */
 	updateState(producer: Producer<TState>) {
+		let capturedPatches: Patch[] = [];
 		this._state = produce(this._state, producer, (patches) => {
-			if (patches.length === 0) return;
-			this._patchHandlers.forEach((handler) => handler(patches));
+			capturedPatches = patches;
 		});
+		if (capturedPatches.length > 0) {
+			this._patchHandlers.forEach((handler) => handler(capturedPatches));
+		}
 		return this._state;
 	}
 
@@ -53,3 +56,5 @@ export class PatchedStateManager<TState> {
 		return this._state;
 	}
 }
+
+export type { Patch } from "immer";

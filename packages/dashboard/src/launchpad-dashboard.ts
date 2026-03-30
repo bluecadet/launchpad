@@ -3,7 +3,6 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
-	type BaseCommand,
 	type DisconnectReason,
 	definePlugin,
 	type PluginContext,
@@ -22,20 +21,19 @@ import { type DashboardState, DashboardStateManager } from "./dashboard-state.js
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
 import { SseManager } from "./server/sse-manager.js";
+import { collectAllPanels } from "./server/templates/page-template.js";
 
 const _require = createRequire(import.meta.url);
 
 function startServer(
 	config: ResolvedDashboardConfig,
-	panels: DashboardPanel[],
-	pages: DashboardPage[],
 	ctx: PluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
 ): ResultAsync<ReturnType<typeof createServer>, Error> {
 	const app = createH3App({
-		panels,
-		pages,
+		getPanels: () => registry.getPanels() as DashboardPanel[],
+		getPages: () => registry.getPages() as DashboardPage[],
 		getState: ctx.getGlobalState,
 		dispatchCommand: ctx.dispatchCommand,
 		sseManager,
@@ -100,7 +98,6 @@ function stopServer(
 export function dashboard(config: DashboardConfig) {
 	return definePlugin({
 		name: "dashboard",
-		startupCommands: [{ type: "dashboard.start" }] satisfies BaseCommand[],
 		setup(ctx: PluginContext<DashboardState>) {
 			const configResult = dashboardConfigSchema.safeParse(config);
 			if (!configResult.success) {
@@ -144,7 +141,7 @@ export function dashboard(config: DashboardConfig) {
 			}
 
 			// Contribute base assets via file paths — routes are created automatically.
-			registry.contributeStyle(fileURLToPath(new URL("./server/dashboard.css", import.meta.url)));
+			registry.contributeStyle(fileURLToPath(new URL("../static/dashboard.css", import.meta.url)));
 			registry.contributeScript(_require.resolve("htmx.org/dist/htmx.min.js"), { defer: true });
 			registry.contributeScript(_require.resolve("htmx-ext-sse/sse.js"), { defer: true });
 
@@ -159,50 +156,57 @@ export function dashboard(config: DashboardConfig) {
 			let activeServer: ReturnType<typeof createServer> | null = null;
 			let unsubscribe: (() => void) | null = null;
 
-			return okAsync({
-				executeCommand(command: DashboardCommand): ResultAsync<void, Error> {
-					switch (command.type) {
-						case "dashboard.start": {
-							if (activeServer) {
-								return errAsync(new Error("Dashboard server is already running"));
-							}
-							const panels = registry.getPanels() as DashboardPanel[];
-							const pages = registry.getPages() as DashboardPage[];
-							unsubscribe = ctx.onGlobalStatePatch(() => {
-								const state = ctx.getGlobalState();
-								sseManager.broadcastAllPanels(panels, state).catch((err: unknown) => {
-									ctx.logger.error(
-										"SSE broadcast error",
-										err instanceof Error ? err : new Error(String(err)),
-									);
-								});
-							});
-							return startServer(resolvedConfig, panels, pages, ctx, stateManager, sseManager).map(
-								(server) => {
-									activeServer = server;
-								},
-							);
+			function doStart(): ResultAsync<ReturnType<typeof createServer>, Error> {
+				unsubscribe = ctx.onGlobalStatePatch((patches) => {
+					const pages = registry.getPages() as DashboardPage[];
+					const standalonePanel = registry.getPanels() as DashboardPanel[];
+					const panels = collectAllPanels(pages, standalonePanel);
+					const state = ctx.getGlobalState();
+					sseManager.broadcastAffectedPanels(panels, patches, state).catch((err: unknown) => {
+						ctx.logger.error(
+							"SSE broadcast error",
+							err instanceof Error ? err : new Error(String(err)),
+						);
+					});
+				});
+				return startServer(resolvedConfig, ctx, stateManager, sseManager);
+			}
+
+			const executeCommand = (command: DashboardCommand): ResultAsync<void, Error> => {
+				switch (command.type) {
+					case "dashboard.start": {
+						if (activeServer) {
+							return errAsync(new Error("Dashboard server is already running"));
 						}
-						case "dashboard.stop": {
-							if (!activeServer) return okAsync(undefined);
-							const server = activeServer;
-							activeServer = null;
-							return stopServer(server, ctx, stateManager);
-						}
-						default: {
-							return errAsync(
-								new Error(`Unknown dashboard command type: ${(command as DashboardCommand).type}`),
-							);
-						}
+						return doStart().map((server) => {
+							activeServer = server;
+						});
 					}
-				},
-				disconnect(_reason: DisconnectReason) {
-					unsubscribe?.();
-					if (!activeServer) return okAsync(undefined);
-					const server = activeServer;
-					activeServer = null;
-					return stopServer(server, ctx, stateManager);
-				},
+					case "dashboard.stop": {
+						if (!activeServer) return okAsync(undefined);
+						const server = activeServer;
+						activeServer = null;
+						return stopServer(server, ctx, stateManager);
+					}
+					default: {
+						return errAsync(
+							new Error(`Unknown dashboard command type: ${(command as DashboardCommand).type}`),
+						);
+					}
+				}
+			};
+
+			const disconnect = (_reason: DisconnectReason): ResultAsync<void, Error> => {
+				unsubscribe?.();
+				if (!activeServer) return okAsync(undefined);
+				const server = activeServer;
+				activeServer = null;
+				return stopServer(server, ctx, stateManager);
+			};
+
+			return doStart().map((server) => {
+				activeServer = server;
+				return { executeCommand, disconnect };
 			});
 		},
 	});

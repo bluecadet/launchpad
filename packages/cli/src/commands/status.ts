@@ -2,10 +2,7 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
-// We need to import launchpad-content/state somewhere for the decl merging to work.
-// TODO: we should have an API for plugins to register their own CLI state renderer,
-// rather than relying on decl merging and importing the entire state module here.
-import type {} from "@bluecadet/launchpad-content/state";
+import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
@@ -27,11 +24,15 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 
 					// Watch mode
 					const str = stateToString(state);
-					cliLogger.fixed(str);
+					cliLogger.fixed(
+						`${str}\n${chalk.dim("Watching for status changes... (press Ctrl+C to exit)")}`,
+					);
 
 					client.onStateChange((newState) => {
 						const newStr = stateToString(newState);
-						cliLogger.fixed(`${newStr}"\nWatching for status changes... (press Ctrl+C to exit)"`);
+						cliLogger.fixed(
+							`${newStr}\n${chalk.dim("Watching for status changes... (press Ctrl+C to exit)")}`,
+						);
 					});
 					const neverResolve = new Promise<void>((resolve) => {
 						// resolve on sigint / sigterm
@@ -46,66 +47,18 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 		.orElse((error) => handleFatalError(error));
 }
 function stateToString(state: LaunchpadState): string {
-	let output = "";
-
-	// Pretty print the state
-	output += `${chalk.bold("Launchpad Status:")}\n`;
+	let output = `${chalk.bold("Launchpad Status:")}\n`;
 
 	if (state.system?.startTime) {
 		const uptime = Date.now() - new Date(state.system.startTime).getTime();
 		output += `  Uptime: ${formatUptime(uptime)}\n`;
 	}
 
-	// Monitor status
-	if (state.plugins.monitor) {
-		output += `\n${chalk.bold("Monitor:")}\n`;
-		output += `  Connected: ${state.plugins.monitor.isConnected ? chalk.green("Yes") : chalk.red("No")}\n`;
-
-		// Apps
-		if (state.plugins.monitor.apps && Object.keys(state.plugins.monitor.apps).length > 0) {
-			output += `\n${chalk.bold("Apps:")}\n`;
-			for (const [appName, appStatus] of Object.entries(state.plugins.monitor.apps)) {
-				const icon = appStatus.status === "online" ? "●" : "○";
-				const statusColor = appStatus.status === "online" ? chalk.green : chalk.red;
-				output += `  ${statusColor(icon)} ${appName}: ${statusColor(appStatus.status)}${appStatus.pid ? ` (PID: ${appStatus.pid})` : ""}\n`;
-			}
-		}
-	}
-
-	// Content status
-	if (state.plugins.content) {
-		output += `\n${chalk.bold("Content:")}\n`;
-		const contentState = state.plugins.content;
-		const sources = contentState.sources;
-
-		// Show overall phase
-		output += `  Phase: ${contentState.phase}\n`;
-
-		if (sources && Object.keys(sources).length > 0) {
-			for (const [sourceId, sourceState] of Object.entries(sources)) {
-				let statusIcon = chalk.gray("○");
-				let details = "";
-
-				if (sourceState.state === "pending") {
-					statusIcon = chalk.gray("○");
-					details = "Pending";
-				} else if (sourceState.state === "fetching") {
-					statusIcon = chalk.yellow("●");
-					details = "Fetching";
-				} else if (sourceState.state === "success") {
-					statusIcon = chalk.green("✓");
-					const duration = (sourceState.duration / 1000).toFixed(1);
-					details = `Success (${duration}s)`;
-				} else if (sourceState.state === "error") {
-					statusIcon = chalk.red("✗");
-					details = `Error: ${sourceState.error.message}`;
-					if (sourceState.restored) {
-						details += " (restored from backup)";
-					}
-				}
-
-				output += `  ${statusIcon} ${sourceId}: ${details}\n`;
-			}
+	for (const section of statusRegistry.getSections()) {
+		const rendered = section.render(state);
+		if (rendered) {
+			output += rendered;
+			output += "\n";
 		}
 	}
 

@@ -6,6 +6,7 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -20,6 +21,7 @@ import {
 } from "./monitor-config.js";
 import { monitorPanel } from "./monitor-panel.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
+import { monitorStatusSection } from "./monitor-status-section.js";
 
 type MonitorActionContext = PluginContext<MonitorState> & {
 	processManager: ProcessManager;
@@ -240,6 +242,7 @@ function shutdown(
  * Use this in your launchpad config's plugins array.
  */
 export function monitor(config: MonitorConfig) {
+	statusRegistry.contributeStatusSection(monitorStatusSection);
 	return definePlugin({
 		name: "monitor",
 		startupCommands: [

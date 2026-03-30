@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
@@ -9,6 +10,7 @@ import {
 	defineEventHandler,
 	getRouterParam,
 	readBody,
+	serveStatic,
 	setResponseHeader,
 } from "h3";
 import type { ResultAsync } from "neverthrow";
@@ -37,30 +39,37 @@ export function createH3App(deps: ServerDeps) {
 	const app = createApp();
 	const router = createRouter();
 
-	// GET /assets/** — contributed scripts and styles, served lazily from disk per request.
+	// GET /assets/** — contributed scripts and styles served via h3 serveStatic
 	router.get(
 		"/assets/**",
 		defineEventHandler((event) => {
-			const requestPath = event.path;
-
-			const script = registry.getScripts().find((s) => s.url === requestPath);
-			if (script) {
-				const content = readFileSync(script.filePath, "utf-8");
-				setResponseHeader(event, "Content-Type", "application/javascript; charset=utf-8");
-				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
-				return content;
-			}
-
-			const style = registry.getStyles().find((s) => s.url === requestPath);
-			if (style) {
-				const content = readFileSync(style.filePath, "utf-8");
-				setResponseHeader(event, "Content-Type", "text/css; charset=utf-8");
-				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
-				return content;
-			}
-
-			event.node.res.statusCode = 404;
-			return "Asset not found";
+			return serveStatic(event, {
+				getMeta: async (id) => {
+					const script = registry.getScripts().find((s) => s.url === id);
+					if (script) {
+						const s = await stat(script.filePath).catch(() => null);
+						if (s)
+							return {
+								type: "application/javascript; charset=utf-8",
+								size: s.size,
+								mtime: s.mtimeMs,
+							};
+					}
+					const style = registry.getStyles().find((s) => s.url === id);
+					if (style) {
+						const s = await stat(style.filePath).catch(() => null);
+						if (s) return { type: "text/css; charset=utf-8", size: s.size, mtime: s.mtimeMs };
+					}
+					return undefined;
+				},
+				getContents: (id) => {
+					const script = registry.getScripts().find((s) => s.url === id);
+					if (script) return createReadStream(script.filePath);
+					const style = registry.getStyles().find((s) => s.url === id);
+					if (style) return createReadStream(style.filePath);
+					return undefined;
+				},
+			});
 		}),
 	);
 

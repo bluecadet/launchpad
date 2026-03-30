@@ -147,6 +147,9 @@ export function dashboard(config: DashboardConfig) {
 			registry.contributeStyle(fileURLToPath(new URL("../static/dashboard.css", import.meta.url)));
 			registry.contributeScript(_require.resolve("htmx.org/dist/htmx.min.js"), { defer: true });
 			registry.contributeScript(_require.resolve("htmx-ext-sse/sse.js"), { defer: true });
+			registry.contributeScript(fileURLToPath(new URL("../static/json-enc.js", import.meta.url)), {
+				defer: true,
+			});
 
 			const stateManager = new DashboardStateManager(
 				ctx.updateState,

@@ -1,5 +1,14 @@
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("node:http", () => ({
+	createServer: vi.fn(() => ({
+		listen: vi.fn((_port: number, _host: string, cb?: () => void) => cb?.()),
+		close: vi.fn((cb?: () => void) => cb?.()),
+		on: vi.fn(),
+	})),
+}));
+
 import type { DashboardState } from "../dashboard-state.js";
 import { dashboard } from "../launchpad-dashboard.js";
 
@@ -85,14 +94,14 @@ describe("dashboard() setup validation", () => {
 		expect(result.isOk()).toBe(true);
 	});
 
-	it("does not subscribe to global state patches during setup (deferred to dashboard.start)", async () => {
+	it("subscribes to global state patches during setup", async () => {
 		const ctx = makeMockCtx();
 		const plugin = dashboard({ port: 3000 });
 		await plugin.setup(ctx);
-		expect(ctx.onGlobalStatePatch).not.toHaveBeenCalled();
+		expect(ctx.onGlobalStatePatch).toHaveBeenCalledOnce();
 	});
 
-	it("does not call unsubscribe on disconnect when dashboard.start was never run", async () => {
+	it("calls unsubscribe on disconnect", async () => {
 		const unsubscribe = vi.fn();
 		const ctx = makeMockCtx();
 		vi.mocked(ctx.onGlobalStatePatch).mockReturnValue(unsubscribe);
@@ -102,6 +111,6 @@ describe("dashboard() setup validation", () => {
 		const instance = result._unsafeUnwrap();
 
 		await instance.disconnect?.({ type: "manual" });
-		expect(unsubscribe).not.toHaveBeenCalled();
+		expect(unsubscribe).toHaveBeenCalledOnce();
 	});
 });

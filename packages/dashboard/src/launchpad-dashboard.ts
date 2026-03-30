@@ -7,6 +7,7 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { toNodeListener } from "h3";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { DashboardCommand } from "./dashboard-commands.js";
@@ -18,6 +19,7 @@ import {
 import type { DashboardPage } from "./dashboard-page.js";
 import type { DashboardPanel } from "./dashboard-panel.js";
 import { type DashboardState, DashboardStateManager } from "./dashboard-state.js";
+import { dashboardStatusSection } from "./dashboard-status-section.js";
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
 import { SseManager } from "./server/sse-manager.js";
@@ -96,6 +98,7 @@ function stopServer(
  * ```
  */
 export function dashboard(config: DashboardConfig) {
+	statusRegistry.contributeStatusSection(dashboardStatusSection);
 	return definePlugin({
 		name: "dashboard",
 		setup(ctx: PluginContext<DashboardState>) {

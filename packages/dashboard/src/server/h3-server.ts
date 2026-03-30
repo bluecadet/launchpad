@@ -21,8 +21,8 @@ import { renderPageBody, renderPanelContainer } from "./templates/page-template.
 import { renderPanelFragment } from "./templates/panel-fragment.js";
 
 export type ServerDeps = {
-	panels: DashboardPanel[];
-	pages: DashboardPage[];
+	getPanels: () => DashboardPanel[];
+	getPages: () => DashboardPage[];
 	getState: () => VersionedLaunchpadState;
 	dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
 	sseManager: SseManager;
@@ -32,43 +32,44 @@ export type ServerDeps = {
  * Build the h3 app with all dashboard routes.
  */
 export function createH3App(deps: ServerDeps) {
-	const { panels: allPanels, pages, getState, dispatchCommand, sseManager } = deps;
-
-	const pageMap = new Map<string, DashboardPage>(pages.map((p) => [p.id, p]));
+	const { getPanels, getPages, getState, dispatchCommand, sseManager } = deps;
 
 	const app = createApp();
 	const router = createRouter();
 
-	// GET /assets/* — contributed scripts and styles, served from their source file paths.
-	// Files are read eagerly at app-creation time so each request is served from memory.
-	for (const script of registry.getScripts()) {
-		const content = readFileSync(script.filePath, "utf-8");
-		router.get(
-			script.url,
-			defineEventHandler((event) => {
+	// GET /assets/** — contributed scripts and styles, served lazily from disk per request.
+	router.get(
+		"/assets/**",
+		defineEventHandler((event) => {
+			const requestPath = event.path;
+
+			const script = registry.getScripts().find((s) => s.url === requestPath);
+			if (script) {
+				const content = readFileSync(script.filePath, "utf-8");
 				setResponseHeader(event, "Content-Type", "application/javascript; charset=utf-8");
 				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
 				return content;
-			}),
-		);
-	}
+			}
 
-	for (const style of registry.getStyles()) {
-		const content = readFileSync(style.filePath, "utf-8");
-		router.get(
-			style.url,
-			defineEventHandler((event) => {
+			const style = registry.getStyles().find((s) => s.url === requestPath);
+			if (style) {
+				const content = readFileSync(style.filePath, "utf-8");
 				setResponseHeader(event, "Content-Type", "text/css; charset=utf-8");
 				setResponseHeader(event, "Cache-Control", "public, max-age=31536000, immutable");
 				return content;
-			}),
-		);
-	}
+			}
+
+			event.node.res.statusCode = 404;
+			return "Asset not found";
+		}),
+	);
 
 	// GET / — index page
 	router.get(
 		"/",
 		defineEventHandler((event) => {
+			const pages = getPages();
+			const allPanels = getPanels();
 			setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 			const state = getState();
 			const body = renderIndexPageBody(pages, allPanels, state);
@@ -80,7 +81,9 @@ export function createH3App(deps: ServerDeps) {
 	router.get(
 		"/pages/:id",
 		defineEventHandler((event) => {
+			const pages = getPages();
 			const id = getRouterParam(event, "id") ?? "";
+			const pageMap = new Map<string, DashboardPage>(pages.map((p) => [p.id, p]));
 			const page = pageMap.get(id);
 			if (!page) {
 				setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
@@ -98,7 +101,7 @@ export function createH3App(deps: ServerDeps) {
 		"/panels/:id",
 		defineEventHandler((event) => {
 			const id = getRouterParam(event, "id") ?? "";
-			const panel = allPanels.find((p) => p.id === id);
+			const panel = getPanels().find((p) => p.id === id);
 			if (!panel) {
 				event.node.res.statusCode = 404;
 				return "Panel not found";
@@ -115,17 +118,19 @@ export function createH3App(deps: ServerDeps) {
 		defineEventHandler(async (event) => {
 			const eventStream = createEventStream(event);
 
+			const cleanup = sseManager.addClient(eventStream);
+			eventStream.onClosed(() => {
+				cleanup();
+			});
+
 			// Send all panels immediately on connect (avoids blank panels on reconnect)
 			const state = getState();
-			for (const panel of allPanels) {
-				await eventStream.push({
+			for (const panel of getPanels()) {
+				eventStream.push({
 					event: panel.id,
 					data: renderPanelFragment(panel, state),
 				});
 			}
-
-			const cleanup = sseManager.addClient(eventStream);
-			eventStream.onClosed(() => cleanup());
 
 			return eventStream.send();
 		}),

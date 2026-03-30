@@ -1,8 +1,8 @@
 /**
  * Shared dashboard contribution registry.
  * Plugins call registry.contribute*() methods during setup() to register their UI and assets.
- * The dashboard reads the registry in executeCommand("dashboard.start") — after all
- * plugin setups have run — to build the server.
+ * The dashboard reads the registry lazily at request time, so contributions from any
+ * plugin's setup() are available regardless of plugin ordering.
  */
 
 import { createHash } from "node:crypto";
@@ -11,7 +11,7 @@ import { basename, extname } from "node:path";
 export interface ContributedPanel {
 	id: string;
 	title: string;
-	render: (state: unknown, ctx: unknown) => string;
+	render(state: unknown, ctx: unknown): string;
 }
 
 export interface ContributedPage {
@@ -19,7 +19,7 @@ export interface ContributedPage {
 	title: string;
 	path?: string;
 	panels?: ContributedPanel[];
-	render?: (state: unknown, ctx: unknown) => string;
+	render?(state: unknown, ctx: unknown): string;
 }
 
 /** A JS file contributed from an absolute file path. URL is auto-generated. */

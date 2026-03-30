@@ -22,5 +22,5 @@ export function commandButton(
 	const disabledAttr = opts.disabled ? " disabled" : "";
 	const classAttr = opts.class ? ` class="${escapeHtml(opts.class)}"` : ' class="btn"';
 
-	return `<button hx-post="/commands" hx-vals='${vals}' hx-swap="none"${confirmAttr}${disabledAttr}${classAttr}>${escapeHtml(label)}</button>`;
+	return `<button hx-post="/commands" hx-ext="json-enc" hx-vals='${vals}' hx-swap="none"${confirmAttr}${disabledAttr}${classAttr}>${escapeHtml(label)}</button>`;
 }

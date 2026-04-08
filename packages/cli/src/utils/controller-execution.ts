@@ -49,12 +49,7 @@ export function withDaemon<T>(
 
 	// Connect and execute operation, disconnecting on both success and error
 	return client.connect(socketPath).andThen(() => {
-		return operation(client, pid)
-			.andTee(() => client.disconnect())
-			.orElse((e) => {
-				client.disconnect();
-				return errAsync(e);
-			});
+		return withCleanup(operation(client, pid), () => client.disconnect());
 	});
 }
 
@@ -87,8 +82,7 @@ export function withDaemonOrController<T>(
 		addLogListeners(client);
 
 		return client.connect(socketPath).andThen(() => {
-			const result = options.ifDaemon(client, pid);
-			return result.andTee(() => client.disconnect());
+			return withCleanup(options.ifDaemon(client, pid), () => client.disconnect());
 		});
 	}
 
@@ -103,11 +97,15 @@ export function withDaemonOrController<T>(
 
 		// Stop controller after commands complete (unless persistent mode)
 		if (options.mode === "task") {
-			return result.andTee(() => controller.stop());
+			return withCleanup(result, () => controller.stop());
 		}
 
 		return result;
 	});
+}
+
+function withCleanup<T, E>(result: ResultAsync<T, E>, cleanup: () => unknown): ResultAsync<T, E> {
+	return result.andTee(() => cleanup()).orTee(() => cleanup());
 }
 
 // Both EventBus and IPCClient implement this interface

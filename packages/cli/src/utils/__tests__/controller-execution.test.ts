@@ -106,11 +106,12 @@ describe("controller-execution", () => {
 			const operation = vi.fn().mockReturnValue(errAsync(new Error("Operation failed")));
 
 			const result = await withDaemon(baseDir, controllerConfig, false, operation);
-			const client = vi.mocked(IPCClient).mock.instances[0];
+			const client = vi.mocked(IPCClient).mock.instances[0]!;
 
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Operation failed");
 			expect(operation).toHaveBeenCalledWith(client, 12345);
+			expect(client.disconnect).toHaveBeenCalled();
 		});
 
 		it("should return error if connect fails", async () => {
@@ -149,6 +150,22 @@ describe("controller-execution", () => {
 			expect(result._unsafeUnwrap()).toBe("daemon-result");
 			expect(ifDaemon).toHaveBeenCalledWith(client, 12345);
 			expect(otherwise).not.toHaveBeenCalled();
+			expect(client.disconnect).toHaveBeenCalled();
+		});
+
+		it("should disconnect the IPC client when daemon execution fails", async () => {
+			vi.mocked(getDaemonPid).mockReturnValue(ok(12345));
+			const ifDaemon = vi.fn().mockReturnValue(errAsync(new Error("Daemon operation failed")));
+
+			const result = await withDaemonOrController(baseDir, controllerConfig, {
+				mode: "task",
+				ifDaemon,
+				otherwise: vi.fn(),
+			});
+			const client = vi.mocked(IPCClient).mock.instances[0]!;
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("Daemon operation failed");
 			expect(client.disconnect).toHaveBeenCalled();
 		});
 
@@ -235,6 +252,7 @@ describe("controller-execution", () => {
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Operation failed");
 			expect(controller.start).toHaveBeenCalled();
+			expect(controller.stop).toHaveBeenCalled();
 		});
 
 		it("should pass correct mode to LaunchpadController", async () => {

@@ -3,20 +3,10 @@
  */
 
 /**
- * Format a date as a human-readable relative time string.
- * Returns "—" for undefined/null values.
- *
- * @example
- * relativeTime(new Date(Date.now() - 90_000)) // "1m ago"
- * relativeTime(new Date(Date.now() - 500))    // "just now"
- * relativeTime(undefined)                     // "—"
+ * Format the difference between now and the given date as a compact string.
+ * Used by both the server-side relativeTime() helper and the client-side refresh script.
  */
-export function relativeTime(date: Date | string | undefined | null): string {
-	if (date === undefined || date === null) return "—";
-
-	const d = date instanceof Date ? date : new Date(date);
-	if (Number.isNaN(d.getTime())) return "—";
-
+function formatRelative(d: Date): string {
 	const diffMs = Date.now() - d.getTime();
 	const diffSec = Math.floor(diffMs / 1000);
 
@@ -31,6 +21,29 @@ export function relativeTime(date: Date | string | undefined | null): string {
 
 	const diffDay = Math.floor(diffHour / 24);
 	return `${diffDay}d ago`;
+}
+
+/**
+ * Format a date as a human-readable relative time string inside a `<time>` element.
+ * The `<time>` tag carries a `data-relative` attribute so the client-side
+ * `relative-time.js` script can automatically refresh the displayed text.
+ *
+ * Returns a plain dash ("—") for undefined/null/invalid values (no `<time>` wrapper).
+ *
+ * @example
+ * relativeTime(new Date(Date.now() - 90_000)) // '<time datetime="..." data-relative>1m ago</time>'
+ * relativeTime(new Date(Date.now() - 500))    // '<time datetime="..." data-relative>just now</time>'
+ * relativeTime(undefined)                     // "—"
+ */
+export function relativeTime(date: Date | string | undefined | null): string {
+	if (date === undefined || date === null) return "—";
+
+	const d = date instanceof Date ? date : new Date(date);
+	if (Number.isNaN(d.getTime())) return "—";
+
+	const iso = d.toISOString();
+	const text = formatRelative(d);
+	return `<time datetime="${iso}" data-relative>${text}</time>`;
 }
 
 /**

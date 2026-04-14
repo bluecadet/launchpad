@@ -7,6 +7,7 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: false,
 	useMonitor: false,
+	useDashboard: false,
 	contentSources: [],
 	contentTransforms: [],
 	monitorApps: [],
@@ -147,5 +148,39 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("sanityToMarkdown");
 		expect(result).toContain("sanityImageUrlTransform");
 		expect(result).toContain("from '@bluecadet/launchpad-content/transforms'");
+	});
+
+	it("generates dashboard plugin config when useDashboard is true", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useDashboard: true,
+		});
+		expect(result).toContain("from '@bluecadet/launchpad-dashboard'");
+		expect(result).toContain("dashboard(");
+		expect(result).toContain("port: 3000");
+	});
+
+	it("does not include dashboard when useDashboard is false", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useDashboard: false,
+			useMonitor: true,
+			monitorApps: [],
+		});
+		expect(result).not.toContain("dashboard");
+	});
+
+	it("generates config with all three plugins", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useContent: true,
+			contentSources: ["json"],
+			useMonitor: true,
+			monitorApps: [],
+			useDashboard: true,
+		});
+		expect(result).toContain("content(");
+		expect(result).toContain("monitor(");
+		expect(result).toContain("dashboard(");
 	});
 });

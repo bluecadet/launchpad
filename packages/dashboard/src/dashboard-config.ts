@@ -2,6 +2,16 @@ import { z } from "zod";
 import type { DashboardPage } from "./dashboard-page.js";
 import type { DashboardPanel } from "./dashboard-panel.js";
 
+function isValidPage(val: unknown): val is DashboardPage {
+	if (typeof val !== "object" || val === null) return false;
+	const obj = val as Record<string, unknown>;
+	return typeof obj.id === "string" && typeof obj.title === "string";
+}
+
+function isValidPanel(val: unknown): val is DashboardPanel {
+	return isValidPage(val) && typeof (val as Record<string, unknown>).render === "function";
+}
+
 export const dashboardConfigSchema = z.object({
 	/** Port for the HTTP server. Defaults to 3000. */
 	port: z.number().int().min(1).max(65535).default(3000),
@@ -11,12 +21,12 @@ export const dashboardConfigSchema = z.object({
 	 */
 	host: z.string().default("localhost"),
 	/** Full pages shown in the dashboard navigation. */
-	pages: z.array(z.custom<DashboardPage>()).default([]),
+	pages: z.array(z.custom<DashboardPage>(isValidPage)).default([]),
 	/**
 	 * Standalone panels shown on the auto-generated Overview page.
 	 * If empty and no pages are configured, the dashboard shows a blank overview.
 	 */
-	panels: z.array(z.custom<DashboardPanel>()).default([]),
+	panels: z.array(z.custom<DashboardPanel>(isValidPanel)).default([]),
 });
 
 export type DashboardConfig = z.input<typeof dashboardConfigSchema>;

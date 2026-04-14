@@ -54,3 +54,32 @@ a:hover { text-decoration: underline; }
 .btn-group { display: flex; gap: 0.25rem; }
 
 .source-error { font-size: 12px; color: #f87171; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.log-panel { display: flex; flex-direction: column; gap: 0.5rem; }
+.log-panel__toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.log-search { flex: 1; min-width: 120px; padding: 0.3em 0.6em; background: #0f0f11; border: 1px solid #3a3a44; border-radius: 4px; color: #e2e2e2; font-size: 12px; outline: none; }
+.log-search:focus { border-color: #7eb8f7; }
+.log-panel__levels { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.log-level-btn { padding: 0.2em 0.55em; border: 1px solid #3a3a44; border-radius: 4px; background: #27272a; color: #666; font-size: 11px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em; transition: color 0.1s, border-color 0.1s; }
+.log-level-btn--active[data-level="error"] { color: #fca5a5; border-color: #7f1d1d; }
+.log-level-btn--active[data-level="warn"]  { color: #fde68a; border-color: #78350f; }
+.log-level-btn--active[data-level="info"]  { color: #93c5fd; border-color: #1e3a5f; }
+.log-level-btn--active[data-level="debug"] { color: #a1a1aa; border-color: #3a3a44; }
+.log-level-btn--active[data-level="verbose"] { color: #6b7280; border-color: #374151; }
+.log-panel__entries { overflow-y: auto; max-height: 420px; display: flex; flex-direction: column; gap: 1px; font-family: ui-monospace, monospace; font-size: 12px; }
+.log-entry { display: flex; align-items: baseline; gap: 0.5em; padding: 0.2em 0; border-left: 2px solid transparent; padding-left: 0.4em; line-height: 1.4; white-space: pre-wrap; word-break: break-all; }
+.log-entry[hidden] { display: none; }
+.log-entry--error { border-left-color: #7f1d1d; }
+.log-entry--warn  { border-left-color: #78350f; }
+.log-entry--info  { border-left-color: #1e3a5f; }
+.log-entry--debug { border-left-color: #2a2a30; }
+.log-entry--verbose { border-left-color: #1c1c20; }
+.log-entry__ts { color: #4b5563; flex-shrink: 0; }
+.log-entry__level { font-weight: 700; flex-shrink: 0; min-width: 5ch; }
+.log-entry--error .log-entry__level   { color: #fca5a5; }
+.log-entry--warn  .log-entry__level   { color: #fde68a; }
+.log-entry--info  .log-entry__level   { color: #93c5fd; }
+.log-entry--debug .log-entry__level   { color: #6b7280; }
+.log-entry--verbose .log-entry__level { color: #4b5563; }
+.log-entry__module { color: #a78bfa; flex-shrink: 0; }
+.log-entry__msg { color: #d1d5db; }

@@ -132,14 +132,20 @@ export function createH3App(deps: ServerDeps) {
 				cleanup();
 			});
 
-			// Send all panels immediately on connect (avoids blank panels on reconnect)
+			// Send all panels immediately on connect (avoids blank panels on reconnect).
+			// After each panel's initial HTML, call onClientConnect so the panel can
+			// push supplemental events to this specific client (e.g. a log buffer flush).
 			const state = getState();
 			const allPanels = collectAllPanels(getPages(), getPanels());
+			const pushToClient = (eventName: string, data: string) => {
+				eventStream.push({ event: eventName, data }).catch(() => {});
+			};
 			for (const panel of allPanels) {
 				eventStream.push({
 					event: panel.id,
 					data: renderPanelFragment(panel, state),
 				});
+				panel.onClientConnect?.(pushToClient);
 			}
 
 			return eventStream.send();
@@ -165,6 +171,12 @@ export function createH3App(deps: ServerDeps) {
 			return { ok: true };
 		}),
 	);
+
+	// Register routes contributed by plugins via registry.contributeRoute().
+	for (const route of registry.getRoutes()) {
+		const method = route.method.toLowerCase() as Lowercase<typeof route.method>;
+		router[method](route.path, defineEventHandler(route.handler));
+	}
 
 	app.use(router);
 	return app;

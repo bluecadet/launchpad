@@ -65,8 +65,23 @@ export class SseManager {
 	}
 
 	/**
+	 * Broadcast a named SSE event with arbitrary data to all connected clients.
+	 * Used by panels that stream supplemental events beyond their own panel-id replace
+	 * (e.g. the log panel appending individual log:entry events).
+	 */
+	async broadcastEvent(eventName: string, data: string): Promise<void> {
+		const writes = Array.from(this._clients).map((client) =>
+			client.push({ event: eventName, data }).catch(() => {
+				// Client disconnected mid-write; cleanup handled by onClosed in route
+			}),
+		);
+		await Promise.allSettled(writes);
+	}
+
+	/**
 	 * Broadcast only the panels whose tracked dependencies intersect with the changed patches.
 	 * Panels with no recorded deps (never rendered) are always included.
+	 * Panels that declare setupStreaming manage their own live broadcasts and are excluded.
 	 */
 	async broadcastAffectedPanels(
 		panels: DashboardPanel[],
@@ -74,6 +89,7 @@ export class SseManager {
 		state: VersionedLaunchpadState,
 	): Promise<void> {
 		const affected = panels.filter((panel) => {
+			if (panel.setupStreaming) return false;
 			const deps = this._panelDeps.get(panel.id);
 			return deps === undefined || isPanelAffected(deps, patches);
 		});

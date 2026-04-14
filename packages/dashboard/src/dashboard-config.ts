@@ -27,6 +27,22 @@ export const dashboardConfigSchema = z.object({
 	 * If empty and no pages are configured, the dashboard shows a blank overview.
 	 */
 	panels: z.array(z.custom<DashboardPanel>(isValidPanel)).default([]),
+	/**
+	 * Log panel configuration. Enabled by default.
+	 * Set to false to disable the log panel entirely.
+	 */
+	logs: z
+		.union([
+			z.object({
+				/**
+				 * Maximum number of log entries to keep in memory.
+				 * When full, the oldest entry is evicted. Defaults to 500.
+				 */
+				maxEntries: z.number().int().min(1).default(500),
+			}),
+			z.literal(false),
+		])
+		.default({ maxEntries: 500 }),
 });
 
 export type DashboardConfig = z.input<typeof dashboardConfigSchema>;

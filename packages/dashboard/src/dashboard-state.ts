@@ -28,7 +28,11 @@ export class DashboardStateManager {
 		port: number,
 		host: string,
 	) {
-		this.updateState(() => ({ isRunning: false, port, host }));
+		this.updateState((draft) => {
+			draft.isRunning = false;
+			draft.port = port;
+			draft.host = host;
+		});
 	}
 
 	setRunning(isRunning: boolean): void {

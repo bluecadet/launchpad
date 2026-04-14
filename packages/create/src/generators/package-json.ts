@@ -4,6 +4,7 @@ const LAUNCHPAD_PACKAGES = {
 	cli: "@bluecadet/launchpad-cli",
 	content: "@bluecadet/launchpad-content",
 	monitor: "@bluecadet/launchpad-monitor",
+	dashboard: "@bluecadet/launchpad-dashboard",
 } as const;
 
 const SOURCE_PEER_DEPS: Partial<Record<ContentSource, string[]>> = {
@@ -34,6 +35,10 @@ export function getRequiredPackages(answers: Answers): string[] {
 
 	if (answers.useMonitor) {
 		packages.push(LAUNCHPAD_PACKAGES.monitor);
+	}
+
+	if (answers.useDashboard) {
+		packages.push(LAUNCHPAD_PACKAGES.dashboard);
 	}
 
 	return packages;

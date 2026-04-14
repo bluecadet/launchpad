@@ -19,7 +19,11 @@ import type { DashboardPanel } from "../dashboard-panel.js";
 import type { SseManager } from "./sse-manager.js";
 import { renderIndexPageBody } from "./templates/index-page.js";
 import { renderLayout } from "./templates/layout.js";
-import { renderPageBody, renderPanelContainer } from "./templates/page-template.js";
+import {
+	collectAllPanels,
+	renderPageBody,
+	renderPanelContainer,
+} from "./templates/page-template.js";
 import { renderPanelFragment } from "./templates/panel-fragment.js";
 
 export type ServerDeps = {
@@ -130,7 +134,8 @@ export function createH3App(deps: ServerDeps) {
 
 			// Send all panels immediately on connect (avoids blank panels on reconnect)
 			const state = getState();
-			for (const panel of getPanels()) {
+			const allPanels = collectAllPanels(getPages(), getPanels());
+			for (const panel of allPanels) {
 				eventStream.push({
 					event: panel.id,
 					data: renderPanelFragment(panel, state),

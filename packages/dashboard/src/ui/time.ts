@@ -1,6 +1,8 @@
 /**
  * Time formatting helpers for dashboard panels.
  */
+import { raw } from "./helpers.js";
+import type { RawHtml } from "./types.js";
 
 /**
  * Format the difference between now and the given date as a compact string.
@@ -31,19 +33,19 @@ function formatRelative(d: Date): string {
  * Returns a plain dash ("—") for undefined/null/invalid values (no `<time>` wrapper).
  *
  * @example
- * relativeTime(new Date(Date.now() - 90_000)) // '<time datetime="..." data-relative>1m ago</time>'
- * relativeTime(new Date(Date.now() - 500))    // '<time datetime="..." data-relative>just now</time>'
- * relativeTime(undefined)                     // "—"
+ * relativeTime(new Date(Date.now() - 90_000)) // raw('<time datetime="..." data-relative>1m ago</time>')
+ * relativeTime(new Date(Date.now() - 500))    // raw('<time datetime="..." data-relative>just now</time>')
+ * relativeTime(undefined)                     // raw("—")
  */
-export function relativeTime(date: Date | string | undefined | null): string {
-	if (date === undefined || date === null) return "—";
+export function relativeTime(date: Date | string | undefined | null): RawHtml {
+	if (date === undefined || date === null) return raw("—");
 
 	const d = date instanceof Date ? date : new Date(date);
-	if (Number.isNaN(d.getTime())) return "—";
+	if (Number.isNaN(d.getTime())) return raw("—");
 
 	const iso = d.toISOString();
 	const text = formatRelative(d);
-	return `<time datetime="${iso}" data-relative>${text}</time>`;
+	return raw(`<time datetime="${iso}" data-relative>${text}</time>`);
 }
 
 /**

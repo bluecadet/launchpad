@@ -27,6 +27,14 @@ import { collectAllPanels } from "./server/templates/page-template.js";
 
 const _require = createRequire(import.meta.url);
 
+function getRegistryPanels(): DashboardPanel[] {
+	return registry.getPanels() as DashboardPanel[];
+}
+
+function getRegistryPages(): DashboardPage[] {
+	return registry.getPages() as DashboardPage[];
+}
+
 function startServer(
 	config: ResolvedDashboardConfig,
 	ctx: PluginContext<DashboardState>,
@@ -34,8 +42,8 @@ function startServer(
 	sseManager: SseManager,
 ): ResultAsync<ReturnType<typeof createServer>, Error> {
 	const app = createH3App({
-		getPanels: () => registry.getPanels() as DashboardPanel[],
-		getPages: () => registry.getPages() as DashboardPage[],
+		getPanels: getRegistryPanels,
+		getPages: getRegistryPages,
 		getState: ctx.getGlobalState,
 		dispatchCommand: ctx.dispatchCommand,
 		sseManager,
@@ -165,9 +173,9 @@ export function dashboard(config: DashboardConfig) {
 
 			function doStart(): ResultAsync<ReturnType<typeof createServer>, Error> {
 				unsubscribe = ctx.onGlobalStatePatch((patches) => {
-					const pages = registry.getPages() as DashboardPage[];
-					const standalonePanel = registry.getPanels() as DashboardPanel[];
-					const panels = collectAllPanels(pages, standalonePanel);
+					const pages = getRegistryPages();
+					const standalonePanels = getRegistryPanels();
+					const panels = collectAllPanels(pages, standalonePanels);
 					const state = ctx.getGlobalState();
 					sseManager.broadcastAffectedPanels(panels, patches, state).catch((err: unknown) => {
 						ctx.logger.error(

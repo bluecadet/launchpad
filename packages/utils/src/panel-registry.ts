@@ -90,7 +90,7 @@ export class DashboardRegistry {
 	removePanel(...ids: string[]): void {
 		const idSet = new Set(ids);
 		for (let i = this._panels.length - 1; i >= 0; i--) {
-			if (idSet.has(this._panels[i]!.id)) this._panels.splice(i, 1);
+			if (idSet.has(this._panels[i]?.id)) this._panels.splice(i, 1);
 		}
 	}
 
@@ -98,7 +98,7 @@ export class DashboardRegistry {
 	removePage(...ids: string[]): void {
 		const idSet = new Set(ids);
 		for (let i = this._pages.length - 1; i >= 0; i--) {
-			if (idSet.has(this._pages[i]!.id)) this._pages.splice(i, 1);
+			if (idSet.has(this._pages[i]?.id)) this._pages.splice(i, 1);
 		}
 	}
 
@@ -106,7 +106,7 @@ export class DashboardRegistry {
 	removeScript(...filePaths: string[]): void {
 		const pathSet = new Set(filePaths);
 		for (let i = this._scripts.length - 1; i >= 0; i--) {
-			if (pathSet.has(this._scripts[i]!.filePath)) this._scripts.splice(i, 1);
+			if (pathSet.has(this._scripts[i]?.filePath)) this._scripts.splice(i, 1);
 		}
 	}
 
@@ -114,7 +114,7 @@ export class DashboardRegistry {
 	removeStyle(...filePaths: string[]): void {
 		const pathSet = new Set(filePaths);
 		for (let i = this._styles.length - 1; i >= 0; i--) {
-			if (pathSet.has(this._styles[i]!.filePath)) this._styles.splice(i, 1);
+			if (pathSet.has(this._styles[i]?.filePath)) this._styles.splice(i, 1);
 		}
 	}
 

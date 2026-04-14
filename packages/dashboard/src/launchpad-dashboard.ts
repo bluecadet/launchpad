@@ -69,11 +69,24 @@ function validateDashboardConfig(config: DashboardConfig): Result<ResolvedDashbo
 	return ok(resolvedConfig);
 }
 
+type RegistrationHandle = {
+	panelIds: string[];
+	pageIds: string[];
+	scriptPaths: string[];
+	stylePaths: string[];
+};
+
 /**
  * Register all dashboard contributions: panels, pages, assets, and status section.
+ * Returns a handle that can be used to remove contributions during disconnect.
  */
-function registerDashboardContributions(resolvedConfig: ResolvedDashboardConfig): void {
+function registerDashboardContributions(
+	resolvedConfig: ResolvedDashboardConfig,
+): RegistrationHandle {
 	statusRegistry.contributeStatusSection(dashboardStatusSection);
+
+	const panelIds = resolvedConfig.panels.map((p) => p.id);
+	const pageIds = resolvedConfig.pages.map((p) => p.id);
 
 	// ContributedPanel/ContributedPage use `unknown` params for generality; cast is safe here.
 	if (resolvedConfig.panels.length > 0) {
@@ -88,12 +101,32 @@ function registerDashboardContributions(resolvedConfig: ResolvedDashboardConfig)
 	}
 
 	// Contribute base assets via file paths — routes are created automatically.
-	registry.contributeStyle(fileURLToPath(new URL("../static/dashboard.css", import.meta.url)));
-	registry.contributeScript(_require.resolve("htmx.org/dist/htmx.min.js"), { defer: true });
-	registry.contributeScript(_require.resolve("htmx-ext-sse/sse.js"), { defer: true });
-	registry.contributeScript(fileURLToPath(new URL("../static/json-enc.js", import.meta.url)), {
-		defer: true,
-	});
+	const stylePaths = [fileURLToPath(new URL("../static/dashboard.css", import.meta.url))];
+	const scriptPaths = [
+		_require.resolve("htmx.org/dist/htmx.min.js"),
+		_require.resolve("htmx-ext-sse/sse.js"),
+		fileURLToPath(new URL("../static/json-enc.js", import.meta.url)),
+		fileURLToPath(new URL("../static/relative-time.js", import.meta.url)),
+	];
+
+	for (const stylePath of stylePaths) {
+		registry.contributeStyle(stylePath);
+	}
+	for (const scriptPath of scriptPaths) {
+		registry.contributeScript(scriptPath, { defer: true });
+	}
+
+	return { panelIds, pageIds, scriptPaths, stylePaths };
+}
+
+/**
+ * Remove all contributions registered via the given handle.
+ */
+function unregisterDashboardContributions(handle: RegistrationHandle): void {
+	if (handle.panelIds.length > 0) registry.removePanel(...handle.panelIds);
+	if (handle.pageIds.length > 0) registry.removePage(...handle.pageIds);
+	if (handle.scriptPaths.length > 0) registry.removeScript(...handle.scriptPaths);
+	if (handle.stylePaths.length > 0) registry.removeStyle(...handle.stylePaths);
 }
 
 function startServer(
@@ -161,6 +194,7 @@ function createServerLifecycle(
 	ctx: PluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
+	registrationHandle: RegistrationHandle,
 ) {
 	let activeServer: ReturnType<typeof createServer> | null = null;
 	let unsubscribe: (() => void) | null = null;
@@ -206,10 +240,12 @@ function createServerLifecycle(
 
 	const disconnect = (_reason: DisconnectReason): ResultAsync<void, Error> => {
 		unsubscribe?.();
-		if (!activeServer) return okAsync(undefined);
+		unregisterDashboardContributions(registrationHandle);
+		const drainResult = ResultAsync.fromSafePromise(sseManager.closeAll());
+		if (!activeServer) return drainResult;
 		const server = activeServer;
 		activeServer = null;
-		return stopServer(server, ctx, stateManager);
+		return drainResult.andThen(() => stopServer(server, ctx, stateManager));
 	};
 
 	return { start, executeCommand, disconnect };
@@ -236,7 +272,7 @@ export function dashboard(config: DashboardConfig) {
 			if (validationResult.isErr()) return errAsync(validationResult.error);
 			const resolvedConfig = validationResult.value;
 
-			registerDashboardContributions(resolvedConfig);
+			const registrationHandle = registerDashboardContributions(resolvedConfig);
 
 			const stateManager = new DashboardStateManager(
 				ctx.updateState,
@@ -244,7 +280,13 @@ export function dashboard(config: DashboardConfig) {
 				resolvedConfig.host,
 			);
 			const sseManager = new SseManager();
-			const lifecycle = createServerLifecycle(resolvedConfig, ctx, stateManager, sseManager);
+			const lifecycle = createServerLifecycle(
+				resolvedConfig,
+				ctx,
+				stateManager,
+				sseManager,
+				registrationHandle,
+			);
 
 			return lifecycle.start().map(() => ({
 				executeCommand: lifecycle.executeCommand,

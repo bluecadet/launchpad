@@ -30,6 +30,14 @@ export type ServerDeps = {
 	sseManager: SseManager;
 };
 
+function resolveAssetFile(id: string): { filePath: string; type: string } | undefined {
+	const script = registry.getScripts().find((s) => s.url === id);
+	if (script) return { filePath: script.filePath, type: "application/javascript; charset=utf-8" };
+	const style = registry.getStyles().find((s) => s.url === id);
+	if (style) return { filePath: style.filePath, type: "text/css; charset=utf-8" };
+	return undefined;
+}
+
 /**
  * Build the h3 app with all dashboard routes.
  */
@@ -45,29 +53,16 @@ export function createH3App(deps: ServerDeps) {
 		defineEventHandler((event) => {
 			return serveStatic(event, {
 				getMeta: async (id) => {
-					const script = registry.getScripts().find((s) => s.url === id);
-					if (script) {
-						const s = await stat(script.filePath).catch(() => null);
-						if (s)
-							return {
-								type: "application/javascript; charset=utf-8",
-								size: s.size,
-								mtime: s.mtimeMs,
-							};
-					}
-					const style = registry.getStyles().find((s) => s.url === id);
-					if (style) {
-						const s = await stat(style.filePath).catch(() => null);
-						if (s) return { type: "text/css; charset=utf-8", size: s.size, mtime: s.mtimeMs };
-					}
-					return undefined;
+					const asset = resolveAssetFile(id);
+					if (!asset) return undefined;
+					const s = await stat(asset.filePath).catch(() => null);
+					if (!s) return undefined;
+					return { type: asset.type, size: s.size, mtime: s.mtimeMs };
 				},
 				getContents: (id) => {
-					const script = registry.getScripts().find((s) => s.url === id);
-					if (script) return createReadStream(script.filePath);
-					const style = registry.getStyles().find((s) => s.url === id);
-					if (style) return createReadStream(style.filePath);
-					return undefined;
+					const asset = resolveAssetFile(id);
+					if (!asset) return undefined;
+					return createReadStream(asset.filePath);
 				},
 			});
 		}),

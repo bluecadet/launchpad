@@ -89,33 +89,33 @@ export class DashboardRegistry {
 	/** Remove panels by ID. */
 	removePanel(...ids: string[]): void {
 		const idSet = new Set(ids);
-		for (let i = this._panels.length - 1; i >= 0; i--) {
-			if (idSet.has(this._panels[i]?.id)) this._panels.splice(i, 1);
-		}
+		this._panels.splice(0, this._panels.length, ...this._panels.filter((p) => !idSet.has(p.id)));
 	}
 
 	/** Remove pages by ID. */
 	removePage(...ids: string[]): void {
 		const idSet = new Set(ids);
-		for (let i = this._pages.length - 1; i >= 0; i--) {
-			if (idSet.has(this._pages[i]?.id)) this._pages.splice(i, 1);
-		}
+		this._pages.splice(0, this._pages.length, ...this._pages.filter((p) => !idSet.has(p.id)));
 	}
 
 	/** Remove scripts by file path. */
 	removeScript(...filePaths: string[]): void {
 		const pathSet = new Set(filePaths);
-		for (let i = this._scripts.length - 1; i >= 0; i--) {
-			if (pathSet.has(this._scripts[i]?.filePath)) this._scripts.splice(i, 1);
-		}
+		this._scripts.splice(
+			0,
+			this._scripts.length,
+			...this._scripts.filter((s) => !pathSet.has(s.filePath)),
+		);
 	}
 
 	/** Remove styles by file path. */
 	removeStyle(...filePaths: string[]): void {
 		const pathSet = new Set(filePaths);
-		for (let i = this._styles.length - 1; i >= 0; i--) {
-			if (pathSet.has(this._styles[i]?.filePath)) this._styles.splice(i, 1);
-		}
+		this._styles.splice(
+			0,
+			this._styles.length,
+			...this._styles.filter((s) => !pathSet.has(s.filePath)),
+		);
 	}
 
 	/** Reset all contributions. For test teardown only. */

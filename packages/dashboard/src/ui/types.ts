@@ -46,7 +46,7 @@ export type UiHelpers = {
 	/** Render an HTML table from an array of row objects. */
 	dataTable(rows: Record<string, unknown>[], opts?: DataTableOptions): string;
 	/** Format a date as a human-readable relative time string (e.g. "2m ago"). */
-	relativeTime(date: Date | string | undefined | null): string;
+	relativeTime(date: Date | string | undefined | null): RawHtml;
 	/** Format a millisecond duration as a compact string (e.g. "1.2s", "350ms"). */
 	formatDuration(ms: number): string;
 };

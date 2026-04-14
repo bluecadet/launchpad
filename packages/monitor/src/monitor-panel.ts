@@ -23,7 +23,7 @@ function renderMonitorContent(
 <div class="meta-row">
   <span class="meta-label">PM2</span>
   ${ui.raw(connectionBadge)}
-  <span class="meta-value text-muted">${connectionMeta}</span>
+  <span class="meta-value text-muted">${ui.raw(connectionMeta)}</span>
 </div>`;
 
 	// No apps configured
@@ -73,7 +73,7 @@ function renderMonitorContent(
   <td>${name}</td>
   <td>${ui.raw(ui.statusBadge(app.status, statusLevel))}</td>
   <td class="text-muted">${pidCell}</td>
-  <td class="text-muted">${lastStart}${lastError}</td>
+  <td class="text-muted">${lastStart}${ui.raw(lastError)}</td>
   <td class="btn-group">${ui.raw(restartBtn)}${ui.raw(stopBtn)}${ui.raw(startBtn)}</td>
 </tr>`;
 		})

@@ -1,4 +1,5 @@
 import type { DashboardPanel, PanelRenderContext } from "@bluecadet/launchpad-dashboard/panel";
+import type { RawHtml } from "@bluecadet/launchpad-dashboard/ui";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { ContentState, SourceFetchState } from "./content-state.js";
 
@@ -33,7 +34,7 @@ function renderSourceRow(
 ): string {
 	let statusBadge: string;
 	let duration = "—";
-	let lastFetch = "—";
+	let lastFetch: string | RawHtml = "—";
 
 	switch (source.state) {
 		case "pending":

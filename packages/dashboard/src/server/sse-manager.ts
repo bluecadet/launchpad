@@ -26,6 +26,20 @@ export class SseManager {
 	}
 
 	/**
+	 * Close all connected SSE client streams.
+	 * Used during graceful shutdown to drain connections before stopping the server.
+	 */
+	async closeAll(): Promise<void> {
+		const closes = Array.from(this._clients).map((client) =>
+			client.close().catch(() => {
+				// Client may already be disconnected
+			}),
+		);
+		await Promise.allSettled(closes);
+		this._clients.clear();
+	}
+
+	/**
 	 * Broadcast a single panel re-render to all connected clients.
 	 * Records the state paths accessed during render for future dependency tracking.
 	 */

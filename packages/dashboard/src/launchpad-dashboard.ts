@@ -8,7 +8,7 @@ import {
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
-import { toNodeListener } from "h3";
+import { defineEventHandler, toNodeListener } from "h3";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import type { DashboardCommand } from "./dashboard-commands.js";
 import {
@@ -22,6 +22,7 @@ import { type DashboardState, DashboardStateManager } from "./dashboard-state.js
 import { dashboardStatusSection } from "./dashboard-status-section.js";
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
+import { createLogPanel, LOG_PANEL_ID } from "./server/log-panel.js";
 import { SseManager } from "./server/sse-manager.js";
 import { collectAllPanels } from "./server/templates/page-template.js";
 
@@ -69,16 +70,19 @@ function validateDashboardConfig(config: DashboardConfig): Result<ResolvedDashbo
 	return ok(resolvedConfig);
 }
 
+type RouteKey = { path: string; method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" };
+
 type RegistrationHandle = {
 	panelIds: string[];
 	pageIds: string[];
 	scriptPaths: string[];
 	stylePaths: string[];
+	routeKeys: RouteKey[];
 };
 
 /**
- * Register all dashboard contributions: panels, pages, assets, and status section.
- * Returns a handle that can be used to remove contributions during disconnect.
+ * Register user-configured panels, pages, and base assets.
+ * Returns a mutable handle used to accumulate and later remove all contributions.
  */
 function registerDashboardContributions(
 	resolvedConfig: ResolvedDashboardConfig,
@@ -100,7 +104,7 @@ function registerDashboardContributions(
 		);
 	}
 
-	// Contribute base assets via file paths — routes are created automatically.
+	// Contribute base assets via file paths — asset routes are created automatically.
 	const stylePaths = [fileURLToPath(new URL("../static/dashboard.css", import.meta.url))];
 	const scriptPaths = [
 		_require.resolve("htmx.org/dist/htmx.min.js"),
@@ -116,7 +120,7 @@ function registerDashboardContributions(
 		registry.contributeScript(scriptPath, { defer: true });
 	}
 
-	return { panelIds, pageIds, scriptPaths, stylePaths };
+	return { panelIds, pageIds, scriptPaths, stylePaths, routeKeys: [] };
 }
 
 /**
@@ -127,6 +131,9 @@ function unregisterDashboardContributions(handle: RegistrationHandle): void {
 	if (handle.pageIds.length > 0) registry.removePage(...handle.pageIds);
 	if (handle.scriptPaths.length > 0) registry.removeScript(...handle.scriptPaths);
 	if (handle.stylePaths.length > 0) registry.removeStyle(...handle.stylePaths);
+	for (const { path, method } of handle.routeKeys) {
+		registry.removeRoute(path, method);
+	}
 }
 
 function startServer(
@@ -187,6 +194,35 @@ function stopServer(
 }
 
 /**
+ * Call setupStreaming() on every panel that declares it, wiring each panel's
+ * live event stream into sseManager.broadcastEvent().
+ * Returns a combined cleanup function.
+ */
+function setupPanelStreams(
+	panels: DashboardPanel[],
+	sseManager: SseManager,
+	logger: PluginContext<DashboardState>["logger"],
+): () => void {
+	const cleanups: Array<() => void> = [];
+	for (const panel of panels) {
+		if (!panel.setupStreaming) continue;
+		cleanups.push(
+			panel.setupStreaming((eventName, data) => {
+				sseManager.broadcastEvent(eventName, data).catch((err: unknown) => {
+					logger.error(
+						`SSE stream broadcast error (panel: ${panel.id})`,
+						err instanceof Error ? err : new Error(String(err)),
+					);
+				});
+			}),
+		);
+	}
+	return () => {
+		for (const cleanup of cleanups) cleanup();
+	};
+}
+
+/**
  * Create the server lifecycle manager that encapsulates mutable server state.
  */
 function createServerLifecycle(
@@ -198,8 +234,14 @@ function createServerLifecycle(
 ) {
 	let activeServer: ReturnType<typeof createServer> | null = null;
 	let unsubscribe: (() => void) | null = null;
+	let stopStreams: (() => void) | null = null;
 
 	function start(): ResultAsync<void, Error> {
+		// Set up ongoing SSE streams for panels that declare them.
+		// Must happen before startServer() so subscriptions are ready when the first client connects.
+		const allPanels = collectAllPanels(getRegistryPages(), getRegistryPanels());
+		stopStreams = setupPanelStreams(allPanels, sseManager, ctx.logger);
+
 		unsubscribe = ctx.onGlobalStatePatch((patches) => {
 			const pages = getRegistryPages();
 			const panels = collectAllPanels(pages, getRegistryPanels());
@@ -211,6 +253,7 @@ function createServerLifecycle(
 				);
 			});
 		});
+
 		return startServer(resolvedConfig, ctx, stateManager, sseManager).map((server) => {
 			activeServer = server;
 		});
@@ -240,6 +283,7 @@ function createServerLifecycle(
 
 	const disconnect = (_reason: DisconnectReason): ResultAsync<void, Error> => {
 		unsubscribe?.();
+		stopStreams?.();
 		unregisterDashboardContributions(registrationHandle);
 		const drainResult = ResultAsync.fromSafePromise(sseManager.closeAll());
 		if (!activeServer) return drainResult;
@@ -273,6 +317,27 @@ export function dashboard(config: DashboardConfig) {
 			const resolvedConfig = validationResult.value;
 
 			const registrationHandle = registerDashboardContributions(resolvedConfig);
+
+			if (resolvedConfig.logs !== false) {
+				const { panel, clear } = createLogPanel(ctx.eventBus, resolvedConfig.logs.maxEntries);
+
+				registry.contributePanel(panel as Parameters<typeof registry.contributePanel>[0]);
+				registrationHandle.panelIds.push(LOG_PANEL_ID);
+
+				const logScriptPath = fileURLToPath(new URL("../static/log-panel.js", import.meta.url));
+				registry.contributeScript(logScriptPath, { defer: true });
+				registrationHandle.scriptPaths.push(logScriptPath);
+
+				registry.contributeRoute({
+					method: "DELETE",
+					path: "/logs",
+					handler: defineEventHandler(() => {
+						clear();
+						return { ok: true };
+					}),
+				});
+				registrationHandle.routeKeys.push({ path: "/logs", method: "DELETE" });
+			}
 
 			const stateManager = new DashboardStateManager(
 				ctx.updateState,

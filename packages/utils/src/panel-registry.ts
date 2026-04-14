@@ -7,6 +7,7 @@
 
 import { createHash } from "node:crypto";
 import { basename, extname } from "node:path";
+import type { EventHandler } from "h3";
 
 export interface ContributedPanel {
 	id: string;
@@ -35,6 +36,13 @@ export interface ContributedStyle {
 	url: string;
 }
 
+/** An HTTP route contributed by a plugin. Registered on the dashboard's h3 router at startup. */
+export interface ContributedRoute {
+	method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+	path: string;
+	handler: EventHandler;
+}
+
 function assetUrl(filePath: string): string {
 	const hash = createHash("sha256").update(filePath).digest("hex").slice(0, 8);
 	const ext = extname(filePath);
@@ -47,6 +55,7 @@ export class DashboardRegistry {
 	private readonly _pages: ContributedPage[] = [];
 	private readonly _scripts: ContributedScript[] = [];
 	private readonly _styles: ContributedStyle[] = [];
+	private readonly _routes: ContributedRoute[] = [];
 
 	contributePanel(...panels: ContributedPanel[]): void {
 		this._panels.push(...panels);
@@ -84,6 +93,20 @@ export class DashboardRegistry {
 
 	getStyles(): readonly ContributedStyle[] {
 		return [...this._styles];
+	}
+
+	contributeRoute(route: ContributedRoute): void {
+		this._routes.push(route);
+	}
+
+	getRoutes(): readonly ContributedRoute[] {
+		return [...this._routes];
+	}
+
+	/** Remove a contributed route by path and method. */
+	removeRoute(path: string, method: ContributedRoute["method"]): void {
+		const idx = this._routes.findIndex((r) => r.path === path && r.method === method);
+		if (idx !== -1) this._routes.splice(idx, 1);
 	}
 
 	/** Remove panels by ID. */
@@ -124,6 +147,7 @@ export class DashboardRegistry {
 		this._pages.length = 0;
 		this._scripts.length = 0;
 		this._styles.length = 0;
+		this._routes.length = 0;
 	}
 }
 

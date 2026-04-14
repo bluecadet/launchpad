@@ -86,6 +86,38 @@ export class DashboardRegistry {
 		return [...this._styles];
 	}
 
+	/** Remove panels by ID. */
+	removePanel(...ids: string[]): void {
+		const idSet = new Set(ids);
+		for (let i = this._panels.length - 1; i >= 0; i--) {
+			if (idSet.has(this._panels[i]!.id)) this._panels.splice(i, 1);
+		}
+	}
+
+	/** Remove pages by ID. */
+	removePage(...ids: string[]): void {
+		const idSet = new Set(ids);
+		for (let i = this._pages.length - 1; i >= 0; i--) {
+			if (idSet.has(this._pages[i]!.id)) this._pages.splice(i, 1);
+		}
+	}
+
+	/** Remove scripts by file path. */
+	removeScript(...filePaths: string[]): void {
+		const pathSet = new Set(filePaths);
+		for (let i = this._scripts.length - 1; i >= 0; i--) {
+			if (pathSet.has(this._scripts[i]!.filePath)) this._scripts.splice(i, 1);
+		}
+	}
+
+	/** Remove styles by file path. */
+	removeStyle(...filePaths: string[]): void {
+		const pathSet = new Set(filePaths);
+		for (let i = this._styles.length - 1; i >= 0; i--) {
+			if (pathSet.has(this._styles[i]!.filePath)) this._styles.splice(i, 1);
+		}
+	}
+
 	/** Reset all contributions. For test teardown only. */
 	reset(): void {
 		this._panels.length = 0;

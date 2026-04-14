@@ -98,7 +98,6 @@ function stopServer(
  * ```
  */
 export function dashboard(config: DashboardConfig) {
-	statusRegistry.contributeStatusSection(dashboardStatusSection);
 	return definePlugin({
 		name: "dashboard",
 		setup(ctx: PluginContext<DashboardState>) {
@@ -129,6 +128,8 @@ export function dashboard(config: DashboardConfig) {
 				}
 				seenPanelIds.add(panel.id);
 			}
+
+			statusRegistry.contributeStatusSection(dashboardStatusSection);
 
 			// Push config panels/pages into the shared registry.
 			// ContributedPanel/ContributedPage use `unknown` params for generality; cast is safe here.

@@ -1,5 +1,6 @@
 export { type ContentConfig, defineContentConfig } from "./content-config.js";
 export { contentPanel } from "./content-panel.js";
+export { contentStatusSection } from "./content-status-section.js";
 export {
 	type ContentTransform,
 	defineContentTransform,

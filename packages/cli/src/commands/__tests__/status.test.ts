@@ -16,9 +16,12 @@ vi.mock("../../utils/on-terminate.js", () => ({
 	onTerminate: vi.fn(),
 }));
 
+import { contentStatusSection } from "@bluecadet/launchpad-content";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
+import { monitorStatusSection } from "@bluecadet/launchpad-monitor";
 import { createEmptyState, createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { errAsync, okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { cliLogger } from "../../utils/cli-logger.js";
@@ -33,6 +36,9 @@ const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
 describe("status", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		statusRegistry.reset();
+		statusRegistry.contributeStatusSection(monitorStatusSection);
+		statusRegistry.contributeStatusSection(contentStatusSection);
 		vi.mocked(loadConfigAndEnv).mockReturnValue(okAsync({ dir: "/test", config: mockConfig }));
 		vi.mocked(handleFatalError).mockImplementation(() => {
 			throw new Error("fatal");

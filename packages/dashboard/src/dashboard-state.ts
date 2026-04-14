@@ -18,7 +18,7 @@ export type DashboardState = {
 
 declare module "@bluecadet/launchpad-utils/types" {
 	interface PluginsState {
-		dashboard: DashboardState;
+		dashboard: DashboardState | undefined;
 	}
 }
 

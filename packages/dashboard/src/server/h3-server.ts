@@ -90,6 +90,7 @@ export function createH3App(deps: ServerDeps) {
 			const pageMap = new Map<string, DashboardPage>(pages.map((p) => [p.id, p]));
 			const page = pageMap.get(id);
 			if (!page) {
+				event.node.res.statusCode = 404;
 				setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 				return renderLayout("Not Found", "<p>Page not found.</p>", pages, null);
 			}

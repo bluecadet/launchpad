@@ -11,6 +11,7 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: false,
 	useMonitor: false,
+	useDashboard: false,
 	contentSources: [],
 	contentTransforms: [],
 	monitorApps: [],
@@ -137,6 +138,19 @@ describe("getRequiredPackages", () => {
 			contentTransforms: ["sanityImageUrlTransform"],
 		});
 		expect(packages).toContain("@sanity/image-url");
+	});
+
+	it("includes @bluecadet/launchpad-dashboard when useDashboard is true", () => {
+		const packages = getRequiredPackages({
+			...baseAnswers,
+			useDashboard: true,
+		});
+		expect(packages).toContain("@bluecadet/launchpad-dashboard");
+	});
+
+	it("does not include dashboard package when useDashboard is false", () => {
+		const packages = getRequiredPackages(baseAnswers);
+		expect(packages).not.toContain("@bluecadet/launchpad-dashboard");
 	});
 });
 

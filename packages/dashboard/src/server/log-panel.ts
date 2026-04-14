@@ -1,8 +1,16 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { LogEventPayload, LogLevel } from "@bluecadet/launchpad-utils/logger";
+import AnsiToHtml from "ansi-to-html";
 import type { DashboardPanel } from "../dashboard-panel.js";
 import { escapeHtml } from "../ui/helpers.js";
 import { LogBuffer, type LogEntry } from "./log-buffer.js";
+
+/** Converts ANSI escape codes to safe HTML spans. escapeXML handles HTML-escaping. */
+const ansiConverter = new AnsiToHtml({ escapeXML: true });
+
+function renderMessage(message: string): string {
+	return ansiConverter.toHtml(message);
+}
 
 export const LOG_PANEL_ID = "logs";
 
@@ -26,7 +34,7 @@ export function renderLogEntry(entry: LogEntry): string {
 	const moduleHtml = entry.module
 		? ` <span class="log-entry__module">${escapeHtml(entry.module)}</span>`
 		: "";
-	return `<div class="log-entry log-entry--${escapeHtml(entry.level)}" data-level="${escapeHtml(entry.level)}" data-id="${escapeHtml(entry.id)}"><span class="log-entry__ts">${escapeHtml(ts)}</span> <span class="log-entry__level">${escapeHtml(entry.level.toUpperCase())}</span>${moduleHtml} <span class="log-entry__msg">${escapeHtml(entry.message)}</span></div>`;
+	return `<div class="log-entry log-entry--${escapeHtml(entry.level)}" data-level="${escapeHtml(entry.level)}" data-id="${escapeHtml(entry.id)}"><span class="log-entry__ts">${escapeHtml(ts)}</span> <span class="log-entry__level">${escapeHtml(entry.level.toUpperCase())}</span>${moduleHtml} <span class="log-entry__msg">${renderMessage(entry.message)}</span></div>`;
 }
 
 function subscribeToLogEvents(eventBus: EventBus, logBuffer: LogBuffer): () => void {

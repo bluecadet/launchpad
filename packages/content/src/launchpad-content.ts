@@ -38,8 +38,12 @@ type ContentActionContext = PluginContext & {
 	resolvedConfig: ResolvedContentConfig;
 };
 
-function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsync<void, Error> {
-	const idsToFetch = sourceIds || Array.from(ctx.sourceRegistry.keys());
+function fetch(
+	sourceIds: string[] | string | null,
+	ctx: ContentActionContext,
+): ResultAsync<void, Error> {
+	const normalizedSourceIds = typeof sourceIds === "string" ? [sourceIds] : sourceIds;
+	const idsToFetch = normalizedSourceIds || Array.from(ctx.sourceRegistry.keys());
 	if (!idsToFetch || idsToFetch.length === 0) {
 		ctx.logger.warn("No sources to fetch");
 		return okAsync(undefined);
@@ -166,11 +170,12 @@ function fetch(sourceIds: string[] | null, ctx: ContentActionContext): ResultAsy
 }
 
 function clear(
-	sourceIds: string[] | null,
+	sourceIds: string[] | string | null,
 	{ temp = false, backups = false, downloads = true },
 	ctx: ContentActionContext,
 ): ResultAsync<void, Error> {
-	const idsToClear = sourceIds || Array.from(ctx.sourceRegistry.keys());
+	const normalizedSourceIds = typeof sourceIds === "string" ? [sourceIds] : sourceIds;
+	const idsToClear = normalizedSourceIds || Array.from(ctx.sourceRegistry.keys());
 
 	if (!idsToClear || idsToClear.length === 0) {
 		ctx.logger.info("No sources to clear");

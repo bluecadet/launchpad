@@ -51,6 +51,14 @@ function makeMockCtx(): PluginContext<DashboardState> {
 }
 
 describe("dashboard() setup validation", () => {
+	it("registers explicit dashboard commands in the plugin manifest", () => {
+		const plugin = dashboard({ port: 3000 });
+		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
+			"dashboard.start",
+			"dashboard.stop",
+		]);
+	});
+
 	it("returns errAsync for invalid config (port out of range)", async () => {
 		const plugin = dashboard({ port: 0 });
 		const result = await plugin.setup(makeMockCtx());

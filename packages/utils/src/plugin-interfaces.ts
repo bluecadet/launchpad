@@ -68,10 +68,57 @@ export type BaseCommand = {
 	[key: string]: unknown;
 };
 
+/** Explicitly registered command ids should use a dotted namespace. */
+export type CommandId = `${string}.${string}`;
+
+export type CommandParseSuccess<TCommand extends BaseCommand> = {
+	success: true;
+	data: TCommand;
+};
+
+export type CommandParseFailure = {
+	success: false;
+	error: Error;
+};
+
+export type CommandParseResult<TCommand extends BaseCommand> =
+	| CommandParseSuccess<TCommand>
+	| CommandParseFailure;
+
+/**
+ * Structural parser contract used by explicitly registered commands.
+ * Zod schemas are compatible because they expose the same `safeParse()` shape.
+ */
+export interface CommandParser<TCommand extends BaseCommand = BaseCommand> {
+	safeParse(input: unknown): CommandParseResult<TCommand>;
+}
+
+export interface CommandDeprecation {
+	readonly message: string;
+	readonly replacement?: CommandId;
+	readonly since?: string;
+}
+
+export interface CommandDescriptor<TCommand extends BaseCommand = BaseCommand> {
+	readonly id: TCommand["type"] & CommandId;
+	readonly description?: string;
+	readonly aliases?: readonly CommandId[];
+	readonly deprecated?: CommandDeprecation;
+	readonly parser?: CommandParser<TCommand>;
+}
+
+export interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
+	/** Explicit controller-owned command registrations for this plugin. */
+	readonly commands?: readonly CommandDescriptor<TCommand>[];
+	/** Optional lifecycle metadata that remains controller-visible and explicit. */
+	readonly lifecycle?: {
+		readonly startupCommands?: readonly TCommand[];
+	};
+}
+
 /**
  * Optional interface for plugins that can execute commands.
  * When implemented, the controller will route commands to this method.
- * The plugin handles its own command routing internally.
  *
  * @template TCommand - The command type this plugin accepts (must extend BaseCommand)
  */
@@ -158,10 +205,11 @@ export interface PluginConfig<
 	 */
 	name: string;
 	/**
-	 * Optional commands to dispatch after this plugin is registered during startup.
-	 * The controller will dispatch these in order after all plugins are registered.
+	 * Explicit plugin metadata consumed by the controller.
+	 *
+	 * This is the preferred path for command registration and lifecycle metadata.
 	 */
-	startupCommands?: BaseCommand[];
+	readonly manifest?: PluginManifest<TCommand>;
 	/**
 	 * Initialize a plugin instance with the provided context.
 	 * This is called once during plugin registration.

@@ -7,7 +7,7 @@ import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 import { createIPCTransport } from "../ipc-transport.js";
 
-type Cb = (...args: any[]) => void;
+type Cb = (...args: unknown[]) => void;
 
 export type MutableContext = {
 	-readonly [K in keyof PluginContext]: PluginContext[K];
@@ -30,7 +30,7 @@ export const createMockSocket = () => {
 			socketListeners[event].push(handler);
 		}),
 		listeners: socketListeners,
-		emit: (event: string, ...args: any[]) => {
+		emit: (event: string, ...args: unknown[]) => {
 			if (socketListeners[event]) {
 				socketListeners[event].forEach((handler) => handler(...args));
 			}

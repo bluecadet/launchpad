@@ -1,21 +1,66 @@
 import { createMockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { BaseCommand, InstantiatedPlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type {
+	BaseCommand,
+	CommandDescriptor,
+	InstantiatedPlugin,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";
+import { CommandRegistry } from "../command-registry.js";
+
+function createDispatcher(
+	descriptors: Array<{
+		pluginName: string;
+		descriptor: CommandDescriptor;
+		executeCommand?: InstantiatedPlugin["executeCommand"];
+	}>,
+) {
+	const eventBus = createMockEventBus();
+	const registry = new CommandRegistry();
+
+	const grouped = new Map<
+		string,
+		{
+			descriptors: CommandDescriptor[];
+			executeCommand: NonNullable<InstantiatedPlugin["executeCommand"]>;
+		}
+	>();
+
+	for (const entry of descriptors) {
+		const executeCommand = entry.executeCommand ?? vi.fn().mockReturnValue(okAsync(undefined));
+		const group = grouped.get(entry.pluginName);
+		if (group) {
+			group.descriptors.push(entry.descriptor);
+			continue;
+		}
+		grouped.set(entry.pluginName, {
+			descriptors: [entry.descriptor],
+			executeCommand,
+		});
+	}
+
+	for (const [pluginName, group] of grouped) {
+		const result = registry.registerMany(pluginName, group.descriptors, (command) =>
+			group.executeCommand(command),
+		);
+		if (result.isErr()) {
+			throw result.error;
+		}
+	}
+
+	return { eventBus, dispatcher: new CommandDispatcher(eventBus, registry) };
+}
 
 describe("CommandDispatcher", () => {
 	describe("dispatch", () => {
-		it("should dispatch command to correct plugin", async () => {
-			const eventBus = createMockEventBus();
+		it("should dispatch command to the registered handler", async () => {
 			const executeCommand = vi.fn().mockReturnValue(okAsync("success"));
+			const { dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
 
-			const contentPlugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["content", contentPlugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
 			const command: BaseCommand = { type: "content.fetch" };
-
 			const result = await dispatcher.dispatch(command);
 
 			expect(executeCommand).toHaveBeenCalledWith(command);
@@ -24,14 +69,11 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:start event before execution", async () => {
-			const eventBus = createMockEventBus();
-			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-
-			const plugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["content", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
+			const { eventBus, dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
+			const emitSpy = vi.spyOn(eventBus, "emit");
 			const command: BaseCommand = { type: "content.fetch", sources: ["test"] };
 
 			await dispatcher.dispatch(command);
@@ -44,17 +86,13 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:success event on successful execution", async () => {
-			const eventBus = createMockEventBus();
-			const emitSpy = vi.spyOn(eventBus, "emit");
 			const executeCommand = vi.fn().mockReturnValue(okAsync({ files: 42 }));
+			const { eventBus, dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
+			const emitSpy = vi.spyOn(eventBus, "emit");
 
-			const plugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["content", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "content.fetch" };
-
-			await dispatcher.dispatch(command);
+			await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(emitSpy).toHaveBeenCalledWith("command:success", {
 				commandType: "content.fetch",
@@ -63,18 +101,13 @@ describe("CommandDispatcher", () => {
 		});
 
 		it("should emit command:error event on failed execution", async () => {
-			const eventBus = createMockEventBus();
+			const executeCommand = vi.fn().mockReturnValue(errAsync(new Error("Fetch failed")));
+			const { eventBus, dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
 			const emitSpy = vi.spyOn(eventBus, "emit");
-			const error = new Error("Fetch failed");
-			const executeCommand = vi.fn().mockReturnValue(errAsync(error));
 
-			const plugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["content", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "content.fetch" };
-
-			await dispatcher.dispatch(command);
+			await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(emitSpy).toHaveBeenCalledWith(
 				"command:error",
@@ -85,21 +118,14 @@ describe("CommandDispatcher", () => {
 			);
 		});
 
-		it("should return error when plugin not found", async () => {
-			const eventBus = createMockEventBus();
+		it("should return error when a command is not registered", async () => {
+			const { eventBus, dispatcher } = createDispatcher([]);
 			const emitSpy = vi.spyOn(eventBus, "emit");
-			const plugins = new Map<string, InstantiatedPlugin>();
 
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "content.fetch" };
-
-			const result = await dispatcher.dispatch(command);
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Plugin 'content' not available");
-			expect(result._unsafeUnwrapErr().message).toContain(
-				"Install @bluecadet/launchpad-content to use this command",
-			);
+			expect(result._unsafeUnwrapErr().message).toContain("is not registered");
 			expect(emitSpy).toHaveBeenCalledWith(
 				"command:error",
 				expect.objectContaining({
@@ -107,135 +133,114 @@ describe("CommandDispatcher", () => {
 					error: expect.any(Error),
 				}),
 			);
-		});
-
-		it("should return error when plugin does not implement CommandExecutor", async () => {
-			const eventBus = createMockEventBus();
-			const emitSpy = vi.spyOn(eventBus, "emit");
-
-			// Plugin without executeCommand method
-			const plugin: InstantiatedPlugin = {};
-			const plugins = new Map<string, InstantiatedPlugin>([["content", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "content.fetch" };
-
-			const result = await dispatcher.dispatch(command);
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain(
-				"Plugin 'content' does not support command execution",
-			);
-			expect(result._unsafeUnwrapErr().message).toContain(
-				"The plugin must implement the CommandExecutor interface",
-			);
-			expect(emitSpy).toHaveBeenCalledWith(
-				"command:error",
-				expect.objectContaining({
-					commandType: "content.fetch",
-					error: expect.any(Error),
-				}),
-			);
-		});
-
-		it("should return error for invalid command type", async () => {
-			const eventBus = createMockEventBus();
-			const emitSpy = vi.spyOn(eventBus, "emit");
-			const plugins = new Map<string, InstantiatedPlugin>();
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "" };
-
-			const result = await dispatcher.dispatch(command);
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Invalid command type");
-			expect(emitSpy).toHaveBeenCalledWith(
-				"command:error",
-				expect.objectContaining({
-					commandType: "",
-					error: expect.any(Error),
-				}),
-			);
-		});
-
-		it("should handle command types without namespace separator", async () => {
-			const eventBus = createMockEventBus();
-			const emitSpy = vi.spyOn(eventBus, "emit");
-			const plugins = new Map<string, InstantiatedPlugin>();
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "invalid-no-dot" };
-
-			const result = await dispatcher.dispatch(command);
-
-			// Should treat whole string as plugin name
-			expect(result.isErr()).toBe(true);
-			expect(emitSpy).toHaveBeenCalledWith(
-				"command:error",
-				expect.objectContaining({
-					error: expect.any(Error),
-				}),
-			);
-		});
-
-		it("should extract plugin name from command type correctly", async () => {
-			const eventBus = createMockEventBus();
-			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-
-			const plugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["monitor", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-
-			// Test different command formats
-			await dispatcher.dispatch({ type: "monitor.connect" });
-			await dispatcher.dispatch({ type: "monitor.app.start" });
-			await dispatcher.dispatch({ type: "monitor.app.window.foreground" });
-
-			expect(executeCommand).toHaveBeenCalledTimes(3);
 		});
 
 		it("should pass through plugin execution errors", async () => {
-			const eventBus = createMockEventBus();
 			const customError = new Error("Custom plugin error");
 			const executeCommand = vi.fn().mockReturnValue(errAsync(customError));
+			const { dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
 
-			const plugin: InstantiatedPlugin = { executeCommand };
-			const plugins = new Map<string, InstantiatedPlugin>([["content", plugin]]);
-
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
-			const command: BaseCommand = { type: "content.fetch" };
-
-			const result = await dispatcher.dispatch(command);
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
-			// Error is wrapped in CommandExecutionError with the original error as cause
 			const error = result._unsafeUnwrapErr();
 			expect(error.message).toContain("Plugin command execution failed");
 			expect(error.cause).toBe(customError);
 		});
 
-		it("should handle multiple plugins correctly", async () => {
-			const eventBus = createMockEventBus();
-			const contentExecute = vi.fn().mockReturnValue(okAsync("content-result"));
-			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-result"));
-
-			const contentPlugin: InstantiatedPlugin = { executeCommand: contentExecute };
-			const monitorPlugin: InstantiatedPlugin = { executeCommand: monitorExecute };
-
-			const plugins = new Map<string, InstantiatedPlugin>([
-				["content", contentPlugin],
-				["monitor", monitorPlugin],
+		it("should resolve command aliases through the explicit registry", async () => {
+			const executeCommand = vi.fn().mockReturnValue(okAsync("aliased"));
+			const { dispatcher } = createDispatcher([
+				{
+					pluginName: "content",
+					descriptor: { id: "content.fetch", aliases: ["content.sync"] },
+					executeCommand,
+				},
 			]);
 
-			const dispatcher = new CommandDispatcher(eventBus, plugins);
+			const result = await dispatcher.dispatch({ type: "content.sync" });
 
-			await dispatcher.dispatch({ type: "content.fetch" });
-			await dispatcher.dispatch({ type: "monitor.connect" });
+			expect(result.isOk()).toBe(true);
+			expect(executeCommand).toHaveBeenCalledWith({ type: "content.fetch" });
+		});
 
-			expect(contentExecute).toHaveBeenCalledTimes(1);
-			expect(monitorExecute).toHaveBeenCalledTimes(1);
+		it("should canonicalize aliased commands before parser validation", async () => {
+			const executeCommand = vi.fn().mockReturnValue(okAsync("aliased"));
+			const parser = {
+				safeParse(input: unknown) {
+					const command = input as BaseCommand;
+					if (command.type !== "content.fetch") {
+						return { success: false as const, error: new Error("expected canonical type") };
+					}
+					return { success: true as const, data: command };
+				},
+			};
+			const { dispatcher } = createDispatcher([
+				{
+					pluginName: "content",
+					descriptor: { id: "content.fetch", aliases: ["content.sync"], parser },
+					executeCommand,
+				},
+			]);
+
+			const result = await dispatcher.dispatch({ type: "content.sync" });
+
+			expect(result.isOk()).toBe(true);
+			expect(executeCommand).toHaveBeenCalledWith({ type: "content.fetch" });
+		});
+
+		it("should surface parser failures", async () => {
+			const executeCommand = vi.fn().mockReturnValue(okAsync("validated"));
+			const { eventBus, dispatcher } = createDispatcher([
+				{
+					pluginName: "content",
+					descriptor: {
+						id: "content.fetch",
+						parser: {
+							safeParse() {
+								return { success: false as const, error: new Error("bad command") };
+							},
+						},
+					},
+					executeCommand,
+				},
+			]);
+			const emitSpy = vi.spyOn(eventBus, "emit");
+
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
+
+			expect(result.isErr()).toBe(true);
+			expect(executeCommand).not.toHaveBeenCalled();
+			expect(emitSpy).toHaveBeenCalledWith(
+				"command:error",
+				expect.objectContaining({ commandType: "content.fetch", error: expect.any(Error) }),
+			);
+		});
+
+		it("should surface thrown parser errors", async () => {
+			const executeCommand = vi.fn().mockReturnValue(okAsync("validated"));
+			const { dispatcher } = createDispatcher([
+				{
+					pluginName: "content",
+					descriptor: {
+						id: "content.fetch",
+						parser: {
+							safeParse() {
+								throw new Error("parser blew up");
+							},
+						},
+					},
+					executeCommand,
+				},
+			]);
+
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().cause).toBeInstanceOf(Error);
+			expect(executeCommand).not.toHaveBeenCalled();
 		});
 	});
 });

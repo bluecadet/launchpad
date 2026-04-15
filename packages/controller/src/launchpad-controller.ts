@@ -4,6 +4,7 @@ import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type {
 	BaseCommand,
+	CommandDescriptor,
 	DisconnectReason,
 	InstantiatedPlugin,
 	PluginConfig,
@@ -14,6 +15,7 @@ import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
+import { CommandRegistry } from "./core/command-registry.js";
 
 export type { CoreEvents } from "./core/command-dispatcher.js";
 
@@ -25,21 +27,6 @@ import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
 
-/**
- * LaunchpadController is the central orchestrator for Launchpad.
- *
- * Responsibilities:
- * - Event bus for inter-plugin communication
- * - State management via event subscriptions
- * - Command dispatching to plugins
- * - Plugin lifecycle management
- * - IPC transport for daemon communication (persistent mode)
- * - Optional transports (WebSocket, OSC, etc.) - Future
- *
- * Modes:
- * - Task mode: Ephemeral controller for single commands (no transports)
- * - Persistent mode: Long-running controller with IPC transport enabled
- */
 export class LaunchpadController {
 	private _config: ResolvedControllerConfig;
 	private _mode: ControllerMode;
@@ -49,11 +36,13 @@ export class LaunchpadController {
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
 	private _plugins = new Map<string, InstantiatedPlugin>();
+	private _pluginConfigs = new Map<string, PluginConfig>();
+	private _commandRegistry = new CommandRegistry();
 	private _abortController = new AbortController();
 	private _isStarted = false;
 	private _dashboardRegistry = new DashboardRegistry();
 	private _statusRegistry = new StatusRegistry();
-	// Future: private _transports: Transport[] = [];
+	private _shutdownInProgress = false;
 
 	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
 		this._config = config;
@@ -64,104 +53,93 @@ export class LaunchpadController {
 		this._stateStore = new StateStore(this._mode);
 	}
 
-	/**
-	 * Register a plugin with the controller.
-	 * Must be called before start().
-	 */
-	registerPlugin(plugin: PluginConfig): ResultAsync<void, Error> {
-		const name = plugin.name;
+	registerPlugin(
+		plugin: PluginConfig & { manifest?: { commands?: readonly CommandDescriptor[] } },
+	): ResultAsync<void, Error> {
+		if (this._pluginConfigs.has(plugin.name)) {
+			return errAsync(new Error(`Plugin '${plugin.name}' is already registered`));
+		}
 
 		const updateState = this._stateStore.getPluginUpdater(plugin.name);
 
 		return plugin
-			.setup(this.getPluginCtx(name, updateState))
-			.map((instance) => {
+			.setup(this.getPluginCtx(plugin.name, updateState))
+			.andThen((instance) => {
+				const manifestCommands = plugin.manifest?.commands ?? [];
+				if (manifestCommands.length > 0 && !instance.executeCommand) {
+					return errAsync(
+						new Error(
+							`Plugin '${plugin.name}' declares manifest commands but does not implement executeCommand`,
+						),
+					);
+				}
+
+				const registerResult = this._commandRegistry.registerMany(
+					plugin.name,
+					manifestCommands,
+					(command) => instance.executeCommand?.(command) ?? errAsync(new Error()),
+				);
+				if (registerResult.isErr()) {
+					instance.disconnect?.({ type: "error", error: registerResult.error });
+					return errAsync(registerResult.error);
+				}
+
 				this._plugins.set(plugin.name, instance);
-				this._logger.verbose(`Registered plugin '${name}'`);
-				return undefined;
+				this._pluginConfigs.set(plugin.name, plugin);
+				this._logger.verbose(`Registered plugin '${plugin.name}'`);
+				return okAsync(undefined);
 			})
 			.orElse((error) => {
-				this._logger.error(`Failed to register plugin '${name}'`);
+				this._logger.error(`Failed to register plugin '${plugin.name}'`);
 				return errAsync(error);
 			});
 	}
 
-	/**
-	 * Get a registered plugin by name
-	 */
 	getPlugin(name: string): InstantiatedPlugin | undefined {
 		return this._plugins.get(name);
 	}
 
-	/**
-	 * Check if a plugin is registered
-	 */
 	hasPlugin(name: string): boolean {
 		return this._plugins.has(name);
 	}
 
-	/**
-	 * Get all registered plugin names
-	 */
 	getPluginNames(): string[] {
 		return Array.from(this._plugins.keys());
 	}
 
-	/**
-	 * Start the controller.
-	 * Initializes the command dispatcher and starts IPC transport (if persistent mode).
-	 * In persistent mode, also manages PID file lifecycle.
-	 */
 	start(): ResultAsync<void, Error> {
 		if (this._isStarted) {
 			return okAsync(undefined);
 		}
 
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
+		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
 
-		// Initialize command dispatcher with registered plugins
-		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._plugins);
-
-		// Start IPC transport in persistent mode (built-in infrastructure)
 		if (this._mode === "persistent") {
 			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 			const socketPath = path.resolve(this._baseDir, this._config.socketPath);
 
-			// Check if daemon already running
 			const daemonPidResult = getDaemonPid(pidFile);
 			if (daemonPidResult.isOk() && daemonPidResult.value !== null) {
 				return errAsync(new Error(`Controller already running with PID ${daemonPidResult.value}`));
 			}
 
-			// Write PID file
 			const writePidResult = writePidFile(pidFile, process.pid);
 			if (writePidResult.isErr()) {
 				return errAsync(writePidResult.error);
 			}
 
-			return this.registerPlugin(
-				createIPCTransport({
-					socketPath,
-				}),
-			).andTee(() => {
+			return this.registerPlugin(createIPCTransport({ socketPath })).andTee(() => {
 				this._isStarted = true;
 				this._logger.verbose("Controller started with IPC transport");
 				return undefined;
 			});
 		}
 
-		// Future: Start optional transports
-		// if (this._mode === "persistent" && this._transports.length > 0) {
-		//   return this._startTransports();
-		// }
-
 		this._isStarted = true;
 		this._logger.verbose("Controller started");
-
 		return okAsync(undefined);
 	}
-
-	private _shutdownInProgress = false;
 
 	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
 		this._isStarted = false;
@@ -191,11 +169,6 @@ export class LaunchpadController {
 		});
 	}
 
-	/**
-	 * Stop the controller.
-	 * Stops IPC transport, disconnects plugins, aborts pending operations,
-	 * and cleans up PID file (in persistent mode).
-	 */
 	stop(): ResultAsync<void, Error> {
 		if (!this._isStarted) {
 			return okAsync(undefined);
@@ -203,17 +176,9 @@ export class LaunchpadController {
 		this._logger.verbose("Stopping controller");
 
 		const reason: DisconnectReason = { type: "manual" };
-
 		return this.cleanup(reason);
 	}
 
-	/**
-	 * Execute a command through the dispatcher.
-	 * The controller must be started before executing commands.
-	 *
-	 * The controller treats commands generically - type safety is enforced
-	 * at the plugin level via CommandExecutor<TCommand>.
-	 */
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
 		if (!this._isStarted) {
 			return errAsync(new Error("Controller must be started before executing commands"));
@@ -222,53 +187,45 @@ export class LaunchpadController {
 		return this._commandDispatcher.dispatch(command);
 	}
 
-	/**
-	 * Get the current controller mode
-	 */
 	getMode(): ControllerMode {
 		return this._mode;
 	}
 
-	/**
-	 * Get the current state (readonly)
-	 */
 	getState(): VersionedLaunchpadState<AllPluginsState> {
 		return this._stateStore.getState();
 	}
 
-	/**
-	 * Get the EventBus instance (useful for plugins)
-	 */
 	getEventBus(): EventBus<AllEvents> {
 		return this._eventBus;
 	}
 
-	/**
-	 * Get the abort signal for this controller's lifecycle
-	 */
 	getAbortSignal(): AbortSignal {
 		return this._abortController.signal;
 	}
 
-	/**
-	 * Check if the controller is started
-	 */
 	isStarted(): boolean {
 		return this._isStarted;
 	}
 
-	/**
-	 * Get the dashboard contribution registry.
-	 */
 	getDashboardRegistry(): DashboardRegistry {
 		return this._dashboardRegistry;
 	}
 
-	/**
-	 * Get the status section registry.
-	 */
 	getStatusRegistry(): StatusRegistry {
 		return this._statusRegistry;
+	}
+
+	getPluginStartupCommands(name: string): readonly BaseCommand[] {
+		const plugin = this._pluginConfigs.get(name);
+		if (!plugin) {
+			return [];
+		}
+
+		return plugin.manifest?.lifecycle?.startupCommands ?? [];
+	}
+
+	getRegisteredCommandIds(): string[] {
+		return this._commandRegistry.getRegisteredCommandIds();
 	}
 
 	private getPluginCtx(

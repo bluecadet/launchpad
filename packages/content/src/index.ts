@@ -1,3 +1,4 @@
+export * from "./content-commands.js";
 export { type ContentConfig, defineContentConfig } from "./content-config.js";
 export type { ContentEvents } from "./content-events.js";
 export { contentPanel } from "./content-panel.js";

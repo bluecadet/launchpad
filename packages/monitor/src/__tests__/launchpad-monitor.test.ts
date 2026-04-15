@@ -188,4 +188,18 @@ describe("LaunchpadMonitor", () => {
 			expect(eventBus.getEventsOfType("monitor:beforeShutdown")).toHaveLength(1);
 		});
 	});
+
+	describe("runtime validation", () => {
+		it("should reject malformed commands", async () => {
+			const { monitor } = await createTestMonitor();
+
+			const result = await monitor.executeCommand({
+				type: "monitor.start",
+				appNames: 123,
+			} as unknown as Parameters<typeof monitor.executeCommand>[0]);
+
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr().message).toContain("Invalid command:");
+		});
+	});
 });

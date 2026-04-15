@@ -11,7 +11,8 @@ import type pm2 from "pm2";
 import { AppManager } from "./core/app-manager.js";
 import { BusManager } from "./core/bus-manager.js";
 import { ProcessManager } from "./core/process-manager.js";
-import type { MonitorCommand } from "./monitor-commands.js";
+import { MonitorError } from "./errors.js";
+import { type MonitorCommand, monitorCommandSchema } from "./monitor-commands.js";
 import {
 	type MonitorConfig,
 	monitorConfigSchema,
@@ -304,24 +305,31 @@ export function monitor(config: MonitorConfig) {
 
 			return okAsync({
 				executeCommand(command: MonitorCommand): ResultAsync<void, Error> {
-					switch (command.type) {
+					const parsed = monitorCommandSchema.safeParse(command);
+					if (!parsed.success) {
+						return errAsync(new MonitorError(`Invalid command: ${parsed.error.message}`));
+					}
+
+					const validCommand = parsed.data;
+
+					switch (validCommand.type) {
 						case "monitor.connect":
 							return commandGuard.run(() =>
-								connect(actionCtx, command.ensureDaemonOwnership ?? true),
+								connect(actionCtx, validCommand.ensureDaemonOwnership ?? true),
 							);
 						case "monitor.disconnect":
 							return commandGuard.run(() => disconnect(actionCtx));
 						case "monitor.start":
-							return commandGuard.run(() => start(actionCtx, command.appNames));
+							return commandGuard.run(() => start(actionCtx, validCommand.appNames));
 						case "monitor.stop":
-							return commandGuard.run(() => stop(actionCtx, command.appNames));
+							return commandGuard.run(() => stop(actionCtx, validCommand.appNames));
 						case "monitor.restart":
-							return commandGuard.run(() => restart(actionCtx, command.appNames));
+							return commandGuard.run(() => restart(actionCtx, validCommand.appNames));
 						case "monitor.shutdown":
-							return commandGuard.run(() => shutdown(actionCtx, command.exitCode));
+							return commandGuard.run(() => shutdown(actionCtx, validCommand.exitCode));
 						default: {
 							return errAsync(
-								new Error(`Unknown monitor command type: ${(command as MonitorCommand).type}`),
+								new MonitorError(`Unknown monitor command type: ${validCommand.type}`),
 							);
 						}
 					}

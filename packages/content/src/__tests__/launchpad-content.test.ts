@@ -273,5 +273,20 @@ describe("LaunchpadContent", () => {
 
 			expect(result2).toBeOk();
 		});
+
+		it("should reject malformed commands during runtime validation", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+				sources: [123],
+			} as unknown as Parameters<typeof instance.executeCommand>[0]);
+
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr().message).toContain("Invalid command:");
+		});
 	});
 });

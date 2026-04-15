@@ -58,6 +58,10 @@ export interface Disconnectable {
 /**
  * Base command structure that all plugin commands must follow.
  * Plugins define their own specific command types that extend this.
+ *
+ * Prefer pairing each plugin-specific command union with a Zod schema and
+ * validating incoming payloads inside `executeCommand()` so malformed runtime
+ * input is rejected at the plugin boundary.
  */
 export type BaseCommand = {
 	type: string;

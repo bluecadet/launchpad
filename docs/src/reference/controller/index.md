@@ -1,92 +1,3 @@
----
-title: "@bluecadet/launchpad-controller"
----
-
-<script setup>
-  import PackageHeader from '../../components/PackageHeader.vue'
-</script>
-
-<PackageHeader package="controller" />
-
-The controller package provides a central orchestration layer for managing Launchpad subsystems (content and monitor). It enables command dispatching, event broadcasting, and state aggregation across all subsystems.
-
-## Features
-
-- **Central Orchestration**: Single point of control for all subsystems
-- **Event Bus**: Type-safe event system with declaration merging
-- **State Management**: Aggregated state from all subsystems
-- **Command Dispatching**: Route commands to appropriate subsystems
-- **Task Mode**: Ephemeral controller instances for one-off CLI operations
-- **Persistent Mode**: Long-running controller with IPC socket for CLI integration
-- **IPC Communication**: Type-safe command execution and state queries over Unix sockets
-
-## Installation
-
-```bash
-npm install @bluecadet/launchpad-controller
-```
-
-## Architecture
-
-### Core Components
-
-#### LaunchpadController
-The main orchestrator class that manages subsystems and coordinates their interactions.
-
-```typescript
-import { LaunchpadController } from '@bluecadet/launchpad-controller';
-
-const controller = new LaunchpadController(config, logger);
-
-// Register plugins
-controller.registerPlugin(contentSubsystem);
-controller.registerPlugin(monitorSubsystem);
-
-// Start the controller
-await controller.start();
-```
-
-#### EventBus
-Type-safe event system that enables communication between subsystems.
-
-```typescript
-const eventBus = controller.getEventBus();
-
-// Listen to events
-eventBus.on('content:fetch:done', (data) => {
-  console.log(`Fetched ${data.sources.length} sources`);
-});
-
-// Emit events (from subsystems)
-eventBus.emit('content:fetch:start', { timestamp: new Date() });
-```
-
-See the [Events Reference](./events.md) for all available events and their payloads.
-
-#### StateStore
-Aggregates state from all registered subsystems.
-
-```typescript
-const state = controller.getState();
-console.log(state.content?.isFetching);
-console.log(state.monitor?.isConnected);
-```
-
-#### CommandDispatcher
-Routes commands to the appropriate subsystem based on command type.
-
-```typescript
-await controller.executeCommand({
-  type: 'content.fetch',
-  sources: ['sanity']
-});
-
-await controller.executeCommand({
-  type: 'monitor.start',
-  appNames: ['my-app']
-});
-```
-
 ## Integration with Subsystems
 
 Plugins integrate with the controller through two complementary contracts:
@@ -98,6 +9,17 @@ type InstantiatedPlugin<TCommand> = Partial<
   CommandExecutor<TCommand> &  // Execute commands
   Disconnectable               // Clean disconnect
 >;
+```
+
+**Plugin manifest** — explicit controller-owned metadata for command registration and lifecycle behavior:
+
+```typescript
+interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
+  commands?: readonly CommandDescriptor<TCommand>[];
+  lifecycle?: {
+    startupCommands?: readonly TCommand[];
+  };
+}
 ```
 
 **PluginContext** — infrastructure the controller *provides* to the plugin:
@@ -117,28 +39,28 @@ interface PluginContext<TState = unknown> {
 }
 ```
 
-### CommandExecutor
-Plugins that handle commands implement `executeCommand()`:
+### Explicit Command Registration
+
+Plugins that handle commands must declare them in `manifest.commands` and implement `executeCommand()`:
 
 ```typescript
 interface CommandExecutor<TCommand> {
   executeCommand(command: TCommand): ResultAsync<unknown, Error>;
 }
-```
 
-### State Management
-Plugins own their domain logic; the controller owns the state infrastructure. Plugins call `ctx.updateState()` to establish and mutate their state slice — the controller lazily creates a scoped store on first call and handles patch generation, versioning, and broadcasting.
-
-```typescript
 definePlugin({
   name: 'my-plugin',
+  manifest: {
+    commands: [{ id: 'my-plugin.increment' }],
+    lifecycle: {
+      startupCommands: [{ type: 'my-plugin.increment' }],
+    },
+  },
   setup(ctx: PluginContext<MyState>) {
-    // Establish initial state
     ctx.updateState(() => ({ count: 0 }));
 
     return okAsync({
       executeCommand(command) {
-        // Mutate state via immer producer
         ctx.updateState(draft => { draft.count++; });
         return okAsync(undefined);
       }
@@ -147,6 +69,12 @@ definePlugin({
 });
 ```
 
+The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
+
+### State Management
+
+Plugins own their domain logic; the controller owns the state infrastructure. Plugins call `ctx.updateState()` to establish and mutate their state slice — the controller lazily creates a scoped store on first call and handles patch generation, versioning, and broadcasting.
+
 To read the full aggregated state (all plugins + system), use `ctx.getGlobalState()`. Prefer `ctx.eventBus` or `ctx.dispatchCommand` for cross-plugin communication over polling global state.
 
 ### Dashboard Contributions
@@ -154,6 +82,7 @@ To read the full aggregated state (all plugins + system), use `ctx.getGlobalStat
 Plugins register UI contributions (panels, pages, scripts, styles, routes) via `ctx.dashboardRegistry` and CLI status sections via `ctx.statusRegistry` during `setup()`. These registries are controller-owned instances — each controller maintains its own isolated registry, enabling clean testing and multi-instance scenarios.
 
 ### Disconnectable
+
 Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.
 
 ```typescript
@@ -165,6 +94,7 @@ interface Disconnectable {
 ## Usage Modes
 
 ### Task Mode
+
 Ephemeral controller instances for one-off operations:
 
 1. Create controller in task mode
@@ -176,6 +106,7 @@ Ephemeral controller instances for one-off operations:
 This mode is used when no persistent controller is running, allowing the CLI to operate independently.
 
 ### Persistent Mode
+
 Long-running controller that stays active to handle multiple commands:
 
 - Started with `launchpad start` (optionally detached with `-d`)
@@ -208,15 +139,3 @@ declare module '@bluecadet/launchpad-utils' {
   }
 }
 ```
-
-See the [Events documentation](./events.md) for more details on the type-safe event system.
-
-## Error Handling
-
-The controller uses `neverthrow` for robust error handling:
-
-- All plugin methods return `Result` / `ResultAsync` — they must never throw
-- Library packages must not call `process.exit()` — only the CLI entry point may terminate the process
-- Use `errAsync()` / `err()` from neverthrow for all error return paths
-- Thrown exceptions are considered bugs and will be logged as unhandled errors
-- The `system:shutdown` event signals process termination intent — the host process listens and exits

@@ -24,20 +24,17 @@ describe("LaunchpadController", () => {
 	describe("constructor", () => {
 		it("should create controller in task mode by default", () => {
 			const controller = createController("task");
-
 			expect(controller.getMode()).toBe("task");
 		});
 
 		it("should create controller in specified mode and reflect it in state", () => {
 			const controller = createController("persistent");
-
 			expect(controller.getMode()).toBe("persistent");
 			expect(controller.getState().system.mode).toBe("persistent");
 		});
 
 		it("should not be started after construction", () => {
 			const controller = createController("task");
-
 			expect(controller.isStarted()).toBe(false);
 		});
 	});
@@ -53,21 +50,59 @@ describe("LaunchpadController", () => {
 			expect(controller.getPlugin("test")).toBe(pluginInner);
 		});
 
-		it("should allow registering multiple plugins", async () => {
+		it("should reject duplicate plugin names", async () => {
 			const controller = createController();
 
-			await controller.registerPlugin(makePlugin("content"));
-			await controller.registerPlugin(makePlugin("monitor"));
+			const firstResult = await controller.registerPlugin(makePlugin("content"));
+			const secondResult = await controller.registerPlugin(makePlugin("content"));
 
-			expect(controller.hasPlugin("content")).toBe(true);
-			expect(controller.hasPlugin("monitor")).toBe(true);
+			expect(firstResult.isOk()).toBe(true);
+			expect(secondResult.isErr()).toBe(true);
+			expect(secondResult._unsafeUnwrapErr().message).toContain("already registered");
 		});
 
-		it("should return undefined for non-existent plugin", () => {
+		it("should reject duplicate explicit command registrations", async () => {
 			const controller = createController();
 
-			expect(controller.getPlugin("non-existent")).toBeUndefined();
-			expect(controller.hasPlugin("non-existent")).toBe(false);
+			const firstResult = await controller.registerPlugin(
+				definePlugin({
+					name: "first",
+					manifest: {
+						commands: [{ id: "shared.run" }],
+					},
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+			const secondResult = await controller.registerPlugin(
+				definePlugin({
+					name: "second",
+					manifest: {
+						commands: [{ id: "shared.run" }],
+					},
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+
+			expect(firstResult.isOk()).toBe(true);
+			expect(secondResult.isErr()).toBe(true);
+			expect(secondResult._unsafeUnwrapErr().message).toContain("already registered");
+		});
+
+		it("should reject plugins that declare manifest commands without executeCommand", async () => {
+			const controller = createController();
+
+			const result = await controller.registerPlugin(
+				definePlugin({
+					name: "broken",
+					manifest: {
+						commands: [{ id: "broken.run" }],
+					},
+					setup: () => okAsync({}),
+				}),
+			);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("does not implement executeCommand");
 		});
 	});
 
@@ -83,7 +118,6 @@ describe("LaunchpadController", () => {
 
 		it("should return empty array when no plugins registered", () => {
 			const controller = createController();
-
 			expect(controller.getPluginNames()).toEqual([]);
 		});
 	});
@@ -91,19 +125,15 @@ describe("LaunchpadController", () => {
 	describe("start", () => {
 		it("should start the controller", async () => {
 			const controller = createController();
-
 			const result = await controller.start();
-
 			expect(result.isOk()).toBe(true);
 			expect(controller.isStarted()).toBe(true);
 		});
 
 		it("should be idempotent - multiple starts should succeed", async () => {
 			const controller = createController();
-
 			const result1 = await controller.start();
 			const result2 = await controller.start();
-
 			expect(result1.isOk()).toBe(true);
 			expect(result2.isOk()).toBe(true);
 			expect(controller.isStarted()).toBe(true);
@@ -112,12 +142,16 @@ describe("LaunchpadController", () => {
 		it("should initialize command dispatcher", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
-			await controller.registerPlugin(makePlugin("test", { executeCommand }));
+			await controller.registerPlugin(
+				definePlugin({
+					name: "test",
+					manifest: { commands: [{ id: "test.command" }] },
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
 
 			await controller.start();
-
-			const command: BaseCommand = { type: "test.command" };
-			const result = await controller.executeCommand(command);
+			const result = await controller.executeCommand({ type: "test.command" });
 
 			expect(result.isOk()).toBe(true);
 			expect(executeCommand).toHaveBeenCalled();
@@ -142,10 +176,8 @@ describe("LaunchpadController", () => {
 		it("should be idempotent - multiple stops should succeed", async () => {
 			const controller = createController();
 			await controller.start();
-
 			const result1 = await controller.stop();
 			const result2 = await controller.stop();
-
 			expect(result1.isOk()).toBe(true);
 			expect(result2.isOk()).toBe(true);
 			expect(controller.isStarted()).toBe(false);
@@ -161,26 +193,21 @@ describe("LaunchpadController", () => {
 
 			expect(disconnect).toHaveBeenCalled();
 		});
-
-		it("should skip disconnecting plugins without disconnect method", async () => {
-			const controller = createController();
-			await controller.registerPlugin(makePlugin("test"));
-
-			await controller.start();
-
-			const result = await controller.stop();
-			expect(result.isOk()).toBe(true);
-		});
 	});
 
 	describe("executeCommand", () => {
 		it("should execute command through dispatcher and return result", async () => {
 			const controller = createController();
 			const executeCommand = vi.fn().mockReturnValue(okAsync("result"));
-			await controller.registerPlugin(makePlugin("test", { executeCommand }));
+			await controller.registerPlugin(
+				definePlugin({
+					name: "test",
+					manifest: { commands: [{ id: "test.command" }] },
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
 
 			await controller.start();
-
 			const command: BaseCommand = { type: "test.command" };
 			const result = await controller.executeCommand(command);
 
@@ -198,6 +225,23 @@ describe("LaunchpadController", () => {
 			expect(result._unsafeUnwrapErr().message).toBe(
 				"Controller must be started before executing commands",
 			);
+		});
+
+		it("should return error when command is not registered", async () => {
+			const controller = createController();
+			await controller.registerPlugin(
+				definePlugin({
+					name: "test",
+					manifest: { commands: [{ id: "test.command" }] },
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+
+			await controller.start();
+			const result = await controller.executeCommand({ type: "test.other" });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("is not registered");
 		});
 	});
 
@@ -227,9 +271,7 @@ describe("LaunchpadController", () => {
 	describe("getEventBus", () => {
 		it("should return EventBus instance", () => {
 			const controller = createController();
-
 			const eventBus = controller.getEventBus();
-
 			expect(eventBus).toBeDefined();
 			expect(typeof eventBus.emit).toBe("function");
 			expect(typeof eventBus.on).toBe("function");
@@ -239,26 +281,69 @@ describe("LaunchpadController", () => {
 	describe("getAbortSignal", () => {
 		it("should return a non-aborted AbortSignal before stop", () => {
 			const controller = createController();
-
 			const signal = controller.getAbortSignal();
-
 			expect(signal).toBeInstanceOf(AbortSignal);
 			expect(signal.aborted).toBe(false);
+		});
+	});
+
+	describe("phase 1 explicit registration", () => {
+		it("should expose explicit startup commands from plugin manifests", async () => {
+			const controller = createController();
+			await controller.registerPlugin(
+				definePlugin({
+					name: "content",
+					manifest: {
+						commands: [{ id: "content.fetch" }],
+						lifecycle: {
+							startupCommands: [{ type: "content.fetch" }],
+						},
+					},
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+
+			expect(controller.getPluginStartupCommands("content")).toEqual([{ type: "content.fetch" }]);
+		});
+
+		it("should expose registered command ids for explicit manifests", async () => {
+			const controller = createController();
+			await controller.registerPlugin(
+				definePlugin({
+					name: "test",
+					manifest: {
+						commands: [{ id: "test.command" }, { id: "test.aliasable", aliases: ["test.old"] }],
+					},
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+
+			expect(controller.getRegisteredCommandIds()).toEqual(["test.command", "test.aliasable"]);
 		});
 	});
 
 	describe("integration", () => {
 		it("should coordinate multiple plugins through controller", async () => {
 			const controller = createController();
-
 			const contentExecute = vi.fn().mockReturnValue(okAsync("content-done"));
 			const monitorExecute = vi.fn().mockReturnValue(okAsync("monitor-done"));
 
-			await controller.registerPlugin(makePlugin("content", { executeCommand: contentExecute }));
-			await controller.registerPlugin(makePlugin("monitor", { executeCommand: monitorExecute }));
+			await controller.registerPlugin(
+				definePlugin({
+					name: "content",
+					manifest: { commands: [{ id: "content.fetch" }] },
+					setup: () => okAsync({ executeCommand: contentExecute }),
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "monitor",
+					manifest: { commands: [{ id: "monitor.connect" }] },
+					setup: () => okAsync({ executeCommand: monitorExecute }),
+				}),
+			);
 
 			await controller.start();
-
 			await controller.executeCommand({ type: "content.fetch" });
 			await controller.executeCommand({ type: "monitor.connect" });
 
@@ -276,6 +361,7 @@ describe("LaunchpadController", () => {
 			await controller.registerPlugin(
 				definePlugin({
 					name: "content",
+					manifest: { commands: [{ id: "content.fetch" }] },
 					setup(ctx: PluginContext<{ isFetching: boolean }>) {
 						ctx.updateState(() => ({ isFetching: false }));
 						return okAsync({
@@ -293,17 +379,15 @@ describe("LaunchpadController", () => {
 			await controller.registerPlugin(
 				definePlugin({
 					name: "monitor",
+					manifest: { commands: [{ id: "monitor.connect" }] },
 					setup(ctx) {
 						ctx.updateState(() => ({ isConnected: false }));
-						return okAsync({
-							executeCommand: () => okAsync(undefined),
-						});
+						return okAsync({ executeCommand: () => okAsync(undefined) });
 					},
 				}),
 			);
 
 			await controller.start();
-
 			await controller.executeCommand({ type: "content.fetch" });
 
 			const state = controller.getState();

@@ -11,6 +11,9 @@ import { definePlugin } from '@bluecadet/launchpad-utils';
 
 const myMonitorPlugin = definePlugin({
   name: 'my-monitor-plugin',
+  manifest: {
+    commands: [{ id: 'my-monitor-plugin.refresh' }],
+  },
   setup(ctx) {
     ctx.eventBus.on('monitor:app:log', ({ appName, data }) => {
       // handle log
@@ -18,7 +21,14 @@ const myMonitorPlugin = definePlugin({
     ctx.eventBus.on('monitor:app:error', ({ appName, error }) => {
       // handle error
     });
-    return okAsync({});
+    return okAsync({
+      executeCommand(command) {
+        if (command.type === 'my-monitor-plugin.refresh') {
+          return okAsync(undefined);
+        }
+        return okAsync(undefined);
+      },
+    });
   }
 });
 ```
@@ -35,6 +45,9 @@ export default {
   ]
 };
 ```
+
+> [!IMPORTANT]
+> If your plugin handles commands, declare them in `manifest.commands`. Launchpad no longer routes commands implicitly based on command name prefixes.
 
 ## Available Events
 

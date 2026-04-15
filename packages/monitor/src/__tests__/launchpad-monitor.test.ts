@@ -37,6 +37,32 @@ vi.mock("../utils/debounce-results.ts", () => ({
 }));
 
 describe("LaunchpadMonitor", () => {
+	it("registers explicit monitor commands in the plugin manifest", () => {
+		const plugin = monitor({
+			apps: [
+				{
+					pm2: {
+						name: "test-app",
+						script: "test.js",
+					},
+				},
+			],
+		});
+
+		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
+			"monitor.connect",
+			"monitor.disconnect",
+			"monitor.start",
+			"monitor.stop",
+			"monitor.restart",
+			"monitor.shutdown",
+		]);
+		expect(plugin.manifest?.lifecycle?.startupCommands).toEqual([
+			{ type: "monitor.connect" },
+			{ type: "monitor.start" },
+		]);
+	});
+
 	describe("connect", () => {
 		it("should connect to PM2 and bus", async () => {
 			const connectSpy = vi.spyOn(ProcessManager.prototype, "connect");

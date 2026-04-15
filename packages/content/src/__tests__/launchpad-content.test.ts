@@ -36,6 +36,18 @@ describe("LaunchpadContent", () => {
 		};
 	};
 
+	it("registers explicit content commands in the plugin manifest", () => {
+		const plugin = content(createBasicConfig());
+
+		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
+			"content.fetch",
+			"content.clear",
+			"content.backup",
+			"content.restore",
+		]);
+		expect(plugin.manifest?.lifecycle?.startupCommands).toEqual([{ type: "content.fetch" }]);
+	});
+
 	describe("download", () => {
 		it("should process all sources and write to disk", async () => {
 			const factory = content(createBasicConfig());

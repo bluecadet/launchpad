@@ -249,6 +249,12 @@ function createServerLifecycle(
 export function dashboard(config: DashboardConfig) {
 	return definePlugin({
 		name: "dashboard",
+		manifest: {
+			commands: [
+				{ id: "dashboard.start", parser: dashboardCommandSchema },
+				{ id: "dashboard.stop", parser: dashboardCommandSchema },
+			],
+		},
 		setup(ctx: PluginContext<DashboardState>) {
 			const validationResult = validateDashboardConfig(config);
 			if (validationResult.isErr()) return errAsync(validationResult.error);

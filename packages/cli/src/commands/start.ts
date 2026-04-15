@@ -1,5 +1,9 @@
 import { fork } from "node:child_process";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type {
+	BaseCommand,
+	CommandDescriptor,
+	PluginConfig,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import chalk from "chalk";
 import { fromPromise, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
@@ -74,6 +78,15 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	});
 }
 
+function getStartupCommands(
+	plugin: Pick<
+		PluginConfig & { manifest?: { commands?: readonly CommandDescriptor[] } },
+		"manifest"
+	>,
+): readonly BaseCommand[] {
+	return plugin.manifest?.lifecycle?.startupCommands ?? [];
+}
+
 function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	return loadConfigAndEnv(argv)
 		.mapErr((error) => handleFatalError(error))
@@ -106,13 +119,13 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 
 					const plugins = config.plugins ?? [];
 
-					// Register all plugins in sequence, collecting startup commands
+					// Register all plugins in sequence, collecting explicit startup commands
 					return plugins
 						.reduce(
 							(chain, plugin) =>
 								chain.andThen(({ commands }) =>
 									controller.registerPlugin(plugin).map(() => ({
-										commands: [...commands, ...(plugin.startupCommands ?? [])],
+										commands: [...commands, ...getStartupCommands(plugin)] as BaseCommand[],
 									})),
 								),
 							okAsync<{ commands: BaseCommand[] }, Error>({ commands: [] }),

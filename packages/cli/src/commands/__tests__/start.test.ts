@@ -117,7 +117,11 @@ describe("start", () => {
 			const mockPlugin = {
 				name: "content" as const,
 				setup: vi.fn(),
-				startupCommands: [startupCmd],
+				manifest: {
+					lifecycle: {
+						startupCommands: [startupCmd],
+					},
+				},
 			};
 			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin] });
 			vi.mocked(loadConfigAndEnv).mockReturnValue(
@@ -193,7 +197,11 @@ describe("start", () => {
 			const mockPlugin = {
 				name: "content" as const,
 				setup: vi.fn(),
-				startupCommands: [startupCmd],
+				manifest: {
+					lifecycle: {
+						startupCommands: [startupCmd],
+					},
+				},
 			};
 			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin] });
 			vi.mocked(loadConfigAndEnv).mockReturnValue(

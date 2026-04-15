@@ -42,28 +42,44 @@ export default defineConfig({
 
 ## Receiving Commands
 
-Plugins can handle commands by implementing `executeCommand`. The controller routes all dispatched commands to plugins that implement this method.
+Plugins that handle commands should declare them explicitly in `manifest.commands` and implement `executeCommand()`. The controller only dispatches commands that have been registered through the manifest.
 
 > [!TIP]
 > For production plugins, validate incoming commands with a [Zod](https://zod.dev) schema
-> inside `executeCommand()` to catch malformed payloads at the boundary.
+> by attaching the schema to `manifest.commands` and validating again inside `executeCommand()` as needed.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
 import { errAsync, okAsync } from 'neverthrow';
+import { z } from 'zod';
 
-type GreetCommand = { type: 'greet'; name: string };
+type GreetCommand = { type: 'greet-plugin.greet'; name: string };
+
+const greetCommandSchema = z.object({
+  type: z.literal('greet-plugin.greet'),
+  name: z.string(),
+}).strict();
 
 export const greetPlugin = definePlugin({
   name: 'greet-plugin',
+  manifest: {
+    commands: [
+      {
+        id: 'greet-plugin.greet',
+        parser: greetCommandSchema,
+      },
+    ],
+  },
   setup(ctx) {
     return okAsync({
       executeCommand(command: GreetCommand) {
-        if (command.type === 'greet') {
-          ctx.logger.info(`Hello, ${command.name}!`);
-          return okAsync(undefined);
+        const parsed = greetCommandSchema.safeParse(command);
+        if (!parsed.success) {
+          return errAsync(new Error(`Invalid command: ${parsed.error.message}`));
         }
-        return errAsync(new Error(`Unknown command: ${command.type}`));
+
+        ctx.logger.info(`Hello, ${parsed.data.name}!`);
+        return okAsync(undefined);
       }
     });
   }
@@ -72,21 +88,30 @@ export const greetPlugin = definePlugin({
 
 ### Dispatching Commands on Startup
 
-Use `startupCommands` to automatically dispatch commands after all plugins are registered:
+Use `manifest.lifecycle.startupCommands` to automatically dispatch commands after all plugins are registered:
 
 ```typescript
 export const greetPlugin = definePlugin({
   name: 'greet-plugin',
-  startupCommands: [{ type: 'greet', name: 'World' }],
+  manifest: {
+    commands: [{ id: 'greet-plugin.greet', parser: greetCommandSchema }],
+    lifecycle: {
+      startupCommands: [{ type: 'greet-plugin.greet', name: 'World' }],
+    },
+  },
   setup(ctx) {
     return okAsync({
       executeCommand(command: GreetCommand) {
         // ...
+        return okAsync(undefined);
       }
     });
   }
 });
 ```
+
+> [!IMPORTANT]
+> Launchpad no longer infers command ownership from the command type prefix, and top-level `startupCommands` are no longer supported. Command registration and startup behavior must be declared in the plugin manifest.
 
 ## Managing State
 
@@ -96,10 +121,14 @@ Plugins can expose state to the system by calling `ctx.updateState()`. The contr
 import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
+type CounterCommand = { type: 'counter-plugin.increment' };
 type CounterState = { count: number };
 
 export const counterPlugin = definePlugin({
   name: 'counter-plugin',
+  manifest: {
+    commands: [{ id: 'counter-plugin.increment' }],
+  },
   setup(ctx) {
     // Initialize state
     ctx.updateState((_draft: CounterState) => {
@@ -107,12 +136,11 @@ export const counterPlugin = definePlugin({
     });
 
     return okAsync({
-      executeCommand(command: { type: string }) {
-        if (command.type === 'counter.increment') {
+      executeCommand(command: CounterCommand) {
+        if (command.type === 'counter-plugin.increment') {
           ctx.updateState((draft: CounterState) => {
             draft.count += 1;
           });
-          return okAsync(undefined);
         }
         return okAsync(undefined);
       }
@@ -185,7 +213,7 @@ The `PluginContext` passed to `setup()` provides:
 | `eventBus` | Event bus for cross-plugin communication |
 | `abortSignal` | Fires when Launchpad is shutting down |
 | `cwd` | Working directory |
-| `dispatchCommand` | Dispatch a command to any plugin |
+| `dispatchCommand` | Dispatch a registered command to another plugin |
 | `updateState` | Update this plugin's state slice |
 | `getGlobalState` | Read the full aggregated system state |
 | `onGlobalStatePatch` | Subscribe to state patches across the system |
@@ -200,14 +228,19 @@ If your plugin needs to perform async work during setup (e.g. connecting to a da
 import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
 import { ResultAsync, okAsync } from 'neverthrow';
 
+type DbCommand = { type: 'db-plugin.ping' };
+
 export const dbPlugin = definePlugin({
   name: 'db-plugin',
+  manifest: {
+    commands: [{ id: 'db-plugin.ping' }],
+  },
   setup(ctx) {
     return ResultAsync.fromPromise(
       connectToDatabase(),
       (e) => new Error(`Failed to connect: ${e}`)
     ).map((db) => ({
-      executeCommand(command: { type: string }) {
+      executeCommand(command: DbCommand) {
         // use db here
         return okAsync(undefined);
       },
@@ -222,12 +255,23 @@ export const dbPlugin = definePlugin({
 ## Best Practices
 
 1. **Choose a unique name**: Plugin names appear in logs and state aggregation
-2. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
-3. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
-4. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
-5. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
-6. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
-7. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
+2. **Declare handled commands in `manifest.commands`**: command execution is explicit and controller-owned
+3. **Use `manifest.lifecycle.startupCommands` for startup behavior**: startup flows should be visible and intentional
+4. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
+5. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
+6. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
+7. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
+8. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
+9. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
+
+## Migration Notes
+
+If you are updating an older plugin:
+
+- move handled commands into `manifest.commands`
+- move any automatic startup behavior into `manifest.lifecycle.startupCommands`
+- stop relying on implicit prefix-based routing such as assuming `my-plugin.*` commands will be dispatched automatically
+- ensure any plugin that declares `manifest.commands` returns an `executeCommand()` implementation from `setup()`
 
 ## Next Steps
 

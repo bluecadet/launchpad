@@ -1,10 +1,6 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import {
-	type BaseCommand,
-	definePlugin,
-	type PluginContext,
-} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -239,10 +235,19 @@ function shutdown(
 export function monitor(config: MonitorConfig) {
 	return definePlugin({
 		name: "monitor",
-		startupCommands: [
-			{ type: "monitor.connect" },
-			{ type: "monitor.start" },
-		] satisfies BaseCommand[],
+		manifest: {
+			commands: [
+				{ id: "monitor.connect", parser: monitorCommandSchema },
+				{ id: "monitor.disconnect", parser: monitorCommandSchema },
+				{ id: "monitor.start", parser: monitorCommandSchema },
+				{ id: "monitor.stop", parser: monitorCommandSchema },
+				{ id: "monitor.restart", parser: monitorCommandSchema },
+				{ id: "monitor.shutdown", parser: monitorCommandSchema },
+			],
+			lifecycle: {
+				startupCommands: [{ type: "monitor.connect" }, { type: "monitor.start" }],
+			},
+		},
 		setup(ctx: PluginContext<MonitorState>) {
 			ctx.statusRegistry.contributeStatusSection(monitorStatusSection);
 			const configResult = monitorConfigSchema.safeParse(config);

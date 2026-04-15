@@ -1,9 +1,5 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import {
-	type BaseCommand,
-	definePlugin,
-	type PluginContext,
-} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
@@ -241,7 +237,17 @@ function clear(
 export function content(config: ContentConfig) {
 	return definePlugin({
 		name: "content",
-		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
+		manifest: {
+			commands: [
+				{ id: "content.fetch", parser: contentCommandSchema },
+				{ id: "content.clear", parser: contentCommandSchema },
+				{ id: "content.backup", parser: contentCommandSchema },
+				{ id: "content.restore", parser: contentCommandSchema },
+			],
+			lifecycle: {
+				startupCommands: [{ type: "content.fetch" }],
+			},
+		},
 		setup(ctx: PluginContext<ContentState>) {
 			ctx.statusRegistry.contributeStatusSection(contentStatusSection);
 			return parseContentConfig(config)

@@ -205,7 +205,7 @@ export class LaunchpadController {
 	 */
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
 		if (!this._isStarted) {
-			throw new Error("Controller must be started before executing commands");
+			return errAsync(new Error("Controller must be started before executing commands"));
 		}
 
 		return this._commandDispatcher.dispatch(command);

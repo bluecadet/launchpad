@@ -358,10 +358,10 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 				type: "ack",
 			});
 
-			// Exit after sending response (controller's exit handlers will clean up)
+			// Signal shutdown via event bus — the host process decides when to exit
 			setTimeout(() => {
 				logger.info("Shutting down via IPC command");
-				process.exit(0);
+				ctx.eventBus.emit("system:shutdown", { code: 0 });
 			}, 100);
 			break;
 		}

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type {
 	BaseCommand,
 	DisconnectReason,
@@ -8,6 +9,7 @@ import type {
 	PluginConfig,
 	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
@@ -42,6 +44,8 @@ export class LaunchpadController {
 	private _plugins = new Map<string, InstantiatedPlugin>();
 	private _abortController = new AbortController();
 	private _isStarted = false;
+	private _dashboardRegistry = new DashboardRegistry();
+	private _statusRegistry = new StatusRegistry();
 	// Future: private _transports: Transport[] = [];
 
 	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
@@ -246,6 +250,20 @@ export class LaunchpadController {
 		return this._isStarted;
 	}
 
+	/**
+	 * Get the dashboard contribution registry.
+	 */
+	getDashboardRegistry(): DashboardRegistry {
+		return this._dashboardRegistry;
+	}
+
+	/**
+	 * Get the status section registry.
+	 */
+	getStatusRegistry(): StatusRegistry {
+		return this._statusRegistry;
+	}
+
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
@@ -259,6 +277,8 @@ export class LaunchpadController {
 			getGlobalState: () => this.getState(),
 			onGlobalStatePatch: (handler) => this._stateStore.onPatch(handler),
 			updateState,
+			dashboardRegistry: this._dashboardRegistry,
+			statusRegistry: this._statusRegistry,
 		};
 	}
 }

@@ -195,11 +195,13 @@ describe("LaunchpadController", () => {
 			expect(executeCommand).toHaveBeenCalledWith(command);
 		});
 
-		it("should throw error when controller not started", () => {
+		it("should return error when controller not started", async () => {
 			const controller = createController();
 			const command: BaseCommand = { type: "test.command" };
+			const result = await controller.executeCommand(command);
 
-			expect(() => controller.executeCommand(command)).toThrow(
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toBe(
 				"Controller must be started before executing commands",
 			);
 		});

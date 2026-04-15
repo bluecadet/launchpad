@@ -244,13 +244,11 @@ describe("ipc-transport", () => {
 			expect((response as any).data).toEqual({ result: "success" });
 		});
 
-		it("should send ack and exit for shutdown message", async () => {
-			await createStartedIPCTransport();
+		it("should send ack and emit system:shutdown for shutdown message", async () => {
+			const { context } = await createStartedIPCTransport();
 
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
-
-			vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
 
 			const message: IPCMessage = { type: "shutdown", id: "msg-1" };
 			const dataHandler = mockSocket.listeners.data![0]!;
@@ -261,7 +259,7 @@ describe("ipc-transport", () => {
 
 			await new Promise((resolve) => setTimeout(resolve, 150));
 
-			expect(process.exit).toHaveBeenCalledWith(0);
+			expect(context.eventBus.getEventsOfType("system:shutdown")).toEqual([{ code: 0 }]);
 		});
 
 		it("should send error response for malformed JSON", async () => {

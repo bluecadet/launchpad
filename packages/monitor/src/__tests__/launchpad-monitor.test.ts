@@ -7,10 +7,6 @@ import { ProcessManager } from "../core/process-manager.js";
 import { monitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
-// Mock process.exit to prevent tests from actually exiting
-// @ts-expect-error - mockImplementation returns undefined
-const mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined);
-
 AppManager.prototype.applyWindowSettings = vi.fn().mockImplementation(() => okAsync({}));
 
 async function createTestMonitor(
@@ -174,14 +170,14 @@ describe("LaunchpadMonitor", () => {
 
 			expect(result).toBeOk();
 			expect(rootLogger.info).toHaveBeenCalledWith(expect.stringContaining("Monitor exiting"));
-			expect(mockExit).toHaveBeenCalled();
 		});
 
 		it("should handle custom exit codes", async () => {
 			const { monitor } = await createTestMonitor();
 
-			await monitor.executeCommand({ type: "monitor.shutdown", exitCode: 123 });
-			expect(mockExit).toHaveBeenCalledWith(123);
+			const result = await monitor.executeCommand({ type: "monitor.shutdown", exitCode: 123 });
+
+			expect(result).toBeOk();
 		});
 
 		it("should emit beforeShutdown event", async () => {

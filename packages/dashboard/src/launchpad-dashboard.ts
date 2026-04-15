@@ -215,7 +215,7 @@ function createServerLifecycle(
 				return stopServer(server, ctx, stateManager);
 			}
 			default: {
-				return errAsync(new Error(`Unknown dashboard command type: ${validCommand.type}`));
+				return errAsync(new Error("Unknown dashboard command type"));
 			}
 		}
 	};

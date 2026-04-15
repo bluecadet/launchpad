@@ -4,22 +4,22 @@ import type { BaseCommand, InstantiatedPlugin } from "@bluecadet/launchpad-utils
 import { errAsync, type ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 
+/** Core controller event types for use with generic EventBus. */
+export type CoreEvents = {
+	"command:start": { commandType: string; [key: string]: unknown };
+	"command:success": { commandType: string; result?: unknown };
+	"command:error": { commandType: string; error: Error };
+	"system:shutdown": { code?: number; signal?: string };
+	"system:error": { error: Error; context?: string };
+};
+
 /**
  * Core controller events.
  * Plugins can augment this interface via declaration merging
  *
  */
 declare module "@bluecadet/launchpad-utils/types" {
-	interface LaunchpadEvents {
-		// Command lifecycle events (controller-owned)
-		"command:start": { commandType: string; [key: string]: unknown };
-		"command:success": { commandType: string; result?: unknown };
-		"command:error": { commandType: string; error: Error };
-
-		// System events (controller-owned)
-		"system:shutdown": { code?: number; signal?: string };
-		"system:error": { error: Error; context?: string };
-	}
+	interface LaunchpadEvents extends CoreEvents {}
 }
 
 /**

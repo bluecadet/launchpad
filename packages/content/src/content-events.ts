@@ -12,63 +12,66 @@ import "@bluecadet/launchpad-utils/types";
  * but without type checking.
  */
 
+/** Content plugin event types for use with generic EventBus. */
+export type ContentEvents = {
+	// Fetch lifecycle
+	"content:fetch:start": {
+		timestamp: Date;
+	};
+
+	"content:fetch:done": {
+		sources: string[];
+	};
+
+	"content:fetch:error": {
+		error: Error;
+		source?: string;
+	};
+
+	// Source-specific events
+	"content:source:start": {
+		sourceId: string;
+		sourceType: string;
+	};
+
+	"content:source:done": {
+		sourceId: string;
+	};
+
+	"content:source:error": {
+		sourceId: string;
+		error: Error;
+	};
+
+	// Document events
+	"content:document:write": {
+		sourceId: string;
+		documentId: string;
+		path: string;
+	};
+
+	"content:document:error": {
+		sourceId: string;
+		documentId: string;
+		error: Error;
+	};
+
+	// Transform events
+	"content:transform:start": {
+		transformName: string;
+	};
+
+	"content:transform:done": {
+		transformName: string;
+		duration: number;
+	};
+
+	"content:transform:error": {
+		transformName: string;
+		error: Error;
+	};
+};
+
 declare module "@bluecadet/launchpad-utils/types" {
-	interface LaunchpadEvents {
-		// Fetch lifecycle
-		"content:fetch:start": {
-			timestamp: Date;
-		};
-
-		"content:fetch:done": {
-			sources: string[];
-		};
-
-		"content:fetch:error": {
-			error: Error;
-			source?: string;
-		};
-
-		// Source-specific events
-		"content:source:start": {
-			sourceId: string;
-			sourceType: string;
-		};
-
-		"content:source:done": {
-			sourceId: string;
-		};
-
-		"content:source:error": {
-			sourceId: string;
-			error: Error;
-		};
-
-		// Document events
-		"content:document:write": {
-			sourceId: string;
-			documentId: string;
-			path: string;
-		};
-
-		"content:document:error": {
-			sourceId: string;
-			documentId: string;
-			error: Error;
-		};
-
-		// Transform events
-		"content:transform:start": {
-			transformName: string;
-		};
-
-		"content:transform:done": {
-			transformName: string;
-			duration: number;
-		};
-
-		"content:transform:error": {
-			transformName: string;
-			error: Error;
-		};
-	}
+	interface LaunchpadEvents extends ContentEvents {}
 }

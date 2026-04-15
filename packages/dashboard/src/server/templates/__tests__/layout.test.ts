@@ -1,15 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { definePage } from "../../../dashboard-page.js";
 import { renderLayout } from "../layout.js";
-
-vi.mock("@bluecadet/launchpad-utils/panel-registry", () => ({
-	registry: {
-		getScripts: vi.fn().mockReturnValue([]),
-		getStyles: vi.fn().mockReturnValue([]),
-	},
-}));
-
-const { registry } = await import("@bluecadet/launchpad-utils/panel-registry");
 
 describe("renderLayout", () => {
 	it("contains DOCTYPE and html structure", () => {
@@ -61,24 +52,28 @@ describe("renderLayout", () => {
 		expect(html).not.toContain('href="/pages/');
 	});
 
-	it("includes script tags from registry", () => {
-		vi.mocked(registry.getScripts).mockReturnValue([
-			{ filePath: "/tmp/test.js", url: "/assets/test-abc.js", defer: true },
-		]);
-		vi.mocked(registry.getStyles).mockReturnValue([]);
-		const html = renderLayout("T", "", [], null);
+	it("includes script tags from parameters", () => {
+		const html = renderLayout(
+			"T",
+			"",
+			[],
+			null,
+			[{ filePath: "/tmp/test.js", url: "/assets/test-abc.js", defer: true }],
+			[],
+		);
 		expect(html).toContain('<script src="/assets/test-abc.js" defer></script>');
-		vi.mocked(registry.getScripts).mockReturnValue([]);
 	});
 
-	it("includes style links from registry", () => {
-		vi.mocked(registry.getStyles).mockReturnValue([
-			{ filePath: "/tmp/test.css", url: "/assets/test-abc.css" },
-		]);
-		vi.mocked(registry.getScripts).mockReturnValue([]);
-		const html = renderLayout("T", "", [], null);
+	it("includes style links from parameters", () => {
+		const html = renderLayout(
+			"T",
+			"",
+			[],
+			null,
+			[],
+			[{ filePath: "/tmp/test.css", url: "/assets/test-abc.css" }],
+		);
 		expect(html).toContain('<link rel="stylesheet" href="/assets/test-abc.css">');
-		vi.mocked(registry.getStyles).mockReturnValue([]);
 	});
 
 	it("escapes HTML in title", () => {

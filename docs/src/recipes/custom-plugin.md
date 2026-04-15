@@ -185,6 +185,8 @@ The `PluginContext` passed to `setup()` provides:
 | `updateState` | Update this plugin's state slice |
 | `getGlobalState` | Read the full aggregated system state |
 | `onGlobalStatePatch` | Subscribe to state patches across the system |
+| `dashboardRegistry` | Dashboard contribution registry for panels, pages, scripts, styles, and routes |
+| `statusRegistry` | Status section registry for CLI status renderers |
 
 ## Async Initialization
 

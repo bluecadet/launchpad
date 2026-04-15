@@ -5,7 +5,7 @@ import {
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
-import type { ContentCommand } from "./content-commands.js";
+import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
 	type ContentConfig,
 	parseContentConfig,
@@ -282,18 +282,25 @@ export function content(config: ContentConfig) {
 
 					return ok({
 						executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
-							switch (command.type) {
+							const parsed = contentCommandSchema.safeParse(command);
+							if (!parsed.success) {
+								return errAsync(new ContentError(`Invalid command: ${parsed.error.message}`));
+							}
+
+							const validCommand = parsed.data;
+
+							switch (validCommand.type) {
 								case "content.fetch": {
-									return commandGuard.run(() => fetch(command.sources ?? null, actionContext));
+									return commandGuard.run(() => fetch(validCommand.sources ?? null, actionContext));
 								}
 								case "content.clear": {
 									return commandGuard.run(() =>
 										clear(
-											command.sources ?? null,
+											validCommand.sources ?? null,
 											{
-												temp: command.temp,
-												backups: command.backups,
-												downloads: command.downloads,
+												temp: validCommand.temp,
+												backups: validCommand.backups,
+												downloads: validCommand.downloads,
 											},
 											actionContext,
 										),
@@ -301,9 +308,7 @@ export function content(config: ContentConfig) {
 								}
 								default: {
 									return errAsync(
-										new ContentError(
-											`Unknown content command type: ${(command as ContentCommand).type}`,
-										),
+										new ContentError(`Unknown content command type: ${validCommand.type}`),
 									);
 								}
 							}

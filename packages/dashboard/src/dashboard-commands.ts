@@ -15,8 +15,8 @@ export type DashboardStopCommand = BaseCommand & {
 export type DashboardCommand = DashboardStartCommand | DashboardStopCommand;
 
 export type DashboardCommandMap = {
-	"dashboard.start": { input: DashboardStartCommand; output: void };
-	"dashboard.stop": { input: DashboardStopCommand; output: void };
+	"dashboard.start": { input: DashboardStartCommand; output: undefined };
+	"dashboard.stop": { input: DashboardStopCommand; output: undefined };
 };
 
 export const dashboardStartCommandSchema = z

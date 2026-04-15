@@ -44,6 +44,10 @@ export default defineConfig({
 
 Plugins can handle commands by implementing `executeCommand`. The controller routes all dispatched commands to plugins that implement this method.
 
+> [!TIP]
+> For production plugins, validate incoming commands with a [Zod](https://zod.dev) schema
+> inside `executeCommand()` to catch malformed payloads at the boundary.
+
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
 import { errAsync, okAsync } from 'neverthrow';

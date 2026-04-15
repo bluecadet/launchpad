@@ -16,8 +16,11 @@ import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { CommandRegistry } from "./core/command-registry.js";
+import { WorkflowRunner } from "./core/workflow-runner.js";
+import type { WorkflowMap } from "./core/workflow-types.js";
 
 export type { CoreEvents } from "./core/command-dispatcher.js";
+export type { WorkflowMap, WorkflowStep } from "./core/workflow-types.js";
 
 import type { AllEvents } from "./all-events.js";
 import type { AllPluginsState } from "./all-plugin-state.js";
@@ -35,6 +38,7 @@ export class LaunchpadController {
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
+	private _workflowRunner: WorkflowRunner;
 	private _plugins = new Map<string, InstantiatedPlugin>();
 	private _pluginConfigs = new Map<string, PluginConfig>();
 	private _commandRegistry = new CommandRegistry();
@@ -51,6 +55,9 @@ export class LaunchpadController {
 		this._eventBus = new EventBus<AllEvents>();
 		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
 		this._stateStore = new StateStore(this._mode);
+		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
+			this.executeCommand(command),
+		);
 	}
 
 	registerPlugin(
@@ -176,7 +183,7 @@ export class LaunchpadController {
 		this._logger.verbose("Stopping controller");
 
 		const reason: DisconnectReason = { type: "manual" };
-		return this.cleanup(reason);
+		return this.runWorkflow("stop").andThen(() => this.cleanup(reason));
 	}
 
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
@@ -215,13 +222,12 @@ export class LaunchpadController {
 		return this._statusRegistry;
 	}
 
-	getPluginStartupCommands(name: string): readonly BaseCommand[] {
-		const plugin = this._pluginConfigs.get(name);
-		if (!plugin) {
-			return [];
-		}
+	setWorkflows(workflows: WorkflowMap): void {
+		this._workflowRunner.setWorkflows(workflows);
+	}
 
-		return plugin.manifest?.lifecycle?.startupCommands ?? [];
+	runWorkflow(name: string): ResultAsync<void, Error> {
+		return this._workflowRunner.run(name);
 	}
 
 	getRegisteredCommandIds(): string[] {

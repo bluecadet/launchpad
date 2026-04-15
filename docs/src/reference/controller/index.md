@@ -11,14 +11,11 @@ type InstantiatedPlugin<TCommand> = Partial<
 >;
 ```
 
-**Plugin manifest** — explicit controller-owned metadata for command registration and lifecycle behavior:
+**Plugin manifest** — explicit controller-owned metadata for command registration:
 
 ```typescript
 interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
   commands?: readonly CommandDescriptor<TCommand>[];
-  lifecycle?: {
-    startupCommands?: readonly TCommand[];
-  };
 }
 ```
 
@@ -52,9 +49,6 @@ definePlugin({
   name: 'my-plugin',
   manifest: {
     commands: [{ id: 'my-plugin.increment' }],
-    lifecycle: {
-      startupCommands: [{ type: 'my-plugin.increment' }],
-    },
   },
   setup(ctx: PluginContext<MyState>) {
     ctx.updateState(() => ({ count: 0 }));
@@ -70,6 +64,21 @@ definePlugin({
 ```
 
 The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
+
+### Host-Owned Workflows
+
+Hosts declare startup and shutdown orchestration in config and hand it to the controller:
+
+```typescript
+export default defineConfig({
+  plugins: [content({}), monitor({})],
+  workflows: {
+    start: ['content.fetch', 'monitor.connect', 'monitor.start'],
+  },
+});
+```
+
+The controller exposes `setWorkflows()` and `runWorkflow()` so every host can run the same named workflow sequence. `LaunchpadController.stop()` automatically runs the `stop` workflow before plugin disconnects.
 
 ### State Management
 

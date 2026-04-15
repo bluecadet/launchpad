@@ -153,6 +153,8 @@ export type MockController = {
 	stop: ReturnType<typeof vi.fn>;
 	registerPlugin: ReturnType<typeof vi.fn>;
 	executeCommand: ReturnType<typeof vi.fn>;
+	setWorkflows: ReturnType<typeof vi.fn>;
+	runWorkflow: ReturnType<typeof vi.fn>;
 	getEventBus: ReturnType<typeof vi.fn>;
 };
 
@@ -162,6 +164,8 @@ export function createMockController(overrides?: Partial<MockController>): MockC
 		stop: vi.fn().mockReturnValue(okAsync(undefined)),
 		registerPlugin: vi.fn().mockReturnValue(okAsync(undefined)),
 		executeCommand: vi.fn().mockReturnValue(okAsync(undefined)),
+		setWorkflows: vi.fn(),
+		runWorkflow: vi.fn().mockReturnValue(okAsync(undefined)),
 		getEventBus: vi.fn().mockReturnValue(createMockEventBus()),
 		...overrides,
 	};

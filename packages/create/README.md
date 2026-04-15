@@ -8,7 +8,7 @@ Scaffolding CLI for [Launchpad](https://bluecadet.github.io/launchpad/) projects
 npm create @bluecadet/launchpad
 ```
 
-The tool will interactively ask which plugins, sources, and transforms you need, then generate or update:
+The tool will interactively ask which plugins, sources, and transforms you need, then generate or update a config with explicit `workflows.start` / `workflows.stop` orchestration where applicable:
 
 - `launchpad.config.ts`
 - `package.json` (created or merged)

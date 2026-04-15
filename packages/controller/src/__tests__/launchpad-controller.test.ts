@@ -287,25 +287,7 @@ describe("LaunchpadController", () => {
 		});
 	});
 
-	describe("phase 1 explicit registration", () => {
-		it("should expose explicit startup commands from plugin manifests", async () => {
-			const controller = createController();
-			await controller.registerPlugin(
-				definePlugin({
-					name: "content",
-					manifest: {
-						commands: [{ id: "content.fetch" }],
-						lifecycle: {
-							startupCommands: [{ type: "content.fetch" }],
-						},
-					},
-					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
-				}),
-			);
-
-			expect(controller.getPluginStartupCommands("content")).toEqual([{ type: "content.fetch" }]);
-		});
-
+	describe("explicit registration and workflows", () => {
 		it("should expose registered command ids for explicit manifests", async () => {
 			const controller = createController();
 			await controller.registerPlugin(
@@ -319,6 +301,73 @@ describe("LaunchpadController", () => {
 			);
 
 			expect(controller.getRegisteredCommandIds()).toEqual(["test.command", "test.aliasable"]);
+		});
+
+		it("should run configured workflows through the controller", async () => {
+			const controller = createController();
+			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
+			await controller.registerPlugin(
+				definePlugin({
+					name: "content",
+					manifest: {
+						commands: [{ id: "content.fetch" }, { id: "content.clear" }],
+					},
+					setup: () => okAsync({ executeCommand }),
+				}),
+			);
+			await controller.start();
+			controller.setWorkflows({
+				refresh: ["content.fetch", { type: "content.clear" }],
+			});
+
+			const result = await controller.runWorkflow("refresh");
+
+			expect(result.isOk()).toBe(true);
+			expect(executeCommand).toHaveBeenNthCalledWith(1, { type: "content.fetch" });
+			expect(executeCommand).toHaveBeenNthCalledWith(2, { type: "content.clear" });
+		});
+
+		it("should run stop workflow before plugin disconnects", async () => {
+			const controller = createController();
+			const calls: string[] = [];
+			await controller.registerPlugin(
+				definePlugin({
+					name: "monitor",
+					manifest: {
+						commands: [{ id: "monitor.stop" }],
+					},
+					setup: () =>
+						okAsync({
+							executeCommand: vi.fn().mockImplementation(() => {
+								calls.push("execute");
+								return okAsync(undefined);
+							}),
+							disconnect: vi.fn().mockImplementation(() => {
+								calls.push("disconnect");
+								return okAsync(undefined);
+							}),
+						}),
+				}),
+			);
+			await controller.start();
+			controller.setWorkflows({ stop: ["monitor.stop"] });
+
+			const result = await controller.stop();
+
+			expect(result.isOk()).toBe(true);
+			expect(calls).toEqual(["execute", "disconnect"]);
+		});
+
+		it("should disconnect plugins even when no stop workflow is configured", async () => {
+			const controller = createController();
+			const disconnect = vi.fn().mockReturnValue(okAsync(undefined));
+			await controller.registerPlugin(makePlugin("monitor", { disconnect }));
+			await controller.start();
+
+			const result = await controller.stop();
+
+			expect(result.isOk()).toBe(true);
+			expect(disconnect).toHaveBeenCalledTimes(1);
 		});
 	});
 

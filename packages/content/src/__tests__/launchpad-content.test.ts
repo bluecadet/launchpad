@@ -45,7 +45,6 @@ describe("LaunchpadContent", () => {
 			"content.backup",
 			"content.restore",
 		]);
-		expect(plugin.manifest?.lifecycle?.startupCommands).toEqual([{ type: "content.fetch" }]);
 	});
 
 	describe("download", () => {

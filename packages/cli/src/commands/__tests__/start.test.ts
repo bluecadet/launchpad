@@ -112,24 +112,20 @@ describe("start", () => {
 			expect(result.isOk()).toBe(true);
 		});
 
-		it("no daemon, with plugins — registerPlugin called for each plugin and startup commands executed", async () => {
-			const startupCmd = { type: "content.fetch" as const };
+		it("no daemon, with plugins — registers plugins, sets workflows, and runs start workflow", async () => {
+			const workflows = {
+				start: ["content.fetch"],
+			} as const;
 			const mockPlugin = {
 				name: "content" as const,
 				setup: vi.fn(),
-				manifest: {
-					lifecycle: {
-						startupCommands: [startupCmd],
-					},
-				},
 			};
-			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin] });
+			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin], workflows });
 			vi.mocked(loadConfigAndEnv).mockReturnValue(
 				okAsync({ dir: "/test", config: configWithPlugin }),
 			);
 
 			const mockController = createMockController();
-			// Return the ResultAsync directly (no async wrapper) so .orElse() works
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
@@ -138,13 +134,23 @@ describe("start", () => {
 
 			expect(result.isOk()).toBe(true);
 			expect(vi.mocked(mockController.registerPlugin)).toHaveBeenCalledWith(mockPlugin);
-			expect(vi.mocked(mockController.executeCommand)).toHaveBeenCalledWith(startupCmd);
+			expect(vi.mocked(mockController.setWorkflows)).toHaveBeenCalledWith(workflows);
+			expect(vi.mocked(mockController.runWorkflow)).toHaveBeenCalledWith("start");
 		});
 
-		it("running as detached child (isDetached=true) — sendReadyMessage called", async () => {
+		it("running as detached child (isDetached=true) — sendReadyMessage called after startup workflow completes", async () => {
 			detachedMock.isDetached = true;
+			const callOrder: string[] = [];
 
-			const mockController = createMockController();
+			const mockController = createMockController({
+				runWorkflow: vi.fn().mockImplementation(() => {
+					callOrder.push("runWorkflow");
+					return okAsync(undefined);
+				}),
+			});
+			detachedMock.sendReadyMessage.mockImplementation(() => {
+				callOrder.push("sendReadyMessage");
+			});
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
@@ -153,6 +159,7 @@ describe("start", () => {
 
 			expect(result.isOk()).toBe(true);
 			expect(detachedMock.sendReadyMessage).toHaveBeenCalled();
+			expect(callOrder).toEqual(["runWorkflow", "sendReadyMessage"]);
 		});
 
 		it("SIGINT/SIGTERM registered callback calls controller.stop()", async () => {
@@ -192,24 +199,21 @@ describe("start", () => {
 			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 		});
 
-		it("startup command fails — handleFatalError called", async () => {
-			const startupCmd = { type: "content.fetch" as const };
+		it("start workflow fails — handleFatalError called", async () => {
 			const mockPlugin = {
 				name: "content" as const,
 				setup: vi.fn(),
-				manifest: {
-					lifecycle: {
-						startupCommands: [startupCmd],
-					},
-				},
 			};
-			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin] });
+			const configWithPlugin = resolveLaunchpadConfig({
+				plugins: [mockPlugin],
+				workflows: { start: ["content.fetch"] },
+			});
 			vi.mocked(loadConfigAndEnv).mockReturnValue(
 				okAsync({ dir: "/test", config: configWithPlugin }),
 			);
 
 			const mockController = createMockController({
-				executeCommand: vi.fn().mockReturnValue(errAsync(new Error("Command failed"))),
+				runWorkflow: vi.fn().mockReturnValue(errAsync(new Error("Workflow failed"))),
 			});
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
 				opts.otherwise(mockController as unknown as LaunchpadController),

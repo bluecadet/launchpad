@@ -10,6 +10,17 @@ export type CoreEvents = {
 	"command:start": { commandType: string; [key: string]: unknown };
 	"command:success": { commandType: string; result?: unknown };
 	"command:error": { commandType: string; error: Error };
+	"workflow:start": { name: string; stepCount: number };
+	"workflow:step:start": { name: string; stepIndex: number; command: BaseCommand };
+	"workflow:step:success": { name: string; stepIndex: number; command: BaseCommand };
+	"workflow:step:error": {
+		name: string;
+		stepIndex: number;
+		command: BaseCommand;
+		error: Error;
+	};
+	"workflow:success": { name: string; stepCount: number };
+	"workflow:error": { name: string; stepCount: number; error: Error };
 	"system:shutdown": { code?: number; signal?: string };
 	"system:error": { error: Error; context?: string };
 };

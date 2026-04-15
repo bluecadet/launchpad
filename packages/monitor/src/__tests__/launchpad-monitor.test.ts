@@ -57,10 +57,6 @@ describe("LaunchpadMonitor", () => {
 			"monitor.restart",
 			"monitor.shutdown",
 		]);
-		expect(plugin.manifest?.lifecycle?.startupCommands).toEqual([
-			{ type: "monitor.connect" },
-			{ type: "monitor.start" },
-		]);
 	});
 
 	describe("connect", () => {
@@ -136,6 +132,22 @@ describe("LaunchpadMonitor", () => {
 
 			expect(eventBus.getEventsOfType("monitor:disconnect:start")).toHaveLength(1);
 			expect(eventBus.getEventsOfType("monitor:disconnect:done")).toHaveLength(1);
+		});
+
+		it("plugin disconnect should only disconnect resources without emitting shutdown", async () => {
+			const _isDaemonRunningSpy = vi
+				.spyOn(ProcessManager.prototype, "isDaemonRunning")
+				.mockImplementationOnce(() => okAsync(true));
+			const processDisconnectSpy = vi.spyOn(ProcessManager.prototype, "disconnect");
+
+			const { monitor, eventBus, rootLogger } = await createTestMonitor();
+
+			const result = await monitor.disconnect?.({ type: "manual" });
+
+			expect(result).toBeOk();
+			expect(processDisconnectSpy).toHaveBeenCalled();
+			expect(eventBus.getEventsOfType("monitor:beforeShutdown")).toHaveLength(0);
+			expect(rootLogger.info).not.toHaveBeenCalledWith(expect.stringContaining("Monitor exiting"));
 		});
 	});
 

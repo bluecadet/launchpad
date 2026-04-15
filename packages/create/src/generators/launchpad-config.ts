@@ -178,6 +178,35 @@ function buildDashboardPlugin(): string {
 	return "dashboard({\n\tport: 3000,\n})";
 }
 
+function buildWorkflows(answers: Answers): string[] {
+	const workflows: string[] = [];
+	const startSteps: string[] = [];
+	const stopSteps: string[] = [];
+
+	if (answers.useContent) {
+		startSteps.push("'content.fetch'");
+	}
+
+	if (answers.useMonitor) {
+		startSteps.push("'monitor.connect'", "'monitor.start'");
+	}
+
+	if (startSteps.length === 0 && stopSteps.length === 0) {
+		return workflows;
+	}
+
+	workflows.push("\tworkflows: {");
+	if (startSteps.length > 0) {
+		workflows.push(`\t\tstart: [${startSteps.join(", ")}],`);
+	}
+	if (stopSteps.length > 0) {
+		workflows.push(`\t\tstop: [${stopSteps.join(", ")}],`);
+	}
+	workflows.push("\t},");
+
+	return workflows;
+}
+
 export function generateLaunchpadConfig(answers: Answers): string {
 	const importsBlock = buildImports(answers);
 
@@ -187,6 +216,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	if (answers.useDashboard) plugins.push(buildDashboardPlugin());
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");
+	const workflowsBlock = buildWorkflows(answers);
 
 	return [
 		importsBlock,
@@ -195,6 +225,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 		"\tplugins: [",
 		pluginsBlock,
 		"\t],",
+		...workflowsBlock,
 		"});",
 		"",
 	].join("\n");

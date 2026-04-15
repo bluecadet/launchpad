@@ -328,9 +328,7 @@ export function monitor(config: MonitorConfig) {
 						case "monitor.shutdown":
 							return commandGuard.run(() => shutdown(actionCtx, validCommand.exitCode));
 						default: {
-							return errAsync(
-								new MonitorError(`Unknown monitor command type: ${validCommand.type}`),
-							);
+							return errAsync(new MonitorError("Unknown monitor command type"));
 						}
 					}
 				},

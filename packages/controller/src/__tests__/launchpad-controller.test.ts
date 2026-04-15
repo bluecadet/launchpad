@@ -10,12 +10,6 @@ import { describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
 
-declare module "@bluecadet/launchpad-utils/types" {
-	interface PluginsState {
-		[test: string]: any;
-	}
-}
-
 describe("LaunchpadController", () => {
 	const config = controllerConfigSchema.parse({ pidFile: "./pid", socketPath: "./socket" });
 
@@ -213,7 +207,7 @@ describe("LaunchpadController", () => {
 			await controller.registerPlugin(
 				definePlugin({
 					name: "test",
-					setup(ctx) {
+					setup(ctx: PluginContext<{ value: string }>) {
 						ctx.updateState(() => ({ value: "test-state" }));
 						return okAsync({});
 					},
@@ -221,10 +215,12 @@ describe("LaunchpadController", () => {
 			);
 
 			const state = controller.getState();
+			const pluginStates = state.plugins as Record<string, unknown>;
+			const testState = pluginStates.test as { value: string } | undefined;
 
 			expect(state.system).toBeDefined();
 			expect(state.plugins).toBeDefined();
-			expect(state.plugins.test).toEqual({ value: "test-state" });
+			expect(testState).toEqual({ value: "test-state" });
 		});
 	});
 
@@ -311,8 +307,10 @@ describe("LaunchpadController", () => {
 			await controller.executeCommand({ type: "content.fetch" });
 
 			const state = controller.getState();
+			const pluginStates = state.plugins as Record<string, unknown>;
+			const contentState = pluginStates.content as { isFetching: boolean } | undefined;
 
-			expect(state.plugins.content).toEqual({ isFetching: true });
+			expect(contentState).toEqual({ isFetching: true });
 			expect(events).toContain("command:start");
 			expect(events).toContain("command:success");
 		});

@@ -10,11 +10,15 @@ import type {
 	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
+import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 
 export type { CoreEvents } from "./core/command-dispatcher.js";
+
+import type { AllEvents } from "./all-events.js";
+import type { AllPluginsState } from "./all-plugin-state.js";
 
 import { createFileLogger } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
@@ -41,7 +45,7 @@ export class LaunchpadController {
 	private _mode: ControllerMode;
 	private _baseDir: string;
 	private _logger: Logger;
-	private _eventBus: EventBus;
+	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
 	private _plugins = new Map<string, InstantiatedPlugin>();
@@ -55,7 +59,7 @@ export class LaunchpadController {
 		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
-		this._eventBus = new EventBus();
+		this._eventBus = new EventBus<AllEvents>();
 		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
 		this._stateStore = new StateStore(this._mode);
 	}
@@ -228,14 +232,14 @@ export class LaunchpadController {
 	/**
 	 * Get the current state (readonly)
 	 */
-	getState() {
+	getState(): VersionedLaunchpadState<AllPluginsState> {
 		return this._stateStore.getState();
 	}
 
 	/**
 	 * Get the EventBus instance (useful for plugins)
 	 */
-	getEventBus(): EventBus {
+	getEventBus(): EventBus<AllEvents> {
 		return this._eventBus;
 	}
 

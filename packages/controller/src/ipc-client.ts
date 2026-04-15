@@ -7,9 +7,10 @@ import net from "node:net";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { LaunchpadEvents, LaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import type { AllEvents } from "./all-events.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "./errors.js";
 import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "./transports/ipc-transport.js";
 import { IPCSerializer } from "./utils/ipc-serializer.js";
@@ -22,7 +23,7 @@ type StateChangeHandler = (newState: LaunchpadState) => void;
 export class IPCClient {
 	private _socket: net.Socket | null = null;
 	private _buffer = "";
-	private _eventBus = new EventBus();
+	private _eventBus = new EventBus<AllEvents>();
 	private _pendingRequests = new Map<
 		string,
 		{
@@ -91,7 +92,7 @@ export class IPCClient {
 	 * Subscribe to an event with type-safe handler.
 	 * Events are emitted by the controller and streamed to all connected clients.
 	 */
-	on<K extends keyof LaunchpadEvents>(event: K, handler: (data: LaunchpadEvents[K]) => void): this {
+	on<K extends keyof AllEvents>(event: K, handler: (data: AllEvents[K]) => void): this {
 		this._eventBus.on(event, handler);
 		return this;
 	}
@@ -99,10 +100,7 @@ export class IPCClient {
 	/**
 	 * Unsubscribe from an event
 	 */
-	off<K extends keyof LaunchpadEvents>(
-		event: K,
-		handler: (data: LaunchpadEvents[K]) => void,
-	): this {
+	off<K extends keyof AllEvents>(event: K, handler: (data: AllEvents[K]) => void): this {
 		this._eventBus.off(event, handler);
 		return this;
 	}
@@ -110,10 +108,7 @@ export class IPCClient {
 	/**
 	 * Subscribe to an event once (auto-unsubscribes after first emission)
 	 */
-	once<K extends keyof LaunchpadEvents>(
-		event: K,
-		handler: (data: LaunchpadEvents[K]) => void,
-	): this {
+	once<K extends keyof AllEvents>(event: K, handler: (data: AllEvents[K]) => void): this {
 		this._eventBus.once(event, handler);
 		return this;
 	}
@@ -121,9 +116,7 @@ export class IPCClient {
 	/**
 	 * Subscribe to all events with a wildcard handler with full type safety
 	 */
-	onAny(
-		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
-	): this {
+	onAny(handler: <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => void): this {
 		this._eventBus.onAny(handler);
 		return this;
 	}
@@ -131,9 +124,7 @@ export class IPCClient {
 	/**
 	 * Unsubscribe a wildcard handler
 	 */
-	offAny(
-		handler: <K extends keyof LaunchpadEvents>(event: K, data: LaunchpadEvents[K]) => void,
-	): this {
+	offAny(handler: <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => void): this {
 		this._eventBus.offAny(handler);
 		return this;
 	}
@@ -319,7 +310,7 @@ export class IPCClient {
 
 				// Handle events (no id field)
 				if (message.type === "event") {
-					this._eventBus.emit(message.name as keyof LaunchpadEvents, message.data);
+					this._eventBus.emit(message.name, message.data);
 					continue;
 				}
 

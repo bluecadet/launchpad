@@ -1,5 +1,4 @@
 import { createServer } from "node:http";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
@@ -7,26 +6,23 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { defineEventHandler, toNodeListener } from "h3";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
-import type { DashboardCommand } from "./dashboard-commands.js";
+import { type DashboardCommand, dashboardCommandSchema } from "./dashboard-commands.js";
 import {
 	type DashboardConfig,
 	dashboardConfigSchema,
 	type ResolvedDashboardConfig,
 } from "./dashboard-config.js";
+import { DashboardContributionManager } from "./dashboard-contribution-manager.js";
 import type { DashboardPage } from "./dashboard-page.js";
 import type { DashboardPanel } from "./dashboard-panel.js";
 import { type DashboardState, DashboardStateManager } from "./dashboard-state.js";
-import { dashboardStatusSection } from "./dashboard-status-section.js";
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
 import { createLogPanel, LOG_PANEL_ID } from "./server/log-panel.js";
 import { SseManager } from "./server/sse-manager.js";
 import { collectAllPanels } from "./server/templates/page-template.js";
-
-const _require = createRequire(import.meta.url);
 
 function getRegistryPanels(registry: DashboardRegistry): DashboardPanel[] {
 	return registry.getPanels() as DashboardPanel[];
@@ -68,77 +64,6 @@ function validateDashboardConfig(config: DashboardConfig): Result<ResolvedDashbo
 	}
 
 	return ok(resolvedConfig);
-}
-
-type RouteKey = { path: string; method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" };
-
-type RegistrationHandle = {
-	panelIds: string[];
-	pageIds: string[];
-	scriptPaths: string[];
-	stylePaths: string[];
-	routeKeys: RouteKey[];
-};
-
-/**
- * Register user-configured panels, pages, and base assets.
- * Returns a mutable handle used to accumulate and later remove all contributions.
- */
-function registerDashboardContributions(
-	resolvedConfig: ResolvedDashboardConfig,
-	registry: DashboardRegistry,
-	statusRegistry: StatusRegistry,
-): RegistrationHandle {
-	statusRegistry.contributeStatusSection(dashboardStatusSection);
-
-	const panelIds = resolvedConfig.panels.map((p) => p.id);
-	const pageIds = resolvedConfig.pages.map((p) => p.id);
-
-	// ContributedPanel/ContributedPage use `unknown` params for generality; cast is safe here.
-	if (resolvedConfig.panels.length > 0) {
-		registry.contributePanel(
-			...(resolvedConfig.panels as Parameters<typeof registry.contributePanel>),
-		);
-	}
-	if (resolvedConfig.pages.length > 0) {
-		registry.contributePage(
-			...(resolvedConfig.pages as Parameters<typeof registry.contributePage>),
-		);
-	}
-
-	// Contribute base assets via file paths — asset routes are created automatically.
-	const stylePaths = [fileURLToPath(new URL("../static/dashboard.css", import.meta.url))];
-	const scriptPaths = [
-		_require.resolve("htmx.org/dist/htmx.min.js"),
-		_require.resolve("htmx-ext-sse/sse.js"),
-		fileURLToPath(new URL("../static/json-enc.js", import.meta.url)),
-		fileURLToPath(new URL("../static/relative-time.js", import.meta.url)),
-	];
-
-	for (const stylePath of stylePaths) {
-		registry.contributeStyle(stylePath);
-	}
-	for (const scriptPath of scriptPaths) {
-		registry.contributeScript(scriptPath, { defer: true });
-	}
-
-	return { panelIds, pageIds, scriptPaths, stylePaths, routeKeys: [] };
-}
-
-/**
- * Remove all contributions registered via the given handle.
- */
-function unregisterDashboardContributions(
-	handle: RegistrationHandle,
-	registry: DashboardRegistry,
-): void {
-	if (handle.panelIds.length > 0) registry.removePanel(...handle.panelIds);
-	if (handle.pageIds.length > 0) registry.removePage(...handle.pageIds);
-	if (handle.scriptPaths.length > 0) registry.removeScript(...handle.scriptPaths);
-	if (handle.stylePaths.length > 0) registry.removeStyle(...handle.stylePaths);
-	for (const { path, method } of handle.routeKeys) {
-		registry.removeRoute(path, method);
-	}
 }
 
 function startServer(
@@ -239,7 +164,6 @@ function createServerLifecycle(
 	ctx: PluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
-	registrationHandle: RegistrationHandle,
 	registry: DashboardRegistry,
 ) {
 	let activeServer: ReturnType<typeof createServer> | null = null;
@@ -270,7 +194,14 @@ function createServerLifecycle(
 	}
 
 	const executeCommand = (command: DashboardCommand): ResultAsync<void, Error> => {
-		switch (command.type) {
+		const parsed = dashboardCommandSchema.safeParse(command);
+		if (!parsed.success) {
+			return errAsync(new Error(`Invalid command: ${parsed.error.message}`));
+		}
+
+		const validCommand = parsed.data;
+
+		switch (validCommand.type) {
 			case "dashboard.start": {
 				if (activeServer) {
 					return errAsync(new Error("Dashboard server is already running"));
@@ -284,9 +215,7 @@ function createServerLifecycle(
 				return stopServer(server, ctx, stateManager);
 			}
 			default: {
-				return errAsync(
-					new Error(`Unknown dashboard command type: ${(command as DashboardCommand).type}`),
-				);
+				return errAsync(new Error(`Unknown dashboard command type: ${validCommand.type}`));
 			}
 		}
 	};
@@ -294,7 +223,6 @@ function createServerLifecycle(
 	const disconnect = (_reason: DisconnectReason): ResultAsync<void, Error> => {
 		unsubscribe?.();
 		stopStreams?.();
-		unregisterDashboardContributions(registrationHandle, registry);
 		const drainResult = ResultAsync.fromSafePromise(sseManager.closeAll());
 		if (!activeServer) return drainResult;
 		const server = activeServer;
@@ -326,13 +254,11 @@ export function dashboard(config: DashboardConfig) {
 			if (validationResult.isErr()) return errAsync(validationResult.error);
 			const resolvedConfig = validationResult.value;
 			const dashboardRegistry = ctx.dashboardRegistry;
-			const pluginStatusRegistry = ctx.statusRegistry;
-
-			const registrationHandle = registerDashboardContributions(
-				resolvedConfig,
+			const contributionManager = new DashboardContributionManager(
 				dashboardRegistry,
-				pluginStatusRegistry,
+				ctx.statusRegistry,
 			);
+			const registrationHandle = contributionManager.registerContributions(resolvedConfig);
 
 			if (resolvedConfig.logs !== false) {
 				const { panel, clear } = createLogPanel(ctx.eventBus, resolvedConfig.logs.maxEntries);
@@ -368,13 +294,15 @@ export function dashboard(config: DashboardConfig) {
 				ctx,
 				stateManager,
 				sseManager,
-				registrationHandle,
 				dashboardRegistry,
 			);
 
 			return lifecycle.start().map(() => ({
 				executeCommand: lifecycle.executeCommand,
-				disconnect: lifecycle.disconnect,
+				disconnect: (reason) => {
+					contributionManager.unregisterAll();
+					return lifecycle.disconnect(reason);
+				},
 			}));
 		},
 	});

@@ -96,6 +96,14 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 						controller.stop();
 					});
 
+					// Listen for shutdown events from IPC or plugins
+					controller.getEventBus().on("system:shutdown", ({ code }) => {
+						controller.stop().match(
+							() => process.exit(code ?? 0),
+							() => process.exit(1),
+						);
+					});
+
 					const plugins = config.plugins ?? [];
 
 					// Register all plugins in sequence, collecting startup commands

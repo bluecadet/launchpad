@@ -226,10 +226,6 @@ function shutdown(
 		.andTee(() => {
 			ctx.logger.info("...apps stopped ✋");
 			ctx.logger.info("...monitor shut down");
-
-			process.exit(
-				eventOrExitCode === undefined || Number.isNaN(+eventOrExitCode) ? 1 : +eventOrExitCode,
-			);
 		})
 		.mapErr((error) => {
 			ctx.logger.error("Unhandled exit exception:", error);

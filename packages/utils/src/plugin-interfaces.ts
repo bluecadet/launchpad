@@ -16,6 +16,14 @@
  * State management is controller-owned: plugins call `ctx.updateState()` at the top of `setup()`
  * to establish their initial state, and the controller lazily creates the underlying state store
  * on first call. The controller owns patch generation, versioning, and broadcasting.
+ *
+ * ## Error handling contract
+ *
+ * - Plugin methods **must** return `Result` / `ResultAsync` — never throw.
+ *   Thrown exceptions are considered bugs and will be logged as unhandled errors.
+ * - Library packages **must not** call `process.exit()`. Only the CLI entry
+ *   point (or the host application) may terminate the process.
+ * - Use `errAsync()` / `err()` from neverthrow for all error return paths.
  */
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";

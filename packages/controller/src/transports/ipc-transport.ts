@@ -12,10 +12,12 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { LaunchpadEvents, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, okAsync, ResultAsync } from "neverthrow";
+import type { AllEvents } from "../all-events.js";
+import type { AllPluginsState } from "../all-plugin-state.js";
 import {
 	CommandExecutionError,
 	IPCMessageError,
@@ -36,18 +38,18 @@ export type IPCMessage =
 	| { type: "execute-command"; id: string; data: unknown };
 
 export type IPCResponse =
-	| { id: string; type: "state"; data: VersionedLaunchpadState }
+	| { id: string; type: "state"; data: VersionedLaunchpadState<AllPluginsState> }
 	| { id: string; type: "ack" }
 	| { id: string; type: "result"; data: unknown }
 	| { id: string; type: "error"; error: Error };
 
 export type IPCEvent = {
-	[K in keyof LaunchpadEvents]: {
+	[K in keyof AllEvents]: {
 		type: "event";
 		name: K;
-		data: LaunchpadEvents[K];
+		data: AllEvents[K];
 	};
-}[keyof LaunchpadEvents];
+}[keyof AllEvents];
 
 export type IPCBroadcastMessage =
 	| IPCEvent
@@ -122,10 +124,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 				});
 
 				// Subscribe to EventBus for event streaming with type-safe handler
-				const handleEvent = <K extends keyof LaunchpadEvents>(
-					event: K,
-					data: LaunchpadEvents[K],
-				) => {
+				const handleEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
 					// Fully type-safe: event and data are correlated via the generic
 					const message = createIPCEvent(event, data);
 					const serialized = `${IPCSerializer.serialize(message)}\n`;
@@ -376,10 +375,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
  * Create a type-safe IPC event message
  * Helper function ensures the event name and data are correctly correlated
  */
-function createIPCEvent<K extends keyof LaunchpadEvents>(
-	name: K,
-	data: LaunchpadEvents[K],
-): IPCEvent {
+function createIPCEvent<K extends keyof AllEvents>(name: K, data: AllEvents[K]): IPCEvent {
 	return {
 		type: "event",
 		name,

@@ -53,7 +53,7 @@ export type SystemState = {
  * Complete Launchpad state structure.
  * This is an aggregation of controller state + plugin states.
  */
-export type LaunchpadState<TPlugins extends Record<string, unknown> = PluginsState> = {
+export type LaunchpadState<TPlugins extends object = PluginsState> = {
 	system: SystemState;
 	plugins: Partial<TPlugins>;
 };
@@ -62,7 +62,7 @@ export type LaunchpadState<TPlugins extends Record<string, unknown> = PluginsSta
  * Versioned state snapshot returned to clients.
  * Includes the state version number for detecting dropped patches.
  */
-export type VersionedLaunchpadState<TPlugins extends Record<string, unknown> = PluginsState> =
+export type VersionedLaunchpadState<TPlugins extends object = PluginsState> =
 	LaunchpadState<TPlugins> & {
 		/** Version number - incremented with each patch */
 		_version: number;

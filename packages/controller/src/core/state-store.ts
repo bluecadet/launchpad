@@ -2,6 +2,7 @@ import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-p
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 import type { SystemState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import type { Producer } from "immer";
+import type { AllPluginsState } from "../all-plugin-state.js";
 
 /**
  * StateStore aggregates state from all registered plugins.
@@ -65,7 +66,7 @@ export class StateStore {
 	/**
 	 * Get the complete aggregated state from all plugins
 	 */
-	getState(): VersionedLaunchpadState {
+	getState(): VersionedLaunchpadState<AllPluginsState> {
 		const pluginStates: Record<string, unknown> = {};
 
 		for (const [name, manager] of this._pluginManagers) {

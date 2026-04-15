@@ -1,5 +1,7 @@
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
@@ -9,6 +11,8 @@ type Cb = (...args: any[]) => void;
 
 export type MutableContext = {
 	-readonly [K in keyof PluginContext]: PluginContext[K];
+} & {
+	eventBus: ReturnType<typeof createMockEventBus>;
 };
 
 export const createMockSocket = () => {
@@ -42,12 +46,14 @@ export function createTestIPCTransport() {
 	const context: MutableContext = {
 		cwd: "/",
 		logger: createMockLogger(),
-		eventBus: createMockEventBus() as any,
+		eventBus: createMockEventBus(),
 		abortSignal: abortController.signal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync({ result: "success" })),
-		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" } }),
+		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" }, plugins: {}, _version: 0 }),
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
 		updateState: vi.fn(),
+		dashboardRegistry: new DashboardRegistry(),
+		statusRegistry: new StatusRegistry(),
 	};
 
 	const transport = createIPCTransport({ socketPath: "/test/socket" });

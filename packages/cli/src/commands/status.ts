@@ -2,7 +2,10 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
-import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
+import {
+	type ContributedStatusSection,
+	StatusRegistry,
+} from "@bluecadet/launchpad-utils/status-registry";
 import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { okAsync, ResultAsync } from "neverthrow";
@@ -11,6 +14,9 @@ import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
 import { withDaemon } from "../utils/controller-execution.js";
 import { onTerminate } from "../utils/on-terminate.js";
+
+const watchMessage = chalk.dim("Watching for status changes... (press Ctrl+C to exit)");
+const statusRegistry = await createStatusRegistry();
 
 export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 	return loadConfigAndEnv(argv)
@@ -22,18 +28,12 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 						return okAsync(state);
 					}
 
-					// Watch mode
-					const str = stateToString(state);
-					cliLogger.fixed(
-						`${str}\n${chalk.dim("Watching for status changes... (press Ctrl+C to exit)")}`,
-					);
+					cliLogger.fixed(`${stateToString(state)}\n${watchMessage}`);
 
 					client.onStateChange((newState) => {
-						const newStr = stateToString(newState);
-						cliLogger.fixed(
-							`${newStr}\n${chalk.dim("Watching for status changes... (press Ctrl+C to exit)")}`,
-						);
+						cliLogger.fixed(`${stateToString(newState)}\n${watchMessage}`);
 					});
+
 					const neverResolve = new Promise<void>((resolve) => {
 						// resolve on sigint / sigterm
 						onTerminate(() => {
@@ -46,6 +46,49 @@ export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 		})
 		.orElse((error) => handleFatalError(error));
 }
+
+async function loadCliStatusSections(): Promise<ContributedStatusSection[]> {
+	const loadedSections = await Promise.all([
+		loadOptionalStatusSection(() =>
+			import("@bluecadet/launchpad-content").then((module) => module.contentStatusSection),
+		),
+		loadOptionalStatusSection(() =>
+			import("@bluecadet/launchpad-monitor").then((module) => module.monitorStatusSection),
+		),
+		loadOptionalStatusSection(() =>
+			import("@bluecadet/launchpad-dashboard").then((module) => module.dashboardStatusSection),
+		),
+	]);
+
+	return loadedSections.flatMap((section) => (section ? [section] : []));
+}
+
+async function loadOptionalStatusSection(
+	loader: () => Promise<unknown>,
+): Promise<ContributedStatusSection | null> {
+	try {
+		const section = await loader();
+		return isContributedStatusSection(section) ? section : null;
+	} catch {
+		return null;
+	}
+}
+
+function isContributedStatusSection(value: unknown): value is ContributedStatusSection {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"render" in value &&
+		typeof value.render === "function"
+	);
+}
+
+async function createStatusRegistry(): Promise<StatusRegistry> {
+	const localStatusRegistry = new StatusRegistry();
+	localStatusRegistry.contributeStatusSection(...(await loadCliStatusSections()));
+	return localStatusRegistry;
+}
+
 function stateToString(state: LaunchpadState): string {
 	let output = `${chalk.bold("Launchpad Status:")}\n`;
 

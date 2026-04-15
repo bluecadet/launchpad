@@ -1,12 +1,10 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
 	type BaseCommand,
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -238,7 +236,6 @@ function shutdown(
  * Use this in your launchpad config's plugins array.
  */
 export function monitor(config: MonitorConfig) {
-	statusRegistry.contributeStatusSection(monitorStatusSection);
 	return definePlugin({
 		name: "monitor",
 		startupCommands: [
@@ -246,13 +243,14 @@ export function monitor(config: MonitorConfig) {
 			{ type: "monitor.start" },
 		] satisfies BaseCommand[],
 		setup(ctx: PluginContext<MonitorState>) {
+			ctx.statusRegistry.contributeStatusSection(monitorStatusSection);
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
 			}
 			const resolvedConfig = configResult.data;
 
-			registry.contributePanel(monitorPanel);
+			ctx.dashboardRegistry.contributePanel(monitorPanel);
 
 			// initialize persistent services
 			const processManager = new ProcessManager(ctx.logger);

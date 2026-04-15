@@ -1,11 +1,9 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import { registry } from "@bluecadet/launchpad-utils/panel-registry";
 import {
 	type BaseCommand,
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import type { ContentCommand } from "./content-commands.js";
 import {
@@ -241,11 +239,11 @@ function clear(
  * Use this in your launchpad config's plugins array.
  */
 export function content(config: ContentConfig) {
-	statusRegistry.contributeStatusSection(contentStatusSection);
 	return definePlugin({
 		name: "content",
 		startupCommands: [{ type: "content.fetch" }] satisfies BaseCommand[],
 		setup(ctx: PluginContext<ContentState>) {
+			ctx.statusRegistry.contributeStatusSection(contentStatusSection);
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
 					if (resolvedConfig.sources.length === 0) {
@@ -268,7 +266,7 @@ export function content(config: ContentConfig) {
 
 					const sourceIds = resolvedConfig.sources.map((s) => s.id);
 					stateManager.initializeSources(sourceIds);
-					registry.contributePanel(contentPanel);
+					ctx.dashboardRegistry.contributePanel(contentPanel);
 					if (sourceIds.length > 0) {
 						ctx.logger.info(`Initialized ${sourceIds.length} source(s)`);
 					}

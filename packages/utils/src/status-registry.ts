@@ -30,5 +30,8 @@ export class StatusRegistry {
 	}
 }
 
-/** The shared global registry instance. */
+/**
+ * @deprecated Use `ctx.statusRegistry` from PluginContext instead.
+ * This global singleton will be removed in a future version.
+ */
 export const statusRegistry = new StatusRegistry();

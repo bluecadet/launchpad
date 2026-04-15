@@ -117,4 +117,18 @@ describe("dashboard() setup validation", () => {
 		await instance.disconnect?.({ type: "manual" });
 		expect(unsubscribe).toHaveBeenCalledOnce();
 	});
+
+	it("rejects malformed dashboard commands during runtime validation", async () => {
+		const plugin = dashboard({ port: 3000 });
+		const result = await plugin.setup(makeMockCtx());
+		const instance = result._unsafeUnwrap();
+
+		const commandResult = await instance.executeCommand?.({
+			type: "dashboard.start",
+			unexpected: true,
+		} as unknown as Parameters<NonNullable<typeof instance.executeCommand>>[0]);
+
+		expect(commandResult).toBeErr();
+		expect(commandResult?._unsafeUnwrapErr().message).toContain("Invalid command:");
+	});
 });

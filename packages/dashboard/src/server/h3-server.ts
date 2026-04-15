@@ -184,6 +184,7 @@ export function createH3App(deps: ServerDeps) {
 		"/commands",
 		defineEventHandler(async (event) => {
 			const body = await readBody(event);
+			// Per-plugin Zod schemas perform detailed command payload validation after dispatch.
 			if (!body || typeof body !== "object" || typeof body.type !== "string") {
 				event.node.res.statusCode = 400;
 				return { error: "Invalid command: body must be a JSON object with a 'type' field" };
@@ -199,7 +200,7 @@ export function createH3App(deps: ServerDeps) {
 		}),
 	);
 
-	// Register routes contributed by plugins via registry.contributeRoute().
+	// Register routes contributed through the injected route provider.
 	for (const route of getRoutes()) {
 		const method = route.method.toLowerCase() as Lowercase<typeof route.method>;
 		router[method](route.path, defineEventHandler(route.handler));

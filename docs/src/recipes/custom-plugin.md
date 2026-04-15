@@ -220,6 +220,8 @@ export const dbPlugin = definePlugin({
 3. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
 4. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
 5. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
+6. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
+7. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
 
 ## Next Steps
 

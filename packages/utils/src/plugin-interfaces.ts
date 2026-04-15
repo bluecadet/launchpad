@@ -110,10 +110,6 @@ export interface CommandDescriptor<TCommand extends BaseCommand = BaseCommand> {
 export interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
 	/** Explicit controller-owned command registrations for this plugin. */
 	readonly commands?: readonly CommandDescriptor<TCommand>[];
-	/** Optional lifecycle metadata that remains controller-visible and explicit. */
-	readonly lifecycle?: {
-		readonly startupCommands?: readonly TCommand[];
-	};
 }
 
 /**
@@ -207,7 +203,7 @@ export interface PluginConfig<
 	/**
 	 * Explicit plugin metadata consumed by the controller.
 	 *
-	 * This is the preferred path for command registration and lifecycle metadata.
+	 * This is the preferred path for command registration.
 	 */
 	readonly manifest?: PluginManifest<TCommand>;
 	/**

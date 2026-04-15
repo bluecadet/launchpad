@@ -1,4 +1,3 @@
-import path from "node:path";
 import { vol } from "memfs";
 import { afterEach, describe, expect, it } from "vitest";
 import { getRequiredPackages } from "../generators/index.js";
@@ -50,6 +49,8 @@ describe("applyGenerators", () => {
 		expect(config).toContain("defineConfig");
 		expect(config).toContain("jsonSource");
 		expect(config).toContain("monitor(");
+		expect(config).toContain("workflows");
+		expect(config).not.toContain("monitor.disconnect");
 	});
 
 	it("merges into existing package.json without overwriting", async () => {
@@ -71,7 +72,7 @@ describe("applyGenerators", () => {
 		};
 		expect(pkg.name).toBe("existing-project");
 		expect(pkg.version).toBe("2.0.0");
-		expect(pkg.scripts["build"]).toBe("tsc");
+		expect(pkg.scripts.build).toBe("tsc");
 	});
 
 	it("skips existing launchpad.config.ts without overwriting", async () => {

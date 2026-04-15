@@ -86,32 +86,21 @@ export const greetPlugin = definePlugin({
 });
 ```
 
-### Dispatching Commands on Startup
+### Declaring Startup and Shutdown Workflows
 
-Use `manifest.lifecycle.startupCommands` to automatically dispatch commands after all plugins are registered:
+Plugins should declare commands, while hosts decide when those commands run:
 
 ```typescript
-export const greetPlugin = definePlugin({
-  name: 'greet-plugin',
-  manifest: {
-    commands: [{ id: 'greet-plugin.greet', parser: greetCommandSchema }],
-    lifecycle: {
-      startupCommands: [{ type: 'greet-plugin.greet', name: 'World' }],
-    },
+export default defineConfig({
+  plugins: [greetPlugin],
+  workflows: {
+    start: [{ type: 'greet-plugin.greet', name: 'World' }],
   },
-  setup(ctx) {
-    return okAsync({
-      executeCommand(command: GreetCommand) {
-        // ...
-        return okAsync(undefined);
-      }
-    });
-  }
 });
 ```
 
 > [!IMPORTANT]
-> Launchpad no longer infers command ownership from the command type prefix, and top-level `startupCommands` are no longer supported. Command registration and startup behavior must be declared in the plugin manifest.
+> Launchpad no longer infers command ownership from the command type prefix. Plugins declare commands in `manifest.commands`; hosts declare orchestration in `workflows` and hand it to the controller.
 
 ## Managing State
 
@@ -256,7 +245,7 @@ export const dbPlugin = definePlugin({
 
 1. **Choose a unique name**: Plugin names appear in logs and state aggregation
 2. **Declare handled commands in `manifest.commands`**: command execution is explicit and controller-owned
-3. **Use `manifest.lifecycle.startupCommands` for startup behavior**: startup flows should be visible and intentional
+3. **Keep startup behavior in host workflows**: plugins expose commands, and hosts decide when to run them
 4. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
 5. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
 6. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
@@ -269,7 +258,7 @@ export const dbPlugin = definePlugin({
 If you are updating an older plugin:
 
 - move handled commands into `manifest.commands`
-- move any automatic startup behavior into `manifest.lifecycle.startupCommands`
+- move any automatic startup behavior into host-level `workflows`
 - stop relying on implicit prefix-based routing such as assuming `my-plugin.*` commands will be dispatched automatically
 - ensure any plugin that declares `manifest.commands` returns an `executeCommand()` implementation from `setup()`
 

@@ -244,9 +244,6 @@ export function monitor(config: MonitorConfig) {
 				{ id: "monitor.restart", parser: monitorCommandSchema },
 				{ id: "monitor.shutdown", parser: monitorCommandSchema },
 			],
-			lifecycle: {
-				startupCommands: [{ type: "monitor.connect" }, { type: "monitor.start" }],
-			},
 		},
 		setup(ctx: PluginContext<MonitorState>) {
 			ctx.statusRegistry.contributeStatusSection(monitorStatusSection);
@@ -338,7 +335,7 @@ export function monitor(config: MonitorConfig) {
 					}
 				},
 				disconnect() {
-					return shutdown(actionCtx);
+					return disconnect(actionCtx);
 				},
 			});
 		},

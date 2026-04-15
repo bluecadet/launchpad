@@ -244,9 +244,6 @@ export function content(config: ContentConfig) {
 				{ id: "content.backup", parser: contentCommandSchema },
 				{ id: "content.restore", parser: contentCommandSchema },
 			],
-			lifecycle: {
-				startupCommands: [{ type: "content.fetch" }],
-			},
 		},
 		setup(ctx: PluginContext<ContentState>) {
 			ctx.statusRegistry.contributeStatusSection(contentStatusSection);

@@ -35,6 +35,8 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("monitor(");
 		expect(result).toContain("name: 'my-app'");
 		expect(result).toContain("script: './my-app.exe'");
+		expect(result).toContain("start: ['monitor.connect', 'monitor.start']");
+		expect(result).not.toContain("stop:");
 		expect(result).not.toContain("content(");
 	});
 
@@ -70,6 +72,7 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("from '@bluecadet/launchpad-content/launchpad-content'");
 		expect(result).toContain("from '@bluecadet/launchpad-content/sources'");
 		expect(result).toContain("jsonSource(");
+		expect(result).toContain("start: ['content.fetch']");
 		expect(result).not.toContain("monitor(");
 	});
 
@@ -83,6 +86,8 @@ describe("generateLaunchpadConfig", () => {
 		});
 		expect(result).toContain("content(");
 		expect(result).toContain("monitor(");
+		expect(result).toContain("start: ['content.fetch', 'monitor.connect', 'monitor.start']");
+		expect(result).not.toContain("stop:");
 	});
 
 	it("includes all selected sources in a single barrel import", () => {

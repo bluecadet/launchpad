@@ -1,4 +1,5 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
@@ -85,6 +86,10 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
+/**
+ * Create a mock plugin context with host-aware extensions (dashboard + status registries).
+ * Use this for plugins that need dashboard/status contributions.
+ */
 export function createMockPluginCtx(cwd = "/") {
 	return {
 		logger: createMockLogger(),
@@ -97,6 +102,23 @@ export function createMockPluginCtx(cwd = "/") {
 		updateState: vi.fn(),
 		dashboardRegistry: new DashboardRegistry(),
 		statusRegistry: new StatusRegistry(),
+	} satisfies HostAwarePluginContext;
+}
+
+/**
+ * Create a minimal mock plugin context without host-specific registries.
+ * Use this for plugins that only need the base kernel context.
+ */
+export function createMockBasePluginCtx(cwd = "/") {
+	return {
+		logger: createMockLogger(),
+		eventBus: createMockEventBus(),
+		cwd,
+		abortSignal: new AbortController().signal as AbortSignal,
+		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
+		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
+		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
+		updateState: vi.fn(),
 	} satisfies PluginContext;
 }
 

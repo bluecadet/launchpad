@@ -1,5 +1,6 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
+import { definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
@@ -26,7 +27,7 @@ import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 import { createPathsHelper } from "./utils/paths-helper.js";
 
-type ContentActionContext = PluginContext & {
+type ContentActionContext = HostAwarePluginContext & {
 	stateManager: ContentStateManager;
 	sourceRegistry: Map<string, ContentSource>;
 	resolvedConfig: ResolvedContentConfig;
@@ -245,7 +246,7 @@ export function content(config: ContentConfig) {
 				{ id: "content.restore", parser: contentCommandSchema },
 			],
 		},
-		setup(ctx: PluginContext<ContentState>) {
+		setup(ctx: HostAwarePluginContext<ContentState>) {
 			ctx.statusRegistry.contributeStatusSection(contentStatusSection);
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {

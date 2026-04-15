@@ -1,11 +1,8 @@
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
-import {
-	type DisconnectReason,
-	definePlugin,
-	type PluginContext,
-} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { type DisconnectReason, definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { defineEventHandler, toNodeListener } from "h3";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import { type DashboardCommand, dashboardCommandSchema } from "./dashboard-commands.js";
@@ -68,7 +65,7 @@ function validateDashboardConfig(config: DashboardConfig): Result<ResolvedDashbo
 
 function startServer(
 	config: ResolvedDashboardConfig,
-	ctx: PluginContext<DashboardState>,
+	ctx: HostAwarePluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
 	registry: DashboardRegistry,
@@ -107,7 +104,7 @@ function startServer(
 
 function stopServer(
 	server: ReturnType<typeof createServer>,
-	ctx: PluginContext<DashboardState>,
+	ctx: HostAwarePluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 ): ResultAsync<void, Error> {
 	return ResultAsync.fromPromise(
@@ -135,7 +132,7 @@ function stopServer(
 function setupPanelStreams(
 	panels: DashboardPanel[],
 	sseManager: SseManager,
-	logger: PluginContext<DashboardState>["logger"],
+	logger: HostAwarePluginContext<DashboardState>["logger"],
 ): () => void {
 	const cleanups: Array<() => void> = [];
 	for (const panel of panels) {
@@ -161,7 +158,7 @@ function setupPanelStreams(
  */
 function createServerLifecycle(
 	resolvedConfig: ResolvedDashboardConfig,
-	ctx: PluginContext<DashboardState>,
+	ctx: HostAwarePluginContext<DashboardState>,
 	stateManager: DashboardStateManager,
 	sseManager: SseManager,
 	registry: DashboardRegistry,
@@ -255,7 +252,7 @@ export function dashboard(config: DashboardConfig) {
 				{ id: "dashboard.stop", parser: dashboardCommandSchema },
 			],
 		},
-		setup(ctx: PluginContext<DashboardState>) {
+		setup(ctx: HostAwarePluginContext<DashboardState>) {
 			const validationResult = validateDashboardConfig(config);
 			if (validationResult.isErr()) return errAsync(validationResult.error);
 			const resolvedConfig = validationResult.value;

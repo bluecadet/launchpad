@@ -1,5 +1,6 @@
 import path from "node:path";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type {
@@ -8,7 +9,6 @@ import type {
 	DisconnectReason,
 	InstantiatedPlugin,
 	PluginConfig,
-	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
@@ -237,7 +237,7 @@ export class LaunchpadController {
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
-	): PluginContext<unknown> {
+	): HostAwarePluginContext<unknown> {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),

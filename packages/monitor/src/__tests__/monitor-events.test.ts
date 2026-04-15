@@ -51,7 +51,7 @@ describe("Monitor Event Emissions", () => {
 		it("should emit monitor:disconnect:start when disconnecting", async () => {
 			const { monitor, eventBus } = await createTestMonitor();
 
-			await monitor.disconnect();
+			await monitor.disconnect({ type: "manual" });
 
 			const startEvents = eventBus.getEventsOfType("monitor:disconnect:start");
 			expect(startEvents).toHaveLength(1);
@@ -61,7 +61,7 @@ describe("Monitor Event Emissions", () => {
 		it("should emit monitor:disconnect:done on successful disconnection", async () => {
 			const { monitor, eventBus } = await createTestMonitor();
 
-			await monitor.disconnect();
+			await monitor.disconnect({ type: "manual" });
 
 			const doneEvents = eventBus.getEventsOfType("monitor:disconnect:done");
 			expect(doneEvents).toHaveLength(1);

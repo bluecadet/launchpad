@@ -1,5 +1,5 @@
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
-import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,7 +14,7 @@ vi.mock("node:http", () => ({
 import type { DashboardState } from "../dashboard-state.js";
 import { dashboard } from "../launchpad-dashboard.js";
 
-function makeMockCtx(): PluginContext<DashboardState> {
+function makeMockCtx(): HostAwarePluginContext<DashboardState> {
 	return {
 		eventBus: {
 			emit: vi.fn(),
@@ -26,7 +26,7 @@ function makeMockCtx(): PluginContext<DashboardState> {
 			once: vi.fn(),
 			removeAllListeners: vi.fn(),
 			listenerCount: vi.fn(),
-		} as unknown as PluginContext<DashboardState>["eventBus"],
+		} as unknown as HostAwarePluginContext<DashboardState>["eventBus"],
 		logger: {
 			info: vi.fn(),
 			warn: vi.fn(),
@@ -34,7 +34,7 @@ function makeMockCtx(): PluginContext<DashboardState> {
 			verbose: vi.fn(),
 			debug: vi.fn(),
 			child: vi.fn(),
-		} as unknown as PluginContext<DashboardState>["logger"],
+		} as unknown as HostAwarePluginContext<DashboardState>["logger"],
 		abortSignal: new AbortController().signal,
 		cwd: "/tmp",
 		dispatchCommand: vi.fn(),

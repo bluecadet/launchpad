@@ -28,9 +28,7 @@
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
-import type { DashboardRegistry } from "./panel-registry.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
-import type { StatusRegistry } from "./status-registry.js";
 import type { VersionedLaunchpadState } from "./types.js";
 
 export type DisconnectReason =
@@ -166,10 +164,6 @@ export interface PluginContext<TState = unknown> {
 	 * mutates the draft. The controller lazily creates the state manager on first call.
 	 */
 	readonly updateState: (producer: (draft: TState) => void) => void;
-	/** Dashboard contribution registry for registering panels, pages, scripts, styles, and routes. */
-	readonly dashboardRegistry: DashboardRegistry;
-	/** Status section registry for contributing CLI status renderers. */
-	readonly statusRegistry: StatusRegistry;
 }
 
 /**

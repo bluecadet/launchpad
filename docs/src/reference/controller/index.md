@@ -193,9 +193,10 @@ Subsequent `launchpad` commands (content, monitor, status) detect the running co
 The controller uses TypeScript declaration merging to provide type-safe events without circular dependencies:
 
 ```typescript
-// Each subsystem declares its events
+// The controller declares system events
 declare module '@bluecadet/launchpad-utils' {
   interface LaunchpadEvents {
+    'system:shutdown': { code?: number; signal?: string };
     'content:fetch:start': { timestamp: Date };
     'monitor:app:started': { appName: string; pid: number };
   }
@@ -208,7 +209,8 @@ See the [Events documentation](./events.md) for more details on the type-safe ev
 
 The controller uses `neverthrow` for robust error handling:
 
-- Type-safe error management
-- Clear error boundaries
-- Graceful failure recovery
-- Error event emission
+- All plugin methods return `Result` / `ResultAsync` — they must never throw
+- Library packages must not call `process.exit()` — only the CLI entry point may terminate the process
+- Use `errAsync()` / `err()` from neverthrow for all error return paths
+- Thrown exceptions are considered bugs and will be logged as unhandled errors
+- The `system:shutdown` event signals process termination intent — the host process listens and exits

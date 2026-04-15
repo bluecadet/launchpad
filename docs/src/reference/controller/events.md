@@ -49,7 +49,7 @@ Example: `content:fetch:start`, `monitor:app:started`
 These events are emitted by the controller itself.
 
 ### `system:shutdown`
-Emitted when the system is shutting down.
+Signals that the process should terminate. Emitted by the IPC transport on receiving a shutdown command. The CLI entry point listens for this and calls `process.exit()`.
 
 **Payload:**
 ```typescript

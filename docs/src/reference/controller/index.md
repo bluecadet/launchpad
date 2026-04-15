@@ -112,6 +112,8 @@ interface PluginContext<TState = unknown> {
   updateState: (producer: (draft: TState) => void) => void;
   getGlobalState: () => VersionedLaunchpadState;
   onGlobalStatePatch: (handler) => () => void;
+  dashboardRegistry: DashboardRegistry;
+  statusRegistry: StatusRegistry;
 }
 ```
 
@@ -146,6 +148,10 @@ definePlugin({
 ```
 
 To read the full aggregated state (all plugins + system), use `ctx.getGlobalState()`. Prefer `ctx.eventBus` or `ctx.dispatchCommand` for cross-plugin communication over polling global state.
+
+### Dashboard Contributions
+
+Plugins register UI contributions (panels, pages, scripts, styles, routes) via `ctx.dashboardRegistry` and CLI status sections via `ctx.statusRegistry` during `setup()`. These registries are controller-owned instances — each controller maintains its own isolated registry, enabling clean testing and multi-instance scenarios.
 
 ### Disconnectable
 Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.

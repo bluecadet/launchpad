@@ -1,3 +1,8 @@
+import type {
+	ContributedRoute,
+	ContributedScript,
+	ContributedStyle,
+} from "@bluecadet/launchpad-utils/panel-registry";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { toWebHandler } from "h3";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
@@ -6,27 +11,6 @@ import { definePage } from "../../dashboard-page.js";
 import { definePanel } from "../../dashboard-panel.js";
 import { createH3App, type ServerDeps } from "../h3-server.js";
 import { SseManager } from "../sse-manager.js";
-
-vi.mock("@bluecadet/launchpad-utils/panel-registry", () => ({
-	registry: {
-		getScripts: vi.fn().mockReturnValue([]),
-		getStyles: vi.fn().mockReturnValue([]),
-		getPanels: vi.fn().mockReturnValue([]),
-		getPages: vi.fn().mockReturnValue([]),
-		getRoutes: vi.fn().mockReturnValue([]),
-		contributePanel: vi.fn(),
-		contributePage: vi.fn(),
-		contributeScript: vi.fn(),
-		contributeStyle: vi.fn(),
-		contributeRoute: vi.fn(),
-		removePanel: vi.fn(),
-		removePage: vi.fn(),
-		removeScript: vi.fn(),
-		removeStyle: vi.fn(),
-		removeRoute: vi.fn(),
-		reset: vi.fn(),
-	},
-}));
 
 const mockState: VersionedLaunchpadState = {
 	system: { startTime: new Date(), mode: "task" },
@@ -47,6 +31,10 @@ const testPage = definePage({
 });
 
 function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
+	const scripts: readonly ContributedScript[] = [];
+	const styles: readonly ContributedStyle[] = [];
+	const routes: readonly ContributedRoute[] = [];
+
 	return {
 		getPanels: () => [testPanel],
 		getPages: () => [testPage],
@@ -55,6 +43,9 @@ function makeDeps(overrides: Partial<ServerDeps> = {}): ServerDeps {
 			command: unknown,
 		) => ResultAsync<unknown, Error>,
 		sseManager: new SseManager(),
+		getScripts: () => scripts,
+		getStyles: () => styles,
+		getRoutes: () => routes,
 		...overrides,
 	};
 }
@@ -141,6 +132,26 @@ describe("GET /panels/:id", () => {
 	});
 });
 
+describe("GET /assets/**", () => {
+	it("returns 404 when contributed asset is missing", async () => {
+		const fetch = createFetch();
+		const res = await fetch("/assets/missing.js");
+		expect(res.status).toBe(404);
+	});
+});
+
+describe("layout assets", () => {
+	it("passes contributed scripts and styles to the layout", async () => {
+		const fetch = createFetch({
+			getScripts: () => [{ filePath: "/tmp/test.js", url: "/assets/test-script.js", defer: true }],
+			getStyles: () => [{ filePath: "/tmp/test.css", url: "/assets/test-style.css" }],
+		});
+		const body = await (await fetch("/")).text();
+		expect(body).toContain('<script src="/assets/test-script.js" defer></script>');
+		expect(body).toContain('<link rel="stylesheet" href="/assets/test-style.css">');
+	});
+});
+
 describe("POST /commands", () => {
 	it("dispatches a valid command and returns ok", async () => {
 		const dispatchCommand = vi.fn().mockReturnValue(okAsync(undefined));
@@ -177,5 +188,22 @@ describe("POST /commands", () => {
 		expect(res.status).toBe(500);
 		const json = (await res.json()) as { error: string };
 		expect(json.error).toContain("dispatch failed");
+	});
+});
+
+describe("contributed routes", () => {
+	it("registers routes from deps", async () => {
+		const fetch = createFetch({
+			getRoutes: () => [
+				{
+					method: "GET",
+					path: "/custom-route",
+					handler: () => "custom response",
+				},
+			],
+		});
+		const res = await fetch("/custom-route");
+		expect(res.status).toBe(200);
+		expect(await res.text()).toContain("custom response");
 	});
 });

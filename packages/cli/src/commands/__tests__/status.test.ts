@@ -15,13 +15,27 @@ vi.mock("../../utils/cli-logger.js", async () => ({
 vi.mock("../../utils/on-terminate.js", () => ({
 	onTerminate: vi.fn(),
 }));
+vi.mock("@bluecadet/launchpad-dashboard", () => ({
+	dashboardStatusSection: {
+		order: 30,
+		render: (state: {
+			plugins: { dashboard?: { host: string; port: number; isRunning: boolean } };
+		}) => {
+			const dashboard = state.plugins.dashboard;
+			if (!dashboard) {
+				return null;
+			}
 
-import { contentStatusSection } from "@bluecadet/launchpad-content";
+			return dashboard.isRunning
+				? `Dashboard:\n  Status: Running\n  URL: http://${dashboard.host}:${dashboard.port}`
+				: "Dashboard:\n  Status: Stopped";
+		},
+	},
+}));
+
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
-import { monitorStatusSection } from "@bluecadet/launchpad-monitor";
 import { createEmptyState, createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { statusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { errAsync, okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { cliLogger } from "../../utils/cli-logger.js";
@@ -36,9 +50,6 @@ const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
 describe("status", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		statusRegistry.reset();
-		statusRegistry.contributeStatusSection(monitorStatusSection);
-		statusRegistry.contributeStatusSection(contentStatusSection);
 		vi.mocked(loadConfigAndEnv).mockReturnValue(okAsync({ dir: "/test", config: mockConfig }));
 		vi.mocked(handleFatalError).mockImplementation(() => {
 			throw new Error("fatal");
@@ -154,6 +165,7 @@ describe("status", () => {
 			system: { mode: "task", startTime: new Date(), version: "1" },
 		});
 		stateChangeCb?.(updatedState);
+		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		// fixed called once for initial render, once for the state change callback
 		expect(vi.mocked(cliLogger.fixed)).toHaveBeenCalledTimes(2);
@@ -227,5 +239,28 @@ describe("status", () => {
 		expect(output).toContain("my-source");
 		expect(output).toContain("fetch timed out");
 		expect(output).toContain("restored from backup");
+	});
+
+	it("state with dashboard plugin — output includes dashboard section", async () => {
+		const mockClient = createMockIPCClient();
+		const state = createEmptyState({
+			plugins: {
+				dashboard: {
+					host: "127.0.0.1",
+					isRunning: true,
+					port: 3000,
+				},
+			},
+		});
+		mockClient.queryState.mockReturnValue(okAsync(state));
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({});
+
+		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
+		expect(output).toContain("Dashboard:");
+		expect(output).toContain("http://127.0.0.1:3000");
 	});
 });

@@ -13,6 +13,9 @@ import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
+
+export type { CoreEvents } from "./core/command-dispatcher.js";
+
 import { createFileLogger } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";

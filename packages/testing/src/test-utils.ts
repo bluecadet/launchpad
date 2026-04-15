@@ -1,5 +1,7 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
@@ -93,6 +95,8 @@ export function createMockPluginCtx(cwd = "/") {
 		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
 		updateState: vi.fn(),
+		dashboardRegistry: new DashboardRegistry(),
+		statusRegistry: new StatusRegistry(),
 	} satisfies PluginContext;
 }
 

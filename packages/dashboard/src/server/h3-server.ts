@@ -1,6 +1,10 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { registry } from "@bluecadet/launchpad-utils/panel-registry";
+import type {
+	ContributedRoute,
+	ContributedScript,
+	ContributedStyle,
+} from "@bluecadet/launchpad-utils/panel-registry";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import {
@@ -32,12 +36,19 @@ export type ServerDeps = {
 	getState: () => VersionedLaunchpadState;
 	dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
 	sseManager: SseManager;
+	getScripts: () => readonly ContributedScript[];
+	getStyles: () => readonly ContributedStyle[];
+	getRoutes: () => readonly ContributedRoute[];
 };
 
-function resolveAssetFile(id: string): { filePath: string; type: string } | undefined {
-	const script = registry.getScripts().find((s) => s.url === id);
+function resolveAssetFile(
+	id: string,
+	scripts: readonly ContributedScript[],
+	styles: readonly ContributedStyle[],
+): { filePath: string; type: string } | undefined {
+	const script = scripts.find((s) => s.url === id);
 	if (script) return { filePath: script.filePath, type: "application/javascript; charset=utf-8" };
-	const style = registry.getStyles().find((s) => s.url === id);
+	const style = styles.find((s) => s.url === id);
 	if (style) return { filePath: style.filePath, type: "text/css; charset=utf-8" };
 	return undefined;
 }
@@ -46,7 +57,16 @@ function resolveAssetFile(id: string): { filePath: string; type: string } | unde
  * Build the h3 app with all dashboard routes.
  */
 export function createH3App(deps: ServerDeps) {
-	const { getPanels, getPages, getState, dispatchCommand, sseManager } = deps;
+	const {
+		getPanels,
+		getPages,
+		getState,
+		dispatchCommand,
+		sseManager,
+		getScripts,
+		getStyles,
+		getRoutes,
+	} = deps;
 
 	const app = createApp();
 	const router = createRouter();
@@ -57,14 +77,14 @@ export function createH3App(deps: ServerDeps) {
 		defineEventHandler((event) => {
 			return serveStatic(event, {
 				getMeta: async (id) => {
-					const asset = resolveAssetFile(id);
+					const asset = resolveAssetFile(id, getScripts(), getStyles());
 					if (!asset) return undefined;
 					const s = await stat(asset.filePath).catch(() => null);
 					if (!s) return undefined;
 					return { type: asset.type, size: s.size, mtime: s.mtimeMs };
 				},
 				getContents: (id) => {
-					const asset = resolveAssetFile(id);
+					const asset = resolveAssetFile(id, getScripts(), getStyles());
 					if (!asset) return undefined;
 					return createReadStream(asset.filePath);
 				},
@@ -81,7 +101,7 @@ export function createH3App(deps: ServerDeps) {
 			setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 			const state = getState();
 			const body = renderIndexPageBody(pages, allPanels, state);
-			return renderLayout("Overview", body, pages, null);
+			return renderLayout("Overview", body, pages, null, getScripts(), getStyles());
 		}),
 	);
 
@@ -96,12 +116,19 @@ export function createH3App(deps: ServerDeps) {
 			if (!page) {
 				event.node.res.statusCode = 404;
 				setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
-				return renderLayout("Not Found", "<p>Page not found.</p>", pages, null);
+				return renderLayout(
+					"Not Found",
+					"<p>Page not found.</p>",
+					pages,
+					null,
+					getScripts(),
+					getStyles(),
+				);
 			}
 			setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 			const state = getState();
 			const body = renderPageBody(page, state);
-			return renderLayout(page.title, body, pages, page.id);
+			return renderLayout(page.title, body, pages, page.id, getScripts(), getStyles());
 		}),
 	);
 
@@ -173,7 +200,7 @@ export function createH3App(deps: ServerDeps) {
 	);
 
 	// Register routes contributed by plugins via registry.contributeRoute().
-	for (const route of registry.getRoutes()) {
+	for (const route of getRoutes()) {
 		const method = route.method.toLowerCase() as Lowercase<typeof route.method>;
 		router[method](route.path, defineEventHandler(route.handler));
 	}

@@ -151,5 +151,8 @@ export class DashboardRegistry {
 	}
 }
 
-/** The shared global registry instance. */
+/**
+ * @deprecated Use `ctx.dashboardRegistry` from PluginContext instead.
+ * This global singleton will be removed in a future version.
+ */
 export const registry = new DashboardRegistry();

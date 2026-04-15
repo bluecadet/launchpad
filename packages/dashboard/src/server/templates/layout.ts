@@ -1,16 +1,20 @@
-import { registry } from "@bluecadet/launchpad-utils/panel-registry";
+import type {
+	ContributedScript,
+	ContributedStyle,
+} from "@bluecadet/launchpad-utils/panel-registry";
 import type { DashboardPage } from "../../dashboard-page.js";
 import { escapeHtml } from "../../ui/helpers.js";
 
 /**
  * Render the full HTML page shell.
- * Scripts and styles are sourced from the registry — plugins contribute them during setup().
  */
 export function renderLayout(
 	title: string,
 	body: string,
 	pages: DashboardPage[],
 	activePageId: string | null = null,
+	scripts: readonly ContributedScript[] = [],
+	styles: readonly ContributedStyle[] = [],
 ): string {
 	const navLinks =
 		pages.length > 0
@@ -23,13 +27,11 @@ export function renderLayout(
 					.join("\n        ")
 			: "";
 
-	const styleLinks = registry
-		.getStyles()
+	const styleLinks = styles
 		.map((s) => `  <link rel="stylesheet" href="${escapeHtml(s.url)}">`)
 		.join("\n");
 
-	const scriptTags = registry
-		.getScripts()
+	const scriptTags = scripts
 		.map((s) => `  <script src="${escapeHtml(s.url)}"${s.defer ? " defer" : ""}></script>`)
 		.join("\n");
 

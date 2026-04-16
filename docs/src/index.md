@@ -51,16 +51,16 @@ Launchpad provides a collection of tools designed to streamline the development,
 1. Install the packages you need:
 
 ```bash
-npm install @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor
+npm install @bluecadet/launchpad
 ```
 
 2. Create a configuration file:
 
 ```ts
 // launchpad.config.ts
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { monitor } from '@bluecadet/launchpad-monitor';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { monitor } from '@bluecadet/launchpad/monitor';
 
 export default defineConfig({
   plugins: [

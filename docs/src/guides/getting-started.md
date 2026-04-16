@@ -8,47 +8,33 @@ The fastest way to get set up is with the scaffolding tool:
 npm create @bluecadet/launchpad
 ```
 
-It will walk you through selecting plugins, sources, and transforms, then generate your `launchpad.config.ts` and update `package.json` automatically. See [Creating a Project](./creating-a-project.md) for details.
+It will ask which plugins you need, configure everything, and generate a working `launchpad.config.ts`. See [Creating a Project](./creating-a-project.md) for details.
 
 ## Manual Installation
 
-Launchpad is modular - you can install just the packages you need:
-
-```bash
-# Install the CLI (required)
-npm install @bluecadet/launchpad-cli
-
-# Install content management (optional)
-npm install @bluecadet/launchpad-content
-
-# Install process monitoring (optional)
-npm install @bluecadet/launchpad-monitor
-
-# Install system configuration (optional)
-npm install @bluecadet/launchpad-scaffold
-```
-
-Alternatively, install everything at once:
+Install the `@bluecadet/launchpad` package, which includes the CLI and all first-party plugins:
 
 ```bash
 npm install @bluecadet/launchpad
 ```
 
+If you use CMS integrations or image processing, also install the relevant peer dependencies — see [Packages and Modularity](./packages.md) for the full list.
+
+The scaffolding tool handles this automatically.
+
 > [!TIP]
-> These docs assume you have installed the packages individually. If you installed the monorepo package (`@bluecadet/launchpad`), you can adjust the import paths by replacing `@bluecadet/launchpad-` with `@bluecadet/launchpad/`.
-> 
-> For example, `@bluecadet/launchpad-content/transforms/sharp` becomes `@bluecadet/launchpad/content/transforms/sharp`.
+> You can also install individual packages (`@bluecadet/launchpad-content`, `@bluecadet/launchpad-monitor`, etc.) instead of the umbrella. Both work identically at runtime. See [Packages and Modularity](./packages.md) for when to prefer one over the other.
 
 ## Basic Setup
 
 1. Create a configuration file:
 
 ```js
-// launchpad.config.js (or launchpad.config.ts, launchpad.config.mjs, etc.)
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { monitor } from '@bluecadet/launchpad-monitor';
-import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
+// launchpad.config.js (or .ts, .mjs, etc.)
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { monitor } from '@bluecadet/launchpad/monitor';
+import { jsonSource } from '@bluecadet/launchpad/content/sources';
 
 export default defineConfig({
   plugins: [

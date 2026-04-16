@@ -98,7 +98,8 @@ export default defineConfig({
 				items: [
 					{ text: "Introduction", link: "/" },
 					{ text: "Getting Started", link: "/guides/getting-started" },
-				{ text: "Creating a Project", link: "/guides/creating-a-project" },
+					{ text: "Creating a Project", link: "/guides/creating-a-project" },
+					{ text: "Packages and Modularity", link: "/guides/packages" },
 					{ text: "Fetching Content", link: "/guides/fetching-content" },
 					{ text: "Downloading Media", link: "/guides/downloading-media" },
 					{ text: "Running Applications", link: "/guides/running-applications" },

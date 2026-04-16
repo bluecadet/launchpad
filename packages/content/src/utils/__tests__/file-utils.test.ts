@@ -1,4 +1,5 @@
 import { vol } from "memfs";
+import { errAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as FileUtils from "../file-utils.js";
 
@@ -215,6 +216,56 @@ describe("FileUtils", () => {
 			const destStats = vol.statSync("/dest-file.txt");
 			expect(destStats.mtime).toEqual(sourceStats.mtime);
 			expect(destStats.atime).toEqual(sourceStats.atime);
+		});
+	});
+
+	describe("replacePath", () => {
+		it("should replace an existing directory with staged content", async () => {
+			vol.mkdirSync("/published/source", { recursive: true });
+			vol.writeFileSync("/published/source/old.json", "old");
+			vol.mkdirSync("/staged/source", { recursive: true });
+			vol.writeFileSync("/staged/source/new.json", "new");
+
+			const result = await FileUtils.replacePath("/staged/source", "/published/source", {
+				rollbackDir: "/rollback",
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/published/source/new.json")).toBe(true);
+			expect(vol.existsSync("/published/source/old.json")).toBe(false);
+			expect(vol.existsSync("/staged/source")).toBe(false);
+		});
+
+		it("should restore the original directory when replacement fails", async () => {
+			vol.mkdirSync("/published/source", { recursive: true });
+			vol.writeFileSync("/published/source/old.json", "old");
+			vol.mkdirSync("/staged/source", { recursive: true });
+			vol.writeFileSync("/staged/source/new.json", "new");
+
+			const originalRename = vol.promises.rename.bind(vol.promises);
+			const renameSpy = vi
+				.spyOn(vol.promises, "rename")
+				.mockImplementationOnce(async (oldPath, newPath) => {
+					return originalRename(oldPath, newPath);
+				})
+				.mockImplementationOnce(async () => {
+					throw new FileUtils.FileUtilsError("promotion failed");
+				})
+				.mockImplementation(async (oldPath, newPath) => {
+					return originalRename(oldPath, newPath);
+				});
+
+			try {
+				const result = await FileUtils.replacePath("/staged/source", "/published/source", {
+					rollbackDir: "/rollback",
+				});
+
+				expect(result).toBeErr();
+				expect(vol.existsSync("/published/source/old.json")).toBe(true);
+				expect(vol.existsSync("/published/source/new.json")).toBe(false);
+			} finally {
+				renameSpy.mockRestore();
+			}
 		});
 	});
 

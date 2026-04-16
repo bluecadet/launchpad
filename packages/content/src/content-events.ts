@@ -47,6 +47,10 @@ export type ContentEvents = {
 	"content:document:write": {
 		sourceId: string;
 		documentId: string;
+		/**
+		 * Absolute path to the staged file written during the current fetch run.
+		 * The staged tree is promoted after a successful run.
+		 */
 		path: string;
 	};
 

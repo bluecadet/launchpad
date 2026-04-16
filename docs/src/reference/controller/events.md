@@ -117,13 +117,13 @@ These events are emitted by `@bluecadet/launchpad-content` during content fetch 
 - `content:source:error` - Source encounters an error
 
 ### Document Events
-- `content:document:write` - Document successfully written to disk
+- `content:document:write` - Document successfully written to the staged run output (promoted later on fetch success)
 - `content:document:error` - Document write fails
 
-### Plugin Events
-- `content:plugin:start` - Plugin begins processing
-- `content:plugin:done` - Plugin completes successfully
-- `content:plugin:error` - Plugin encounters an error
+### Transform Events
+- `content:transform:start` - Transform begins processing
+- `content:transform:done` - Transform completes successfully
+- `content:transform:error` - Transform encounters an error
 
 See [Content Events Reference](../content/events.md) for detailed payload documentation and usage examples.
 

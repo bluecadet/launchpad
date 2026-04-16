@@ -5,7 +5,7 @@ import chalk from "chalk";
 import PQueue from "p-queue";
 import type SharpType from "sharp";
 import { z } from "zod";
-import { defineContentTransform } from "../content-transform.js";
+import { type ContentTransformContext, defineContentTransform } from "../content-transform.js";
 import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
@@ -108,6 +108,17 @@ async function transformImage(
 	);
 
 	return { output: outputImagePath, fromCache: false };
+}
+
+async function publishTransformedImages(ctx: ContentTransformContext) {
+	await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath(), {
+		preserveTimestamps: true,
+	}).match(
+		() => {},
+		(err) => {
+			throw new Error("Failed to publish transformed images", { cause: err });
+		},
+	);
 }
 
 export default function sharp(options: z.input<typeof sharpPluginSchema>) {
@@ -215,10 +226,14 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 				)} were transformed and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
 			);
 
-			// cleanup – move transformed images to download path and remove temp path
-			await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath())
-				.andThen(() => FileUtils.remove(ctx.paths.getTempPath()))
-				.mapErr((err) => new Error("Failed to cleanup after transform", err));
+			await publishTransformedImages(ctx);
+
+			await FileUtils.remove(ctx.paths.getTempPath()).match(
+				() => {},
+				(err) => {
+					throw new Error("Failed to cleanup after transform", { cause: err });
+				},
+			);
 		},
 	});
 }

@@ -4,21 +4,61 @@ import {
 	type MockEventBus,
 	type MockLogger,
 } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { okAsync } from "neverthrow";
+import { ok, okAsync } from "neverthrow";
 import { vi } from "vitest";
 import type { ResolvedContentConfig } from "../../content-config.js";
 import type { ContentTransform } from "../../content-transform.js";
-import { createPathsHelper } from "../../utils/paths-helper.js";
+import type { DataStore } from "../../utils/data-store.js";
 import type { FetchStageContext } from "../fetch-context.js";
 
-export const createMockDataStore = () => {
+function createMockPathsHelper(
+	config: ResolvedContentConfig,
+	_cwd: string,
+	runId: string,
+): FetchStageContext["paths"] {
 	return {
-		createNamespace: vi.fn(() => okAsync(undefined)),
-		namespace: vi.fn(() => ({
-			asyncAndThen: vi.fn((cb) => cb({ insert: vi.fn(() => okAsync(undefined)) })),
-		})),
+		getDownloadPath(sourceId?: string) {
+			return sourceId
+				? `${config.tempPath}/runs/${runId}/downloads/${sourceId}`
+				: `${config.tempPath}/runs/${runId}/downloads`;
+		},
+		getPublishedDownloadPath(sourceId?: string) {
+			return sourceId ? `${config.downloadPath}/${sourceId}` : config.downloadPath;
+		},
+		getStagedDownloadPath(sourceId?: string) {
+			return sourceId
+				? `${config.tempPath}/runs/${runId}/downloads/${sourceId}`
+				: `${config.tempPath}/runs/${runId}/downloads`;
+		},
+		getTempPath(sourceId?: string, pluginName?: string) {
+			const basePath = pluginName
+				? `${config.tempPath}/runs/${runId}/${pluginName}`
+				: `${config.tempPath}/runs/${runId}`;
+			return sourceId ? `${basePath}/${sourceId}` : basePath;
+		},
+		getBackupPath(sourceId?: string) {
+			return sourceId ? `${config.backupPath}/${sourceId}` : config.backupPath;
+		},
+		getRunPath(...segments: string[]) {
+			const suffix = segments.length > 0 ? `/${segments.join("/")}` : "";
+			return `${config.tempPath}/runs/${runId}${suffix}`;
+		},
+	} as unknown as FetchStageContext["paths"];
+}
+
+export const createMockDataStore = (): FetchStageContext["dataStore"] => {
+	return {
+		createNamespace: vi.fn(() => okAsync({} as never)),
+		namespace: vi.fn(() =>
+			ok({
+				asyncAndThen: vi.fn((cb: (namespace: { insert: typeof okAsync }) => unknown) =>
+					cb({ insert: vi.fn(() => okAsync(undefined)) as never }),
+				),
+			} as never),
+		),
 		close: vi.fn(() => okAsync(undefined)),
-	} as any;
+		_clear: vi.fn(),
+	} as unknown as FetchStageContext["dataStore"];
 };
 
 export const createMockContentConfig = (
@@ -37,20 +77,22 @@ export const createMockContentConfig = (
 export const createMockFetchContext = (overrides: Partial<FetchStageContext> = {}) => {
 	const config = createMockContentConfig();
 	const cwd = "/project";
+	const runId = "test-run";
 	const mockLogger = createMockLogger();
 	const mockEventBus = createMockEventBus();
 	return {
-		config: createMockContentConfig(),
+		config,
 		cwd,
 		logger: mockLogger,
 		abortSignal: new AbortController().signal,
+		runId,
 		eventBus: mockEventBus,
 		transforms: [] as ContentTransform[],
 		dataStore: createMockDataStore(),
-		paths: createPathsHelper(config, cwd),
+		paths: createMockPathsHelper(config, cwd, runId),
 		sources: [],
 		...overrides,
-	} as Omit<FetchStageContext, "eventBus" | "logger"> & {
+	} as unknown as FetchStageContext & {
 		eventBus: MockEventBus;
 		logger: MockLogger;
 	};

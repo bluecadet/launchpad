@@ -1,6 +1,6 @@
 # Creating a Custom Content Transform
 
-This recipe explains how to create a custom content transform for Launchpad. Transforms run after all sources have been fetched and allow you to process, modify, or augment downloaded content before it is written to the final download directory.
+This recipe explains how to create a custom content transform for Launchpad. Transforms run after all sources have been fetched and allow you to process, modify, or augment downloaded content inside the current run's staged output before Launchpad promotes that staged tree into the final download directory.
 
 ## Overview
 
@@ -140,7 +140,7 @@ The `apply` function receives a `ContentTransformContext` with several useful pr
 | `data` | `DataStore` — read/write access to all fetched documents |
 | `logger` | Logger instance for structured output |
 | `contentOptions` | Resolved content configuration (download paths, etc.) |
-| `paths` | Path helpers — `getTempPath`, `getDownloadPath`, `getBackupPath` pre-bound to this transform's name |
+| `paths` | Path helpers — `getTempPath`, `getDownloadPath`, `getPublishedDownloadPath`, `getBackupPath`, `getRunPath`; `getTempPath` is pre-bound to this transform's name |
 | `eventBus` | Event bus for emitting TTY progress events |
 | `abortSignal` | Abort signal — check this to cancel long-running work gracefully |
 | `cwd` | Working directory for the current run |
@@ -169,12 +169,14 @@ export const slowTransform = defineContentTransform({
 ## Best Practices
 
 1. **Choose a unique name**: The `name` is used in logs and for temp directory scoping
-2. **Handle errors gracefully**: Unhandled exceptions abort the entire fetch pipeline
-3. **Respect `abortSignal`**: Check it in loops or before expensive operations
-4. **Use `document.apply()`** for field-level mutations instead of reading and re-writing the full document where possible
+2. **Write only into staged output**: `paths.getDownloadPath()` now points at the current run's staged download tree. Treat it as the writable destination.
+3. **Use published paths as read-only context**: If you need to inspect currently published files, use `paths.getPublishedDownloadPath()` and avoid mutating it during a fetch run.
+4. **Handle errors gracefully**: Unhandled exceptions abort the entire fetch pipeline and prevent promotion.
+5. **Respect `abortSignal`**: Check it in loops or before expensive operations.
+6. **Use `document.apply()`** for field-level mutations instead of reading and re-writing the full document where possible.
 
 >[!TIP]
->Transforms run in declaration order. If one transform depends on the output of another (e.g. `sharp` depends on `mediaDownloader` having written files), make sure to declare them in the right order.
+>Transforms run in declaration order. If one transform depends on the output of another (for example, `sharp` depends on `mediaDownloader` having written staged files), declare them in the right order.
 
 ## Next Steps
 

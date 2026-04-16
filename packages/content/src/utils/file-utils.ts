@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { glob } from "glob";
-import { okAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
 export class FileUtilsError extends Error {
 	constructor(...args: ConstructorParameters<typeof Error>) {
@@ -107,6 +107,13 @@ export function removeDirIfEmpty(dirPath: string): ResultAsync<void, FileUtilsEr
 	});
 }
 
+export function listDir(dirPath: string): ResultAsync<string[], FileUtilsError> {
+	return ResultAsync.fromPromise(
+		fs.promises.readdir(dirPath),
+		(error) => new FileUtilsError(`Failed to read directory ${dirPath}`, { cause: error }),
+	);
+}
+
 export function isDirEmpty(dirPath: string): ResultAsync<boolean, FileUtilsError> {
 	// @see https://stackoverflow.com/a/39218759/782899
 	return ResultAsync.fromPromise(
@@ -204,9 +211,135 @@ export function copyDir(
  * Copies a file from `src` to `dest`.
  */
 export function copyFile(src: string, dest: string): ResultAsync<void, FileUtilsError> {
+	return ensureDir(path.dirname(dest)).andThen(() =>
+		ResultAsync.fromPromise(
+			fs.promises.copyFile(src, dest),
+			(e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e }),
+		),
+	);
+}
+
+/**
+ * Atomically replace a file or directory from `src` to `dest` when possible.
+ * Falls back to copy + remove when rename cannot be used across devices.
+ */
+export function move(
+	src: string,
+	dest: string,
+	options = { preserveTimestamps: true },
+): ResultAsync<void, FileUtilsError> {
+	return ensureDir(path.dirname(dest)).andThen(() =>
+		ResultAsync.fromPromise(fs.promises.rename(src, dest), (error) => error).orElse((error) => {
+			const moveError = error as NodeJS.ErrnoException;
+			if (moveError.code !== "EXDEV") {
+				return errAsync(
+					new FileUtilsError(`Failed to move ${src} to ${dest}`, { cause: moveError }),
+				);
+			}
+
+			return copy(src, dest, options).andThen(() => remove(src));
+		}),
+	);
+}
+
+/**
+ * Replaces `dest` with `src` without deleting the published path before the replacement succeeds.
+ * If `dest` already exists, it is first moved aside to a rollback path and restored if promotion fails.
+ */
+export function replacePath(
+	src: string,
+	dest: string,
+	options: {
+		preserveTimestamps?: boolean;
+		rollbackDir?: string;
+	} = {},
+): ResultAsync<void, FileUtilsError> {
+	const preserveTimestamps = options.preserveTimestamps ?? true;
+
 	return ResultAsync.fromPromise(
-		fs.promises.copyFile(src, dest),
-		(e) => new FileUtilsError(`Failed to copy file ${src} to ${dest}`, { cause: e }),
+		(async () => {
+			const sourceExists = await pathExists(src).match(
+				(exists) => exists,
+				(error) => {
+					throw error;
+				},
+			);
+
+			if (!sourceExists) {
+				return;
+			}
+
+			const destinationExists = await pathExists(dest).match(
+				(exists) => exists,
+				(error) => {
+					throw error;
+				},
+			);
+
+			let rollbackPath: string | undefined;
+
+			if (destinationExists) {
+				rollbackPath = path.resolve(
+					options.rollbackDir ?? path.dirname(dest),
+					`${path.basename(dest)}.rollback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+				);
+
+				await remove(rollbackPath).match(
+					() => undefined,
+					(error) => {
+						throw error;
+					},
+				);
+				await move(dest, rollbackPath, { preserveTimestamps }).match(
+					() => undefined,
+					(error) => {
+						throw error;
+					},
+				);
+			}
+
+			try {
+				await move(src, dest, { preserveTimestamps }).match(
+					() => undefined,
+					(error) => {
+						throw error;
+					},
+				);
+			} catch (promotionError) {
+				if (rollbackPath) {
+					await remove(dest).match(
+						() => undefined,
+						(error) => {
+							throw new FileUtilsError(`Failed to clean up partial replacement at ${dest}`, {
+								cause: error,
+							});
+						},
+					);
+					await move(rollbackPath, dest, { preserveTimestamps }).match(
+						() => undefined,
+						(error) => {
+							throw new FileUtilsError(`Failed to restore ${dest} after promotion error`, {
+								cause: error,
+							});
+						},
+					);
+				}
+				throw promotionError;
+			}
+
+			if (rollbackPath) {
+				await remove(rollbackPath).match(
+					() => undefined,
+					(error) => {
+						throw error;
+					},
+				);
+			}
+		})(),
+		(error) =>
+			new FileUtilsError(`Failed to replace ${dest} with ${src}`, {
+				cause: error,
+			}),
 	);
 }
 
@@ -253,4 +386,45 @@ export function clearDirs(
 	return ResultAsync.combine(dirPaths.map((dirPath) => clearDir(dirPath, options))).map(
 		() => undefined,
 	);
+}
+
+/**
+ * Copies files from `srcDir` to `destDir` that match any of the provided glob patterns.
+ * Patterns are evaluated relative to `srcDir`.
+ */
+export function copyMatchingFiles(
+	srcDir: string,
+	destDir: string,
+	patterns: string[] = [],
+): ResultAsync<void, FileUtilsError> {
+	if (patterns.length === 0) {
+		return okAsync(undefined);
+	}
+
+	return pathExists(srcDir).andThen((exists) => {
+		if (!exists) {
+			return okAsync(undefined);
+		}
+
+		const matchesByPattern = patterns.map((pattern) =>
+			ResultAsync.fromPromise(
+				glob(pattern, {
+					cwd: srcDir,
+					dot: true,
+					nodir: true,
+				}),
+				(error) =>
+					new FileUtilsError(`Failed to glob pattern ${pattern} in ${srcDir}`, { cause: error }),
+			),
+		);
+
+		return ResultAsync.combine(matchesByPattern).andThen((matches) => {
+			const uniqueRelativePaths = new Set(matches.flat());
+			return ResultAsync.combine(
+				Array.from(uniqueRelativePaths).map((relativePath) =>
+					copy(path.resolve(srcDir, relativePath), path.resolve(destDir, relativePath)),
+				),
+			).map(() => undefined);
+		});
+	});
 }

@@ -27,6 +27,10 @@ import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
 import { createPathsHelper } from "./utils/paths-helper.js";
 
+function createFetchRunId() {
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 type ContentActionContext = HostAwarePluginContext & {
 	stateManager: ContentStateManager;
 	sourceRegistry: Map<string, ContentSource>;
@@ -63,9 +67,11 @@ function fetch(
 		timestamp: new Date(),
 	});
 
+	const runId = createFetchRunId();
+	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd, { runId });
+
 	// Instantiate data store only when fetch is called
-	const dataStore = new DataStore(ctx.resolvedConfig.downloadPath);
-	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
+	const dataStore = new DataStore(paths.getStagedDownloadPath());
 
 	const context: FetchStageContext = {
 		transforms: ctx.resolvedConfig.transforms,
@@ -75,6 +81,7 @@ function fetch(
 		config: ctx.resolvedConfig,
 		cwd: ctx.cwd,
 		abortSignal: ctx.abortSignal,
+		runId,
 		paths,
 		sources: resolvedSources,
 	};
@@ -109,10 +116,10 @@ function fetch(
 			return finalizingStage(context);
 		})
 		.andThen(() => {
-			ctx.stateManager.setPhase({ phase: "clearing-temp" });
 			for (const source of context.sources) {
 				ctx.stateManager.markSourceSuccess(source.id);
 			}
+			ctx.stateManager.setPhase({ phase: "clearing-temp" });
 			return cleanupStage(context, {
 				temp: true,
 				backups: ctx.resolvedConfig.backupAndRestore,
@@ -132,21 +139,20 @@ function fetch(
 			}
 
 			return errorRecoveryStage(context, error)
-				.andThen(() => {
-					if (context.sources) {
-						for (const source of context.sources) {
-							ctx.stateManager.markSourceRestored(source.id);
-						}
+				.andThen(({ restoredSourceIds }) => {
+					for (const sourceId of restoredSourceIds) {
+						ctx.stateManager.markSourceRestored(sourceId);
 					}
-					ctx.stateManager.setPhase({ phase: "error", error, restored: true });
+					ctx.stateManager.setPhase({
+						phase: "error",
+						error,
+						restored: restoredSourceIds.length > 0,
+					});
+					ctx.stateManager.setPhase({ phase: "clearing-temp" });
 					return cleanupStage(context, {
 						temp: true,
 						backups: ctx.resolvedConfig.backupAndRestore,
 					});
-				})
-				.andThen(() => {
-					ctx.stateManager.setPhase({ phase: "clearing-temp" });
-					return okAsync(undefined);
 				})
 				.andTee(() => {
 					ctx.stateManager.setPhase({ phase: "idle" });
@@ -180,6 +186,14 @@ function clear(
 	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
 
 	const clearResults: ResultAsync<void, ContentError>[] = [];
+
+	if (temp) {
+		clearResults.push(
+			FileUtils.clearDir(paths.getRunPath(), {
+				removeIfEmpty: true,
+			}),
+		);
+	}
 
 	for (const sourceId of idsToClear) {
 		if (temp) {

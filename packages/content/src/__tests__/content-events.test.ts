@@ -252,7 +252,7 @@ describe("Content Event Emissions", () => {
 	});
 
 	describe("Document Events", () => {
-		it("should emit content:document:write for each written document", async () => {
+		it("should emit content:document:write for each written document using the staged path", async () => {
 			server.use(
 				http.get("https://api.example.com/data.json", () => {
 					return HttpResponse.json({ test: "data" });
@@ -287,7 +287,11 @@ describe("Content Event Emissions", () => {
 			expect(writeEvents).toHaveLength(1);
 			expect(writeEvents[0]!.sourceId).toBe("test");
 			expect(writeEvents[0]!.documentId).toBe("data.json");
-			expect(writeEvents[0]!.path).toContain("data.json");
+			expect(writeEvents[0]!.path).toContain("/temp/runs/");
+			expect(writeEvents[0]!.path).toContain("/downloads/test/data.json");
+			expect(writeEvents[0]!.path.startsWith("/downloads/")).toBe(false);
+			expect(vol.existsSync(writeEvents[0]!.path)).toBe(false);
+			expect(vol.existsSync("/downloads/test/data.json")).toBe(true);
 		});
 	});
 

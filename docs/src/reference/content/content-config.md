@@ -27,7 +27,7 @@ See [Content Transforms Reference](./transforms/index.md) for available transfor
 - **Type:** `string`
 - **Default:** `.downloads/`
 
-Base directory path where downloaded files are stored. Can be absolute or relative path.
+Base directory path where successfully promoted content is published. Fetch runs write into an isolated staged run directory first, then replace the published source directory only after the run succeeds. Can be absolute or relative path.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
@@ -36,7 +36,7 @@ Relative paths are resolved against the directory of the launchpad configuration
 - **Type:** `string`
 - **Default:** `.launchpad/tmp/`
 
-Temporary directory path used during content processing.
+Temporary directory path used during content processing. Launchpad creates per-run staged workspaces under this directory and removes them after the run completes.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
@@ -45,7 +45,7 @@ Relative paths are resolved against the directory of the launchpad configuration
 - **Type:** `string`
 - **Default:** `.launchpad/backup/`
 
-Directory path where existing content is backed up before processing new downloads. Critical for recovery if downloads fail.
+Directory path where existing published content can be backed up before processing new downloads. This remains available for compatibility and recovery flows, but normal fetch failure handling now relies on staged output never being promoted.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
@@ -68,9 +68,11 @@ Example:
 
 When enabled:
 
-- Creates backup of existing files before download
-- Restores backup if any source download fails
-- Ensures atomic success/failure of multi-source downloads
+- Creates a backup of existing published files before a fetch run
+- Allows Launchpad to restore published content from backup during compatibility recovery flows
+- Provides an extra safety net for promotion/recovery problems
+
+Normal fetch failures do not require backup restoration because staged output is discarded until promotion succeeds. Error state is only marked as `restored: true` when at least one source was actually restored from backup.
 
 ### `maxTimeout`
 

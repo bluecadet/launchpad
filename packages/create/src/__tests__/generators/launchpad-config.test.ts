@@ -21,7 +21,7 @@ describe("generateLaunchpadConfig", () => {
 			useMonitor: true,
 			monitorApps: [{ name: "app", script: "./app.exe", cwd: "./" }],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-cli'");
+		expect(result).toContain("from '@bluecadet/launchpad/cli'");
 		expect(result).toContain("defineConfig");
 	});
 
@@ -31,7 +31,7 @@ describe("generateLaunchpadConfig", () => {
 			useMonitor: true,
 			monitorApps: [{ name: "my-app", script: "./my-app.exe", cwd: "./builds/" }],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-monitor'");
+		expect(result).toContain("from '@bluecadet/launchpad/monitor'");
 		expect(result).toContain("monitor(");
 		expect(result).toContain("name: 'my-app'");
 		expect(result).toContain("script: './my-app.exe'");
@@ -69,8 +69,8 @@ describe("generateLaunchpadConfig", () => {
 			useContent: true,
 			contentSources: ["json"],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-content'");
-		expect(result).toContain("from '@bluecadet/launchpad-content/sources'");
+		expect(result).toContain("from '@bluecadet/launchpad/content'");
+		expect(result).toContain("from '@bluecadet/launchpad/content/sources'");
 		expect(result).toContain("jsonSource(");
 		expect(result).toContain("start: ['content.fetch']");
 		expect(result).not.toContain("monitor(");
@@ -97,7 +97,7 @@ describe("generateLaunchpadConfig", () => {
 			contentSources: ["json", "sanity", "contentful"],
 		});
 		// All sources in one import from the barrel
-		expect(result).toContain("from '@bluecadet/launchpad-content/sources'");
+		expect(result).toContain("from '@bluecadet/launchpad/content/sources'");
 		expect(result).toContain("jsonSource");
 		expect(result).toContain("sanitySource");
 		expect(result).toContain("contentfulSource");
@@ -113,7 +113,7 @@ describe("generateLaunchpadConfig", () => {
 			contentSources: ["json"],
 			contentTransforms: ["mediaDownloader", "sharp"],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-content/transforms'");
+		expect(result).toContain("from '@bluecadet/launchpad/content/transforms'");
 		expect(result).toContain("mediaDownloader");
 		expect(result).toContain("sharp");
 		// No individual transform paths
@@ -130,7 +130,7 @@ describe("generateLaunchpadConfig", () => {
 			contentTransforms: [],
 		});
 		expect(result).not.toContain("transforms:");
-		expect(result).not.toContain("from '@bluecadet/launchpad-content/transforms'");
+		expect(result).not.toContain("from '@bluecadet/launchpad/content/transforms'");
 	});
 
 	it("produces a string containing a valid export default", () => {
@@ -152,7 +152,7 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("sanityToHtml");
 		expect(result).toContain("sanityToMarkdown");
 		expect(result).toContain("sanityImageUrlTransform");
-		expect(result).toContain("from '@bluecadet/launchpad-content/transforms'");
+		expect(result).toContain("from '@bluecadet/launchpad/content/transforms'");
 	});
 
 	it("generates dashboard plugin config when useDashboard is true", () => {
@@ -160,7 +160,7 @@ describe("generateLaunchpadConfig", () => {
 			...baseAnswers,
 			useDashboard: true,
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-dashboard'");
+		expect(result).toContain("from '@bluecadet/launchpad/dashboard'");
 		expect(result).toContain("dashboard(");
 		expect(result).toContain("port: 3000");
 	});

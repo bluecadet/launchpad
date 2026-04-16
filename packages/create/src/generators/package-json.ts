@@ -1,11 +1,6 @@
 import type { Answers, ContentSource, ContentTransform } from "../types.js";
 
-const LAUNCHPAD_PACKAGES = {
-	cli: "@bluecadet/launchpad-cli",
-	content: "@bluecadet/launchpad-content",
-	monitor: "@bluecadet/launchpad-monitor",
-	dashboard: "@bluecadet/launchpad-dashboard",
-} as const;
+const LAUNCHPAD_PACKAGE = "@bluecadet/launchpad";
 
 const SOURCE_PEER_DEPS: Partial<Record<ContentSource, string[]>> = {
 	sanity: ["@sanity/client"],
@@ -21,24 +16,15 @@ const TRANSFORM_PEER_DEPS: Partial<Record<ContentTransform, string[]>> = {
 };
 
 export function getRequiredPackages(answers: Answers): string[] {
-	const packages: string[] = [LAUNCHPAD_PACKAGES.cli];
+	const packages: string[] = [LAUNCHPAD_PACKAGE];
 
 	if (answers.useContent) {
-		packages.push(LAUNCHPAD_PACKAGES.content);
 		for (const source of answers.contentSources) {
 			packages.push(...(SOURCE_PEER_DEPS[source] ?? []));
 		}
 		for (const transform of answers.contentTransforms) {
 			packages.push(...(TRANSFORM_PEER_DEPS[transform] ?? []));
 		}
-	}
-
-	if (answers.useMonitor) {
-		packages.push(LAUNCHPAD_PACKAGES.monitor);
-	}
-
-	if (answers.useDashboard) {
-		packages.push(LAUNCHPAD_PACKAGES.dashboard);
 	}
 
 	return packages;

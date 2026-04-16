@@ -16,9 +16,9 @@ When you fetch content that includes media (images, videos, etc.), Launchpad can
 First, add the `mediaDownloader` plugin to your configuration:
 
 ```ts{3,12-14}
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
 
 export default defineConfig({
   plugins: [
@@ -54,10 +54,10 @@ After downloading media, you can transform images using the `sharp` plugin. This
 Add the sharp plugin *after* the media downloader:
 
 ```ts{4,11-15}
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
-import { sharp } from '@bluecadet/launchpad-content/transforms/sharp';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
+import { sharp } from '@bluecadet/launchpad/content/transforms/sharp';
 
 export default defineConfig({
   plugins: [

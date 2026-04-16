@@ -37,10 +37,7 @@ The CLI package provides a command-line interface for managing Launchpad install
 The CLI can be installed globally via npm:
 
 ```bash
-npm install @bluecadet/launchpad-cli
-
-# install any other modules you need, depeneding on your use-case
-npm install @bluecadet/launchpad-content @bluecadet/launchpad-monitor
+npm install @bluecadet/launchpad
 ```
 
 ## Usage
@@ -58,6 +55,6 @@ npx launchpad help
 ```
 
 > [!NOTE] Note:
-> if installed globally (`npm install -g @bluecadet/launchpad-cli`) you don't need the `npx` prefix when running commands.
+> if installed globally (`npm install -g @bluecadet/launchpad`) you don't need the `npx` prefix when running commands.
 
 See [Commands](./commands.md) for more information on the available commands.

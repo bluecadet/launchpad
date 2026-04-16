@@ -7,9 +7,9 @@ When working with Sanity.io images, you can leverage Sanity's built-in image tra
 First, ensure your GROQ query includes all necessary image fields:
 
 ```typescript{14-19}
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
 
 export default defineConfig({
   plugins: [
@@ -44,11 +44,11 @@ The `asset->` reference is crucial for accessing the full image data, including 
 Add the `sanityImageUrlTransform` plugin to transform image references into URLs:
 
 ```typescript{4,18-26}
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
-import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
-import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad/content/transforms/sanity-image-url-transform';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
 
 export default defineConfig({
   plugins: [
@@ -85,11 +85,11 @@ export default defineConfig({
 Sanity's image URL builder supports many transformations:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { sanitySource } from '@bluecadet/launchpad-content/sources/sanity';
-import { sanityImageUrlTransform } from '@bluecadet/launchpad-content/transforms/sanity-image-url-transform';
-import { mediaDownloader } from '@bluecadet/launchpad-content/transforms/media-downloader';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
+import { sanityImageUrlTransform } from '@bluecadet/launchpad/content/transforms/sanity-image-url-transform';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
 
 export default defineConfig({
   plugins: [

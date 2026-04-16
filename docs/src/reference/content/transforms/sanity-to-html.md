@@ -7,7 +7,7 @@ The `sanityToHtml` plugin is used to transform Sanity.io Portable Text content i
 To use the `sanityToHtml` plugin, include it in the list of content plugins in your configuration:
 
 ```typescript
-import { sanityToHtml } from '@bluecadet/launchpad-content/transforms/sanity-to-html'; // [!code highlight]
+import { sanityToHtml } from '@bluecadet/launchpad/content/transforms/sanity-to-html'; // [!code highlight]
 
 export default defineConfig({
   plugins: [

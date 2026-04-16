@@ -7,7 +7,7 @@ The `sharp` plugin is used to transform downloaded images using the [Sharp](http
 To use the `sharp` plugin, include it in the list of content plugins after the mediaDownloader in your configuration:
 
 ```typescript
-import { sharp } from '@bluecadet/launchpad-content/transforms/sharp'; // [!code highlight]
+import { sharp } from '@bluecadet/launchpad/content/transforms/sharp'; // [!code highlight]
 
 export default defineConfig({
   plugins: [

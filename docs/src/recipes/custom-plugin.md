@@ -32,7 +32,7 @@ export const myPlugin = definePlugin({
 Add it to your Launchpad config:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
+import { defineConfig } from '@bluecadet/launchpad/cli';
 import { myPlugin } from './my-plugin.js';
 
 export default defineConfig({

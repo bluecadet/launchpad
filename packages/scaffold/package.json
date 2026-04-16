@@ -3,6 +3,10 @@
   "version": "2.0.2",
   "description": "Suite of PS1 scripts to configure Windows 8/10 PCs for permanent exhibits.",
   "type": "module",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -7,7 +7,7 @@ The `strapiSource` content source is used to fetch data from Strapi CMS. It supp
 To use the `strapiSource` content source, include it in the list of content sources in your configuration:
 
 ```typescript{1,7-14}
-import { strapiSource } from '@bluecadet/launchpad-content/sources/strapi';
+import { strapiSource } from '@bluecadet/launchpad/content/sources/strapi';
 
 export default defineConfig({
   plugins: [

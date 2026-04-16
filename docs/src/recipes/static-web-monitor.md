@@ -5,8 +5,8 @@ This recipe demonstrates how to use Launchpad's monitor functionality to serve s
 ## Configuration
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { monitor } from '@bluecadet/launchpad-monitor';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { monitor } from '@bluecadet/launchpad/monitor';
 import path from 'path';
 import { homedir } from 'os';
 

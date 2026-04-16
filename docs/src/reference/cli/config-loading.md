@@ -20,7 +20,7 @@ The search starts in the current working directory and recursively searches up p
 ### JavaScript/TypeScript Config (Recommended)
 
 ```js
-import { defineConfig } from '@bluecadet/launchpad-cli';
+import { defineConfig } from '@bluecadet/launchpad/cli';
 
 export default defineConfig({
   plugins: [
@@ -52,10 +52,10 @@ When using TypeScript or an editor with TypeScript support (like VS Code), the `
 ## Example
 
 ```js
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { monitor } from '@bluecadet/launchpad-monitor';
-import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { monitor } from '@bluecadet/launchpad/monitor';
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
 
 export default defineConfig({
   plugins: [

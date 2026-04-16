@@ -37,13 +37,13 @@ The monitor package is a robust process management and monitoring tool designed 
 ## Installation
 
 ```bash
-npm install @bluecadet/launchpad-monitor
+npm install @bluecadet/launchpad
 ```
 
 ## JS API Usage
 
 ```typescript
-import { createLaunchpadMonitor } from '@bluecadet/launchpad-monitor';
+import { createLaunchpadMonitor } from '@bluecadet/launchpad/monitor';
 
 const monitor = await createLaunchpadMonitor({
   apps: [

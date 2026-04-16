@@ -13,10 +13,10 @@ Content transforms in Launchpad:
 
 ## Basic Transform Structure
 
-A transform is created with `defineContentTransform` from `@bluecadet/launchpad-content`:
+A transform is created with `defineContentTransform` from `@bluecadet/launchpad/content`:
 
 ```typescript
-import { defineContentTransform } from '@bluecadet/launchpad-content';
+import { defineContentTransform } from '@bluecadet/launchpad/content';
 
 export const myTransform = defineContentTransform({
   name: 'my-transform',
@@ -38,7 +38,7 @@ export const myTransform = defineContentTransform({
 Let's create a transform that uppercases a specific field in all documents:
 
 ```typescript
-import { defineContentTransform } from '@bluecadet/launchpad-content';
+import { defineContentTransform } from '@bluecadet/launchpad/content';
 
 export const uppercaseTitles = defineContentTransform({
   name: 'uppercase-titles',
@@ -61,8 +61,8 @@ export const uppercaseTitles = defineContentTransform({
 Add it to your Launchpad config:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
 import { uppercaseTitles } from './my-transforms.js';
 
 export default defineConfig({
@@ -82,7 +82,7 @@ export default defineConfig({
 Use `data.filter()` to target documents from a specific source or by document ID:
 
 ```typescript
-import { defineContentTransform } from '@bluecadet/launchpad-content';
+import { defineContentTransform } from '@bluecadet/launchpad/content';
 
 export const myTransform = defineContentTransform({
   name: 'targeted-transform',
@@ -113,7 +113,7 @@ export const myTransform = defineContentTransform({
 Use `document.apply()` with a [JSONPath-Plus](https://github.com/JSONPath-Plus/JSONPath) expression to target specific fields:
 
 ```typescript
-import { defineContentTransform } from '@bluecadet/launchpad-content';
+import { defineContentTransform } from '@bluecadet/launchpad/content';
 
 export const normalizeUrls = defineContentTransform({
   name: 'normalize-urls',
@@ -150,7 +150,7 @@ The `apply` function receives a `ContentTransformContext` with several useful pr
 For long-running transforms, check `abortSignal` to allow graceful cancellation:
 
 ```typescript
-import { defineContentTransform } from '@bluecadet/launchpad-content';
+import { defineContentTransform } from '@bluecadet/launchpad/content';
 
 export const slowTransform = defineContentTransform({
   name: 'slow-transform',

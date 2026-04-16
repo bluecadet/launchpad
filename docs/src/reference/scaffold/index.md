@@ -44,7 +44,7 @@ setup.bat
 If you already have Node.js and npm installed on your system:
 
 ```bash
-npm install @bluecadet/launchpad-scaffold
+npm install @bluecadet/launchpad
 npx launchpad scaffold
 ```
 
@@ -54,7 +54,7 @@ npx launchpad scaffold
 ## JS API Usage
 
 ```typescript
-import { launchScaffold } from '@bluecadet/launchpad-scaffold';
+import { launchScaffold } from '@bluecadet/launchpad/scaffold';
 import { LogManager } from '@bluecadet/launchpad-utils';
 
 // instantiate the logger before starting the scaffold process

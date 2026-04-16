@@ -16,14 +16,14 @@ The monitoring system is built on top of [PM2](https://pm2.keymetrics.io/), a ro
 1. Install the required packages:
 
 ```bash
-npm install @bluecadet/launchpad-cli @bluecadet/launchpad-monitor
+npm install @bluecadet/launchpad
 ```
 
 2. Configure your applications in `launchpad.config.js`:
 
 ```js
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { monitor } from '@bluecadet/launchpad-monitor';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { monitor } from '@bluecadet/launchpad/monitor';
 
 export default defineConfig({
   plugins: [

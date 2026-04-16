@@ -33,13 +33,13 @@ The content package is a powerful tool for downloading, transforming, and managi
 ## Installation
 
 ```bash
-npm install @bluecadet/launchpad-content
+npm install @bluecadet/launchpad
 ```
 
 ## JS API Usage
 
 ```typescript
-import { createLaunchpadContent } from '@bluecadet/launchpad-content';
+import { createLaunchpadContent } from '@bluecadet/launchpad/content';
 
 const content = await createLaunchpadContent({
   sources: [

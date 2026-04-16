@@ -7,7 +7,7 @@ The `mdToHtml` plugin is used to transform Markdown content into HTML. It suppor
 To use the `mdToHtml` plugin, include it in the list of content plugins in your configuration:
 
 ```typescript
-import { mdToHtml } from '@bluecadet/launchpad-content/transforms/md-to-html'; // [!code highlight]
+import { mdToHtml } from '@bluecadet/launchpad/content/transforms/md-to-html'; // [!code highlight]
 
 export default defineConfig({
   plugins: [

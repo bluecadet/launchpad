@@ -16,7 +16,7 @@ Content sources in Launchpad:
 Here's a minimal content source example:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content/source';
+import { defineSource } from '@bluecadet/launchpad/content/source';
 
 export default defineSource({
   id: 'my-custom-source',
@@ -34,7 +34,7 @@ export default defineSource({
 Let's create a source that fetches data from a REST API:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content/source';
+import { defineSource } from '@bluecadet/launchpad/content/source';
 
 const myApiSource = defineSource({
   id: 'api-source',
@@ -66,7 +66,7 @@ const myApiSource = defineSource({
 Add it to your Launchpad config:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
+import { defineConfig } from '@bluecadet/launchpad/cli';
 
 export default defineConfig({
   plugins: [

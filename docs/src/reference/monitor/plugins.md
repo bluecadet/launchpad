@@ -36,7 +36,7 @@ const myMonitorPlugin = definePlugin({
 ## Registering in `launchpad.config.ts`
 
 ```ts
-import { monitor } from '@bluecadet/launchpad-monitor';
+import { monitor } from '@bluecadet/launchpad/monitor';
 
 export default {
   plugins: [

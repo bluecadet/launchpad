@@ -8,9 +8,9 @@ Content fetching requires a `ContentConfig` object in your Launchpad configurati
 
 ```js
 // launchpad.config.js
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { content } from '@bluecadet/launchpad-content';
-import { jsonSource } from '@bluecadet/launchpad-content/sources/json';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
 
 export default defineConfig({
   plugins: [

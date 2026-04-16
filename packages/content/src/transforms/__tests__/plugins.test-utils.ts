@@ -22,23 +22,35 @@ export async function createTestPluginContext({
 } = {}): Promise<ContentTransformContext> {
 	const data = new DataStore("/");
 
+	const paths = {
+		getDownloadPath: vi
+			.fn()
+			.mockImplementation((sourceId?: string) => path.resolve("download", sourceId || "")),
+		getPublishedDownloadPath: vi
+			.fn()
+			.mockImplementation((sourceId?: string) => path.resolve("download", sourceId || "")),
+		getStagedDownloadPath: vi
+			.fn()
+			.mockImplementation((sourceId?: string) => path.resolve("download", sourceId || "")),
+		getTempPath: vi.fn().mockImplementation((sourceId?: string, pluginName?: string) => {
+			const basePath = pluginName ? path.resolve("temp", pluginName) : path.resolve("temp");
+			return path.resolve(basePath, sourceId || "");
+		}),
+		getBackupPath: vi
+			.fn()
+			.mockImplementation((sourceId?: string) => path.resolve("backup", sourceId || "")),
+		getRunPath: vi
+			.fn()
+			.mockImplementation((...segments: string[]) => path.resolve("temp", ...segments)),
+	} as ContentTransformContext["paths"];
+
 	return {
 		data,
 		logger,
 		abortSignal: new AbortController().signal,
 		cwd: "/",
 		eventBus: createMockEventBus(),
-		paths: {
-			getDownloadPath: vi
-				.fn()
-				.mockImplementation((sourceId?: string) => path.resolve("download", sourceId || "")),
-			getTempPath: vi
-				.fn()
-				.mockImplementation((sourceId?: string) => path.resolve("temp", sourceId || "")),
-			getBackupPath: vi
-				.fn()
-				.mockImplementation((sourceId?: string) => path.resolve("backup", sourceId || "")),
-		},
+		paths,
 		contentOptions: await contentConfigSchema.parseAsync({}),
 	};
 }

@@ -25,10 +25,12 @@ export const contentConfigSchema = z.object({
 		.array(z.custom<ContentTransform>())
 		.describe("A list of content transforms to run after fetching.")
 		.default([]),
-	/** The path at which to store all downloaded files. Defaults to '.downloads/'. */
+	/** The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'. */
 	downloadPath: z
 		.string()
-		.describe("The path at which to store all downloaded files. Defaults to '.downloads/'.")
+		.describe(
+			"The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'.",
+		)
 		.default(".downloads/"),
 	/** Temp file directory path. Defaults to '.launchpad/tmp/'. */
 	tempPath: z
@@ -49,11 +51,11 @@ export const contentConfigSchema = z.object({
 			"Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']`",
 		)
 		.default([]),
-	/** Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true. */
+	/** Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true. */
 	backupAndRestore: z
 		.boolean()
 		.describe(
-			"Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true.",
+			"Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true.",
 		)
 		.default(true),
 	/** Max request timeout in ms. Defaults to 30000. */

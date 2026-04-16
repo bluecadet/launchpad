@@ -18,6 +18,92 @@ import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
 import type { FetchStageContext } from "./fetch-context.js";
 
+function prepareStagedSourceDirectory(
+	context: FetchStageContext,
+	sourceId: string,
+): ResultAsync<void, ContentError> {
+	const stagedPath = context.paths.getStagedDownloadPath(sourceId);
+	const publishedPath = context.paths.getPublishedDownloadPath(sourceId);
+
+	return FileUtils.clearDir(stagedPath, {
+		ignoreKeep: true,
+		removeIfEmpty: true,
+	})
+		.andThen(() => FileUtils.ensureDir(stagedPath))
+		.andThen(() => FileUtils.copyMatchingFiles(publishedPath, stagedPath, context.config.keep))
+		.mapErr(
+			(error) =>
+				new ContentError(`Failed to prepare staged directory for ${sourceId}`, { cause: error }),
+		);
+}
+
+function promoteStagedSourceDirectory(
+	context: FetchStageContext,
+	sourceId: string,
+): ResultAsync<void, ContentError> {
+	const stagedPath = context.paths.getStagedDownloadPath(sourceId);
+	const publishedPath = context.paths.getPublishedDownloadPath(sourceId);
+	const publishedParentPath = context.paths.getPublishedDownloadPath();
+	const rollbackDir = context.paths.getRunPath(".promotion-rollback");
+
+	return FileUtils.pathExists(stagedPath)
+		.andThen((exists) => {
+			if (!exists) {
+				return okAsync(undefined);
+			}
+
+			return FileUtils.ensureDir(publishedParentPath).andThen(() =>
+				FileUtils.replacePath(stagedPath, publishedPath, {
+					preserveTimestamps: true,
+					rollbackDir,
+				}),
+			);
+		})
+		.mapErr(
+			(error) =>
+				new ContentError(`Failed to promote staged directory for ${sourceId}`, { cause: error }),
+		);
+}
+
+function promoteStagedRootEntries(context: FetchStageContext): ResultAsync<void, ContentError> {
+	const stagedRoot = context.paths.getStagedDownloadPath();
+	const publishedRoot = context.paths.getPublishedDownloadPath();
+	const rollbackDir = context.paths.getRunPath(".promotion-rollback");
+	const sourceIds = new Set(context.sources.map((source) => source.id));
+
+	return FileUtils.pathExists(stagedRoot)
+		.andThen((exists) => {
+			if (!exists) {
+				return okAsync(undefined);
+			}
+
+			return FileUtils.listDir(stagedRoot).andThen((entries) => {
+				const rootEntries = entries.filter((entry) => !sourceIds.has(entry));
+				if (rootEntries.length === 0) {
+					return okAsync(undefined);
+				}
+
+				return FileUtils.ensureDir(publishedRoot).andThen(() =>
+					ResultAsync.combine(
+						rootEntries.map((entry) =>
+							FileUtils.replacePath(
+								context.paths.getRunPath("downloads", entry),
+								context.paths.getPublishedDownloadPath(entry),
+								{
+									preserveTimestamps: true,
+									rollbackDir,
+								},
+							),
+						),
+					).map(() => undefined),
+				);
+			});
+		})
+		.mapErr(
+			(error) => new ContentError("Failed to promote staged root-level content", { cause: error }),
+		);
+}
+
 export type { FetchStageContext } from "./fetch-context.js";
 
 /**
@@ -67,7 +153,7 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
 
 	return ResultAsync.combine(
 		context.sources.map((source) => {
-			const downloadPath = context.paths.getDownloadPath(source.id);
+			const downloadPath = context.paths.getPublishedDownloadPath(source.id);
 			const backupPath = context.paths.getBackupPath(source.id);
 
 			return FileUtils.pathExists(downloadPath)
@@ -93,20 +179,14 @@ export function backupStage(context: FetchStageContext): ResultAsync<void, Conte
 export function clearOldDataStage(context: FetchStageContext): ResultAsync<void, ContentError> {
 	context.logger.debug("Beginning phase: clearing-old-data");
 
-	context.logger.info("Clearing download directory");
+	context.logger.info("Preparing staged download directory");
 
 	if (!context.sources) {
 		return errAsync(new ContentError("Sources not initialized"));
 	}
 
 	return ResultAsync.combine(
-		context.sources.map((source) =>
-			FileUtils.clearDir(context.paths.getDownloadPath(source.id), {
-				keepPatterns: context.config.keep,
-				ignoreKeep: false,
-				removeIfEmpty: false,
-			}),
-		),
+		context.sources.map((source) => prepareStagedSourceDirectory(context, source.id)),
 	).map(() => undefined);
 }
 
@@ -177,7 +257,7 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
 					// Emit document:write event on success
 					// Construct the file path (Documents don't expose their path)
 					const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
-					const filePath = `${context.paths.getDownloadPath(source.id)}/${filename}`;
+					const filePath = `${context.paths.getStagedDownloadPath(source.id)}/${filename}`;
 					context.eventBus?.emit("content:document:write", {
 						sourceId: source.id,
 						documentId: req.id,
@@ -232,8 +312,7 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 				const transformCtx: ContentTransformContext = {
 					...baseCtx,
 					paths: {
-						getDownloadPath: context.paths.getDownloadPath,
-						getBackupPath: context.paths.getBackupPath,
+						...context.paths,
 						// Bind transform.name into getTempPath for namespace isolation
 						getTempPath: (source?: string) => context.paths.getTempPath(source, transform.name),
 					},
@@ -270,13 +349,25 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 export function finalizingStage(context: FetchStageContext): ResultAsync<void, ContentError> {
 	context.logger.debug("Beginning phase: finalizing");
 
-	context.eventBus?.emit("content:fetch:done", {
-		sources: context.sources?.map((s) => s.id) || [],
-	});
-
 	return context.dataStore
 		.close()
-		.mapErr((e) => new ContentError("Failed to close data store", { cause: e }));
+		.mapErr((e) => new ContentError("Failed to close data store", { cause: e }))
+		.andThen(() => {
+			if (!context.sources) {
+				return okAsync(undefined);
+			}
+
+			return ResultAsync.combine(
+				context.sources.map((source) => promoteStagedSourceDirectory(context, source.id)),
+			)
+				.map(() => undefined)
+				.andThen(() => promoteStagedRootEntries(context));
+		})
+		.andTee(() => {
+			context.eventBus?.emit("content:fetch:done", {
+				sources: context.sources?.map((s) => s.id) || [],
+			});
+		});
 }
 
 /**
@@ -285,40 +376,52 @@ export function finalizingStage(context: FetchStageContext): ResultAsync<void, C
 export const errorRecoveryStage = (
 	context: FetchStageContext,
 	error: ContentError,
-): ResultAsync<void, ContentError | ContentRecoveryError> => {
+): ResultAsync<{ restoredSourceIds: string[] }, ContentError | ContentRecoveryError> => {
 	context.logger.debug("Beginning phase: error-recovery");
 	context.logger.error("Error in content fetch process. Running recovery steps...");
 
 	context.eventBus?.emit("content:fetch:error", { error });
 
+	if (!context.config.backupAndRestore) {
+		return okAsync({ restoredSourceIds: [] });
+	}
+
 	return okAsync()
 		.andTee(() => {
 			context.logger.info("Restoring from backup...");
 		})
-		.andThen(
-			() =>
-				ResultAsync.combine(
-					context.sources.map((source) => {
-						const downloadPath = context.paths.getDownloadPath(source.id);
-						const backupPath = context.paths.getBackupPath(source.id);
+		.andThen(() =>
+			ResultAsync.combine(
+				context.sources.map((source) => {
+					const downloadPath = context.paths.getPublishedDownloadPath(source.id);
+					const backupPath = context.paths.getBackupPath(source.id);
 
-						return FileUtils.pathExists(backupPath)
-							.andThen((exists) => {
-								if (!exists) {
-									context.logger.warn(`No backup found for ${source.id}`);
-									return okAsync(undefined);
-								}
+					return FileUtils.pathExists(backupPath)
+						.andThen((exists) => {
+							if (!exists) {
+								context.logger.warn(`No backup found for ${source.id}`);
+								return okAsync<string | undefined>(undefined);
+							}
 
-								context.logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-								return FileUtils.copy(backupPath, downloadPath, {
-									preserveTimestamps: true,
-								}).mapErr(
+							context.logger.info(`Restoring ${chalk.white(source.id)} from backup`);
+							return FileUtils.remove(downloadPath)
+								.andThen(() =>
+									FileUtils.copy(backupPath, downloadPath, {
+										preserveTimestamps: true,
+									}),
+								)
+								.map(() => source.id)
+								.mapErr(
 									(e) => new ContentRecoveryError(`Failed to restore ${source.id}`, error, e),
 								);
-							})
-							.mapErr((e) => new ContentRecoveryError(`Restore failed for ${source.id}`, error, e));
-					}),
-				).map(() => undefined), // return void instead of void[]
+						})
+						.mapErr((e) => new ContentRecoveryError(`Restore failed for ${source.id}`, error, e));
+				}),
+			).map((restoredSourceIds) => ({
+				restoredSourceIds: restoredSourceIds.filter(
+					(sourceId): sourceId is string => sourceId !== undefined,
+				),
+			})),
 		);
 };
 
@@ -338,7 +441,7 @@ export const cleanupStage = (
 	const dirPaths: string[] = [];
 
 	if (cleanup.temp) {
-		dirPaths.push(...context.sources.map((source) => context.paths.getTempPath(source.id)));
+		dirPaths.push(context.paths.getRunPath());
 	}
 
 	if (cleanup.backups) {

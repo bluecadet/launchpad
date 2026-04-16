@@ -300,13 +300,16 @@ function setupDownloadDirectories(
 	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
 }
 
-function cleanupAfterDownload(
-	paths: TransformPaths,
-	_config: MediaDownloaderConfigWithDefaults,
-): ResultAsync<void, FileSystemError> {
-	return FileUtils.copy(paths.getTempPath(), paths.getDownloadPath())
-		.andThen(() => FileUtils.remove(paths.getTempPath()))
-		.mapErr((err) => new FileSystemError("Failed to cleanup after download", err));
+function publishDownloadedFiles(paths: TransformPaths): ResultAsync<void, FileSystemError> {
+	return FileUtils.copy(paths.getTempPath(), paths.getDownloadPath(), {
+		preserveTimestamps: true,
+	}).mapErr((err) => new FileSystemError("Failed to publish downloaded files", err));
+}
+
+function cleanupAfterDownload(paths: TransformPaths): ResultAsync<void, FileSystemError> {
+	return FileUtils.remove(paths.getTempPath()).mapErr(
+		(err) => new FileSystemError("Failed to cleanup after download", err),
+	);
 }
 
 export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
@@ -428,9 +431,10 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 							});
 					})
 					.andThen(() => {
-						ctx.logger.verbose('Moving downloaded media files to "download" directory');
-						return cleanupAfterDownload(ctx.paths, configWithDefaults);
+						ctx.logger.verbose('Publishing downloaded media files to "download" directory');
+						return publishDownloadedFiles(ctx.paths);
 					})
+					.andThen(() => cleanupAfterDownload(ctx.paths))
 					// effectively cast to Promise<void>
 					// TODO: we should probably update the type signature of the apply function to allow for ResultAsync
 					.match(

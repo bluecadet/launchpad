@@ -33,6 +33,7 @@ export type FetchStageContext = {
 	readonly cwd: string;
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
+	readonly runId: string;
 
 	// Optional event bus (injected by controller)
 	readonly eventBus: EventBus;

@@ -129,21 +129,23 @@ eventBus.on('content:source:error', (data) => {
 ## Document Events
 
 ### `content:document:write`
-Emitted when a document is successfully written to disk.
+Emitted when a document is successfully written into the current fetch run's staged output.
 
 **Payload:**
 ```typescript
 {
   sourceId: string;    // ID of the source
   documentId: string;  // ID of the document
-  path: string;        // File path where document was written
+  path: string;        // Absolute staged file path for this run
 }
 ```
+
+`path` points at the staged file under `tempPath/runs/<runId>/downloads/...`, not the final published file under `downloadPath`. After a successful run, Launchpad promotes the staged tree into `downloadPath`.
 
 **Example:**
 ```typescript
 eventBus.on('content:document:write', (data) => {
-  console.log(`Wrote ${data.documentId} to ${data.path}`);
+  console.log(`Wrote staged document ${data.documentId} to ${data.path}`);
 });
 ```
 

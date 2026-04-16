@@ -25,8 +25,11 @@ describe("ContentTransform", () => {
 			contentOptions: {} as any,
 			paths: {
 				getDownloadPath: vi.fn(),
+				getPublishedDownloadPath: vi.fn(),
+				getStagedDownloadPath: vi.fn(),
 				getTempPath: vi.fn(),
 				getBackupPath: vi.fn(),
+				getRunPath: vi.fn(),
 			},
 			eventBus: createMockEventBus(),
 			abortSignal: new AbortController().signal,

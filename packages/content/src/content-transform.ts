@@ -16,8 +16,11 @@ export type ContentTransformContext = {
 	logger: Logger;
 	contentOptions: ResolvedContentConfig;
 	/**
-	 * Path helpers. `getTempPath` is pre-bound to this transform's name
-	 * (e.g. `.launchpad/tmp/<transformName>/<sourceId>`).
+	 * Path helpers for the current fetch run.
+	 * `getDownloadPath` resolves to the staged run output and is promoted to the
+	 * published download path only after the run succeeds.
+	 * `getTempPath` is pre-bound to this transform's name
+	 * (e.g. `.launchpad/tmp/runs/<runId>/<transformName>/<sourceId>`).
 	 */
 	paths: PathsHelper;
 	/**

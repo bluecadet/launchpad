@@ -15,9 +15,12 @@ type ContentTransformContext = {
   logger: Logger;
   contentOptions: ResolvedContentConfig;
   paths: {
-    getDownloadPath: (source?: string) => string;
+    getDownloadPath: (source?: string) => string; // staged output for the current run
+    getPublishedDownloadPath: (source?: string) => string;
+    getStagedDownloadPath: (source?: string) => string;
     getTempPath: (source?: string) => string;  // scoped to transform.name
     getBackupPath: (source?: string) => string;
+    getRunPath: (...segments: string[]) => string;
   };
 }
 ```
@@ -34,10 +37,12 @@ The resolved content configuration object. See [Content Config Reference](../con
 
 ### `paths`
 
-Helpers for retrieving the download, temp, and backup path. If no `source` is passed, then it will return the path to the respective root directory.
+Helpers for retrieving staged, published, temp, backup, and run-scoped paths. `getDownloadPath()` now resolves to the staged output for the current fetch run, so built-in and custom transforms should treat it as the writable destination. This includes the root of the staged download tree, which is promoted on success alongside per-source directories. If no `source` is passed, the helper returns the root path for that scope.
 
 > [!NOTE] Note:
 > The `getTempPath` function returns a directory scoped to the current transform's `name`. Transforms do not share temp directories.
+>
+> `getPublishedDownloadPath` is read-only context for cases where a transform needs to inspect the currently published tree. Do not write into it during a fetch run.
 
 ### `logger`
 

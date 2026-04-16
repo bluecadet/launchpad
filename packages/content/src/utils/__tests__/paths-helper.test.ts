@@ -4,11 +4,17 @@ import { createPathsHelper, type PathsHelper } from "../paths-helper.js";
 import "@bluecadet/launchpad-testing/vitest.d.ts";
 
 describe("PathsHelper", () => {
-	const mockConfig: ResolvedContentConfig = {
+	const mockConfig = {
 		downloadPath: ".downloads",
 		tempPath: ".tmp",
 		backupPath: ".backup",
-	} as any;
+		keep: [],
+		backupAndRestore: true,
+		maxTimeout: 30000,
+		encodeChars: '<>:"|?*',
+		sources: [],
+		transforms: [],
+	} satisfies ResolvedContentConfig;
 
 	const cwd = "/home/user/project";
 
@@ -67,6 +73,12 @@ describe("PathsHelper", () => {
 			expect(path).toMatchPath("/home/user/project/.tmp");
 		});
 
+		it("should scope temp paths to the run directory when runId is provided", () => {
+			pathsHelper = createPathsHelper(mockConfig, cwd, { runId: "run-123" });
+			const path = pathsHelper.getTempPath();
+			expect(path).toMatchPath("/home/user/project/.tmp/runs/run-123");
+		});
+
 		it("should include pluginName in the path when sourceId is also provided", () => {
 			pathsHelper = createPathsHelper(mockConfig, cwd);
 			const path = pathsHelper.getTempPath("source-1", "my-plugin");
@@ -100,6 +112,21 @@ describe("PathsHelper", () => {
 			pathsHelper = createPathsHelper(mockConfig, altCwd);
 			const path = pathsHelper.getTempPath("source-1");
 			expect(path).toMatchPath("/var/app/.tmp/source-1");
+		});
+	});
+
+	describe("getRunPath", () => {
+		it("should return the temp root when no runId is provided", () => {
+			pathsHelper = createPathsHelper(mockConfig, cwd);
+			expect(pathsHelper.getRunPath()).toMatchPath("/home/user/project/.tmp");
+		});
+
+		it("should resolve run-specific paths under tempPath/runs/<runId>", () => {
+			pathsHelper = createPathsHelper(mockConfig, cwd, { runId: "run-123" });
+			expect(pathsHelper.getRunPath()).toMatchPath("/home/user/project/.tmp/runs/run-123");
+			expect(pathsHelper.getRunPath("downloads", "root.json")).toMatchPath(
+				"/home/user/project/.tmp/runs/run-123/downloads/root.json",
+			);
 		});
 	});
 

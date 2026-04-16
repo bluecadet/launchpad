@@ -31,24 +31,10 @@ describe("generatePackageJson", () => {
 		expect(pkg.type).toBe("module");
 	});
 
-	it("always includes @bluecadet/launchpad-cli", () => {
+	it("always includes @bluecadet/launchpad", () => {
 		const result = generatePackageJson(baseAnswers, makeDeps(baseAnswers));
 		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
-		expect(pkg.dependencies["@bluecadet/launchpad-cli"]).toBeDefined();
-	});
-
-	it("includes launchpad-content when useContent is true", () => {
-		const answers = { ...baseAnswers, useContent: true, contentSources: ["json" as const] };
-		const result = generatePackageJson(answers, makeDeps(answers));
-		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
-		expect(pkg.dependencies["@bluecadet/launchpad-content"]).toBeDefined();
-	});
-
-	it("includes launchpad-monitor when useMonitor is true", () => {
-		const answers = { ...baseAnswers, useMonitor: true };
-		const result = generatePackageJson(answers, makeDeps(answers));
-		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
-		expect(pkg.dependencies["@bluecadet/launchpad-monitor"]).toBeDefined();
+		expect(pkg.dependencies["@bluecadet/launchpad"]).toBeDefined();
 	});
 
 	it("adds content script when useContent is true", () => {
@@ -68,9 +54,9 @@ describe("generatePackageJson", () => {
 });
 
 describe("getRequiredPackages", () => {
-	it("always includes @bluecadet/launchpad-cli", () => {
+	it("always includes @bluecadet/launchpad", () => {
 		const packages = getRequiredPackages(baseAnswers);
-		expect(packages).toContain("@bluecadet/launchpad-cli");
+		expect(packages).toContain("@bluecadet/launchpad");
 	});
 
 	it("includes @sanity/client for sanity source", () => {
@@ -139,19 +125,6 @@ describe("getRequiredPackages", () => {
 		});
 		expect(packages).toContain("@sanity/image-url");
 	});
-
-	it("includes @bluecadet/launchpad-dashboard when useDashboard is true", () => {
-		const packages = getRequiredPackages({
-			...baseAnswers,
-			useDashboard: true,
-		});
-		expect(packages).toContain("@bluecadet/launchpad-dashboard");
-	});
-
-	it("does not include dashboard package when useDashboard is false", () => {
-		const packages = getRequiredPackages(baseAnswers);
-		expect(packages).not.toContain("@bluecadet/launchpad-dashboard");
-	});
 });
 
 describe("mergePackageJson", () => {
@@ -166,13 +139,11 @@ describe("mergePackageJson", () => {
 	it("adds new dependencies without overwriting existing ones", () => {
 		const existing = JSON.stringify({
 			name: "my-app",
-			dependencies: { "@bluecadet/launchpad-cli": "1.0.0", "some-other-dep": "^1.0.0" },
+			dependencies: { "@bluecadet/launchpad": "1.0.0", "some-other-dep": "^1.0.0" },
 		});
 		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));
 		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
-		// Existing version should NOT be overwritten
-		expect(pkg.dependencies["@bluecadet/launchpad-cli"]).toBe("1.0.0");
-		// Other existing dep should be preserved
+		expect(pkg.dependencies["@bluecadet/launchpad"]).toBe("1.0.0");
 		expect(pkg.dependencies["some-other-dep"]).toBe("^1.0.0");
 	});
 

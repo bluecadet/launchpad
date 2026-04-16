@@ -31,28 +31,28 @@ function addIndent(str: string, level: number): string {
 }
 
 function buildImports(answers: Answers): string {
-	const lines: string[] = [`import { defineConfig } from '@bluecadet/launchpad-cli';`];
+	const lines: string[] = [`import { defineConfig } from '@bluecadet/launchpad/cli';`];
 
 	if (answers.useContent) {
-		lines.push(`import { content } from '@bluecadet/launchpad-content';`);
+		lines.push(`import { content } from '@bluecadet/launchpad/content';`);
 
 		if (answers.contentSources.length > 0) {
 			const named = answers.contentSources.map((s) => SOURCE_NAMED[s]).join(", ");
-			lines.push(`import { ${named} } from '@bluecadet/launchpad-content/sources';`);
+			lines.push(`import { ${named} } from '@bluecadet/launchpad/content/sources';`);
 		}
 
 		if (answers.contentTransforms.length > 0) {
 			const named = answers.contentTransforms.map((t) => TRANSFORM_NAMED[t]).join(", ");
-			lines.push(`import { ${named} } from '@bluecadet/launchpad-content/transforms';`);
+			lines.push(`import { ${named} } from '@bluecadet/launchpad/content/transforms';`);
 		}
 	}
 
 	if (answers.useMonitor) {
-		lines.push(`import { monitor } from '@bluecadet/launchpad-monitor';`);
+		lines.push(`import { monitor } from '@bluecadet/launchpad/monitor';`);
 	}
 
 	if (answers.useDashboard) {
-		lines.push(`import { dashboard } from '@bluecadet/launchpad-dashboard';`);
+		lines.push(`import { dashboard } from '@bluecadet/launchpad/dashboard';`);
 	}
 
 	return lines.join("\n");

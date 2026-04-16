@@ -31,7 +31,7 @@ describe("generateLaunchpadConfig", () => {
 			useMonitor: true,
 			monitorApps: [{ name: "my-app", script: "./my-app.exe", cwd: "./builds/" }],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-monitor/launchpad-monitor'");
+		expect(result).toContain("from '@bluecadet/launchpad-monitor'");
 		expect(result).toContain("monitor(");
 		expect(result).toContain("name: 'my-app'");
 		expect(result).toContain("script: './my-app.exe'");
@@ -69,7 +69,7 @@ describe("generateLaunchpadConfig", () => {
 			useContent: true,
 			contentSources: ["json"],
 		});
-		expect(result).toContain("from '@bluecadet/launchpad-content/launchpad-content'");
+		expect(result).toContain("from '@bluecadet/launchpad-content'");
 		expect(result).toContain("from '@bluecadet/launchpad-content/sources'");
 		expect(result).toContain("jsonSource(");
 		expect(result).toContain("start: ['content.fetch']");

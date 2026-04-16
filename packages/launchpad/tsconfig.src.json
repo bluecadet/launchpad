@@ -1,0 +1,16 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "./dist"
+	},
+	"include": ["src/**/*.ts"],
+	"references": [
+		{ "path": "../utils/tsconfig.src.json" },
+		{ "path": "../cli/tsconfig.src.json" },
+		{ "path": "../content/tsconfig.src.json" },
+		{ "path": "../controller/tsconfig.src.json" },
+		{ "path": "../monitor/tsconfig.src.json" },
+		{ "path": "../dashboard/tsconfig.src.json" }
+	]
+}

@@ -34,7 +34,7 @@ function buildImports(answers: Answers): string {
 	const lines: string[] = [`import { defineConfig } from '@bluecadet/launchpad-cli';`];
 
 	if (answers.useContent) {
-		lines.push(`import { content } from '@bluecadet/launchpad-content/launchpad-content';`);
+		lines.push(`import { content } from '@bluecadet/launchpad-content';`);
 
 		if (answers.contentSources.length > 0) {
 			const named = answers.contentSources.map((s) => SOURCE_NAMED[s]).join(", ");
@@ -48,7 +48,7 @@ function buildImports(answers: Answers): string {
 	}
 
 	if (answers.useMonitor) {
-		lines.push(`import { monitor } from '@bluecadet/launchpad-monitor/launchpad-monitor';`);
+		lines.push(`import { monitor } from '@bluecadet/launchpad-monitor';`);
 	}
 
 	if (answers.useDashboard) {

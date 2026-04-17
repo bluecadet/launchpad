@@ -33,7 +33,7 @@ describe("config", () => {
 
 			const result = findFirstConfigRecursive();
 
-			expect(result).toBe("/some/path/launchpad.config.ts");
+			expect(result).toMatchPath("/some/path/launchpad.config.ts");
 		});
 
 		it("finds launchpad.config.js before launchpad.config.ts", () => {
@@ -45,7 +45,7 @@ describe("config", () => {
 
 			const result = findFirstConfigRecursive();
 
-			expect(result).toBe("/some/path/launchpad.config.js");
+			expect(result).toMatchPath("/some/path/launchpad.config.js");
 		});
 
 		it("walks up to parent directory when not in current dir", () => {
@@ -54,7 +54,7 @@ describe("config", () => {
 
 			const result = findFirstConfigRecursive();
 
-			expect(result).toBe("/some/path/launchpad.config.ts");
+			expect(result).toMatchPath("/some/path/launchpad.config.ts");
 		});
 
 		it("returns null when no config exists in any parent", () => {
@@ -73,7 +73,7 @@ describe("config", () => {
 
 			const result = findFirstConfigRecursive();
 
-			expect(result).toBe("/launchpad.config.ts");
+			expect(result).toMatchPath("/launchpad.config.ts");
 		});
 	});
 

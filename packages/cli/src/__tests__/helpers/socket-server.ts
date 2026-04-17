@@ -54,7 +54,10 @@ export type TestIPCServer = {
 };
 
 export async function createTestIPCServer(handler: RequestHandler): Promise<TestIPCServer> {
-	const socketPath = path.join(os.tmpdir(), `lp-test-${process.pid}-${Date.now()}.sock`);
+	const socketPath =
+		process.platform === "win32"
+			? `\\\\.\\pipe\\lp-test-${process.pid}-${Date.now()}`
+			: path.join(os.tmpdir(), `lp-test-${process.pid}-${Date.now()}.sock`);
 	const received: IPCMessage[] = [];
 
 	const server = net.createServer((socket) => {

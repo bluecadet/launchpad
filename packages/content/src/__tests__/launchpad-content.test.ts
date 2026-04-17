@@ -172,7 +172,7 @@ describe("LaunchpadContent", () => {
 			const replaceSpy = vi
 				.spyOn(FileUtils, "replacePath")
 				.mockImplementation((src, dest, options) => {
-					if (dest === "/downloads/test") {
+					if (path.resolve(dest) === path.resolve("/downloads/test")) {
 						return errAsync(new FileUtils.FileUtilsError("promotion failed"));
 					}
 					return originalReplacePath(src, dest, options);

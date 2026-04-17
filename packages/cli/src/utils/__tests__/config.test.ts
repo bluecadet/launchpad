@@ -102,7 +102,8 @@ describe("config", () => {
 			vi.mocked(createJiti).mockReturnValue(mockJiti as unknown as ReturnType<typeof createJiti>);
 
 			await expect(loadConfigFromFile("/some/path/launchpad.config.ts")).rejects.toThrow(
-				"Unable to load config file '/some/path/launchpad.config.ts'",
+				// chalk wraps the path in ANSI codes; .* tolerates them without requiring a TTY check
+				/Unable to load config file '.*\/some\/path\/launchpad\.config\.ts.*'/,
 			);
 		});
 

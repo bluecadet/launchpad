@@ -136,11 +136,16 @@ export class LaunchpadController {
 				return errAsync(writePidResult.error);
 			}
 
-			return this.registerPlugin(createIPCTransport({ socketPath })).andTee(() => {
-				this._isStarted = true;
-				this._logger.verbose("Controller started with IPC transport");
-				return undefined;
-			});
+			return this.registerPlugin(createIPCTransport({ socketPath }))
+				.andTee(() => {
+					this._isStarted = true;
+					this._logger.verbose("Controller started with IPC transport");
+					return undefined;
+				})
+				.orElse((error) => {
+					deletePidFile(pidFile);
+					return errAsync(error);
+				});
 		}
 
 		this._isStarted = true;

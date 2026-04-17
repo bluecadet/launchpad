@@ -79,16 +79,15 @@ export class CommandDispatcher {
 	): ResultAsync<unknown, CommandExecutionError> {
 		this._eventBus.emit("command:start", { commandType: command.type, ...command });
 
-		const result = execute();
-
-		result.match(
-			(value) => {
+		return execute()
+			.map((value) => {
 				this._eventBus.emit("command:success", {
 					commandType: command.type,
 					result: value,
 				});
-			},
-			(error) => {
+				return value;
+			})
+			.mapErr((error) => {
 				const wrappedError =
 					error instanceof CommandExecutionError
 						? error
@@ -100,16 +99,7 @@ export class CommandDispatcher {
 					commandType: command.type,
 					error: wrappedError,
 				});
-			},
-		);
-
-		return result.mapErr((error) =>
-			error instanceof CommandExecutionError
-				? error
-				: new CommandExecutionError("Plugin command execution failed", {
-						cause: ensureError(error),
-						commandType: command.type,
-					}),
-		);
+				return wrappedError;
+			});
 	}
 }

@@ -50,7 +50,8 @@ describe("applyGenerators", () => {
 		expect(config).toContain("jsonSource");
 		expect(config).toContain("monitor(");
 		expect(config).toContain("workflows");
-		expect(config).not.toContain("monitor.disconnect");
+		expect(config).toContain("start: ['content.fetch', 'monitor.connect', 'monitor.start']");
+		expect(config).toContain("stop: ['monitor.stop', 'monitor.disconnect']");
 	});
 
 	it("merges into existing package.json without overwriting", async () => {

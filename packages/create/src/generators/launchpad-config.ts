@@ -189,6 +189,7 @@ function buildWorkflows(answers: Answers): string[] {
 
 	if (answers.useMonitor) {
 		startSteps.push("'monitor.connect'", "'monitor.start'");
+		stopSteps.push("'monitor.stop'", "'monitor.disconnect'");
 	}
 
 	if (startSteps.length === 0 && stopSteps.length === 0) {

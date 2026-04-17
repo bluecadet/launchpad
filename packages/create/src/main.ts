@@ -16,7 +16,7 @@ import type { Answers, ApplyResult, ContentSource, ContentTransform } from "./ty
 export async function resolveVersions(packages: string[]): Promise<Record<string, string>> {
 	const results = await Promise.allSettled(
 		packages.map(async (pkg) => {
-			const encoded = pkg.replace("/", "%2F");
+			const encoded = encodeURIComponent(pkg);
 			const res = await fetch(`https://registry.npmjs.org/${encoded}/latest`);
 			const data = (await res.json()) as { version: string };
 			return [pkg, `^${data.version}`] as [string, string];

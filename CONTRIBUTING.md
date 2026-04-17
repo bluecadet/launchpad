@@ -22,7 +22,6 @@ packages/
 ├── cli/           # Command-line interface and configuration management
 ├── content/       # Content fetching and transformation pipeline
 ├── monitor/       # Process monitoring and management via PM2
-├── scaffold/      # System configuration and Windows kiosk setup
 ├── utils/         # Shared utilities and base functionality
 ├── testing/       # Testing utilities and setup
 └── launchpad/     # Meta-package that installs all core packages
@@ -36,14 +35,13 @@ packages/
 
 - **Content Management**: Fetching and transforming data from CMSs/APIs into a SQLite-backed DataStore
 - **Process Monitoring**: Managing long-running applications via PM2 with window management
-- **System Configuration**: Windows kiosk setup and system-level configuration
 
 ### Monorepo Packages
 
 #### @bluecadet/launchpad-cli
 The main entry point that orchestrates the entire system. It:
 - Loads and validates `launchpad.config.js` configuration
-- Initializes the content, monitor, and scaffold subsystems
+- Initializes the content and monitor subsystems
 - Provides CLI commands for users
 
 #### @bluecadet/launchpad-content
@@ -59,9 +57,6 @@ Manages application processes and lifecycle:
 - Captures and routes application stdout/stderr
 - Manages window state and z-order on Windows via platform-specific APIs
 - Plugin system for reacting to app lifecycle events
-
-#### @bluecadet/launchpad-scaffold
-Handles Windows-specific system configuration and kiosk setup.
 
 #### @bluecadet/launchpad-utils
 Shared foundational utilities:
@@ -271,8 +266,6 @@ cd ../content
 npm link
 cd ../monitor
 npm link
-cd ../scaffold
-npm link
 cd ../utils
 npm link
 cd ../controller
@@ -285,7 +278,7 @@ cd ../launchpad
 npm link
 
 # In your test project
-npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/launchpad-dashboard @bluecadet/launchpad-create
+npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/launchpad-dashboard @bluecadet/launchpad-create
 ```
 
 ### Development Workflow
@@ -334,7 +327,7 @@ When you're done testing, unlink the packages:
 
 ```bash
 # In your test project
-npm unlink @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-scaffold @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller
+npm unlink @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller
 ```
 
 ### Troubleshooting

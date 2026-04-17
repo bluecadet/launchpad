@@ -184,11 +184,6 @@ export default defineConfig({
 						link: "/reference/controller",
 						items: [{ text: "Events", link: "/reference/controller/events" }],
 					},
-					{
-						text: "Scaffold",
-						link: "/reference/scaffold",
-						items: [{ text: "Scaffold Config", link: "/reference/scaffold/scaffold-config" }],
-					},
 				],
 			},
 		],

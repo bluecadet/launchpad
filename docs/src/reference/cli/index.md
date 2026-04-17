@@ -30,7 +30,6 @@ The CLI package provides a command-line interface for managing Launchpad install
   - `status`: Query running controller state
   - `content`: Content fetch operations (via IPC or ephemeral)
   - `monitor`: App monitoring operations (via IPC or ephemeral)
-  - `scaffold`: System configuration (Windows)
 
 ## Installation
 

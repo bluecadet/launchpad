@@ -1,6 +1,6 @@
 # Creating a Project
 
-The easiest way to set up a new Launchpad project (or add Launchpad to an existing one) is with the `create-launchpad` scaffolding tool.
+The easiest way to set up a new Launchpad project (or add Launchpad to an existing one) is with the `create-launchpad` project generator.
 
 ## Quick Start
 

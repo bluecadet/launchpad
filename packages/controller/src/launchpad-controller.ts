@@ -183,7 +183,14 @@ export class LaunchpadController {
 		this._logger.verbose("Stopping controller");
 
 		const reason: DisconnectReason = { type: "manual" };
-		return this.runWorkflow("stop").andThen(() => this.cleanup(reason));
+		return this.runWorkflow("stop")
+			.map(() => ({ workflowError: null as Error | null }))
+			.orElse((workflowError) => okAsync({ workflowError }))
+			.andThen(({ workflowError }) =>
+				this.cleanup(workflowError ? { type: "error", error: workflowError } : reason).andThen(
+					() => (workflowError ? errAsync(workflowError) : okAsync(undefined)),
+				),
+			);
 	}
 
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {

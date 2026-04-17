@@ -5,7 +5,7 @@ import {
 	type InstantiatedPlugin,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-import { okAsync } from "neverthrow";
+import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
@@ -368,6 +368,50 @@ describe("LaunchpadController", () => {
 
 			expect(result.isOk()).toBe(true);
 			expect(disconnect).toHaveBeenCalledTimes(1);
+		});
+
+		it("should still disconnect plugins when the stop workflow fails", async () => {
+			const controller = createController();
+			const calls: string[] = [];
+			await controller.registerPlugin(
+				definePlugin({
+					name: "monitor",
+					manifest: {
+						commands: [{ id: "monitor.stop" }],
+					},
+					setup: () =>
+						okAsync({
+							executeCommand: vi.fn().mockImplementation(() => {
+								calls.push("execute");
+								return okAsync(undefined);
+							}),
+							disconnect: vi.fn().mockImplementation(() => {
+								calls.push("disconnect");
+								return okAsync(undefined);
+							}),
+						}),
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "failing",
+					manifest: {
+						commands: [{ id: "failing.stop" }],
+					},
+					setup: () =>
+						okAsync({
+							executeCommand: vi.fn().mockImplementation(() => errAsync(new Error("stop failed"))),
+						}),
+				}),
+			);
+			await controller.start();
+			controller.setWorkflows({ stop: ["monitor.stop", "failing.stop"] });
+
+			const result = await controller.stop();
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("Plugin command execution failed");
+			expect(calls).toEqual(["execute", "disconnect"]);
 		});
 	});
 

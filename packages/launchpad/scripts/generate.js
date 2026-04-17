@@ -16,7 +16,6 @@ const packages = [
 	{ name: "@bluecadet/launchpad-content", alias: "content" },
 	{ name: "@bluecadet/launchpad-controller", alias: "controller" },
 	{ name: "@bluecadet/launchpad-monitor", alias: "monitor" },
-	{ name: "@bluecadet/launchpad-scaffold", alias: "scaffold" },
 ];
 
 /**

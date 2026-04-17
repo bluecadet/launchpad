@@ -162,7 +162,9 @@ describe("start", () => {
 			expect(callOrder).toEqual(["runWorkflow", "sendReadyMessage"]);
 		});
 
-		it("SIGINT/SIGTERM registered callback calls controller.stop()", async () => {
+		it("SIGINT/SIGTERM registered callback calls controller.stop() and exits", async () => {
+			const exitSpy = vi.spyOn(process, "exit").mockReturnValue(undefined as never);
+
 			let terminateCallback: (() => void) | undefined;
 			vi.mocked(onTerminate).mockImplementation((cb) => {
 				terminateCallback = cb;
@@ -179,6 +181,7 @@ describe("start", () => {
 			expect(terminateCallback).toBeDefined();
 			terminateCallback!();
 			expect(vi.mocked(mockController.stop)).toHaveBeenCalled();
+			await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(0));
 		});
 
 		it("registerPlugin fails — handleFatalError called", async () => {

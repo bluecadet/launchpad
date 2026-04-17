@@ -207,9 +207,14 @@ function createServerLifecycle(
 			}
 			case "dashboard.stop": {
 				if (!activeServer) return okAsync(undefined);
+				unsubscribe?.();
+				unsubscribe = null;
+				stopStreams?.();
+				stopStreams = null;
+				const drainResult = ResultAsync.fromSafePromise(sseManager.closeAll());
 				const server = activeServer;
 				activeServer = null;
-				return stopServer(server, ctx, stateManager);
+				return drainResult.andThen(() => stopServer(server, ctx, stateManager));
 			}
 			default: {
 				return errAsync(new Error("Unknown dashboard command type"));

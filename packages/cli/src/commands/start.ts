@@ -91,7 +91,10 @@ function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 					}
 
 					onTerminate(() => {
-						controller.stop();
+						controller.stop().match(
+							() => process.exit(0),
+							() => process.exit(1),
+						);
 					});
 
 					// Listen for shutdown events from IPC or plugins

@@ -32,7 +32,7 @@ jobs:
           # custom token so that the changesets stuff still works with our branch protections
           token: ${{ secrets.BC_GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: 'package.json'
           cache: 'npm'

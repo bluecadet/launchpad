@@ -36,7 +36,7 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("name: 'my-app'");
 		expect(result).toContain("script: './my-app.exe'");
 		expect(result).toContain("start: ['monitor.connect', 'monitor.start']");
-		expect(result).not.toContain("stop:");
+		expect(result).toContain("stop: ['monitor.stop', 'monitor.disconnect']");
 		expect(result).not.toContain("content(");
 	});
 
@@ -87,7 +87,7 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("content(");
 		expect(result).toContain("monitor(");
 		expect(result).toContain("start: ['content.fetch', 'monitor.connect', 'monitor.start']");
-		expect(result).not.toContain("stop:");
+		expect(result).toContain("stop: ['monitor.stop', 'monitor.disconnect']");
 	});
 
 	it("includes all selected sources in a single barrel import", () => {

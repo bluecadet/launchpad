@@ -256,8 +256,6 @@ export function content(config: ContentConfig) {
 			commands: [
 				{ id: "content.fetch", parser: contentCommandSchema },
 				{ id: "content.clear", parser: contentCommandSchema },
-				{ id: "content.backup", parser: contentCommandSchema },
-				{ id: "content.restore", parser: contentCommandSchema },
 			],
 		},
 		setup(ctx: HostAwarePluginContext<ContentState>) {
@@ -324,10 +322,15 @@ export function content(config: ContentConfig) {
 										),
 									);
 								}
-								default: {
+								case "content.backup":
+								case "content.restore": {
 									return errAsync(
-										new ContentError(`Unknown content command type: ${validCommand.type}`),
+										new ContentError(`Command '${validCommand.type}' is not yet implemented`),
 									);
+								}
+								default: {
+									validCommand satisfies never;
+									return errAsync(new ContentError("Unreachable: unknown command type"));
 								}
 							}
 						},

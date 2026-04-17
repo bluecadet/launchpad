@@ -44,8 +44,6 @@ describe("LaunchpadContent", () => {
 		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
 			"content.fetch",
 			"content.clear",
-			"content.backup",
-			"content.restore",
 		]);
 	});
 

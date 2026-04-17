@@ -217,7 +217,13 @@ export function fetchSourcesStage(context: FetchStageContext): ResultAsync<void,
 			ResultAsync.combine(
 				context.sources.map((source) =>
 					_fetchSource(source, context, fetchLogger).mapErr((e) => {
-						return new ContentFetchError(`Failed to fetch source ${source.id}`, source.id, e);
+						const error = new ContentFetchError(
+							`Failed to fetch source ${source.id}`,
+							source.id,
+							e,
+						);
+						context.eventBus?.emit("content:source:error", { sourceId: source.id, error });
+						return error;
 					}),
 				),
 			)

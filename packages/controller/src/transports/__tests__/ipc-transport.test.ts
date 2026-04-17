@@ -87,45 +87,48 @@ describe("ipc-transport", () => {
 			expect(net.createServer).toHaveBeenCalled();
 		});
 
-		it("should remove a stale socket file and retry on EADDRINUSE", async () => {
-			vi.mocked(fs.existsSync).mockReturnValue(true);
+		it.skipIf(process.platform === "win32")(
+			"should remove a stale socket file and retry on EADDRINUSE",
+			async () => {
+				vi.mocked(fs.existsSync).mockReturnValue(true);
 
-			const staleSocketProbe = {
-				once: vi.fn((event: string, handler: Cb) => {
-					if (event === "error") {
-						handler(Object.assign(new Error("Connection refused"), { code: "ECONNREFUSED" }));
-					}
-					return staleSocketProbe;
-				}),
-				end: vi.fn(),
-			};
+				const staleSocketProbe = {
+					once: vi.fn((event: string, handler: Cb) => {
+						if (event === "error") {
+							handler(Object.assign(new Error("Connection refused"), { code: "ECONNREFUSED" }));
+						}
+						return staleSocketProbe;
+					}),
+					end: vi.fn(),
+				};
 
-			(vi.spyOn(net, "createConnection") as any).mockReturnValue(staleSocketProbe);
+				(vi.spyOn(net, "createConnection") as any).mockReturnValue(staleSocketProbe);
 
-			const firstServer = createMockNetServer();
-			firstServer.listen.mockImplementationOnce((_socketPath: string) => {
-				firstServer.emit(
-					"error",
-					Object.assign(new Error("Address in use"), { code: "EADDRINUSE" }),
+				const firstServer = createMockNetServer();
+				firstServer.listen.mockImplementationOnce((_socketPath: string) => {
+					firstServer.emit(
+						"error",
+						Object.assign(new Error("Address in use"), { code: "EADDRINUSE" }),
+					);
+				});
+
+				const secondServer = createMockNetServer();
+
+				(vi.spyOn(net, "createServer" as any) as any)
+					.mockImplementationOnce(() => firstServer)
+					.mockImplementationOnce(() => secondServer);
+
+				const { transport, context } = createTestIPCTransport();
+				const result = await transport.setup(context);
+
+				expect(result.isOk()).toBe(true);
+				expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					'Removing stale IPC socket at "/test/socket"',
 				);
-			});
-
-			const secondServer = createMockNetServer();
-
-			(vi.spyOn(net, "createServer" as any) as any)
-				.mockImplementationOnce(() => firstServer)
-				.mockImplementationOnce(() => secondServer);
-
-			const { transport, context } = createTestIPCTransport();
-			const result = await transport.setup(context);
-
-			expect(result.isOk()).toBe(true);
-			expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
-			expect(context.logger.warn).toHaveBeenCalledWith(
-				'Removing stale IPC socket at "/test/socket"',
-			);
-			expect(net.createServer).toHaveBeenCalledTimes(2);
-		});
+				expect(net.createServer).toHaveBeenCalledTimes(2);
+			},
+		);
 
 		it("should fail startup when the socket is already owned by a live server", async () => {
 			const activeSocketProbe = {
@@ -181,7 +184,11 @@ describe("ipc-transport", () => {
 			const stopResult = await result._unsafeUnwrap().disconnect({ type: "manual" });
 
 			expect(stopResult.isOk()).toBe(true);
-			expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
+			if (process.platform === "win32") {
+				expect(fs.unlinkSync).not.toHaveBeenCalled();
+			} else {
+				expect(fs.unlinkSync).toHaveBeenCalledWith("/test/socket");
+			}
 		});
 
 		it("should handle already stopped transport", async () => {

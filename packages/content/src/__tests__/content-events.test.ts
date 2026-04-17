@@ -287,9 +287,10 @@ describe("Content Event Emissions", () => {
 			expect(writeEvents).toHaveLength(1);
 			expect(writeEvents[0]!.sourceId).toBe("test");
 			expect(writeEvents[0]!.documentId).toBe("data.json");
-			expect(writeEvents[0]!.path).toContain("/temp/runs/");
-			expect(writeEvents[0]!.path).toContain("/downloads/test/data.json");
-			expect(writeEvents[0]!.path.startsWith("/downloads/")).toBe(false);
+			const posixPath = writeEvents[0]!.path.replace(/\\/g, "/");
+			expect(posixPath).toContain("/temp/runs/");
+			expect(posixPath).toContain("/downloads/test/data.json");
+			expect(posixPath.startsWith("/downloads/")).toBe(false);
 			expect(vol.existsSync(writeEvents[0]!.path)).toBe(false);
 			expect(vol.existsSync("/downloads/test/data.json")).toBe(true);
 		});

@@ -9,13 +9,12 @@ titleTemplate: ':title'
 
 <PackageHeader package="launchpad"/>
 
-Launchpad provides a collection of tools designed to streamline the development, deployment, and maintenance of media installations. It handles content management, process monitoring, system configuration, and more.
+Launchpad provides a collection of tools designed to streamline the development, deployment, and maintenance of media installations. It handles content management, process monitoring, and more.
 
 ## Key Features
 
 - 📂 **Content Management**: Fetch and transform content from any source
 - 🔍 **Process Monitoring**: Keep your applications running reliably
-- 🛠️ **System Configuration**: Automate Windows kiosk setup
 - 💻 **Command Line Interface**: Easy-to-use commands for common operations
 - 🔌 **Plugin Architecture**: Extend functionality with custom plugins
 
@@ -33,8 +32,10 @@ Launchpad provides a collection of tools designed to streamline the development,
   <PackageCard package="controller" href="./reference/controller" description="Central orchestration and event system" />
   <PackageCard package="content" href="./reference/content" description="Content pipeline and transformation tools" />
   <PackageCard package="monitor" href="./reference/monitor" description="Process monitoring and management" />
-  <PackageCard package="scaffold" href="./reference/scaffold" description="Windows system configuration" />
 </ul>
+
+> [!TIP] Windows system setup
+> Looking to configure a Windows kiosk or exhibit machine? Check out [Preflight](https://preflight.bluecadet.com) — a dedicated tool for Windows system configuration built by Bluecadet.
 
 <style scoped>
   .card-grid {

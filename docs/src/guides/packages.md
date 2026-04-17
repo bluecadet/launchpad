@@ -11,7 +11,6 @@ Launchpad is published as a set of focused npm packages under the `@bluecadet` s
 @bluecadet/launchpad/content    → content syncing plugin and types
 @bluecadet/launchpad/monitor    → process monitoring plugin and types
 @bluecadet/launchpad/dashboard  → web dashboard plugin and types
-@bluecadet/launchpad/scaffold   → Windows kiosk setup utilities
 @bluecadet/launchpad/controller → IPC and process orchestration
 ```
 
@@ -30,7 +29,7 @@ The umbrella wraps these individual packages: `@bluecadet/launchpad-cli`, `@blue
 
 **Independent features.** Content syncing and process monitoring are genuinely separate concerns. Many installations use only one. Publishing them separately means users who want only `monitor` don't need to install the content pipeline at all.
 
-**Optional peer dependencies.** Integrations with third-party services (Sanity, Airtable, Contentful, sharp image processing) bring in substantial dependencies. These are `peerDependencies` on the individual packages, so you only pay that cost when you actually use them. The scaffolding tool adds the right peer deps automatically.
+**Optional peer dependencies.** Integrations with third-party services (Sanity, Airtable, Contentful, sharp image processing) bring in substantial dependencies. These are `peerDependencies` on the individual packages, so you only pay that cost when you actually use them. The project generator adds the right peer deps automatically.
 
 **Plugin parity.** Launchpad is built on a plugin model where first-party and third-party plugins are equivalent npm packages. Keeping the built-in plugins as standalone packages reinforces that — a community plugin follows the same pattern.
 
@@ -66,4 +65,4 @@ Optional integrations are not bundled in any Launchpad package. Install them alo
 | Sanity image URLs | `@sanity/image-url` |
 | Sharp image processing | `sharp` |
 
-The scaffolding tool (`npm create @bluecadet/launchpad`) selects and installs only the peer deps you need.
+The project generator (`npm create @bluecadet/launchpad`) selects and installs only the peer deps you need.

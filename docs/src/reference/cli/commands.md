@@ -118,20 +118,6 @@ The `monitor` command manages applications:
 
 Use this when you want to manage applications independently or connect to an existing controller instance.
 
-## Scaffold Command
-
-```bash
-launchpad scaffold [options]
-```
-
-This command configures Windows PCs for exhibit environments:
-
-- Requires administrative privileges
-- Configures Windows kiosk mode
-- Optimizes power settings
-- Sets up common exhibit configurations
-- Applies system-level settings
-
 ## Global Options
 
 All commands support these options:

@@ -19,7 +19,6 @@ This will install all core packages:
 - `@bluecadet/launchpad-content`: Content management
 - `@bluecadet/launchpad-monitor`: Process monitoring
 - `@bluecadet/launchpad-controller`: Central orchestration and event system
-- `@bluecadet/launchpad-scaffold`: System configuration
 
 ## Basic Usage
 

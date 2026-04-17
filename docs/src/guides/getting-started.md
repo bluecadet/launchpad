@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-The fastest way to get set up is with the scaffolding tool:
+The fastest way to get set up is with the project generator:
 
 ```bash
 npm create @bluecadet/launchpad
@@ -20,7 +20,7 @@ npm install @bluecadet/launchpad
 
 If you use CMS integrations or image processing, also install the relevant peer dependencies — see [Packages and Modularity](./packages.md) for the full list.
 
-The scaffolding tool handles this automatically.
+The project generator handles this automatically.
 
 > [!TIP]
 > You can also install individual packages (`@bluecadet/launchpad-content`, `@bluecadet/launchpad-monitor`, etc.) instead of the umbrella. Both work identically at runtime. See [Packages and Modularity](./packages.md) for when to prefer one over the other.

@@ -1,5 +1,4 @@
 import { vol } from "memfs";
-import { errAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as FileUtils from "../file-utils.js";
 

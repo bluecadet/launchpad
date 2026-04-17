@@ -8,7 +8,6 @@ import { ok, okAsync } from "neverthrow";
 import { vi } from "vitest";
 import type { ResolvedContentConfig } from "../../content-config.js";
 import type { ContentTransform } from "../../content-transform.js";
-import type { DataStore } from "../../utils/data-store.js";
 import type { FetchStageContext } from "../fetch-context.js";
 
 function createMockPathsHelper(

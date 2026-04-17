@@ -1,7 +1,7 @@
 import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import chalk from "chalk";
-import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { ConfigError } from "../errors.js";
 import { type ResolvedLaunchpadOptions, resolveLaunchpadConfig } from "../launchpad-config.js";

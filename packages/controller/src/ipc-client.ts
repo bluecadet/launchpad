@@ -315,7 +315,7 @@ export class IPCClient {
 				}
 
 				if (message.type === "state-patch") {
-					this._handlePatch(message.patches, message.version);
+					void this._handlePatch(message.patches, message.version);
 					continue;
 				}
 

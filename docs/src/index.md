@@ -35,7 +35,7 @@ Launchpad provides a collection of tools designed to streamline the development,
 </ul>
 
 > [!TIP] Windows system setup
-> Looking to configure a Windows kiosk or exhibit machine? Check out [Preflight](https://preflight.bluecadet.com) — a dedicated tool for Windows system configuration built by Bluecadet.
+> Looking to configure a Windows kiosk or exhibit machine? Check out [Preflight](https://github.com/bluecadet/preflight) — a dedicated tool for Windows system configuration built by Bluecadet.
 
 <style scoped>
   .card-grid {

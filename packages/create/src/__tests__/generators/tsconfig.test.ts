@@ -10,15 +10,15 @@ describe("generateTsconfig", () => {
 		const tsconfig = JSON.parse(generateTsconfig()) as {
 			compilerOptions: Record<string, string>;
 		};
-		expect(tsconfig.compilerOptions["module"]).toBe("NodeNext");
-		expect(tsconfig.compilerOptions["moduleResolution"]).toBe("NodeNext");
+		expect(tsconfig.compilerOptions.module).toBe("NodeNext");
+		expect(tsconfig.compilerOptions.moduleResolution).toBe("NodeNext");
 	});
 
 	it("enables strict mode", () => {
 		const tsconfig = JSON.parse(generateTsconfig()) as {
 			compilerOptions: Record<string, boolean>;
 		};
-		expect(tsconfig.compilerOptions["strict"]).toBe(true);
+		expect(tsconfig.compilerOptions.strict).toBe(true);
 	});
 });
 
@@ -46,7 +46,7 @@ describe("validateAndPatchTsconfig", () => {
 		});
 		const { content, warnings } = validateAndPatchTsconfig(existing);
 		const tsconfig = JSON.parse(content) as { compilerOptions: Record<string, boolean> };
-		expect(tsconfig.compilerOptions["esModuleInterop"]).toBe(true);
+		expect(tsconfig.compilerOptions.esModuleInterop).toBe(true);
 		expect(warnings).toHaveLength(0);
 	});
 
@@ -56,7 +56,7 @@ describe("validateAndPatchTsconfig", () => {
 		});
 		const { content } = validateAndPatchTsconfig(existing);
 		const tsconfig = JSON.parse(content) as { compilerOptions: Record<string, boolean> };
-		expect(tsconfig.compilerOptions["esModuleInterop"]).toBe(false);
+		expect(tsconfig.compilerOptions.esModuleInterop).toBe(false);
 	});
 
 	it("returns a warning when JSON is invalid", () => {

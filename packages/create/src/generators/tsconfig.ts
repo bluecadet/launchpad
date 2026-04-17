@@ -40,8 +40,8 @@ export function validateAndPatchTsconfig(existing: string): {
 
 	// Silently patch missing esModuleInterop
 	if (!("esModuleInterop" in compilerOptions)) {
-		compilerOptions["esModuleInterop"] = true;
-		tsconfig["compilerOptions"] = compilerOptions;
+		compilerOptions.esModuleInterop = true;
+		tsconfig.compilerOptions = compilerOptions;
 	}
 
 	return { content: JSON.stringify(tsconfig, null, "\t"), warnings };

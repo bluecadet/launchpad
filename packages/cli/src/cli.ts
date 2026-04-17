@@ -94,14 +94,5 @@ yargs(hideBin(process.argv))
 			await monitor(args);
 		},
 	)
-	.command(
-		"scaffold",
-		"Configures the current PC for exhibit environments (with admin prompt).",
-		() => {},
-		async (args) => {
-			const { scaffold } = await import("./commands/scaffold.js");
-			await scaffold(args);
-		},
-	)
 	.help()
 	.parse();

@@ -11,9 +11,6 @@
 			"path": "packages/monitor"
 		},
 		{
-			"path": "packages/scaffold"
-		},
-		{
 			"path": "packages/content"
 		},
 		{

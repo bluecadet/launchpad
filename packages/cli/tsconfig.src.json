@@ -11,9 +11,6 @@
 			"path": "../monitor/tsconfig.src.json"
 		},
 		{
-			"path": "../scaffold"
-		},
-		{
 			"path": "../content/tsconfig.src.json"
 		}
 	]

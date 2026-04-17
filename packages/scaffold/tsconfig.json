@@ -1,8 +1,0 @@
-{
-	"extends": "@bluecadet/launchpad-tsconfig/base.json",
-	"references": [
-		{
-			"path": "../utils/tsconfig.src.json"
-		}
-	]
-}

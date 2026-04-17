@@ -36,6 +36,9 @@ vi.mock("@bluecadet/launchpad-dashboard", () => ({
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createEmptyState, createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
+import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
+import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync } from "neverthrow";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { cliLogger } from "../../utils/cli-logger.js";
@@ -262,5 +265,49 @@ describe("status", () => {
 		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
 		expect(output).toContain("Dashboard:");
 		expect(output).toContain("http://127.0.0.1:3000");
+	});
+
+	it("state with custom plugin-contributed section — output includes the contributed section", async () => {
+		const mockClient = createMockIPCClient();
+		const state = createEmptyState({
+			plugins: {
+				custom: {
+					status: "ready",
+				},
+			},
+		});
+		const customPlugin: PluginConfig = {
+			name: "custom",
+			setup(ctx: HostAwarePluginContext<{ status?: string }>) {
+				ctx.statusRegistry.contributeStatusSection({
+					order: 10,
+					render(nextState: LaunchpadState) {
+						const custom = (nextState.plugins as { custom?: { status?: string } }).custom;
+						return custom ? `Custom:\n  Status: ${custom.status}` : null;
+					},
+				});
+				return okAsync({});
+			},
+		};
+
+		vi.mocked(loadConfigAndEnv).mockReturnValue(
+			okAsync({
+				dir: "/test",
+				config: resolveLaunchpadConfig({
+					controller: mockControllerConfig,
+					plugins: [customPlugin],
+				}),
+			}),
+		);
+		mockClient.queryState.mockReturnValue(okAsync(state));
+		vi.mocked(withDaemon).mockImplementation((_dir, _cfg, _relay, op) =>
+			op(mockClient as unknown as IPCClient, 999),
+		);
+
+		await status({});
+
+		const output = vi.mocked(cliLogger.fixed).mock.calls[0]?.[0] as string;
+		expect(output).toContain("Custom:");
+		expect(output).toContain("Status: ready");
 	});
 });

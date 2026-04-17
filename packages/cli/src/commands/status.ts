@@ -2,13 +2,17 @@
  * Status command - Query the persistent controller's current state via IPC
  */
 
+import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
+import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import {
 	type ContributedStatusSection,
 	StatusRegistry,
 } from "@bluecadet/launchpad-utils/status-registry";
-import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
-import { okAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
@@ -16,34 +20,37 @@ import { withDaemon } from "../utils/controller-execution.js";
 import { onTerminate } from "../utils/on-terminate.js";
 
 const watchMessage = chalk.dim("Watching for status changes... (press Ctrl+C to exit)");
-const statusRegistry = await createStatusRegistry();
+const BUILTIN_STATUS_PLUGIN_NAMES = new Set(["content", "monitor", "dashboard"]);
 
 export function status(argv: GlobalLaunchpadArgs & { watch?: boolean }) {
 	return loadConfigAndEnv(argv)
-		.andThen(({ dir, config }) => {
-			return withDaemon(dir, config.controller, false, (client) => {
-				return client.queryState().andThen((state) => {
-					if (!argv.watch) {
-						cliLogger.fixed(stateToString(state));
-						return okAsync(state);
-					}
+		.andThen(({ dir, config }) =>
+			ResultAsync.fromPromise(createStatusRegistry(config.plugins ?? [], dir), toError).andThen(
+				(statusRegistry) =>
+					withDaemon(dir, config.controller, false, (client) => {
+						return client.queryState().andThen((state) => {
+							if (!argv.watch) {
+								cliLogger.fixed(stateToString(state, statusRegistry));
+								return okAsync(state);
+							}
 
-					cliLogger.fixed(`${stateToString(state)}\n${watchMessage}`);
+							cliLogger.fixed(`${stateToString(state, statusRegistry)}\n${watchMessage}`);
 
-					client.onStateChange((newState) => {
-						cliLogger.fixed(`${stateToString(newState)}\n${watchMessage}`);
-					});
+							client.onStateChange((newState) => {
+								cliLogger.fixed(`${stateToString(newState, statusRegistry)}\n${watchMessage}`);
+							});
 
-					const neverResolve = new Promise<void>((resolve) => {
-						// resolve on sigint / sigterm
-						onTerminate(() => {
-							resolve();
+							const neverResolve = new Promise<void>((resolve) => {
+								// resolve on sigint / sigterm
+								onTerminate(() => {
+									resolve();
+								});
+							});
+							return ResultAsync.fromSafePromise(neverResolve);
 						});
-					});
-					return ResultAsync.fromSafePromise(neverResolve);
-				});
-			});
-		})
+					}),
+			),
+		)
 		.orElse((error) => handleFatalError(error));
 }
 
@@ -83,13 +90,82 @@ function isContributedStatusSection(value: unknown): value is ContributedStatusS
 	);
 }
 
-async function createStatusRegistry(): Promise<StatusRegistry> {
+async function createStatusRegistry(
+	plugins: readonly PluginConfig[],
+	cwd: string,
+): Promise<StatusRegistry> {
 	const localStatusRegistry = new StatusRegistry();
 	localStatusRegistry.contributeStatusSection(...(await loadCliStatusSections()));
+	localStatusRegistry.contributeStatusSection(
+		...(await loadConfiguredStatusSections(plugins, cwd)),
+	);
 	return localStatusRegistry;
 }
 
-function stateToString(state: LaunchpadState): string {
+async function loadConfiguredStatusSections(
+	plugins: readonly PluginConfig[],
+	cwd: string,
+): Promise<ContributedStatusSection[]> {
+	const localStatusRegistry = new StatusRegistry();
+	const pluginCtx = createStatusPluginContext(localStatusRegistry, cwd);
+
+	for (const plugin of plugins) {
+		if (BUILTIN_STATUS_PLUGIN_NAMES.has(plugin.name)) {
+			continue;
+		}
+
+		try {
+			await plugin.setup(pluginCtx);
+		} catch {
+			// Ignore plugin setup failures here so status rendering can fall back to core sections.
+		}
+	}
+
+	return [...localStatusRegistry.getSections()];
+}
+
+function createStatusPluginContext(statusRegistry: StatusRegistry, cwd: string) {
+	const abortController = new AbortController();
+	abortController.abort();
+
+	const noopLogger = createNoopLogger();
+	const emptyState: VersionedLaunchpadState = {
+		system: { mode: "task", startTime: new Date(0) },
+		plugins: {},
+		_version: 0,
+	};
+
+	return {
+		eventBus: new EventBus(),
+		logger: noopLogger,
+		abortSignal: abortController.signal,
+		cwd,
+		dispatchCommand: () =>
+			errAsync(new Error("dispatchCommand is unavailable while rendering status")),
+		getGlobalState: () => emptyState,
+		onGlobalStatePatch: () => () => {},
+		updateState: () => {},
+		dashboardRegistry: new DashboardRegistry(),
+		statusRegistry,
+	};
+}
+
+function createNoopLogger(): Logger {
+	return {
+		info: () => {},
+		warn: () => {},
+		error: () => {},
+		debug: () => {},
+		verbose: () => {},
+		child: () => createNoopLogger(),
+	};
+}
+
+function toError(error: unknown): Error {
+	return error instanceof Error ? error : new Error(String(error));
+}
+
+function stateToString(state: LaunchpadState, statusRegistry: StatusRegistry): string {
 	let output = `${chalk.bold("Launchpad Status:")}\n`;
 
 	if (state.system?.startTime) {

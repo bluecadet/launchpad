@@ -16,7 +16,7 @@
       "types": "./dist/launchpad-monitor.d.ts",
       "default": "./dist/launchpad-monitor.js"
     },
-"./commands": {
+    "./commands": {
       "types": "./dist/monitor-commands.d.ts",
       "default": "./dist/monitor-commands.js"
     },
@@ -40,7 +40,7 @@
     "test": "vitest"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "repository": {
     "type": "git",

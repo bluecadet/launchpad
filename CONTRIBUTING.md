@@ -102,7 +102,7 @@ When content is fetched, the system follows this sequence:
    - Sources return documents with `{ id, data }` structure
    - Data can be a Promise or AsyncIterable
    - Documents stored in the DataStore namespaced by source ID
-5. **Transform**: Run content plugins on fetched content
+5. **Transform**: Run content transforms on fetched content
 6. **Restore**: On failure, restore from backup if enabled
 7. **Cleanup**: Remove temporary and backup directories
 
@@ -276,7 +276,7 @@ cd ../launchpad
 npm link
 
 # In your test project
-npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/launchpad-create
+npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/create-launchpad
 ```
 
 ### Development Workflow
@@ -325,7 +325,7 @@ When you're done testing, unlink the packages:
 
 ```bash
 # In your test project
-npm unlink @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller
+npm unlink @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/create-launchpad
 ```
 
 ### Troubleshooting

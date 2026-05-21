@@ -1,10 +1,10 @@
-# sanityToHtml Content Plugin
+# sanityToHtml Content Transform
 
-The `sanityToHtml` plugin is used to transform Sanity.io Portable Text content into HTML. It converts block content from Sanity's structured format into standard HTML markup.
+The `sanityToHtml` transform is used to transform Sanity.io Portable Text content into HTML. It converts block content from Sanity's structured format into standard HTML markup.
 
 ## Usage
 
-To use the `sanityToHtml` plugin, include it in the list of content plugins in your configuration:
+To use the `sanityToHtml` transform, include it in the list of content transforms in your configuration:
 
 ```typescript
 import { sanityToHtml } from '@bluecadet/launchpad/content/transforms/sanity-to-html'; // [!code highlight]
@@ -18,7 +18,7 @@ export default defineConfig({
         })
       ]
     })
-  ]  
+  ]
 });
 ```
 

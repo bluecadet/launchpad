@@ -126,6 +126,6 @@ If transformations aren't working:
 
 ## Next Steps
 
-- Learn more about [content plugins](../reference/content/transforms/index.md)
+- Learn more about [content transforms](../reference/content/transforms/index.md)
 - Explore [sharp plugin options](../reference/content/transforms/sharp.md)
 - See [media downloader configuration](../reference/content/transforms/media-downloader.md)

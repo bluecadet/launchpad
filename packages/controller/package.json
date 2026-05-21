@@ -40,7 +40,7 @@
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "author": "Bluecadet",
   "license": "ISC",

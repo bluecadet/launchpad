@@ -1,6 +1,6 @@
-# symlink Content Plugin
+# symlink Content Transform
 
-The `symlink` plugin is used to create symbolic links between files or directories.
+The `symlink` transform is used to create symbolic links between files or directories.
 
 ## Usage
 
@@ -18,7 +18,7 @@ export default defineConfig({
         })
       ]
     })
-  ]  
+  ]
 });
 ```
 

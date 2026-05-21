@@ -40,7 +40,7 @@ export default defineConfig({
             "data.json": "https://api.example.com/data"
           }
         })
-      ],      
+      ],
       transforms: [],   // Add your plugins
     }),
     monitor({

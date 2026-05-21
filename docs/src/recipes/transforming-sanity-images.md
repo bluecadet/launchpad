@@ -21,7 +21,7 @@ export default defineConfig({
           queries: [{
             id: 'pages',
             query: `*[_type == "page"]{
-              image { 
+              image {
                 ...,
                 asset->
               }

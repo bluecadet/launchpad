@@ -3,7 +3,7 @@
   "version": "2.0.14",
   "description": "Suite of tools to manage media installations",
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "type": "module",
   "scripts": {
@@ -187,7 +187,7 @@
     "@bluecadet/launchpad-cli": "2.2.1",
     "@bluecadet/launchpad-content": "2.3.0",
     "@bluecadet/launchpad-controller": "0.1.0",
-"@bluecadet/launchpad-monitor": "2.1.0"
+    "@bluecadet/launchpad-monitor": "2.1.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

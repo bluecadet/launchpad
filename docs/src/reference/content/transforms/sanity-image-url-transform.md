@@ -1,10 +1,10 @@
-# sanityImageUrlTransform Content Plugin
+# sanityImageUrlTransform Content Transform
 
-The `sanityImageUrlTransform` plugin transforms Sanity image references into usable URLs. It can apply image transformations like resizing, cropping, and format conversion using Sanity's image URL builder.
+The `sanityImageUrlTransform` transform turns Sanity image references into usable URLs. It can apply image transformations like resizing, cropping, and format conversion using Sanity's image URL builder.
 
 ## Usage
 
-To use the `sanityImageUrlTransform` plugin, include it in your configuration before your `mediaDownloader` plugin:
+To use the `sanityImageUrlTransform` transform, include it in your configuration before your `mediaDownloader` transform:
 
 ```typescript
 import { sanityImageUrlTransform } from '@bluecadet/launchpad/content/transforms/sanity-image-url-transform'; // [!code highlight]
@@ -25,7 +25,7 @@ export default defineConfig({
         })
       ]
     })
-  ]  
+  ]
 });
 ```
 

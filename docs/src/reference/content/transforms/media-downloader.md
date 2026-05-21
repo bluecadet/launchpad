@@ -1,12 +1,12 @@
-# mediaDownloader Content Plugin
+# mediaDownloader Content Transform
 
-The `mediaDownloader` plugin downloads media assets (like images and videos) referenced in your content and stores them locally. This is useful for ensuring media availability and optimizing load times.
+The `mediaDownloader` transform downloads media assets (like images and videos) referenced in your content and stores them locally. This is useful for ensuring media availability and optimizing load times.
 
 Downloaded media files are colocated with the sources that reference them.
 
 ## Usage
 
-To use the `mediaDownloader` plugin, include it in the list of content plugins in your configuration:
+To use the `mediaDownloader` transform, include it in the list of content transforms in your configuration:
 
 ```typescript
 import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader'; // [!code highlight]
@@ -20,7 +20,7 @@ export default defineConfig({
         })
       ]
     })
-  ]  
+  ]
 });
 ```
 

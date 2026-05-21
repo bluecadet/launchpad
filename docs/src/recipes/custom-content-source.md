@@ -9,7 +9,7 @@ Content sources in Launchpad:
 - Define where and how to fetch content
 - Return data in a standardized format
 - Can fetch from APIs, databases, files, or any data source
-- Run before content plugins process the data
+- Run before content transforms process the data
 
 ## Basic Source Structure
 

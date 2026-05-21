@@ -46,6 +46,9 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=23"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"

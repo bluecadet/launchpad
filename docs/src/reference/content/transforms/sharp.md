@@ -1,10 +1,10 @@
-# Sharp Content Plugin
+# Sharp Content Transform
 
-The `sharp` plugin is used to transform downloaded images using the [Sharp](https://sharp.pixelplumbing.com/) image processing library. It can resize, format convert, and apply various transformations to your images.
+The `sharp` transform is used to transform downloaded images using the [Sharp](https://sharp.pixelplumbing.com/) image processing library. It can resize, format convert, and apply various transformations to your images.
 
 ## Usage
 
-To use the `sharp` plugin, include it in the list of content plugins after the mediaDownloader in your configuration:
+To use the `sharp` transform, include it in the list of content transforms after the mediaDownloader in your configuration:
 
 ```typescript
 import { sharp } from '@bluecadet/launchpad/content/transforms/sharp'; // [!code highlight]
@@ -22,7 +22,7 @@ export default defineConfig({
         })
       ]
     })
-  ]  
+  ]
 });
 ```
 

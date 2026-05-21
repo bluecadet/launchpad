@@ -3,7 +3,11 @@ import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
-import type { LaunchpadState, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type {
+	LaunchpadState,
+	StatusSnapshot,
+	VersionedLaunchpadState,
+} from "@bluecadet/launchpad-utils/types";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 
@@ -147,12 +151,18 @@ export type MockIPCClient = {
 	queryState: ReturnType<typeof vi.fn>;
 	executeCommand: ReturnType<typeof vi.fn>;
 	onStateChange: ReturnType<typeof vi.fn>;
+	queryStatusSnapshot: ReturnType<typeof vi.fn>;
+	onStatusSnapshotChange: ReturnType<typeof vi.fn>;
 };
 
 export function createMockIPCClient(overrides?: Partial<MockIPCClient>): MockIPCClient {
 	const emptyState: LaunchpadState = {
 		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
 		plugins: {},
+	};
+	const emptySnapshot: StatusSnapshot = {
+		header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+		sections: [],
 	};
 	return {
 		connect: vi.fn().mockReturnValue(okAsync(undefined)),
@@ -166,6 +176,8 @@ export function createMockIPCClient(overrides?: Partial<MockIPCClient>): MockIPC
 		queryState: vi.fn().mockReturnValue(okAsync(emptyState)),
 		executeCommand: vi.fn().mockReturnValue(okAsync(undefined)),
 		onStateChange: vi.fn().mockReturnValue(() => {}),
+		queryStatusSnapshot: vi.fn().mockReturnValue(okAsync(emptySnapshot)),
+		onStatusSnapshotChange: vi.fn().mockReturnValue(() => {}),
 		...overrides,
 	};
 }

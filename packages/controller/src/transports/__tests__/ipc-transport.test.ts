@@ -461,11 +461,17 @@ describe("ipc-transport", () => {
 			];
 			patchHandler?.(testPatches, 1);
 
-			expect(mockSocket.write).toHaveBeenCalledTimes(1);
-			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.method).toBe("statePatch");
-			expect(response.params.patches).toEqual(testPatches);
-			expect(response.params.version).toBe(1);
+			expect(mockSocket.write).toHaveBeenCalledTimes(2);
+			const statePatchMsg = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
+			expect(statePatchMsg.method).toBe("statePatch");
+			expect(statePatchMsg.params.patches).toEqual(testPatches);
+			expect(statePatchMsg.params.version).toBe(1);
+
+			const statusSnapshotMsg = IPCSerializer.deserialize(
+				mockSocket.write.mock.calls[1]![0]!,
+			) as any;
+			expect(statusSnapshotMsg.method).toBe("statusSnapshot");
+			expect(statusSnapshotMsg.params).toBeDefined();
 		});
 
 		it("should broadcast state-patch to all connected clients", async () => {
@@ -491,8 +497,9 @@ describe("ipc-transport", () => {
 			const testPatches = [{ op: "add", path: ["plugins", "monitor", "apps"], value: [] }];
 			patchHandler?.(testPatches, 2);
 
-			expect(mockSocket1.write).toHaveBeenCalledTimes(1);
-			expect(mockSocket2.write).toHaveBeenCalledTimes(1);
+			// Each patch event produces a statePatch + statusSnapshot per client
+			expect(mockSocket1.write).toHaveBeenCalledTimes(2);
+			expect(mockSocket2.write).toHaveBeenCalledTimes(2);
 
 			const response1 = IPCSerializer.deserialize(mockSocket1.write.mock.calls[0]![0]!) as any;
 			const response2 = IPCSerializer.deserialize(mockSocket2.write.mock.calls[0]![0]!) as any;
@@ -501,6 +508,11 @@ describe("ipc-transport", () => {
 			expect(response2.method).toBe("statePatch");
 			expect(response1.params.version).toBe(2);
 			expect(response2.params.version).toBe(2);
+
+			const snapshot1 = IPCSerializer.deserialize(mockSocket1.write.mock.calls[1]![0]!) as any;
+			const snapshot2 = IPCSerializer.deserialize(mockSocket2.write.mock.calls[1]![0]!) as any;
+			expect(snapshot1.method).toBe("statusSnapshot");
+			expect(snapshot2.method).toBe("statusSnapshot");
 		});
 
 		it("should handle multiple patches sequentially", async () => {
@@ -521,10 +533,11 @@ describe("ipc-transport", () => {
 			patchHandler?.([{ op: "replace", path: ["system", "mode"], value: "persistent" }], 1);
 			patchHandler?.([{ op: "add", path: ["data", "newField"], value: "value" }], 2);
 
-			expect(mockSocket.write).toHaveBeenCalledTimes(2);
+			// Two patch events × two messages each (statePatch + statusSnapshot) = 4 writes
+			expect(mockSocket.write).toHaveBeenCalledTimes(4);
 
 			const response1 = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			const response2 = IPCSerializer.deserialize(mockSocket.write.mock.calls[1]![0]!) as any;
+			const response2 = IPCSerializer.deserialize(mockSocket.write.mock.calls[2]![0]!) as any;
 
 			expect(response1.params.version).toBe(1);
 			expect(response2.params.version).toBe(2);

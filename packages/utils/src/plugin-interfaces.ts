@@ -29,7 +29,7 @@ import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
-import type { VersionedLaunchpadState } from "./types.js";
+import type { LaunchpadState, Section, VersionedLaunchpadState } from "./types.js";
 
 export type DisconnectReason =
 	| { type: "manual" }
@@ -208,6 +208,14 @@ export interface PluginConfig<
 	 * @returns Configured plugin instance that conforms to standard interfaces
 	 */
 	setup(ctx: PluginContext<TState>): ResultAsync<TPlugin, E>;
+	/**
+	 * Produce a structured status snapshot section for this plugin.
+	 * Called by the controller when a status snapshot is requested.
+	 * Return `null` when this plugin has no status to contribute right now.
+	 *
+	 * Pure function over state — no side effects, no async, no I/O.
+	 */
+	summarize?(state: LaunchpadState): Section | null;
 }
 
 // Helper that validates conformance while preserving concrete type

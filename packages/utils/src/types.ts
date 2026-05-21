@@ -67,3 +67,31 @@ export type VersionedLaunchpadState<TPlugins extends object = PluginsState> =
 		/** Version number - incremented with each patch */
 		_version: number;
 	};
+
+export type Tone = "ok" | "warn" | "error" | "neutral";
+
+export type Row =
+	| { type: "kv"; label: string; value: string; tone?: Tone }
+	| { type: "list"; label: string; items: Row[] }
+	| { type: "text"; text: string; tone?: Tone };
+
+export type Section = {
+	/** Plugin name; used as a stable key. */
+	name: string;
+	/** Sort key; lower first; defaults to 50. */
+	order?: number;
+	/** Section heading, e.g. "Content". */
+	title: string;
+	rows: Row[];
+};
+
+export type StatusSnapshot = {
+	header: {
+		/** ISO timestamp string. */
+		startTime: string;
+		uptimeMs: number;
+		mode: SystemState["mode"];
+	};
+	/** Already sorted and non-null. */
+	sections: Section[];
+};

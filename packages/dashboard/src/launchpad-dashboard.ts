@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import { type DisconnectReason, definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { defineEventHandler, toNodeListener } from "h3";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import { type DashboardCommand, dashboardCommandSchema } from "./dashboard-commands.js";
@@ -15,6 +16,7 @@ import { DashboardContributionManager } from "./dashboard-contribution-manager.j
 import type { DashboardPage } from "./dashboard-page.js";
 import type { DashboardPanel } from "./dashboard-panel.js";
 import { type DashboardState, DashboardStateManager } from "./dashboard-state.js";
+import { buildDashboardSection } from "./dashboard-summarize.js";
 import "./dashboard-events.js";
 import { createH3App } from "./server/h3-server.js";
 import { createLogPanel, LOG_PANEL_ID } from "./server/log-panel.js";
@@ -256,6 +258,11 @@ export function dashboard(config: DashboardConfig) {
 				{ id: "dashboard.start", parser: dashboardCommandSchema },
 				{ id: "dashboard.stop", parser: dashboardCommandSchema },
 			],
+		},
+		summarize(state: LaunchpadState): Section | null {
+			const dashboard = state.plugins.dashboard;
+			if (!dashboard) return null;
+			return buildDashboardSection(dashboard);
 		},
 		setup(ctx: HostAwarePluginContext<DashboardState>) {
 			const validationResult = validateDashboardConfig(config);

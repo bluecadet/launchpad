@@ -88,7 +88,6 @@ export async function main(): Promise<void> {
 			options: [
 				{ value: "content", label: "Content  – fetch & transform data from CMS/APIs" },
 				{ value: "monitor", label: "Monitor  – manage app processes via PM2" },
-				{ value: "dashboard", label: "Dashboard – web-based status UI" },
 			],
 			required: true,
 		}),
@@ -96,7 +95,6 @@ export async function main(): Promise<void> {
 
 	const useContent = plugins.includes("content");
 	const useMonitor = plugins.includes("monitor");
-	const useDashboard = plugins.includes("dashboard");
 
 	let contentSources: ContentSource[] = [];
 	let contentTransforms: ContentTransform[] = [];
@@ -173,7 +171,6 @@ export async function main(): Promise<void> {
 		packageName,
 		useContent,
 		useMonitor,
-		useDashboard,
 		contentSources,
 		contentTransforms,
 		monitorApps,

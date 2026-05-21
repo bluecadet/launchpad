@@ -1,14 +1,13 @@
 import path from "node:path";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type {
 	BaseCommand,
 	CommandDescriptor,
 	DisconnectReason,
 	InstantiatedPlugin,
 	PluginConfig,
+	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -44,7 +43,6 @@ export class LaunchpadController {
 	private _commandRegistry = new CommandRegistry();
 	private _abortController = new AbortController();
 	private _isStarted = false;
-	private _dashboardRegistry = new DashboardRegistry();
 	private _shutdownInProgress = false;
 
 	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
@@ -231,10 +229,6 @@ export class LaunchpadController {
 		return this._isStarted;
 	}
 
-	getDashboardRegistry(): DashboardRegistry {
-		return this._dashboardRegistry;
-	}
-
 	setWorkflows(workflows: WorkflowMap): void {
 		this._workflowRunner.setWorkflows(workflows);
 	}
@@ -250,7 +244,7 @@ export class LaunchpadController {
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
-	): HostAwarePluginContext<unknown> {
+	): PluginContext<unknown> {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),
@@ -260,7 +254,6 @@ export class LaunchpadController {
 			getGlobalState: () => this.getState(),
 			onGlobalStatePatch: (handler) => this._stateStore.onPatch(handler),
 			updateState,
-			dashboardRegistry: this._dashboardRegistry,
 		};
 	}
 }

@@ -1,6 +1,5 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
-import { definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
@@ -9,7 +8,6 @@ import {
 	parseContentConfig,
 	type ResolvedContentConfig,
 } from "./content-config.js";
-import { contentPanel } from "./content-panel.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import { buildContentSection } from "./content-summarize.js";
 import { ContentError } from "./content-transform.js";
@@ -32,7 +30,7 @@ function createFetchRunId() {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-type ContentActionContext = HostAwarePluginContext & {
+type ContentActionContext = PluginContext & {
 	stateManager: ContentStateManager;
 	sourceRegistry: Map<string, ContentSource>;
 	resolvedConfig: ResolvedContentConfig;
@@ -264,7 +262,7 @@ export function content(config: ContentConfig) {
 			if (!contentState) return null;
 			return buildContentSection(contentState);
 		},
-		setup(ctx: HostAwarePluginContext<ContentState>) {
+		setup(ctx: PluginContext<ContentState>) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
 					if (resolvedConfig.sources.length === 0) {
@@ -287,7 +285,6 @@ export function content(config: ContentConfig) {
 
 					const sourceIds = resolvedConfig.sources.map((s) => s.id);
 					stateManager.initializeSources(sourceIds);
-					ctx.dashboardRegistry.contributePanel(contentPanel);
 					if (sourceIds.length > 0) {
 						ctx.logger.info(`Initialized ${sourceIds.length} source(s)`);
 					}

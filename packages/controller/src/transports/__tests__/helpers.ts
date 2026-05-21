@@ -1,6 +1,5 @@
 import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
-import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
+import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
@@ -9,7 +8,7 @@ import { createIPCTransport } from "../ipc-transport.js";
 type Cb = (...args: unknown[]) => void;
 
 export type MutableContext = {
-	-readonly [K in keyof HostAwarePluginContext]: HostAwarePluginContext[K];
+	-readonly [K in keyof PluginContext]: PluginContext[K];
 } & {
 	eventBus: ReturnType<typeof createMockEventBus>;
 };
@@ -51,7 +50,6 @@ export function createTestIPCTransport() {
 		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" }, plugins: {}, _version: 0 }),
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
 		updateState: vi.fn(),
-		dashboardRegistry: new DashboardRegistry(),
 	} satisfies MutableContext;
 
 	const transport = createIPCTransport({

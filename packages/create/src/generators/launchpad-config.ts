@@ -51,10 +51,6 @@ function buildImports(answers: Answers): string {
 		lines.push(`import { monitor } from '@bluecadet/launchpad/monitor';`);
 	}
 
-	if (answers.useDashboard) {
-		lines.push(`import { dashboard } from '@bluecadet/launchpad/dashboard';`);
-	}
-
 	return lines.join("\n");
 }
 
@@ -174,10 +170,6 @@ function buildMonitorPlugin(answers: Answers): string {
 	return ["monitor({", "\tapps: [", appsBlock, "\t],", "})"].join("\n");
 }
 
-function buildDashboardPlugin(): string {
-	return "dashboard({\n\tport: 3000,\n})";
-}
-
 function buildWorkflows(answers: Answers): string[] {
 	const workflows: string[] = [];
 	const startSteps: string[] = [];
@@ -214,7 +206,6 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	const plugins: string[] = [];
 	if (answers.useContent) plugins.push(buildContentPlugin(answers));
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
-	if (answers.useDashboard) plugins.push(buildDashboardPlugin());
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");
 	const workflowsBlock = buildWorkflows(answers);

@@ -12,7 +12,6 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: true,
 	useMonitor: true,
-	useDashboard: false,
 	contentSources: ["json"],
 	contentTransforms: ["mediaDownloader"],
 	monitorApps: [{ name: "my-app", script: "./my-app.exe", cwd: "./builds/" }],

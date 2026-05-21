@@ -1,7 +1,10 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
-import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
-import { type DisconnectReason, definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import {
+	type DisconnectReason,
+	definePlugin,
+	type PluginContext,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -16,11 +19,10 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
-import { monitorPanel } from "./monitor-panel.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 import { buildMonitorSection } from "./monitor-summarize.js";
 
-type MonitorActionContext = HostAwarePluginContext<MonitorState> & {
+type MonitorActionContext = PluginContext<MonitorState> & {
 	processManager: ProcessManager;
 	busManager: BusManager;
 	appManager: AppManager;
@@ -252,14 +254,12 @@ export function monitor(config: MonitorConfig) {
 			if (!monitorState) return null;
 			return buildMonitorSection(monitorState);
 		},
-		setup(ctx: HostAwarePluginContext<MonitorState>) {
+		setup(ctx: PluginContext<MonitorState>) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));
 			}
 			const resolvedConfig = configResult.data;
-
-			ctx.dashboardRegistry.contributePanel(monitorPanel);
 
 			// initialize persistent services
 			const processManager = new ProcessManager(ctx.logger);

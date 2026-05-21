@@ -35,14 +35,6 @@
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
-    },
-    "./panel-registry": {
-      "types": "./dist/panel-registry.d.ts",
-      "default": "./dist/panel-registry.js"
-    },
-    "./host-sdk": {
-      "types": "./dist/host-sdk.d.ts",
-      "default": "./dist/host-sdk.js"
     }
   },
   "files": [

@@ -3,9 +3,6 @@
 	"references": [
 		{
 			"path": "../utils/tsconfig.src.json"
-		},
-		{
-			"path": "../dashboard/tsconfig.src.json"
 		}
 	]
 }

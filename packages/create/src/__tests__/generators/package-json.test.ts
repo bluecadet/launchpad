@@ -11,7 +11,6 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: false,
 	useMonitor: false,
-	useDashboard: false,
 	contentSources: [],
 	contentTransforms: [],
 	monitorApps: [],

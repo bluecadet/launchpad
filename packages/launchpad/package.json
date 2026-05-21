@@ -162,42 +162,6 @@
     "./monitor/state": {
       "types": "./dist/monitor/state.d.ts",
       "default": "./dist/monitor/state.js"
-    },
-    "./dashboard": {
-      "types": "./dist/dashboard/index.d.ts",
-      "default": "./dist/dashboard/index.js"
-    },
-    "./dashboard/launchpad-dashboard": {
-      "types": "./dist/dashboard/launchpad-dashboard.d.ts",
-      "default": "./dist/dashboard/launchpad-dashboard.js"
-    },
-    "./dashboard/panel": {
-      "types": "./dist/dashboard/panel.d.ts",
-      "default": "./dist/dashboard/panel.js"
-    },
-    "./dashboard/page": {
-      "types": "./dist/dashboard/page.d.ts",
-      "default": "./dist/dashboard/page.js"
-    },
-    "./dashboard/config": {
-      "types": "./dist/dashboard/config.d.ts",
-      "default": "./dist/dashboard/config.js"
-    },
-    "./dashboard/state": {
-      "types": "./dist/dashboard/state.d.ts",
-      "default": "./dist/dashboard/state.js"
-    },
-    "./dashboard/commands": {
-      "types": "./dist/dashboard/commands.d.ts",
-      "default": "./dist/dashboard/commands.js"
-    },
-    "./dashboard/events": {
-      "types": "./dist/dashboard/events.d.ts",
-      "default": "./dist/dashboard/events.js"
-    },
-    "./dashboard/ui": {
-      "types": "./dist/dashboard/ui.d.ts",
-      "default": "./dist/dashboard/ui.js"
     }
   },
   "maintainers": [
@@ -223,8 +187,7 @@
     "@bluecadet/launchpad-cli": "2.2.1",
     "@bluecadet/launchpad-content": "2.3.0",
     "@bluecadet/launchpad-controller": "0.1.0",
-    "@bluecadet/launchpad-dashboard": "2.0.0",
-    "@bluecadet/launchpad-monitor": "2.1.0"
+"@bluecadet/launchpad-monitor": "2.1.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

@@ -2,6 +2,7 @@ import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { type DisconnectReason, definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { spawn } from "cross-spawn";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
@@ -18,6 +19,7 @@ import {
 import { monitorPanel } from "./monitor-panel.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 import { monitorStatusSection } from "./monitor-status-section.js";
+import { buildMonitorSection } from "./monitor-summarize.js";
 
 type MonitorActionContext = HostAwarePluginContext<MonitorState> & {
 	processManager: ProcessManager;
@@ -245,6 +247,11 @@ export function monitor(config: MonitorConfig) {
 				{ id: "monitor.restart", parser: monitorCommandSchema },
 				{ id: "monitor.shutdown", parser: monitorCommandSchema },
 			],
+		},
+		summarize(state: LaunchpadState): Section | null {
+			const monitorState = state.plugins.monitor;
+			if (!monitorState) return null;
+			return buildMonitorSection(monitorState);
 		},
 		setup(ctx: HostAwarePluginContext<MonitorState>) {
 			ctx.statusRegistry.contributeStatusSection(monitorStatusSection);

@@ -14,14 +14,14 @@ function makeConfig(socketPath: string) {
 	return controllerConfigSchema.parse({ socketPath, pidFile: "irrelevant.pid" });
 }
 
-function makeStateHandler() {
+function makeStateHandler(): import("./helpers/socket-server.js").RequestHandler {
 	const state = createEmptyState();
-	return (msg: import("./helpers/socket-server.js").IPCMessage) => {
+	return (msg) => {
 		const { id } = msg;
-		if (msg.type === "query-state") return { id, type: "state" as const, data: state };
-		if (msg.type === "shutdown") return { id, type: "ack" as const };
-		if (msg.type === "execute-command") return { id, type: "result" as const, data: null };
-		return { id, type: "ack" as const };
+		if (msg.method === "queryState") return { jsonrpc: "2.0", id, result: state };
+		if (msg.method === "shutdown") return { jsonrpc: "2.0", id, result: null };
+		if (msg.method === "executeCommand") return { jsonrpc: "2.0", id, result: null };
+		return { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } };
 	};
 }
 
@@ -78,7 +78,7 @@ describe("withDaemon — real socket integration", () => {
 		);
 
 		expect(result.isOk()).toBe(true);
-		expect(server.getReceivedMessages().at(-1)?.type).toBe("shutdown");
+		expect(server.getReceivedMessages().at(-1)?.method).toBe("shutdown");
 	});
 
 	it("propagates errors returned by the operation", async () => {

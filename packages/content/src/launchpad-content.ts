@@ -1,6 +1,7 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import { definePlugin } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
@@ -11,6 +12,7 @@ import {
 import { contentPanel } from "./content-panel.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import { contentStatusSection } from "./content-status-section.js";
+import { buildContentSection } from "./content-summarize.js";
 import { ContentError } from "./content-transform.js";
 import {
 	backupStage,
@@ -257,6 +259,11 @@ export function content(config: ContentConfig) {
 				{ id: "content.fetch", parser: contentCommandSchema },
 				{ id: "content.clear", parser: contentCommandSchema },
 			],
+		},
+		summarize(state: LaunchpadState): Section | null {
+			const contentState = state.plugins.content;
+			if (!contentState) return null;
+			return buildContentSection(contentState);
 		},
 		setup(ctx: HostAwarePluginContext<ContentState>) {
 			ctx.statusRegistry.contributeStatusSection(contentStatusSection);

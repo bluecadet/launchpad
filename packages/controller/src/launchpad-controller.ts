@@ -10,7 +10,6 @@ import type {
 	InstantiatedPlugin,
 	PluginConfig,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
@@ -46,7 +45,6 @@ export class LaunchpadController {
 	private _abortController = new AbortController();
 	private _isStarted = false;
 	private _dashboardRegistry = new DashboardRegistry();
-	private _statusRegistry = new StatusRegistry();
 	private _shutdownInProgress = false;
 
 	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
@@ -237,10 +235,6 @@ export class LaunchpadController {
 		return this._dashboardRegistry;
 	}
 
-	getStatusRegistry(): StatusRegistry {
-		return this._statusRegistry;
-	}
-
 	setWorkflows(workflows: WorkflowMap): void {
 		this._workflowRunner.setWorkflows(workflows);
 	}
@@ -267,7 +261,6 @@ export class LaunchpadController {
 			onGlobalStatePatch: (handler) => this._stateStore.onPatch(handler),
 			updateState,
 			dashboardRegistry: this._dashboardRegistry,
-			statusRegistry: this._statusRegistry,
 		};
 	}
 }

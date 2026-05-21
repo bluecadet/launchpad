@@ -1,9 +1,7 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
-import type { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type { ResolvedDashboardConfig } from "./dashboard-config.js";
-import { dashboardStatusSection } from "./dashboard-status-section.js";
 
 const _require = createRequire(import.meta.url);
 
@@ -27,10 +25,7 @@ export type RegistrationHandle = {
 export class DashboardContributionManager {
 	private _handle: RegistrationHandle;
 
-	constructor(
-		private readonly _registry: DashboardRegistry,
-		private readonly _statusRegistry: StatusRegistry,
-	) {
+	constructor(private readonly _registry: DashboardRegistry) {
 		this._handle = {
 			panelIds: [],
 			pageIds: [],
@@ -44,8 +39,6 @@ export class DashboardContributionManager {
 	 * Register user-configured panels, pages, and base dashboard assets.
 	 */
 	registerContributions(config: ResolvedDashboardConfig): RegistrationHandle {
-		this._statusRegistry.contributeStatusSection(dashboardStatusSection);
-
 		const panelIds = config.panels.map((panel) => panel.id);
 		const pageIds = config.pages.map((page) => page.id);
 

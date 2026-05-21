@@ -2,7 +2,6 @@ import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import type {
 	LaunchpadState,
 	StatusSnapshot,
@@ -105,7 +104,6 @@ export function createMockPluginCtx(cwd = "/") {
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
 		updateState: vi.fn(),
 		dashboardRegistry: new DashboardRegistry(),
-		statusRegistry: new StatusRegistry(),
 	} satisfies HostAwarePluginContext;
 }
 

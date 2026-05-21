@@ -1,6 +1,5 @@
 import type { HostAwarePluginContext } from "@bluecadet/launchpad-utils/host-sdk";
 import { DashboardRegistry } from "@bluecadet/launchpad-utils/panel-registry";
-import { StatusRegistry } from "@bluecadet/launchpad-utils/status-registry";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("node:http", () => ({
@@ -46,7 +45,6 @@ function makeMockCtx(): HostAwarePluginContext<DashboardState> {
 		onGlobalStatePatch: vi.fn().mockReturnValue(vi.fn()),
 		updateState: vi.fn(),
 		dashboardRegistry: new DashboardRegistry(),
-		statusRegistry: new StatusRegistry(),
 	};
 }
 

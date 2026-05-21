@@ -2,7 +2,6 @@ export * from "./content-commands.js";
 export { type ContentConfig, defineContentConfig } from "./content-config.js";
 export type { ContentEvents } from "./content-events.js";
 export { contentPanel } from "./content-panel.js";
-export { contentStatusSection } from "./content-status-section.js";
 export {
 	type ContentTransform,
 	defineContentTransform,

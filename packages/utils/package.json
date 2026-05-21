@@ -40,10 +40,6 @@
       "types": "./dist/panel-registry.d.ts",
       "default": "./dist/panel-registry.js"
     },
-    "./status-registry": {
-      "types": "./dist/status-registry.d.ts",
-      "default": "./dist/status-registry.js"
-    },
     "./host-sdk": {
       "types": "./dist/host-sdk.d.ts",
       "default": "./dist/host-sdk.js"

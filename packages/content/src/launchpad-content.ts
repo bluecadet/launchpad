@@ -11,7 +11,6 @@ import {
 } from "./content-config.js";
 import { contentPanel } from "./content-panel.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
-import { contentStatusSection } from "./content-status-section.js";
 import { buildContentSection } from "./content-summarize.js";
 import { ContentError } from "./content-transform.js";
 import {
@@ -266,7 +265,6 @@ export function content(config: ContentConfig) {
 			return buildContentSection(contentState);
 		},
 		setup(ctx: HostAwarePluginContext<ContentState>) {
-			ctx.statusRegistry.contributeStatusSection(contentStatusSection);
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
 					if (resolvedConfig.sources.length === 0) {

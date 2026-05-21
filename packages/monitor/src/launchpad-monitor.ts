@@ -18,7 +18,6 @@ import {
 } from "./monitor-config.js";
 import { monitorPanel } from "./monitor-panel.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
-import { monitorStatusSection } from "./monitor-status-section.js";
 import { buildMonitorSection } from "./monitor-summarize.js";
 
 type MonitorActionContext = HostAwarePluginContext<MonitorState> & {
@@ -254,7 +253,6 @@ export function monitor(config: MonitorConfig) {
 			return buildMonitorSection(monitorState);
 		},
 		setup(ctx: HostAwarePluginContext<MonitorState>) {
-			ctx.statusRegistry.contributeStatusSection(monitorStatusSection);
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
 				return errAsync(new Error("Invalid monitor configuration", { cause: configResult.error }));

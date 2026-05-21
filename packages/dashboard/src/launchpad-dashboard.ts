@@ -269,10 +269,7 @@ export function dashboard(config: DashboardConfig) {
 			if (validationResult.isErr()) return errAsync(validationResult.error);
 			const resolvedConfig = validationResult.value;
 			const dashboardRegistry = ctx.dashboardRegistry;
-			const contributionManager = new DashboardContributionManager(
-				dashboardRegistry,
-				ctx.statusRegistry,
-			);
+			const contributionManager = new DashboardContributionManager(dashboardRegistry);
 			const registrationHandle = contributionManager.registerContributions(resolvedConfig);
 
 			if (resolvedConfig.logs !== false) {

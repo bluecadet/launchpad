@@ -13,11 +13,10 @@ const sanityToMdSchema = z.object({
 
 function tryImportBlockToMd() {
 	try {
-		// @ts-expect-error - no types from this lib
-		return import("@sanity/block-content-to-markdown");
+		return import("@portabletext/markdown");
 	} catch (e) {
 		throw new Error(
-			'Could not find peer dependency "@sanity/block-content-to-markdown". Make sure you have installed it.',
+			'Could not find peer dependency "@portabletext/markdown". Make sure you have installed it.',
 			{ cause: e },
 		);
 	}
@@ -29,7 +28,7 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 	return defineContentTransform({
 		name: "sanity-to-markdown",
 		async apply(ctx) {
-			const { default: toMarkdown } = await tryImportBlockToMd();
+			const { portableTextToMarkdown } = await tryImportBlockToMd();
 
 			let transformCount = 0;
 			ctx.logger.info("Transforming sanity blocks to markdown...");
@@ -46,7 +45,7 @@ export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
 
 					transformCount++;
 
-					return toMarkdown(content);
+					return portableTextToMarkdown([content]);
 				},
 			});
 

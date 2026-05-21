@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GitCommitVertical, Github, Hexagon, Logs } from "lucide-vue-next";
+import { GitCommitVertical, Github, Hexagon, Logs } from "@lucide/vue";
 
 import { data as packageVersions } from "./package-versions.data.js";
 

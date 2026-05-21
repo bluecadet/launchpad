@@ -7,7 +7,7 @@ import net from "node:net";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { LaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { LaunchpadState, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { AllEvents } from "./all-events.js";
@@ -48,6 +48,7 @@ export class IPCClient {
 	>();
 	private _nextId = 0;
 	private _stateChangeListeners = new Set<StateChangeHandler>();
+	private _statusSnapshotListeners = new Set<(s: StatusSnapshot) => void>();
 	private _lastState: Readonly<LaunchpadState> | null = null;
 	private _lastStateVersion = -1;
 	private static readonly DEFAULT_TIMEOUT_MS = 5000;
@@ -209,6 +210,31 @@ export class IPCClient {
 		};
 	}
 
+	/**
+	 * Query the controller's current status snapshot
+	 */
+	queryStatusSnapshot(): ResultAsync<StatusSnapshot, IPCConnectionError | IPCMessageError> {
+		const id = this._nextId++;
+		const message: IPCRequest = { jsonrpc: "2.0", id, method: "queryStatusSnapshot" };
+		return this._sendMessage(message).andThen((response) => {
+			if ("result" in response) {
+				return okAsync(response.result as StatusSnapshot);
+			}
+			return errAsync(new IPCMessageError("Controller error", { cause: response.error.data }));
+		});
+	}
+
+	/**
+	 * Register a listener for status snapshot push notifications.
+	 * Returns an unsubscribe function.
+	 */
+	onStatusSnapshotChange(listener: (snapshot: StatusSnapshot) => void): () => void {
+		this._statusSnapshotListeners.add(listener);
+		return () => {
+			this._statusSnapshotListeners.delete(listener);
+		};
+	}
+
 	private _handlePatch(
 		patches: Patch[],
 		version: number,
@@ -319,6 +345,11 @@ export class IPCClient {
 					} else if (notification.method === "statePatch") {
 						const params = notification.params as { patches: Patch[]; version: number };
 						void this._handlePatch(params.patches, params.version);
+					} else if (notification.method === "statusSnapshot") {
+						const snapshot = notification.params as StatusSnapshot;
+						this._statusSnapshotListeners.forEach((listener) => {
+							listener(snapshot);
+						});
 					}
 					continue;
 				}

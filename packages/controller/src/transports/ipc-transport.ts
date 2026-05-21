@@ -14,6 +14,7 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, okAsync, ResultAsync } from "neverthrow";
@@ -32,6 +33,8 @@ import { getOSSocketPath } from "../utils/ipc-utils.js";
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
 	socketPath: string;
+	/** Returns a fresh StatusSnapshot for queryStatusSnapshot requests and push notifications. */
+	getStatusSnapshot: () => StatusSnapshot;
 };
 
 // ---- JSON-RPC 2.0 message types ----
@@ -111,7 +114,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 							try {
 								const message = IPCSerializer.deserialize(line) as IPCRequest;
-								handleMessage(message, socket, ctx);
+								handleMessage(message, socket, ctx, options.getStatusSnapshot);
 							} catch (e) {
 								const error = ensureError(e);
 								ctx.logger.error(`Failed to parse IPC message: ${error.message}`);
@@ -157,15 +160,25 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 				// Subscribe to state patches from the state store
 				const handlePatch = (patches: Patch[], version: number) => {
-					const message: IPCNotification = {
+					const patchMessage: IPCNotification = {
 						jsonrpc: "2.0",
 						method: "statePatch",
 						params: { patches, version },
 					};
-					const serialized = `${IPCSerializer.serialize(message)}\n`;
+					const serializedPatch = `${IPCSerializer.serialize(patchMessage)}\n`;
+
+					const snapshot = options.getStatusSnapshot();
+					const snapshotMessage: IPCNotification = {
+						jsonrpc: "2.0",
+						method: "statusSnapshot",
+						params: snapshot,
+					};
+					const serializedSnapshot = `${IPCSerializer.serialize(snapshotMessage)}\n`;
+
 					clients.forEach((client) => {
 						try {
-							client.write(serialized);
+							client.write(serializedPatch);
+							client.write(serializedSnapshot);
 						} catch (e) {
 							ctx.logger.verbose(`Failed to write state patch to IPC client: ${e}`);
 						}
@@ -316,7 +329,12 @@ function getErrorCode(error: Error): string | undefined {
 /**
  * Handle a JSON-RPC 2.0 request message
  */
-function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginContext): void {
+function handleMessage(
+	message: IPCRequest,
+	socket: net.Socket,
+	ctx: PluginContext,
+	getStatusSnapshot: () => StatusSnapshot,
+): void {
 	const { logger } = ctx;
 
 	switch (message.method) {
@@ -329,6 +347,21 @@ function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginConte
 				logger.error(`Failed to get state: ${error.message}`);
 				const rpcError = toJSONRPCError(
 					new StateAccessError("Failed to get controller state", { cause: error }),
+				);
+				sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
+			}
+			break;
+		}
+
+		case "queryStatusSnapshot": {
+			try {
+				const snapshot = getStatusSnapshot();
+				sendResult(socket, message.id, snapshot);
+			} catch (e) {
+				const error = ensureError(e);
+				logger.error(`Failed to get status snapshot: ${error.message}`);
+				const rpcError = toJSONRPCError(
+					new StateAccessError("Failed to get status snapshot", { cause: error }),
 				);
 				sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
 			}

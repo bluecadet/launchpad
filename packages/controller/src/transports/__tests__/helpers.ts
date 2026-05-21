@@ -56,7 +56,13 @@ export function createTestIPCTransport() {
 		statusRegistry: new StatusRegistry(),
 	} satisfies MutableContext;
 
-	const transport = createIPCTransport({ socketPath: "/test/socket" });
+	const transport = createIPCTransport({
+		socketPath: "/test/socket",
+		getStatusSnapshot: () => ({
+			header: { startTime: new Date().toISOString(), uptimeMs: 0, mode: "task" },
+			sections: [],
+		}),
+	});
 
 	return { transport, context };
 }

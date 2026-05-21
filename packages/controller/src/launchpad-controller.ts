@@ -25,6 +25,7 @@ export type { WorkflowMap, WorkflowStep } from "./core/workflow-types.js";
 import type { AllEvents } from "./all-events.js";
 import type { AllPluginsState } from "./all-plugin-state.js";
 
+import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { createFileLogger } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
@@ -136,7 +137,13 @@ export class LaunchpadController {
 				return errAsync(writePidResult.error);
 			}
 
-			return this.registerPlugin(createIPCTransport({ socketPath }))
+			return this.registerPlugin(
+				createIPCTransport({
+					socketPath,
+					getStatusSnapshot: () =>
+						buildStatusSnapshot(this._stateStore.getState(), this._pluginConfigs.values()),
+				}),
+			)
 				.andTee(() => {
 					this._isStarted = true;
 					this._logger.verbose("Controller started with IPC transport");

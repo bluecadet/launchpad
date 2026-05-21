@@ -11,11 +11,14 @@ type InstantiatedPlugin<TCommand> = Partial<
 >;
 ```
 
-**Plugin manifest** — explicit controller-owned metadata for command registration:
+**Plugin config** — controller-owned metadata and lifecycle hooks:
 
 ```typescript
-interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
-  commands?: readonly CommandDescriptor<TCommand>[];
+interface PluginConfig<TCommand, TState> {
+  name: string;
+  manifest?: PluginManifest<TCommand>;
+  setup(ctx: PluginContext<TState>): ResultAsync<InstantiatedPlugin<TCommand>, Error>;
+  summarize?(state: LaunchpadState): Section | null;
 }
 ```
 
@@ -31,8 +34,6 @@ interface PluginContext<TState = unknown> {
   updateState: (producer: (draft: TState) => void) => void;
   getGlobalState: () => VersionedLaunchpadState;
   onGlobalStatePatch: (handler) => () => void;
-  dashboardRegistry: DashboardRegistry;
-  statusRegistry: StatusRegistry;
 }
 ```
 
@@ -86,9 +87,31 @@ Plugins own their domain logic; the controller owns the state infrastructure. Pl
 
 To read the full aggregated state (all plugins + system), use `ctx.getGlobalState()`. Prefer `ctx.eventBus` or `ctx.dispatchCommand` for cross-plugin communication over polling global state.
 
-### Dashboard Contributions
+### Status Snapshots
 
-Plugins register UI contributions (panels, pages, scripts, styles, routes) via `ctx.dashboardRegistry` and CLI status sections via `ctx.statusRegistry` during `setup()`. These registries are controller-owned instances — each controller maintains its own isolated registry, enabling clean testing and multi-instance scenarios.
+Plugins can contribute to `launchpad status` by adding a `summarize(state)` function to their plugin config. The controller calls every registered plugin's `summarize()` hook, drops `null` results, sorts the returned sections by `order`, and sends the resulting status snapshot over IPC.
+
+```typescript
+import type { LaunchpadState, Section } from '@bluecadet/launchpad-utils/types';
+
+definePlugin({
+  name: 'my-plugin',
+  setup(ctx: PluginContext<MyState>) {
+    ctx.updateState(() => ({ ready: false }));
+    return okAsync({});
+  },
+  summarize(state: LaunchpadState): Section | null {
+    const pluginState = state.plugins['my-plugin'] as MyState | undefined;
+    if (!pluginState) return null;
+
+    return {
+      name: 'my-plugin',
+      title: 'My Plugin',
+      rows: [{ type: 'kv', label: 'Ready', value: pluginState.ready ? 'Yes' : 'No' }],
+    };
+  },
+});
+```
 
 ### Disconnectable
 
@@ -136,11 +159,11 @@ Subsequent `launchpad` commands (content, monitor, status) detect the running co
 
 ## Type Safety
 
-The controller uses TypeScript declaration merging to provide type-safe events without circular dependencies:
+The controller uses TypeScript declaration merging against `@bluecadet/launchpad-utils/types` to provide type-safe events without circular dependencies:
 
 ```typescript
 // The controller declares system events
-declare module '@bluecadet/launchpad-utils' {
+declare module '@bluecadet/launchpad-utils/types' {
   interface LaunchpadEvents {
     'system:shutdown': { code?: number; signal?: string };
     'content:fetch:start': { timestamp: Date };

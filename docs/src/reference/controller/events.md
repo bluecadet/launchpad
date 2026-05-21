@@ -8,12 +8,12 @@ The controller's EventBus provides a type-safe event system that enables communi
 
 ## Type Safety
 
-Events are fully type-safe through TypeScript declaration merging. Each subsystem declares its own events, which are automatically merged into the `LaunchpadEvents` interface:
+Events are fully type-safe through TypeScript declaration merging. Each subsystem declares its own events against `@bluecadet/launchpad-utils/types`, which are merged into the `LaunchpadEvents` interface:
 
 ```typescript
-import { LaunchpadController } from '@bluecadet/launchpad-controller';
+import { LaunchpadController } from '@bluecadet/launchpad/controller';
 
-const controller = new LaunchpadController(config, logger);
+const controller = new LaunchpadController(controllerConfig, process.cwd());
 const eventBus = controller.getEventBus();
 
 // ✅ Type-safe - TypeScript knows the exact payload shape
@@ -99,6 +99,29 @@ Emitted when a command fails.
 {
   commandType: string;  // The type of command
   error: Error;         // The error that occurred
+}
+```
+
+## Workflow Events
+
+These events are emitted when a named workflow runs.
+
+- `workflow:start` - Workflow begins
+- `workflow:step:start` - A workflow step begins
+- `workflow:step:success` - A workflow step succeeds
+- `workflow:step:error` - A workflow step fails
+- `workflow:success` - Workflow completes successfully
+- `workflow:error` - Workflow fails
+
+Common workflow payload fields include:
+
+```typescript
+{
+  name: string;       // Workflow name
+  stepCount?: number; // Total number of steps
+  stepIndex?: number; // Zero-based step index
+  command?: BaseCommand;
+  error?: Error;
 }
 ```
 
@@ -225,7 +248,7 @@ Applications and plugins can define their own events using declaration merging:
 
 ```typescript
 // my-plugin.ts
-declare module '@bluecadet/launchpad-utils' {
+declare module '@bluecadet/launchpad-utils/types' {
   interface LaunchpadEvents {
     'plugin:myPlugin:ready': { version: string };
     'plugin:myPlugin:error': { error: Error };

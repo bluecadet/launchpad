@@ -38,7 +38,7 @@ npx launchpad stop
 
 ## Note
 
-This is a meta-package that includes no code of its own. It simply installs all core Launchpad packages. For more targeted installations, you can install individual packages directly.
+This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content` and `@bluecadet/launchpad/monitor`. For more targeted installations, you can install individual packages directly.
 
 ## License
 

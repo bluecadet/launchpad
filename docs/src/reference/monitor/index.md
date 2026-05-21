@@ -43,24 +43,30 @@ npm install @bluecadet/launchpad
 ## JS API Usage
 
 ```typescript
-import { createLaunchpadMonitor } from '@bluecadet/launchpad/monitor';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { monitor } from '@bluecadet/launchpad/monitor';
 
-const monitor = await createLaunchpadMonitor({
-  apps: [
-    {
-      name: "my-app",
-      pm2: {
-        script: "./app.js"
-      },
-      windows: {
-        foreground: true
-      }
-    }
-  ]
-}).setup(subsystemContext);
-
-// Start monitoring
-await monitor.start();
+export default defineConfig({
+  plugins: [
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: 'my-app',
+            script: './app.js',
+          },
+          windows: {
+            foreground: true,
+          },
+        },
+      ],
+    }),
+  ],
+  workflows: {
+    start: ['monitor.connect', 'monitor.start'],
+    stop: ['monitor.stop', 'monitor.disconnect'],
+  },
+});
 ```
 
 ## Configuration
@@ -83,12 +89,6 @@ The package uses `neverthrow` for reliable error handling:
 - Clear error reporting
 - Process recovery strategies
 
-## Plugin Support
+## Extension Points
 
-The monitor package supports plugins for extending functionality:
-
-- Custom process management
-- Enhanced window control
-- Additional monitoring capabilities
-- Custom event handling
-- Integration with other systems
+Custom Launchpad plugins can subscribe to monitor events and dispatch monitor commands through the controller. See [Extending Monitor](./plugins.md) for the current extension model.

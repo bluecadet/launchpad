@@ -81,7 +81,7 @@ Normal fetch failures do not require backup restoration because staged output is
 
 Maximum time in milliseconds to wait for network requests before timing out.
 
-### `encodeCharacters`
+### `encodeChars`
 
 - **Type:** `string`
 - **Default:** `<>:"|?*`

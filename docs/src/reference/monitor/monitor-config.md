@@ -16,7 +16,7 @@ For detailed app configuration options, see [App Config](#app-config).
 ### `deleteExistingBeforeConnect`
 
 - **Type:** `boolean`
-- **Default:** `false`
+- **Default:** `true`
 
 When enabled, deletes existing PM2 processes before connecting. Useful for volatile apps or when node processes might quit unexpectedly, ensuring a clean slate on startup.
 

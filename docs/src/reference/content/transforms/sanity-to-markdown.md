@@ -1,19 +1,19 @@
-# sanityToMd Content Plugin
+# sanityToMarkdown Content Plugin
 
-The `sanityToMd` plugin is used to transform Sanity.io Portable Text content into Markdown. It converts block content from Sanity's structured format into standard Markdown syntax.
+The `sanityToMarkdown` plugin is used to transform Sanity.io Portable Text content into Markdown. It converts block content from Sanity's structured format into standard Markdown syntax.
 
 ## Usage
 
-To use the `sanityToMd` plugin, include it in the list of content plugins in your configuration:
+To use the `sanityToMarkdown` plugin, include it in the list of content plugins in your configuration:
 
 ```typescript
-import { sanityToMd } from '@bluecadet/launchpad/content/transforms/sanity-to-md'; // [!code highlight]
+import { sanityToMarkdown } from '@bluecadet/launchpad/content/transforms/sanity-to-markdown'; // [!code highlight]
 
 export default defineConfig({
   plugins: [
     content({
       transforms: [
-        sanityToMd({ // [!code highlight:3]
+        sanityToMarkdown({ // [!code highlight:3]
           path: '$.item.content'
         })
       ]

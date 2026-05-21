@@ -9,7 +9,7 @@ Plugins in Launchpad:
 - Are registered in the `plugins` array of your Launchpad config
 - Receive a `PluginContext` during `setup()` with access to logging, events, and state management
 - Can optionally handle commands dispatched to them
-- Can optionally expose state to the dashboard and other plugins
+- Can optionally expose state to status output and other plugins
 - Can optionally perform cleanup on shutdown
 
 ## Basic Plugin Structure
@@ -104,7 +104,7 @@ export default defineConfig({
 
 ## Managing State
 
-Plugins can expose state to the system by calling `ctx.updateState()`. The controller aggregates plugin states and broadcasts patches to any connected clients (e.g. the dashboard).
+Plugins can expose state to the system by calling `ctx.updateState()`. The controller aggregates plugin states and broadcasts patches to connected IPC clients.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
@@ -140,6 +140,36 @@ export const counterPlugin = definePlugin({
 
 >[!NOTE]
 >Call `ctx.updateState()` with a complete initial value at the top of `setup()` to establish state. For subsequent updates, mutate the draft directly (Immer-style).
+
+## Contributing Status Output
+
+Plugins that want to appear in `launchpad status` can add a `summarize()` hook to their plugin config. The hook receives the aggregated Launchpad state and returns a `Section`, or `null` when the plugin has no status to show.
+
+```typescript
+import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import type { LaunchpadState, Section } from '@bluecadet/launchpad-utils/types';
+import { okAsync } from 'neverthrow';
+
+type CounterState = { count: number };
+
+export const counterPlugin = definePlugin({
+  name: 'counter-plugin',
+  setup(ctx) {
+    ctx.updateState(() => ({ count: 0 }));
+    return okAsync({});
+  },
+  summarize(state: LaunchpadState): Section | null {
+    const counterState = state.plugins['counter-plugin'] as CounterState | undefined;
+    if (!counterState) return null;
+
+    return {
+      name: 'counter-plugin',
+      title: 'Counter',
+      rows: [{ type: 'kv', label: 'Count', value: String(counterState.count) }],
+    };
+  },
+});
+```
 
 ## Reacting to Events
 
@@ -206,8 +236,6 @@ The `PluginContext` passed to `setup()` provides:
 | `updateState` | Update this plugin's state slice |
 | `getGlobalState` | Read the full aggregated system state |
 | `onGlobalStatePatch` | Subscribe to state patches across the system |
-| `dashboardRegistry` | Dashboard contribution registry for panels, pages, scripts, styles, and routes |
-| `statusRegistry` | Status section registry for CLI status renderers |
 
 ## Async Initialization
 
@@ -246,12 +274,13 @@ export const dbPlugin = definePlugin({
 1. **Choose a unique name**: Plugin names appear in logs and state aggregation
 2. **Declare handled commands in `manifest.commands`**: command execution is explicit and controller-owned
 3. **Keep startup behavior in host workflows**: plugins expose commands, and hosts decide when to run them
-4. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
-5. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
-6. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
-7. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
-8. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
-9. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
+4. **Use `summarize()`** for `launchpad status` output instead of mutating controller-owned status registries
+5. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
+6. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
+7. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
+8. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
+9. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
+10. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
 
 ## Migration Notes
 
@@ -259,11 +288,12 @@ If you are updating an older plugin:
 
 - move handled commands into `manifest.commands`
 - move any automatic startup behavior into host-level `workflows`
+- replace status registry usage with a plugin-level `summarize()` hook
 - stop relying on implicit prefix-based routing such as assuming `my-plugin.*` commands will be dispatched automatically
 - ensure any plugin that declares `manifest.commands` returns an `executeCommand()` implementation from `setup()`
 
 ## Next Steps
 
 - Explore [Built-in Plugins](../reference/content/index.md) for real-world examples
-- See the [Plugin Interfaces Reference](../reference/plugin-interfaces.md) for full API details
+- See the [Controller Reference](../reference/controller/index.md) for plugin contract details
 - Learn about [Content Sources](../reference/content/sources/index.md) and [Content Transforms](../reference/content/transforms/index.md) for content-specific extension points

@@ -4,10 +4,11 @@ The old `MonitorPlugin` hook system has been replaced by a two-part model: regis
 
 ## Custom Plugins
 
-Use `definePlugin()` from `@bluecadet/launchpad-utils` to create a plugin, then register it in the `plugins` array in `launchpad.config.ts`.
+Use `definePlugin()` from `@bluecadet/launchpad-utils/plugin-interfaces` to create a plugin, then register it in the `plugins` array in `launchpad.config.ts`.
 
 ```ts
-import { definePlugin } from '@bluecadet/launchpad-utils';
+import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { okAsync } from 'neverthrow';
 
 const myMonitorPlugin = definePlugin({
   name: 'my-monitor-plugin',

@@ -155,7 +155,10 @@ export default defineConfig({
 									{ text: "mdToHtml", link: "/reference/content/transforms/md-to-html" },
 									{ text: "sanityToHtml", link: "/reference/content/transforms/sanity-to-html" },
 									{ text: "sanityToPlain", link: "/reference/content/transforms/sanity-to-plain" },
-									{ text: "sanityToMd", link: "/reference/content/transforms/sanity-to-md" },
+									{
+										text: "sanityToMarkdown",
+										link: "/reference/content/transforms/sanity-to-markdown",
+									},
 									{
 										text: "mediaDownloader",
 										link: "/reference/content/transforms/media-downloader",

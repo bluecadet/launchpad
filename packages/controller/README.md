@@ -18,4 +18,4 @@ npm install @bluecadet/launchpad-controller
 
 ## License
 
-MIT
+ISC

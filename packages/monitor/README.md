@@ -10,7 +10,7 @@ For complete documentation, examples, and API reference, visit:
 ## Features
 
 - Process management via PM2
-- Plugin system for custom monitoring behavior
+- Launchpad plugin integration for custom monitoring behavior
 - Process lifecycle hooks
 - Built-in logging and error handling
 - Window management capabilities
@@ -24,16 +24,27 @@ npm install @bluecadet/launchpad-monitor
 ## Basic Usage
 
 ```typescript
-import { Monitor } from '@bluecadet/launchpad-monitor';
+import { defineConfig } from '@bluecadet/launchpad-cli';
+import { monitor } from '@bluecadet/launchpad-monitor';
 
-const monitor = new Monitor({
-  apps: [{
-    name: 'my-app',
-    script: 'app.js'
-  }]
+export default defineConfig({
+  plugins: [
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: 'my-app',
+            script: 'app.js',
+          },
+        },
+      ],
+    }),
+  ],
+  workflows: {
+    start: ['monitor.connect', 'monitor.start'],
+    stop: ['monitor.stop', 'monitor.disconnect'],
+  },
 });
-
-await monitor.start();
 ```
 
 ## License

@@ -22,6 +22,9 @@ type ContentTransformContext = {
     getBackupPath: (source?: string) => string;
     getRunPath: (...segments: string[]) => string;
   };
+  eventBus: EventBus;
+  abortSignal: AbortSignal;
+  cwd: string;
 }
 ```
 

@@ -10,7 +10,6 @@ Launchpad is published as a set of focused npm packages under the `@bluecadet` s
 @bluecadet/launchpad/cli        → defineConfig, config loading
 @bluecadet/launchpad/content    → content syncing plugin and types
 @bluecadet/launchpad/monitor    → process monitoring plugin and types
-@bluecadet/launchpad/dashboard  → web dashboard plugin and types
 @bluecadet/launchpad/controller → IPC and process orchestration
 ```
 

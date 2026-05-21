@@ -39,20 +39,29 @@ npm install @bluecadet/launchpad
 ## JS API Usage
 
 ```typescript
-import { createLaunchpadContent } from '@bluecadet/launchpad/content';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
 
-const content = await createLaunchpadContent({
-  sources: [
-    // Content source configurations
+export default defineConfig({
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: 'local',
+          files: {
+            content: 'https://example.com/content.json',
+          },
+        }),
+      ],
+      transforms: [],
+      downloadPath: './content',
+    }),
   ],
-  transforms: [
-    // Transform configurations
-  ],
-  downloadPath: './content'
-}).setup(subsystemContext);
-
-// Start content download and processing
-await content.start();
+  workflows: {
+    start: [{ type: 'content.fetch' }],
+  },
+});
 ```
 
 ## Configuration

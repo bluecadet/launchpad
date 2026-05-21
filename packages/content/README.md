@@ -46,7 +46,11 @@ export default defineConfig({
     monitor({
       apps: [],         // Add your apps to monitor
     }),
-  ]
+  ],
+  workflows: {
+    start: ['content.fetch', 'monitor.connect', 'monitor.start'],
+    stop: ['monitor.stop', 'monitor.disconnect'],
+  },
 });
 ```
 

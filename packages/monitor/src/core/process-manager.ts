@@ -1,6 +1,7 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";
+import { PM2Error } from "../errors.js";
 
 export class ProcessManager {
 	#logger: Logger;
@@ -9,53 +10,53 @@ export class ProcessManager {
 		this.#logger = logger;
 	}
 
-	connect(): ResultAsync<void, Error> {
+	connect(): ResultAsync<void, PM2Error> {
 		return wrapPm2Function("Failed to connect to PM2", (cb) => pm2.connect(true, cb));
 	}
 
-	disconnect(): Result<void, Error> {
+	disconnect(): Result<void, PM2Error> {
 		return safeDisconnect();
 	}
 
-	isDaemonRunning(): ResultAsync<boolean, Error> {
-		this.#logger.debug("Checking if daemon is running...");
+	isDaemonRunning(): ResultAsync<boolean, PM2Error> {
+		this.#logger.verbose("Checking if daemon is running...");
 		return pingDaemon();
 	}
 
-	getProcess(appName: string, silent = false): ResultAsync<pm2.ProcessDescription, Error> {
+	getProcess(appName: string, silent = false): ResultAsync<pm2.ProcessDescription, PM2Error> {
 		return this.getProcesses().andThen((processes) => {
 			const process = processes.find((p) => p.name === appName);
 			if (!process) {
 				if (!silent) {
 					this.#logger.warn(`No process found with name '${appName}'`);
 				}
-				return err(new Error(`No process found with name '${appName}'`));
+				return err(new PM2Error(`No process found with name '${appName}'`));
 			}
 			return ok(process);
 		});
 	}
 
-	getProcesses(): ResultAsync<pm2.ProcessDescription[], Error> {
+	getProcesses(): ResultAsync<pm2.ProcessDescription[], PM2Error> {
 		return wrapPm2Function("Failed to get PM2 processes", (cb) => pm2.list(cb));
 	}
 
-	startProcess(options: pm2.StartOptions): ResultAsync<pm2.ProcessDescription, Error> {
+	startProcess(options: pm2.StartOptions): ResultAsync<pm2.ProcessDescription, PM2Error> {
 		return wrapPm2Function("Failed to start PM2", (cb) => pm2.start(options, cb));
 	}
 
-	stopProcess(processName: string): ResultAsync<pm2.ProcessDescription, Error> {
+	stopProcess(processName: string): ResultAsync<pm2.ProcessDescription, PM2Error> {
 		return wrapPm2Function("Failed to stop PM2", (cb) => pm2.stop(processName, cb));
 	}
 
-	deleteProcess(processName: string): ResultAsync<pm2.ProcessDescription, Error> {
+	deleteProcess(processName: string): ResultAsync<pm2.ProcessDescription, PM2Error> {
 		return wrapPm2Function("Failed to delete PM2 process", (cb) => pm2.delete(processName, cb));
 	}
 
-	deleteAllProcesses(): ResultAsync<void, Error> {
+	deleteAllProcesses(): ResultAsync<void, PM2Error> {
 		return this.getProcesses().andThen((processes) => {
 			const deletePromises = processes.map((process) => {
 				if (process.name) {
-					this.#logger.debug(`Deleting process ${process.name}`);
+					this.#logger.verbose(`Deleting process ${process.name}`);
 					return this.deleteProcess(process.name);
 				}
 				return okAsync(undefined);
@@ -69,7 +70,7 @@ export class ProcessManager {
 function wrapPm2Function<T>(
 	errorMessage: string,
 	pmFunction: (cb: (err: Error | null, result?: T) => void) => void,
-): ResultAsync<T, Error> {
+): ResultAsync<T, PM2Error> {
 	return ResultAsync.fromPromise(
 		new Promise((resolve, reject) => {
 			pmFunction((err, result) => {
@@ -81,18 +82,15 @@ function wrapPm2Function<T>(
 				}
 			});
 		}),
-		(error) => new Error(errorMessage, { cause: error }),
+		(error) => new PM2Error(errorMessage, { cause: error as Error }),
 	);
 }
 
-const safeDisconnect = Result.fromThrowable(
-	() => pm2.disconnect(),
-	(error) => {
-		return new Error("Failed to disconnect from PM2", { cause: error });
-	},
-);
+const safeDisconnect = Result.fromThrowable(pm2.disconnect.bind(pm2), (error) => {
+	return new PM2Error("Failed to disconnect from PM2", { cause: error as Error });
+});
 
-function pingDaemon(): ResultAsync<boolean, Error> {
+function pingDaemon(): ResultAsync<boolean, PM2Error> {
 	return ResultAsync.fromPromise(
 		new Promise((resolve, reject) => {
 			try {
@@ -102,6 +100,6 @@ function pingDaemon(): ResultAsync<boolean, Error> {
 				reject(err);
 			}
 		}),
-		(error) => new Error("Failed to ping PM2 daemon", { cause: error }),
+		(error) => new PM2Error("Failed to ping PM2 daemon", { cause: error as Error }),
 	);
 }

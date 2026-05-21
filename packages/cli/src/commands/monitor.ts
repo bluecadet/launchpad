@@ -1,45 +1,33 @@
-import { err, ok, ResultAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
-import { ConfigError, ImportError, MonitorError } from "../errors.js";
-import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
+import { errAsync } from "neverthrow";
+import type { GlobalLaunchpadArgs } from "../cli.js";
+import { ConfigError } from "../errors.js";
+import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
+import { withDaemonOrController } from "../utils/controller-execution.js";
 
-export function monitor(argv: LaunchpadArgv) {
+export function monitor(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
-		.mapErr((error) => handleFatalError(error, console))
+		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			return initializeLogger(config, dir).asyncAndThen((rootLogger) => {
-				return importLaunchpadMonitor()
-					.andThen(({ default: LaunchpadMonitor }) => {
-						if (!config.monitor) {
-							return err(new ConfigError("No monitor config found in your config file."));
-						}
+			const monitorPlugin = config.plugins?.find((s) => s.name === "monitor");
+			if (!monitorPlugin) {
+				return errAsync(new ConfigError("No monitor plugin found in your config file."));
+			}
 
-						const monitorInstance = new LaunchpadMonitor(config.monitor, rootLogger, dir);
-						return ok(monitorInstance);
-					})
-					.andThrough((monitorInstance) => {
-						return ResultAsync.fromPromise(
-							monitorInstance.connect(),
-							(e) => new MonitorError("Failed to connect to monitor", { cause: e }),
-						);
-					})
-					.andThrough((monitorInstance) => {
-						return ResultAsync.fromPromise(
-							monitorInstance.start(),
-							(e) => new MonitorError("Failed to start monitor", { cause: e }),
-						);
-					})
-					.orElse((error) => handleFatalError(error, rootLogger));
-			});
+			return withDaemonOrController(dir, config.controller, {
+				mode: "persistent",
+				ifDaemon: (client) => {
+					// Daemon is running - just send commands via IPC
+					return client
+						.executeCommand({ type: "monitor.connect" })
+						.andThen(() => client.executeCommand({ type: "monitor.start" }));
+				},
+				otherwise: (controller) => {
+					// No daemon - need to register plugin and run commands
+					return controller
+						.registerPlugin(monitorPlugin)
+						.andThen(() => controller.executeCommand({ type: "monitor.connect" }))
+						.andThen(() => controller.executeCommand({ type: "monitor.start" }));
+				},
+			}).orElse((error) => handleFatalError(error));
 		});
-}
-
-export function importLaunchpadMonitor() {
-	return ResultAsync.fromPromise(
-		import("@bluecadet/launchpad-monitor"),
-		() =>
-			new ImportError(
-				'Could not find module "@bluecadet/launchpad-monitor". Make sure you have installed it.',
-			),
-	);
 }

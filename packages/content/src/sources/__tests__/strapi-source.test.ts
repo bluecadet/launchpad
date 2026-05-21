@@ -1,35 +1,20 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { HttpResponse, http } from "msw";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { DataStore } from "../../utils/data-store.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import strapiSource from "../strapi-source.js";
+import { createFetchContext, setupMSWServer } from "./helpers.js";
 
-const server = setupServer();
+const { server } = setupMSWServer();
 
 beforeAll(() => {
-	server.listen({ onUnhandledRequest: "error" });
 	vi.useFakeTimers({
 		shouldAdvanceTime: true,
 	});
 });
 afterAll(() => {
-	server.close();
 	vi.useRealTimers();
 });
-afterEach(() => server.resetHandlers());
 
-function createFetchContext() {
-	const abortController = new AbortController();
-	return {
-		logger: createMockLogger(),
-		dataStore: new DataStore("/"),
-		abortSignal: abortController.signal,
-		_abortController: abortController,
-	};
-}
-
-const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!);
+const majorNodeVersion = Number.parseInt(process.versions.node.split(".")[0]!, 10);
 
 describe.runIf(majorNodeVersion < 20)("strapiSource - unsupported", () => {
 	it("should fail with unsupported node version", async () => {
@@ -63,16 +48,15 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		).rejects.toThrowErrorMatchingInlineSnapshot(`
 			[ZodError: [
 			  {
-			    "received": "5",
-			    "code": "invalid_enum_value",
-			    "options": [
+			    "code": "invalid_value",
+			    "values": [
 			      "3",
 			      "4"
 			    ],
 			    "path": [
 			      "version"
 			    ],
-			    "message": "Invalid enum value. Expected '3' | '4', received '5'"
+			    "message": "Invalid option: expected one of \\"3\\"|\\"4\\""
 			  }
 			]]
 		`);
@@ -99,7 +83,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 					expect(authHeader).toBe("Bearer test-token");
 
 					const url = new URL(request.url);
-					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1");
+					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1", 10);
 
 					// Return empty results after first page
 					if (page > 1) {
@@ -264,7 +248,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 					expect(authHeader).toBe("Bearer test-token");
 
 					const url = new URL(request.url);
-					const start = Number.parseInt(url.searchParams.get("_start") || "0");
+					const start = Number.parseInt(url.searchParams.get("_start") || "0", 10);
 
 					// Return empty results after first page
 					if (start > 0) {

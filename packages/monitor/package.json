@@ -12,13 +12,35 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./launchpad-monitor": {
+      "types": "./dist/launchpad-monitor.d.ts",
+      "default": "./dist/launchpad-monitor.js"
+    },
+    "./commands": {
+      "types": "./dist/monitor-commands.d.ts",
+      "default": "./dist/monitor-commands.js"
+    },
+    "./config": {
+      "types": "./dist/monitor-config.d.ts",
+      "default": "./dist/monitor-config.js"
+    },
+    "./events": {
+      "types": "./dist/monitor-events.d.ts",
+      "default": "./dist/monitor-events.js"
+    },
+    "./state": {
+      "types": "./dist/monitor-state.d.ts",
+      "default": "./dist/monitor-state.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "repository": {
     "type": "git",
@@ -32,24 +54,23 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
-    "auto-bind": "^5.0.1",
-    "chalk": "^5.0.0",
-    "cross-spawn": "^7.0.3",
-    "neverthrow": "^8.1.1",
+    "chalk": "^5.6.2",
+    "cross-spawn": "^7.0.6",
+    "neverthrow": "^8.2.0",
     "node-window-manager": "^2.2.4",
-    "pm2": "^6.0.14",
-    "semver": "^7.3.5",
-    "tail": "^2.2.4",
-    "zod": "^3.23.8"
+    "pm2": "^7.0.1",
+    "semver": "^7.7.4",
+    "tail": "^2.2.6",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
-    "@types/cross-spawn": "^6.0.2",
-    "@types/semver": "^7.5.8",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/semver": "^7.7.1",
     "@types/tail": "2.2",
     "axon": "^2.0.3",
-    "vitest": "^3.0.7"
+    "vitest": "^4.1.2"
   }
 }

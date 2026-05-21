@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import { windowManager } from "node-window-manager";
 import semver from "semver";
@@ -25,7 +25,9 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 		);
 	}
 
-	logger.debug(`Applying window settings to ${apps.length} ${apps.length === 1 ? "app" : "apps"}`);
+	logger.verbose(
+		`Applying window settings to ${apps.length} ${apps.length === 1 ? "app" : "apps"}`,
+	);
 
 	const fgPids = new Set();
 	const minPids = new Set();
@@ -40,6 +42,13 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 			logger.warn(
 				`Can't sort windows for ${chalk.blue(app.options.pm2.name)} because it has no pid.`,
 			);
+			continue;
+		}
+
+		const shouldManageWindow =
+			app.options.windows.hide || app.options.windows.minimize || app.options.windows.foreground;
+
+		if (!shouldManageWindow) {
 			continue;
 		}
 
@@ -79,7 +88,7 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 		}
 	}
 
-	logger.debug("Done applying window settings.");
+	logger.verbose("Done applying window settings.");
 };
 
 export default sortWindows;

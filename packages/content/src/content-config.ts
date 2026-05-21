@@ -1,9 +1,8 @@
+import { ResultAsync } from "neverthrow";
 import { z } from "zod";
-import { contentPluginSchema } from "./content-plugin-driver.js";
-import { type ContentSource, contentSourceSchema } from "./sources/source.js";
-
-export const DOWNLOAD_PATH_TOKEN = "%DOWNLOAD_PATH%";
-export const TIMESTAMP_TOKEN = "%TIMESTAMP%";
+import type { ContentTransform } from "./content-transform.js";
+import { ContentError } from "./content-transform.js";
+import { type ContentSource, contentSourceSchema } from "./source.js";
 
 export type ConfigContentSource = ContentSource | Promise<ContentSource>;
 
@@ -14,29 +13,37 @@ export const contentConfigSchema = z.object({
 	/** A list of content source options. This defines which content is downloaded from where. */
 	sources: z
 		.array(z.union([contentSourceSchema, z.promise(contentSourceSchema)]))
+		.transform(async (sources) => {
+			return Promise.all(sources);
+		})
 		.describe(
 			"A list of content source options. This defines which content is downloaded from where.",
 		)
+		.prefault([]),
+	/** A list of content transforms to run after fetching. */
+	transforms: z
+		.array(z.custom<ContentTransform>())
+		.describe("A list of content transforms to run after fetching.")
 		.default([]),
-	/** A list of content plugin. */
-	plugins: z.array(contentPluginSchema).describe("A list of content plugin.").default([]),
-	/** The path at which to store all downloaded files. Defaults to '.downloads/'. */
+	/** The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'. */
 	downloadPath: z
 		.string()
-		.describe("The path at which to store all downloaded files. Defaults to '.downloads/'.")
+		.describe(
+			"The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'.",
+		)
 		.default(".downloads/"),
-	/** Temp file directory path. Defaults to '.tmp/%TIMESTAMP/'. */
+	/** Temp file directory path. Defaults to '.launchpad/tmp/'. */
 	tempPath: z
 		.string()
-		.describe("Temp file directory path. Defaults to '.tmp/%TIMESTAMP/'.")
-		.default(".tmp/%TIMESTAMP%/"),
-	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/%TIMESTAMP/'. */
+		.describe("Temp file directory path. Defaults to '.launchpad/tmp/'.")
+		.default(".launchpad/tmp/"),
+	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'. */
 	backupPath: z
 		.string()
 		.describe(
-			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.backup/%TIMESTAMP/'.",
+			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'.",
 		)
-		.default(".backup/%TIMESTAMP%/"),
+		.default(".launchpad/backup/"),
 	/** Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']` */
 	keep: z
 		.array(z.string())
@@ -44,11 +51,11 @@ export const contentConfigSchema = z.object({
 			"Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']`",
 		)
 		.default([]),
-	/** Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true. */
+	/** Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true. */
 	backupAndRestore: z
 		.boolean()
 		.describe(
-			"Back up files before downloading and restore originals for all sources on failure of any single source. Defaults to true.",
+			"Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true.",
 		)
 		.default(true),
 	/** Max request timeout in ms. Defaults to 30000. */
@@ -71,4 +78,11 @@ export type ResolvedContentConfig = z.output<typeof contentConfigSchema>;
  */
 export function defineContentConfig(config: ContentConfig) {
 	return config;
+}
+
+export function parseContentConfig(config: ContentConfig) {
+	return ResultAsync.fromPromise(
+		contentConfigSchema.parseAsync(config),
+		(e) => new ContentError("Invalid content config", { cause: e }),
+	);
 }

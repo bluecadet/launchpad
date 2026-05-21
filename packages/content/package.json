@@ -12,9 +12,95 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./launchpad-content": {
+      "types": "./dist/launchpad-content.d.ts",
+      "default": "./dist/launchpad-content.js"
+    },
+    "./commands": {
+      "types": "./dist/content-commands.d.ts",
+      "default": "./dist/content-commands.js"
+    },
+    "./config": {
+      "types": "./dist/content-config.d.ts",
+      "default": "./dist/content-config.js"
+    },
+    "./events": {
+      "types": "./dist/content-events.d.ts",
+      "default": "./dist/content-events.js"
+    },
+    "./state": {
+      "types": "./dist/content-state.d.ts",
+      "default": "./dist/content-state.js"
+    },
+    "./transforms": {
+      "types": "./dist/transforms/index.d.ts",
+      "default": "./dist/transforms/index.js"
+    },
+    "./transforms/md-to-html": {
+      "types": "./dist/transforms/md-to-html.d.ts",
+      "default": "./dist/transforms/md-to-html.js"
+    },
+    "./transforms/media-downloader": {
+      "types": "./dist/transforms/media-downloader.d.ts",
+      "default": "./dist/transforms/media-downloader.js"
+    },
+    "./transforms/sanity-image-url-transform": {
+      "types": "./dist/transforms/sanity-image-url-transform.d.ts",
+      "default": "./dist/transforms/sanity-image-url-transform.js"
+    },
+    "./transforms/sanity-to-html": {
+      "types": "./dist/transforms/sanity-to-html.d.ts",
+      "default": "./dist/transforms/sanity-to-html.js"
+    },
+    "./transforms/sanity-to-markdown": {
+      "types": "./dist/transforms/sanity-to-markdown.d.ts",
+      "default": "./dist/transforms/sanity-to-markdown.js"
+    },
+    "./transforms/sanity-to-plain": {
+      "types": "./dist/transforms/sanity-to-plain.d.ts",
+      "default": "./dist/transforms/sanity-to-plain.js"
+    },
+    "./transforms/sharp": {
+      "types": "./dist/transforms/sharp.d.ts",
+      "default": "./dist/transforms/sharp.js"
+    },
+    "./transforms/symlink": {
+      "types": "./dist/transforms/symlink.d.ts",
+      "default": "./dist/transforms/symlink.js"
+    },
+    "./source": {
+      "types": "./dist/source.d.ts",
+      "default": "./dist/source.js"
+    },
+    "./sources": {
+      "types": "./dist/sources/index.d.ts",
+      "default": "./dist/sources/index.js"
+    },
+    "./sources/airtable": {
+      "types": "./dist/sources/airtable-source.d.ts",
+      "default": "./dist/sources/airtable-source.js"
+    },
+    "./sources/contentful": {
+      "types": "./dist/sources/contentful-source.d.ts",
+      "default": "./dist/sources/contentful-source.js"
+    },
+    "./sources/json": {
+      "types": "./dist/sources/json-source.d.ts",
+      "default": "./dist/sources/json-source.js"
+    },
+    "./sources/sanity": {
+      "types": "./dist/sources/sanity-source.d.ts",
+      "default": "./dist/sources/sanity-source.js"
+    },
+    "./sources/strapi": {
+      "types": "./dist/sources/strapi-source.d.ts",
+      "default": "./dist/sources/strapi-source.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
   "repository": {
@@ -22,7 +108,7 @@
     "url": "git+https://github.com/bluecadet/launchpad.git"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "author": "Bluecadet",
   "license": "ISC",
@@ -32,20 +118,20 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/content",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~2.1.0",
-    "chalk": "^5.0.0",
-    "glob": "^11.0.0",
-    "jsonpath-plus": "^10.3.0",
-    "ky": "^1.7.2",
-    "markdown-it": "^14.1.0",
-    "neverthrow": "^8.1.1",
-    "p-queue": "^7.1.0",
-    "qs": "^6.11.1",
-    "sanitize-html": "^2.5.1",
-    "zod": "^3.23.8"
+    "@portabletext/markdown": "^1.3.0",
+    "chalk": "^5.6.2",
+    "glob": "^13.0.6",
+    "jsonpath-plus": "^10.4.0",
+    "ky": "^1.14.3",
+    "markdown-it": "^14.1.1",
+    "neverthrow": "^8.2.0",
+    "p-queue": "^9.1.0",
+    "qs": "^6.15.0",
+    "sanitize-html": "^2.17.2",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "@portabletext/to-html": "2.0.0",
-    "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^6.4.9",
     "@sanity/image-url": "^1.1.0",
     "airtable": "^0.11.1",
@@ -53,10 +139,10 @@
     "sharp": "^0.33.5"
   },
   "peerDependenciesMeta": {
-    "@portabletext/to-html": {
+    "@portabletext/markdown": {
       "optional": true
     },
-    "@sanity/block-content-to-markdown": {
+    "@portabletext/to-html": {
       "optional": true
     },
     "@sanity/client": {
@@ -78,18 +164,18 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "@portabletext/to-html": "2.0.0",
-    "@sanity/block-content-to-markdown": "^0.0.5",
-    "@sanity/client": "^6.4.9",
-    "@sanity/image-url": "^1.1.0",
+    "@portabletext/markdown": "^1.3.0",
+    "@portabletext/to-html": "5.0.2",
+    "@sanity/client": "^7.20.0",
+    "@sanity/image-url": "^2.0.3",
     "@types/markdown-it": "^14.1.2",
-    "@types/qs": "^6.9.7",
-    "@types/sanitize-html": "^2.9.0",
-    "airtable": "^0.11.1",
-    "contentful": "^9.0.0",
-    "memfs": "^4.14.0",
-    "msw": "^2.6.6",
-    "sharp": "^0.33.5",
-    "vitest": "^3.0.7"
+    "@types/qs": "^6.15.0",
+    "@types/sanitize-html": "^2.16.1",
+    "airtable": "^0.12.2",
+    "contentful": "^11.12.0",
+    "memfs": "^4.57.1",
+    "msw": "^2.12.14",
+    "sharp": "^0.34.5",
+    "vitest": "^4.1.2"
   }
 }

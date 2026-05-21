@@ -34,4 +34,4 @@ npx launchpad stop
 
 ## License
 
-MIT © Bluecadet
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

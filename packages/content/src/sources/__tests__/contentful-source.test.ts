@@ -1,33 +1,18 @@
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { HttpResponse, http } from "msw";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { DataStore } from "../../utils/data-store.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import contentfulSource from "../contentful-source.js";
+import { createFetchContext, setupMSWServer } from "./helpers.js";
 
-const server = setupServer();
+const { server } = setupMSWServer();
 
 beforeAll(() => {
-	server.listen({ onUnhandledRequest: "error" });
 	vi.useFakeTimers({
 		shouldAdvanceTime: true,
 	});
 });
 afterAll(() => {
-	server.close();
 	vi.useRealTimers();
 });
-afterEach(() => server.resetHandlers());
-
-function createFetchContext() {
-	const abortController = new AbortController();
-	return {
-		logger: createMockLogger(),
-		dataStore: new DataStore("/"),
-		abortSignal: abortController.signal,
-		_abortController: abortController,
-	};
-}
 
 describe("contentfulSource", () => {
 	it("should fail with missing delivery token when not using preview", async () => {
@@ -62,7 +47,7 @@ describe("contentfulSource", () => {
 				"https://cdn.contentful.com/spaces/test-space/environments/master/entries",
 				({ request }) => {
 					const url = new URL(request.url);
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					// Return empty results after first page
 					if (skip > 0) {
@@ -131,7 +116,7 @@ describe("contentfulSource", () => {
 				"https://preview.contentful.com/spaces/test-space/environments/master/entries",
 				({ request }) => {
 					const url = new URL(request.url);
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					if (skip > 0) {
 						return HttpResponse.json({
@@ -264,7 +249,7 @@ describe("contentfulSource", () => {
 
 					expect(contentType).toBe("article");
 
-					const skip = Number.parseInt(url.searchParams.get("skip") || "0");
+					const skip = Number.parseInt(url.searchParams.get("skip") || "0", 10);
 
 					if (skip > 0) {
 						return HttpResponse.json({

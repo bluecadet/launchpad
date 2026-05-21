@@ -3,10 +3,10 @@ name: Deploy Docs site to Pages
 on:
   push:
     branches:
-      - main
       - develop
     paths:
       - "docs/**"
+      - ".changeset/**"
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -22,8 +22,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Check if there are pending changesets
+  check-changesets:
+    runs-on: ubuntu-latest
+    outputs:
+      has-changesets: ${{ steps.check.outputs.has-changesets }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check for pending changesets
+        id: check
+        run: |
+          if [ -n "$(find .changeset -name '*.md' -not -name 'README.md' -not -name 'config.json')" ]; then
+            echo "has-changesets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-changesets=false" >> $GITHUB_OUTPUT
+          fi
+
   # Build job
   build:
+    needs: check-changesets
+    # Only build if triggered manually, called by another workflow, or if there are no pending changesets
+    if: github.event_name == 'workflow_dispatch' || needs.check-changesets.outputs.has-changesets == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version-file: 'package.json'
           cache: npm

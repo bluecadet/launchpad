@@ -6,22 +6,24 @@ The `jsonSource` content source is used to fetch data from JSON endpoints via HT
 
 To use the `jsonSource` content source, include it in the list of content sources in your configuration:
 
-```typescript{1,6-13}
-import { jsonSource } from '@bluecadet/launchpad-content';
+```typescript{1,7-14}
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
 
 export default defineConfig({
-  content: {
-    sources: [
-      jsonSource({
-        id: 'myJsonSource',
-        files: {
-          'data1': 'https://api.example.com/data1.json',
-          'data2': 'https://api.example.com/data2.json'
-        },
-        maxTimeout: 60000
-      })
-    ]
-  }  
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: 'myJsonSource',
+          files: {
+            'data1': 'https://api.example.com/data1.json',
+            'data2': 'https://api.example.com/data2.json'
+          },
+          maxTimeout: 60000
+        })
+      ]
+    })
+  ]
 });
 ```
 

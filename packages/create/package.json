@@ -1,0 +1,48 @@
+{
+	"name": "@bluecadet/create-launchpad",
+	"version": "1.0.0",
+	"description": "Scaffolding CLI for @bluecadet/launchpad projects",
+	"type": "module",
+	"bin": {
+		"create-launchpad": "./dist/bin.js"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist/**/*.js",
+		"dist/**/*.d.ts"
+	],
+	"scripts": {
+		"build": "tsc --build",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/bluecadet/launchpad.git"
+	},
+	"engines": {
+		"node": ">=23"
+	},
+	"author": "Bluecadet",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/bluecadet/launchpad/issues"
+	},
+	"homepage": "https://github.com/bluecadet/launchpad/packages/create",
+	"dependencies": {
+		"@clack/prompts": "^0.9.1",
+		"dedent": "^1.7.2"
+	},
+	"devDependencies": {
+		"@bluecadet/launchpad-testing": "0.1.0",
+		"@bluecadet/launchpad-tsconfig": "0.1.0",
+		"memfs": "^4.57.1",
+		"vitest": "^4.1.2"
+	}
+}

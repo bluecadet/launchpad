@@ -3,12 +3,13 @@
   "version": "2.0.14",
   "description": "Suite of tools to manage media installations",
   "engines": {
-    "node": ">=18"
+    "node": ">=23"
   },
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "test": "cd test && node test.js"
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "generate": "node ./scripts/generate.js"
   },
   "repository": {
     "type": "git",
@@ -23,11 +24,145 @@
     "dist/**/*.d.ts"
   ],
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./package.json": {
+      "default": "./package.json"
     },
-    "./package.json": "./package.json"
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
+    },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "default": "./dist/content/index.js"
+    },
+    "./content/launchpad-content": {
+      "types": "./dist/content/launchpad-content.d.ts",
+      "default": "./dist/content/launchpad-content.js"
+    },
+    "./content/commands": {
+      "types": "./dist/content/commands.d.ts",
+      "default": "./dist/content/commands.js"
+    },
+    "./content/config": {
+      "types": "./dist/content/config.d.ts",
+      "default": "./dist/content/config.js"
+    },
+    "./content/events": {
+      "types": "./dist/content/events.d.ts",
+      "default": "./dist/content/events.js"
+    },
+    "./content/state": {
+      "types": "./dist/content/state.d.ts",
+      "default": "./dist/content/state.js"
+    },
+    "./content/transforms": {
+      "types": "./dist/content/transforms/index.d.ts",
+      "default": "./dist/content/transforms/index.js"
+    },
+    "./content/transforms/md-to-html": {
+      "types": "./dist/content/transforms/md-to-html.d.ts",
+      "default": "./dist/content/transforms/md-to-html.js"
+    },
+    "./content/transforms/media-downloader": {
+      "types": "./dist/content/transforms/media-downloader.d.ts",
+      "default": "./dist/content/transforms/media-downloader.js"
+    },
+    "./content/transforms/sanity-image-url-transform": {
+      "types": "./dist/content/transforms/sanity-image-url-transform.d.ts",
+      "default": "./dist/content/transforms/sanity-image-url-transform.js"
+    },
+    "./content/transforms/sanity-to-html": {
+      "types": "./dist/content/transforms/sanity-to-html.d.ts",
+      "default": "./dist/content/transforms/sanity-to-html.js"
+    },
+    "./content/transforms/sanity-to-markdown": {
+      "types": "./dist/content/transforms/sanity-to-markdown.d.ts",
+      "default": "./dist/content/transforms/sanity-to-markdown.js"
+    },
+    "./content/transforms/sanity-to-plain": {
+      "types": "./dist/content/transforms/sanity-to-plain.d.ts",
+      "default": "./dist/content/transforms/sanity-to-plain.js"
+    },
+    "./content/transforms/sharp": {
+      "types": "./dist/content/transforms/sharp.d.ts",
+      "default": "./dist/content/transforms/sharp.js"
+    },
+    "./content/transforms/symlink": {
+      "types": "./dist/content/transforms/symlink.d.ts",
+      "default": "./dist/content/transforms/symlink.js"
+    },
+    "./content/source": {
+      "types": "./dist/content/source.d.ts",
+      "default": "./dist/content/source.js"
+    },
+    "./content/sources": {
+      "types": "./dist/content/sources/index.d.ts",
+      "default": "./dist/content/sources/index.js"
+    },
+    "./content/sources/airtable": {
+      "types": "./dist/content/sources/airtable.d.ts",
+      "default": "./dist/content/sources/airtable.js"
+    },
+    "./content/sources/contentful": {
+      "types": "./dist/content/sources/contentful.d.ts",
+      "default": "./dist/content/sources/contentful.js"
+    },
+    "./content/sources/json": {
+      "types": "./dist/content/sources/json.d.ts",
+      "default": "./dist/content/sources/json.js"
+    },
+    "./content/sources/sanity": {
+      "types": "./dist/content/sources/sanity.d.ts",
+      "default": "./dist/content/sources/sanity.js"
+    },
+    "./content/sources/strapi": {
+      "types": "./dist/content/sources/strapi.d.ts",
+      "default": "./dist/content/sources/strapi.js"
+    },
+    "./controller": {
+      "types": "./dist/controller/index.d.ts",
+      "default": "./dist/controller/index.js"
+    },
+    "./controller/config": {
+      "types": "./dist/controller/config.d.ts",
+      "default": "./dist/controller/config.js"
+    },
+    "./controller/ipc-client": {
+      "types": "./dist/controller/ipc-client.d.ts",
+      "default": "./dist/controller/ipc-client.js"
+    },
+    "./controller/pid-utils": {
+      "types": "./dist/controller/pid-utils.d.ts",
+      "default": "./dist/controller/pid-utils.js"
+    },
+    "./controller/transports/ipc": {
+      "types": "./dist/controller/transports/ipc.d.ts",
+      "default": "./dist/controller/transports/ipc.js"
+    },
+    "./monitor": {
+      "types": "./dist/monitor/index.d.ts",
+      "default": "./dist/monitor/index.js"
+    },
+    "./monitor/launchpad-monitor": {
+      "types": "./dist/monitor/launchpad-monitor.d.ts",
+      "default": "./dist/monitor/launchpad-monitor.js"
+    },
+    "./monitor/commands": {
+      "types": "./dist/monitor/commands.d.ts",
+      "default": "./dist/monitor/commands.js"
+    },
+    "./monitor/config": {
+      "types": "./dist/monitor/config.d.ts",
+      "default": "./dist/monitor/config.js"
+    },
+    "./monitor/events": {
+      "types": "./dist/monitor/events.d.ts",
+      "default": "./dist/monitor/events.js"
+    },
+    "./monitor/state": {
+      "types": "./dist/monitor/state.d.ts",
+      "default": "./dist/monitor/state.js"
+    }
   },
   "maintainers": [
     {
@@ -51,12 +186,12 @@
   "dependencies": {
     "@bluecadet/launchpad-cli": "2.2.1",
     "@bluecadet/launchpad-content": "2.3.0",
-    "@bluecadet/launchpad-dashboard": "2.0.0",
-    "@bluecadet/launchpad-monitor": "2.1.0",
-    "@bluecadet/launchpad-scaffold": "2.0.2"
+    "@bluecadet/launchpad-controller": "0.1.0",
+    "@bluecadet/launchpad-monitor": "2.1.0"
   },
   "devDependencies": {
-    "@bluecadet/launchpad-tsconfig": "0.1.0"
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "patch-package": "^8.0.1"
   },
   "keywords": [
     "bluecadet",

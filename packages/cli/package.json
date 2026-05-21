@@ -4,7 +4,7 @@
   "description": "CLI for @bluecadet/launchpad utilities",
   "engines": {
     "npm": ">=8.5.1",
-    "node": ">=17.5.0"
+    "node": ">=23"
   },
   "type": "module",
   "bin": {
@@ -12,8 +12,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/launchpad-config.d.ts",
+      "default": "./dist/launchpad-config.js"
     },
     "./package.json": "./package.json"
   },
@@ -22,7 +22,9 @@
     "dist/**/*.d.ts"
   ],
   "scripts": {
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
@@ -52,18 +54,20 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/cli",
   "dependencies": {
+    "@bluecadet/launchpad-controller": "~0.1.0",
     "@bluecadet/launchpad-utils": "~2.1.0",
-    "chalk": "^5.0.0",
-    "dotenv": "^16.4.5",
-    "jiti": "^2.4.2",
-    "neverthrow": "^8.1.1",
-    "yargs": "^17.7.2",
-    "zod": "^3.23.8"
+    "ansi-escapes": "^7.3.0",
+    "chalk": "^5.6.2",
+    "dotenv": "^17.3.1",
+    "jiti": "^2.6.1",
+    "neverthrow": "^8.2.0",
+    "string-width": "^8.2.0",
+    "yargs": "^18.0.0",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "@bluecadet/launchpad-content": "~2.3.0",
-    "@bluecadet/launchpad-monitor": "~2.1.0",
-    "@bluecadet/launchpad-scaffold": "~2.0.0"
+    "@bluecadet/launchpad-monitor": "~2.1.0"
   },
   "peerDependenciesMeta": {
     "@bluecadet/launchpad-content": {
@@ -71,14 +75,11 @@
     },
     "@bluecadet/launchpad-monitor": {
       "optional": true
-    },
-    "@bluecadet/launchpad-scaffold": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "@types/yargs": "^17.0.33"
+    "@types/yargs": "^17.0.35"
   },
   "keywords": [
     "bluecadet",

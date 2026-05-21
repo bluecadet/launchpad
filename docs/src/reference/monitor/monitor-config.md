@@ -16,7 +16,7 @@ For detailed app configuration options, see [App Config](#app-config).
 ### `deleteExistingBeforeConnect`
 
 - **Type:** `boolean`
-- **Default:** `false`
+- **Default:** `true`
 
 When enabled, deletes existing PM2 processes before connecting. Useful for volatile apps or when node processes might quit unexpectedly, ensuring a clean slate on startup.
 
@@ -33,13 +33,6 @@ Advanced configuration for the Windows API, used for managing foreground/minimiz
 - **Default:** `3000`
 
 The delay (in milliseconds) until windows are ordered after launch. If your app takes a long time to open all of its windows, set this to a higher value to ensure it can be on top of the launchpad terminal window. Higher values also reduce CPU load if apps relaunch frequently.
-
-### `plugins`
-
-- **Type:** `Array<MonitorPlugin>`
-- **Default:** `[]`
-
-A list of monitor plugins for extending functionality.
 
 ### `shutdownOnExit`
 

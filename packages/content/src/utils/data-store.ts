@@ -51,11 +51,7 @@ export abstract class Document<T = unknown> {
 	 */
 	abstract _read(): Promise<unknown>;
 
-	/**
-	 * Read the document. Same as {@link _read}, but returns a neverthrow {@link ResultAsync}.
-	 * @internal
-	 */
-	_safeRead(): ResultAsync<unknown, DataStoreError> {
+	read(): ResultAsync<unknown, DataStoreError> {
 		return ResultAsync.fromPromise(
 			this._read(),
 			(e) => new DataStoreError(`Error reading document ${this._id}`, { cause: e }),
@@ -66,15 +62,11 @@ export abstract class Document<T = unknown> {
 	 * Update the document with the given callback.
 	 * @param cb A function that takes the current data and returns the new data.
 	 */
-	abstract update(cb: (data: T) => T | Promise<T>): Promise<void>;
+	abstract _update(cb: (data: T) => T | Promise<T>): Promise<void>;
 
-	/**
-	 * Update the document with the given callback. Same as {@link update}, but returns a neverthrow {@link ResultAsync}.
-	 * @param cb A function that takes the current data and returns the new data.
-	 */
-	safeUpdate(cb: (data: T) => T | Promise<T>): ResultAsync<void, DataStoreError> {
+	update(cb: (data: T) => T | Promise<T>): ResultAsync<void, DataStoreError> {
 		return ResultAsync.fromPromise(
-			this.update(cb),
+			this._update(cb),
 			(e) => new DataStoreError(`Error updating document ${this._id}`, { cause: e }),
 		);
 	}
@@ -82,17 +74,11 @@ export abstract class Document<T = unknown> {
 	/**
 	 * Apply a function to each element matching the given jsonpath.
 	 */
-	abstract apply(pathExpression: string, fn: (x: unknown) => unknown): Promise<void>;
+	abstract _apply(pathExpression: string, fn: (x: unknown) => unknown): Promise<void>;
 
-	/**
-	 * Apply a function to each element matching the given jsonpath. Same as {@link apply}, but returns a neverthrow {@link ResultAsync}.
-	 */
-	safeApply(
-		pathExpression: string,
-		fn: (x: unknown) => unknown,
-	): ResultAsync<void, DataStoreError> {
+	apply(pathExpression: string, fn: (x: unknown) => unknown): ResultAsync<void, DataStoreError> {
 		return ResultAsync.fromPromise(
-			this.apply(pathExpression, fn),
+			this._apply(pathExpression, fn),
 			(e) =>
 				new DataStoreError(`Error applying content transform to document ${this._id}`, {
 					cause: e,
@@ -100,11 +86,11 @@ export abstract class Document<T = unknown> {
 		);
 	}
 
-	abstract query(pathExpression: string): Promise<unknown[]>;
+	abstract _query(pathExpression: string): Promise<unknown[]>;
 
-	safeQuery(pathExpression: string): ResultAsync<unknown[], DataStoreError> {
+	query(pathExpression: string): ResultAsync<unknown[], DataStoreError> {
 		return ResultAsync.fromPromise(
-			this.query(pathExpression),
+			this._query(pathExpression),
 			(e) => new DataStoreError(`Error querying document ${this._id}`, { cause: e }),
 		);
 	}
@@ -112,14 +98,11 @@ export abstract class Document<T = unknown> {
 	/**
 	 * Close the file handle.
 	 */
-	abstract close(): Promise<void>;
+	abstract _close(): Promise<void>;
 
-	/**
-	 * Close the file handle. Same as {@link close}, but returns a neverthrow {@link ResultAsync}.
-	 */
-	safeClose(): ResultAsync<void, DataStoreError> {
+	close(): ResultAsync<void, DataStoreError> {
 		return ResultAsync.fromPromise(
-			this.close(),
+			this._close(),
 			(e) => new DataStoreError(`Error closing document ${this._id}`, { cause: e }),
 		);
 	}
@@ -186,7 +169,7 @@ class SingleDocument<T = unknown> extends Document<T> {
 		this.#lastWriteSize = buffer.length;
 	}
 
-	override async update(cb: (data: T) => T | Promise<T>) {
+	override async _update(cb: (data: T) => T | Promise<T>) {
 		if (!this.#hasBeenModified) {
 			// on first modification, copy from the current path to the original path
 			await fs.copyFile(
@@ -205,43 +188,37 @@ class SingleDocument<T = unknown> extends Document<T> {
 		await this.#write(updatedData);
 	}
 
-	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
-		try {
-			await this.update((data) => {
-				const promises: Promise<void>[] = [];
+	override async _apply(pathExpression: string, fn: (x: unknown) => unknown) {
+		await this._update((data) => {
+			const promises: Promise<void>[] = [];
 
-				JSONPath({
-					json: data as object,
-					path: pathExpression,
-					resultType: "all",
-					ignoreEvalErrors: true,
-					callback: ({ value }, _, { parent, parentProperty }) => {
-						const fnResult = fn(value);
+			JSONPath({
+				json: data as object,
+				path: pathExpression,
+				resultType: "all",
+				ignoreEvalErrors: true,
+				callback: ({ value }, _, { parent, parentProperty }) => {
+					const fnResult = fn(value);
 
-						if (fnResult instanceof Promise) {
-							// if the function returns a promise, wait for it to resolve before updating the parent
-							promises.push(
-								fnResult.then((result) => {
-									parent[parentProperty] = result;
-								}),
-							);
-						} else {
-							parent[parentProperty] = fnResult;
-						}
-					},
-				});
-
-				// wait for all promises to resolve before returning
-				return Promise.all(promises).then(() => data);
+					if (fnResult instanceof Promise) {
+						// if the function returns a promise, wait for it to resolve before updating the parent
+						promises.push(
+							fnResult.then((result) => {
+								parent[parentProperty] = result;
+							}),
+						);
+					} else {
+						parent[parentProperty] = fnResult;
+					}
+				},
 			});
-		} catch (e) {
-			throw new DataStoreError(`Error applying content transform to document ${this._id}`, {
-				cause: e,
-			});
-		}
+
+			// wait for all promises to resolve before returning
+			return Promise.all(promises).then(() => data);
+		});
 	}
 
-	override async query(pathExpression: string): Promise<unknown[]> {
+	override async _query(pathExpression: string): Promise<unknown[]> {
 		const data = await this._read();
 		return JSONPath({
 			json: data as object,
@@ -251,7 +228,7 @@ class SingleDocument<T = unknown> extends Document<T> {
 		});
 	}
 
-	override async close() {
+	override async _close() {
 		const handle = await this.#getHandle();
 		await handle.close();
 	}
@@ -301,29 +278,25 @@ class BatchDocument<T = unknown> extends Document<T> {
 		return doc;
 	}
 
-	override async update(cb: (data: T) => T | Promise<T>) {
-		for (const doc of this.#documents) {
-			await doc.update(cb);
-		}
+	override async _update(cb: (data: T) => T | Promise<T>) {
+		await Promise.all(this.#documents.map((doc) => doc._update(cb)));
 	}
 
-	override async apply(pathExpression: string, fn: (x: unknown) => unknown) {
-		for (const doc of this.#documents) {
-			await doc.apply(pathExpression, fn);
-		}
+	override async _apply(pathExpression: string, fn: (x: unknown) => unknown) {
+		await Promise.all(this.#documents.map((doc) => doc._apply(pathExpression, fn)));
 	}
 
-	override async query(pathExpression: string): Promise<unknown[]> {
+	override async _query(pathExpression: string): Promise<unknown[]> {
 		const results: unknown[] = [];
 		for (const doc of this.#documents) {
-			const values = await doc.query(pathExpression);
+			const values = await doc._query(pathExpression);
 			results.push(...values);
 		}
 		return results;
 	}
 
-	override async close() {
-		await Promise.all(this.#documents.map((doc) => doc.close()));
+	override async _close() {
+		await Promise.all(this.#documents.map((doc) => doc._close()));
 	}
 }
 
@@ -336,7 +309,7 @@ class Namespace {
 
 	#documents = new Map<string, Document>();
 
-	#pendingInserts = new Map<string, Promise<void>>();
+	#pendingInserts = new Map<string, Promise<Document>>();
 
 	constructor(parentDirectory: string, id: string) {
 		this.#id = id;
@@ -353,76 +326,52 @@ class Namespace {
 	}
 
 	/**
-	 * Returns a promise that resolves when the document is available, or rejects if the document fails to insert.
+	 * Returns a ResultAsync that resolves when the document is available, or fails if the document fails to insert.
 	 * @param documentId
 	 */
-	waitFor(documentId: string): Promise<void> {
+	waitFor(documentId: string): ResultAsync<void, DataStoreError> {
 		if (this.#documents.has(documentId)) {
-			return Promise.resolve();
+			return okAsync(undefined);
 		}
 
 		const pendingInsert = this.#pendingInserts.get(documentId);
 
 		if (!pendingInsert) {
-			return Promise.reject(
+			return errAsync(
 				new DataStoreError(`Document ${documentId} not found in namespace ${this.#id}`),
 			);
 		}
 
-		return pendingInsert;
-	}
-
-	async insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
-		let insertPromiseResolve: () => void;
-		let insertPromiseReject: () => void;
-		const insertPromise = new Promise<void>((resolve, reject) => {
-			insertPromiseResolve = resolve;
-			insertPromiseReject = reject;
-		});
-
-		this.#pendingInserts.set(id, insertPromise);
-
-		insertPromise.finally(() => {
-			this.#pendingInserts.delete(id);
-		});
-
-		if (data instanceof Promise) {
-			const doc = await SingleDocument.create(this.#directory, id, data).then(
-				(doc) => {
-					insertPromiseResolve();
-					return doc;
-				},
-				(e) => {
-					insertPromiseReject();
-					throw e;
-				},
-			);
-
-			this.#documents.set(doc.id, doc);
-			return doc;
-		}
-
-		const doc = await BatchDocument.create(this.#directory, id, data).then(
-			(doc) => {
-				insertPromiseResolve();
-				return doc;
-			},
-			(e) => {
-				insertPromiseReject();
-				throw e;
-			},
+		return ResultAsync.fromPromise(
+			pendingInsert.then(() => undefined),
+			(e) => new DataStoreError(`Document ${documentId} failed to insert`, { cause: e }),
 		);
-
-		this.#documents.set(doc.id, doc);
-		return doc;
 	}
 
-	safeInsert<T = unknown>(
+	_insert<T = unknown>(id: string, data: Promise<T> | AsyncIterable<T>): Promise<Document<T>> {
+		const createPromise =
+			data instanceof Promise
+				? SingleDocument.create(this.#directory, id, data)
+				: BatchDocument.create(this.#directory, id, data);
+
+		this.#pendingInserts.set(id, createPromise);
+
+		return createPromise
+			.then((doc) => {
+				this.#documents.set(doc.id, doc);
+				return doc;
+			})
+			.finally(() => {
+				this.#pendingInserts.delete(id);
+			});
+	}
+
+	insert<T = unknown>(
 		id: string,
 		data: Promise<T> | AsyncIterable<T>,
 	): ResultAsync<Document<T>, DataStoreError> {
 		return ResultAsync.fromPromise(
-			this.insert(id, data),
+			this._insert(id, data),
 			(e) =>
 				new DataStoreError(`Error inserting document ${id} into namespace ${this.#id}`, {
 					cause: e,
@@ -451,8 +400,8 @@ class Namespace {
 }
 
 /**
- * In-memory data store for content. Used to store content during the fetch process,
- * and to provide an easy api for content transforms before writing to disk.
+ * File system abstraction for interacting with content. Used to store content during the fetch process,
+ * and to provide an easy api for transforming and querying written content without needing to load everything into memory.
  */
 export class DataStore {
 	#namespaces = new Map<string, Namespace>();
@@ -497,12 +446,19 @@ export class DataStore {
 		return Array.from(this.#namespaces.values()).flatMap((ns) => Array.from(ns.documents()));
 	}
 
-	async close() {
-		for (const namespace of this.#namespaces.values()) {
-			for (const document of namespace.documents()) {
-				await document.close();
-			}
-		}
+	close(): ResultAsync<void, DataStoreError> {
+		return ResultAsync.combine(Array.from(this.allDocuments()).map((d) => d.close())).map(
+			() => undefined,
+		);
+	}
+
+	/**
+	 * Clear all namespaces and documents from the data store.
+	 * Does not delete any files on disk.
+	 * @internal
+	 */
+	_clear() {
+		this.#namespaces.clear();
 	}
 
 	/**

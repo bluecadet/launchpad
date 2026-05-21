@@ -1,8 +1,4 @@
-import LaunchpadMonitor from "./launchpad-monitor.js";
-
-export * from "./core/monitor-plugin-driver.js";
-// export * from './windows-api.js'; // Includes optional dependencies, so not exported here
-export * from "./launchpad-monitor.js";
-export * from "./monitor-config.js";
-
-export default LaunchpadMonitor;
+export { killPM2, monitor } from "./launchpad-monitor.js";
+export * from "./monitor-commands.js";
+export { defineMonitorConfig, type MonitorConfig } from "./monitor-config.js";
+export type { MonitorEvents } from "./monitor-events.js";

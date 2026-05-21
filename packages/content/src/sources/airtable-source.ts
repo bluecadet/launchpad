@@ -1,7 +1,7 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type Airtable from "airtable";
 import { z } from "zod";
-import { defineSource } from "./source.js";
+import { defineSource } from "../source.js";
 
 const airtableSourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */
@@ -155,20 +155,20 @@ export default async function airtableSource(options: z.input<typeof airtableSou
 		force: boolean,
 		logger: Logger,
 	): Promise<Airtable.Record<Airtable.FieldSet>[]> {
-		logger.debug(`Fetching ${tableId} from Airtable`);
+		logger.verbose(`Fetching ${tableId} from Airtable`);
 
 		if (force) {
 			rawAirtableDataCache[tableId] = [];
 		}
 
 		if (rawAirtableDataCache[tableId] && rawAirtableDataCache[tableId].length > 0) {
-			logger.debug(`${tableId} found in cache`);
+			logger.verbose(`${tableId} found in cache`);
 			return rawAirtableDataCache[tableId];
 		}
 
 		const data = await fetchData(base, tableId, assembledOptions.defaultView);
 		rawAirtableDataCache[tableId] = data;
-		logger.debug(`${tableId} fetched from Airtable`);
+		logger.verbose(`${tableId} fetched from Airtable`);
 		return data;
 	}
 

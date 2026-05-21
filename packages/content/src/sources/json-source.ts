@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import ky from "ky";
 import { z } from "zod";
-import { defineSource } from "./source.js";
+import { defineSource } from "../source.js";
 
 const jsonSourceSchema = z.object({
 	/** required field to identify this source. Will be used as download path. */
@@ -19,7 +19,7 @@ export default function jsonSource(options: z.input<typeof jsonSourceSchema>) {
 		id: parsedOptions.id,
 		fetch: (ctx) => {
 			return Object.entries(parsedOptions.files).map(([key, url]) => {
-				ctx.logger.debug(`Downloading json ${chalk.blue(url)}`);
+				ctx.logger.verbose(`Downloading json ${chalk.blue(url)}`);
 				return {
 					id: key,
 					data: ky

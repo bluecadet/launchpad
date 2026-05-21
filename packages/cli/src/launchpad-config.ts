@@ -1,23 +1,39 @@
-import type { ContentConfig } from "@bluecadet/launchpad-content";
-import type { MonitorConfig } from "@bluecadet/launchpad-monitor";
-import type { LogConfig } from "@bluecadet/launchpad-utils";
+import type { WorkflowMap, WorkflowStep } from "@bluecadet/launchpad-controller";
+import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
+import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import z from "zod";
 
-export type LaunchpadConfig = {
-	content?: ContentConfig;
-	monitor?: MonitorConfig;
-	logging?: LogConfig;
-};
+const workflowStepSchema = z.custom<WorkflowStep>((value) => {
+	if (typeof value === "string") {
+		return /^.+\..+$/.test(value);
+	}
+
+	if (typeof value !== "object" || value === null) {
+		return false;
+	}
+
+	return "type" in value && typeof value.type === "string";
+});
+
+export const launchpadConfigSchema = z
+	.object({
+		controller: controllerConfigSchema.prefault({}),
+		plugins: z.array(z.custom<PluginConfig>()).prefault([]),
+		workflows: z.record(z.string(), z.array(workflowStepSchema).readonly()).prefault({}),
+	})
+	.prefault({});
+
+export type LaunchpadConfig = z.input<typeof launchpadConfigSchema>;
 
 /**
  * Applies defaults to the provided launchpad config.
  */
 export function resolveLaunchpadConfig(config: LaunchpadConfig) {
-	// NOTE: at the moment, there are no defaults to apply
-	// so this function is just a passthrough
-	return config;
+	return launchpadConfigSchema.parse(config);
 }
 
 export type ResolvedLaunchpadOptions = ReturnType<typeof resolveLaunchpadConfig>;
+export type LaunchpadWorkflows = WorkflowMap;
 
 /**
  * Type definition for the config object.

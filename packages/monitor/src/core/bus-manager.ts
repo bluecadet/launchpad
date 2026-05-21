@@ -1,4 +1,4 @@
-import { type Logger, LogManager } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type { SubEmitterSocket } from "axon";
 import { err, ok, type Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";
@@ -7,6 +7,7 @@ import { LogModes, type ResolvedAppConfig } from "../monitor-config.js";
 
 export class BusManager {
 	#logger: Logger;
+	#appLoggers: Map<string, Logger> = new Map();
 	#bus: SubEmitterSocket | null = null;
 	#eventHandlers: Set<(eventType: string, eventData: unknown) => void> = new Set();
 	#outTails: Map<string, Tail> = new Map();
@@ -24,6 +25,7 @@ export class BusManager {
 			return;
 		}
 
+		this.#appLoggers.set(appName, this.#logger.child(appName));
 		this.#appConfigs.set(appName, appConfig);
 
 		if (appConfig.logging.mode === LogModes.file) {
@@ -44,7 +46,7 @@ export class BusManager {
 		};
 
 		if (outFilepath && appConfig.logging.showStdout) {
-			this.#logger.debug(`Tailing stdout from ${outFilepath}`);
+			this.#logger.verbose(`Tailing stdout from ${outFilepath}`);
 			const outTail = new Tail(outFilepath, tailOptions);
 			outTail.on("line", (data) => {
 				if (typeof data === "string") {
@@ -61,7 +63,7 @@ export class BusManager {
 		}
 
 		if (errFilepath && appConfig.logging.showStderr) {
-			this.#logger.debug(`Tailing stderr from ${errFilepath}`);
+			this.#logger.verbose(`Tailing stderr from ${errFilepath}`);
 			const errTail = new Tail(errFilepath, tailOptions);
 			errTail.on("line", (data) => {
 				if (typeof data === "string") {
@@ -79,7 +81,7 @@ export class BusManager {
 	}
 
 	connect(): ResultAsync<void, Error> {
-		this.#logger.debug("Connecting to PM2 bus");
+		this.#logger.verbose("Connecting to PM2 bus");
 
 		return ResultAsync.fromPromise(
 			new Promise((resolve, reject) => {
@@ -103,7 +105,7 @@ export class BusManager {
 	disconnect(): Result<void, Error> {
 		try {
 			if (this.#bus) {
-				this.#logger.debug("Disconnecting from PM2 bus");
+				this.#logger.verbose("Disconnecting from PM2 bus");
 				this.#bus.off("*");
 				this.#bus = null;
 			}
@@ -112,6 +114,7 @@ export class BusManager {
 			for (const [appName, tail] of this.#outTails) {
 				tail.unwatch();
 				this.#outTails.delete(appName);
+				this.#appLoggers.delete(appName);
 			}
 			for (const [appName, tail] of this.#errTails) {
 				tail.unwatch();
@@ -198,18 +201,21 @@ export class BusManager {
 	}
 
 	#handleTailOutput(appName: string, data: string) {
-		const appLogger = LogManager.getLogger(appName, this.#logger);
+		const appLogger = this.#appLoggers.get(appName);
+		if (!appLogger) return;
 		appLogger.info(data);
 	}
 
 	#handleTailError(appName: string, data: string, _isTailError = false) {
-		const appLogger = LogManager.getLogger(appName, this.#logger);
+		const appLogger = this.#appLoggers.get(appName);
+		if (!appLogger) return;
 		appLogger.error(data);
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: TODO: probably should be unknown
 	#handleBusLogOut(appName: string, event: any) {
-		const appLogger = LogManager.getLogger(appName, this.#logger);
+		const appLogger = this.#appLoggers.get(appName);
+		if (!appLogger) return;
 		for (const line of this.#splitLines(event.data.toString())) {
 			appLogger.info(line);
 		}
@@ -217,7 +223,8 @@ export class BusManager {
 
 	// biome-ignore lint/suspicious/noExplicitAny: TODO: probably should be unknown
 	#handleBusLogErr(appName: string, event: any) {
-		const appLogger = LogManager.getLogger(appName, this.#logger);
+		const appLogger = this.#appLoggers.get(appName);
+		if (!appLogger) return;
 		for (const line of this.#splitLines(event.data.toString())) {
 			appLogger.error(line);
 		}

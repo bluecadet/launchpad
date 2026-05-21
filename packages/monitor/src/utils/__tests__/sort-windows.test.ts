@@ -1,6 +1,6 @@
 import { afterEach } from "node:test";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { type Window, windowManager } from "node-window-manager";
 import semver from "semver";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,7 +53,7 @@ describe("sortWindows", () => {
 
 	it("should handle empty apps array", async () => {
 		await sortWindows([], mockLogger);
-		expect(mockLogger.debug).toHaveBeenCalledWith("Applying window settings to 0 apps");
+		expect(mockLogger.verbose).toHaveBeenCalledWith("Applying window settings to 0 apps");
 	});
 
 	it("should warn about apps without PIDs", async () => {
@@ -77,7 +77,9 @@ describe("sortWindows", () => {
 			{
 				options: {
 					pm2: { name: "test-app" },
-					windows: {},
+					windows: {
+						hide: true,
+					},
 				},
 				pid: 456, // Different from mockWindow.processId
 			},

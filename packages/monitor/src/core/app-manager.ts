@@ -1,7 +1,15 @@
 import path from "node:path";
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import type pm2 from "pm2";
+import type { PM2Error } from "../errors.js";
+import {
+	AppNotFoundError,
+	InvalidAppNamesError,
+	ProcessNotFoundError,
+	WindowsApiError,
+} from "../errors.js";
 import type { ResolvedAppConfig, ResolvedMonitorConfig } from "../monitor-config.js";
 import { debounceResultAsync } from "../utils/debounce-results.js";
 import sortWindows from "../utils/sort-windows.js";
@@ -12,6 +20,7 @@ export class AppManager {
 	#processManager: ProcessManager;
 	#config: ResolvedMonitorConfig;
 	#cwd: string;
+	#eventBus?: EventBus;
 
 	constructor(
 		logger: Logger,
@@ -30,8 +39,18 @@ export class AppManager {
 		);
 	}
 
-	startApp(appName: string): ResultAsync<pm2.ProcessDescription, Error> {
+	setEventBus(eventBus: EventBus): void {
+		this.#eventBus = eventBus;
+	}
+
+	startApp(appName: string): ResultAsync<pm2.ProcessDescription, AppNotFoundError | PM2Error> {
 		this.#logger.info(`Starting app '${appName}'...`);
+
+		// Emit start event
+		this.#eventBus?.emit("monitor:app:start", {
+			appName,
+		});
+
 		return this.getAppOptions(appName)
 			.asyncAndThen((opts) => {
 				// @ts-expect-error - Undocumented PM2 field that can prevent your apps from actually showing on launch. Set this to false to prevent that default behavior.
@@ -39,29 +58,77 @@ export class AppManager {
 				return this.#processManager.startProcess(opts.pm2);
 			})
 			.andThen(() => this.#processManager.getProcess(appName))
-			.map((process) => {
+			.andTee((process) => {
 				this.#logger.info(`...app '${appName}' was started.`);
-				return process;
+
+				// Emit started event with process info
+				const pm2Id = process.pm_id;
+				if (pm2Id !== undefined && process.pid !== undefined) {
+					this.#eventBus?.emit("monitor:app:started", {
+						appName,
+						pm2Id,
+						pid: process.pid,
+					});
+				}
+			})
+			.orElse((error) => {
+				// Emit error event
+				this.#eventBus?.emit("monitor:app:error", {
+					appName,
+					error,
+					operation: "start",
+				});
+				return errAsync(error);
 			});
 	}
 
-	stopApp(appName: string): ResultAsync<pm2.ProcessDescription, Error> {
+	stopApp(appName: string): ResultAsync<pm2.ProcessDescription, PM2Error> {
 		this.#logger.info(`Stopping app '${appName}'...`);
 
-		return this.#processManager.stopProcess(appName).map((process) => {
-			this.#logger.info(`...app '${appName}' was stopped.`);
-			return process;
+		// Emit stop event
+		this.#eventBus?.emit("monitor:app:stop", {
+			appName,
 		});
+
+		return this.#processManager
+			.stopProcess(appName)
+			.andTee((process) => {
+				this.#logger.info(`...app '${appName}' was stopped.`);
+
+				// Emit stopped event with process info
+				const pm2Id = process.pm_id;
+				if (pm2Id !== undefined) {
+					this.#eventBus?.emit("monitor:app:stopped", {
+						appName,
+						pm2Id,
+					});
+				}
+			})
+			.orElse((error) => {
+				// Emit error event
+				this.#eventBus?.emit("monitor:app:error", {
+					appName,
+					error,
+					operation: "stop",
+				});
+				return errAsync(error);
+			});
 	}
 
-	isAppRunning(appName: string, silent = true): ResultAsync<boolean, Error> {
+	isAppRunning(appName: string, silent = true): ResultAsync<boolean, never> {
 		return this.#processManager
 			.getProcess(appName, silent)
 			.map((process) => process?.pm2_env?.status === "online")
 			.orElse(() => okAsync(false));
 	}
 
-	validateAppNames(appNames: string | string[] | null = null): Result<string[], Error> {
+	getAppProcess(appName: string, silent = false): ResultAsync<pm2.ProcessDescription, PM2Error> {
+		return this.#processManager.getProcess(appName, silent);
+	}
+
+	validateAppNames(
+		appNames: string | string[] | null = null,
+	): Result<string[], InvalidAppNamesError> {
 		if (appNames === null || appNames === undefined) {
 			return ok(this.getAllAppNames());
 		}
@@ -72,7 +139,9 @@ export class AppManager {
 			return ok([...appNames]);
 		}
 		return err(
-			new Error("appNames must be null, undefined, a string or an iterable array/set of strings"),
+			new InvalidAppNamesError(
+				"appNames must be null, undefined, a string or an iterable array/set of strings",
+			),
 		);
 	}
 
@@ -83,10 +152,10 @@ export class AppManager {
 		return [];
 	}
 
-	getAppOptions(appName: string): Result<ResolvedAppConfig, Error> {
+	getAppOptions(appName: string): Result<ResolvedAppConfig, AppNotFoundError> {
 		const options = this.#config.apps.find((app) => app.pm2.name === appName);
 		if (!options) {
-			return err(new Error(`No app found with the name '${appName}'`));
+			return err(new AppNotFoundError(appName));
 		}
 		return ok(this.#updateConfigCWD(options));
 	}
@@ -102,36 +171,33 @@ export class AppManager {
 		};
 	}
 
-	applyWindowSettings(appNames: string[] = []): ResultAsync<void, Error> {
-		const validatedAppNames = this.validateAppNames(appNames);
-
-		if (validatedAppNames.isErr()) {
-			return errAsync(validatedAppNames.error);
-		}
-
-		const appResults = validatedAppNames.value.map((appName) => {
-			const appOptions = this.getAppOptions(appName);
-
-			if (appOptions.isErr()) {
-				return errAsync(appOptions.error);
-			}
-
-			return this.#processManager.getProcess(appName).andThen((process) => {
-				if (process.pid !== undefined) {
-					return ok({
-						options: appOptions.value,
-						pid: process.pid,
-					});
-				}
-				return err(new Error(`No process found for app ${appName}`));
-			});
-		});
-
-		return ResultAsync.combine(appResults).andThen((apps) => {
-			return ResultAsync.fromPromise(
-				sortWindows(apps, this.#logger),
-				(e) => new Error("Failed to sort windows", { cause: e }),
+	applyWindowSettings(
+		appNames: string[] = [],
+	): ResultAsync<
+		void,
+		InvalidAppNamesError | AppNotFoundError | ProcessNotFoundError | WindowsApiError
+	> {
+		return this.validateAppNames(appNames)
+			.asyncAndThen((names) =>
+				ResultAsync.combine(
+					names.map((name) =>
+						this.getAppOptions(name).asyncAndThen((opts) =>
+							this.#processManager
+								.getProcess(name)
+								.andThen((process) =>
+									process.pid !== undefined
+										? ok({ options: opts, pid: process.pid })
+										: err(new ProcessNotFoundError(name)),
+								),
+						),
+					),
+				),
+			)
+			.andThen((apps) =>
+				ResultAsync.fromPromise(
+					sortWindows(apps, this.#logger),
+					(e) => new WindowsApiError({ cause: e as Error }),
+				),
 			);
-		});
 	}
 }

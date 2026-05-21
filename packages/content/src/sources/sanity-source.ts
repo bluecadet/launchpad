@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { defineSource } from "./source.js";
 
 const sanitySourceSchema = z.object({
 	/** Required field to identify this source. Will be used as download path. */
@@ -58,7 +58,9 @@ export default async function sanitySource(options: z.input<typeof sanitySourceS
 
 				// if full query already contains a number range, no need to paginate
 				if (fullQuery.match(/\[\d+(\.\.\d+)?\]/)) {
-					ctx.logger.debug(`Query '${fullQuery}' already contains a number range. No pagination.`);
+					ctx.logger.verbose(
+						`Query '${fullQuery}' already contains a number range. No pagination.`,
+					);
 					return {
 						id,
 						data: sanityClient.fetch<unknown>(

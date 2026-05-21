@@ -1,0 +1,516 @@
+import { vol } from "memfs";
+import { errAsync, ok, okAsync } from "neverthrow";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ContentError } from "../../content-transform.js";
+import { defineSource } from "../../source.js";
+import * as FileUtils from "../../utils/file-utils.js";
+import {
+	backupStage,
+	ContentFetchError,
+	ContentRecoveryError,
+	cleanupStage,
+	clearOldDataStage,
+	errorRecoveryStage,
+	fetchSourcesStage,
+	finalizingStage,
+	runTransformsStage,
+} from "../fetch-stages.js";
+import {
+	createMockContentConfig,
+	createMockDataStore,
+	createMockFetchContext,
+} from "./fetch-test-utils.js";
+
+describe("Fetch Stages", () => {
+	beforeEach(() => {
+		vol.reset();
+		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		vol.reset();
+		vi.clearAllMocks();
+	});
+
+	describe("backupStage", () => {
+		it("should skip backup when backupAndRestore is false", async () => {
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: false }),
+			});
+
+			const result = await backupStage(context);
+
+			expect(result).toBeOk();
+			expect(context.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("Backing up"));
+		});
+
+		it("should skip backup for source with no downloads", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
+				sources: [
+					defineSource({
+						id: "nonexistent",
+						fetch: () => [],
+					}),
+				],
+			});
+
+			const result = await backupStage(context);
+
+			expect(result).toBeOk();
+			expect(context.logger.warn).toHaveBeenCalledWith(
+				expect.stringContaining("No downloads found"),
+			);
+		});
+
+		it("should backup existing downloads", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			vol.writeFileSync("/downloads/test/file.json", '{"data":"test"}');
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
+				sources: [
+					defineSource({
+						id: "test",
+						fetch: () => [],
+					}),
+				],
+			});
+
+			const result = await backupStage(context);
+
+			expect(result).toBeOk();
+
+			expect(vol.existsSync("/backups/test/file.json")).toBe(true);
+			expect(vol.readFileSync("/backups/test/file.json", "utf8")).toBe('{"data":"test"}');
+		});
+	});
+
+	describe("clearOldDataStage", () => {
+		it("should prepare staged directories for all sources without mutating published content", async () => {
+			vol.mkdirSync("/downloads/test1", { recursive: true });
+			vol.mkdirSync("/downloads/test2", { recursive: true });
+			vol.writeFileSync("/downloads/test1/old.json", "{}");
+			vol.writeFileSync("/downloads/test2/old.json", "{}");
+
+			const context = createMockFetchContext({
+				sources: [
+					defineSource({ id: "test1", fetch: () => [] }),
+					defineSource({ id: "test2", fetch: () => [] }),
+				],
+			});
+
+			const result = await clearOldDataStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/downloads/test1/old.json")).toBe(true);
+			expect(vol.existsSync("/downloads/test2/old.json")).toBe(true);
+			expect(vol.existsSync("/temp/runs/test-run/downloads/test1/old.json")).toBe(false);
+			expect(vol.existsSync("/temp/runs/test-run/downloads/test2/old.json")).toBe(false);
+		});
+
+		it("should seed keep-pattern files into staged directories", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			vol.writeFileSync("/downloads/test/.keep", "");
+			vol.writeFileSync("/downloads/test/remove.json", "{}");
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ keep: [".keep"] }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await clearOldDataStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/downloads/test/.keep")).toBe(true);
+			expect(vol.existsSync("/downloads/test/remove.json")).toBe(true);
+			expect(vol.existsSync("/temp/runs/test-run/downloads/test/.keep")).toBe(true);
+			expect(vol.existsSync("/temp/runs/test-run/downloads/test/remove.json")).toBe(false);
+		});
+
+		it("should handle missing published directories", async () => {
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "nonexistent", fetch: () => [] })],
+			});
+
+			const result = await clearOldDataStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/test-run/downloads/nonexistent")).toBe(true);
+		});
+	});
+
+	describe("fetchSourcesStage", () => {
+		it("should warn when no sources are configured", async () => {
+			const context = createMockFetchContext({
+				sources: [],
+			});
+
+			const result = await fetchSourcesStage(context);
+
+			expect(result).toBeOk();
+			expect(context.logger.warn).toHaveBeenCalledWith("No sources found to download");
+		});
+
+		it("should emit source:start and source:done events", async () => {
+			const dataStore = createMockDataStore();
+			vi.mocked(dataStore.createNamespace).mockReturnValue(okAsync({} as never));
+			vi.mocked(dataStore.namespace).mockReturnValue(
+				ok({
+					asyncAndThen: vi.fn((cb) =>
+						cb({
+							insert: vi.fn(() => okAsync(undefined)),
+						}),
+					),
+				} as never),
+			);
+
+			const context = createMockFetchContext({
+				dataStore,
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			await fetchSourcesStage(context);
+
+			const events = context.eventBus.getEmittedEvents();
+			expect(events.some((e) => e.event === "content:source:start")).toBe(true);
+			expect(events.some((e) => e.event === "content:source:done")).toBe(true);
+		});
+	});
+
+	describe("runTransformsStage", () => {
+		it("should skip when no transforms", async () => {
+			const context = createMockFetchContext({ transforms: [] });
+			const result = await runTransformsStage(context);
+			expect(result).toBeOk();
+		});
+
+		it("should run transforms sequentially and emit events", async () => {
+			const order: string[] = [];
+			const context = createMockFetchContext({
+				transforms: [
+					{
+						name: "t1",
+						apply: async () => {
+							order.push("t1");
+						},
+					},
+					{
+						name: "t2",
+						apply: async () => {
+							order.push("t2");
+						},
+					},
+				],
+			});
+
+			const result = await runTransformsStage(context);
+
+			expect(result).toBeOk();
+			expect(order).toEqual(["t1", "t2"]);
+			expect(context.eventBus.getEventsOfType("content:transform:start")).toHaveLength(2);
+			expect(context.eventBus.getEventsOfType("content:transform:done")).toHaveLength(2);
+		});
+
+		it("should return error when a transform fails", async () => {
+			const context = createMockFetchContext({
+				transforms: [
+					{
+						name: "failing",
+						apply: async () => {
+							throw new Error("transform error");
+						},
+					},
+				],
+			});
+
+			const result = await runTransformsStage(context);
+
+			expect(result).toBeErr();
+			expect(context.eventBus.getEventsOfType("content:transform:error")).toHaveLength(1);
+		});
+	});
+
+	describe("finalizingStage", () => {
+		it("should close data store", async () => {
+			const context = createMockFetchContext();
+			const result = await finalizingStage(context);
+
+			expect(result).toBeOk();
+			expect(context.dataStore.close).toHaveBeenCalled();
+		});
+
+		it("should promote staged output and emit fetch:done event", async () => {
+			vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+			vol.mkdirSync("/temp/runs/test-run/downloads/source2", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+			vol.writeFileSync("/temp/runs/test-run/downloads/source2/file.json", '{"id":2}');
+			vol.mkdirSync("/downloads/source1", { recursive: true });
+			vol.writeFileSync("/downloads/source1/old.json", "{} ");
+
+			const context = createMockFetchContext({
+				sources: [
+					defineSource({ id: "source1", fetch: () => [] }),
+					defineSource({ id: "source2", fetch: () => [] }),
+				],
+			});
+
+			await finalizingStage(context);
+
+			expect(vol.existsSync("/downloads/source1/file.json")).toBe(true);
+			expect(vol.existsSync("/downloads/source1/old.json")).toBe(false);
+			expect(vol.existsSync("/downloads/source2/file.json")).toBe(true);
+
+			const doneEvent = context.eventBus.getEventsOfType("content:fetch:done")[0];
+			expect(doneEvent).toEqual({
+				sources: ["source1", "source2"],
+			});
+		});
+
+		it("should promote staged root-level output", async () => {
+			vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+			vol.writeFileSync("/temp/runs/test-run/downloads/manifest.json", '{"version":1}');
+			vol.mkdirSync("/downloads", { recursive: true });
+			vol.writeFileSync("/downloads/manifest.json", '{"version":0}');
+
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "source1", fetch: () => [] })],
+			});
+
+			const result = await finalizingStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe('{"version":1}');
+		});
+
+		it("should preserve published content if promotion fails", async () => {
+			vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+			vol.mkdirSync("/downloads/source1", { recursive: true });
+			vol.writeFileSync("/downloads/source1/old.json", "stable");
+
+			const originalReplacePath = FileUtils.replacePath;
+			const replaceSpy = vi
+				.spyOn(FileUtils, "replacePath")
+				.mockImplementation((src, dest, options) => {
+					if (src === "/temp/runs/test-run/downloads/source1") {
+						return errAsync(new FileUtils.FileUtilsError("promotion failed"));
+					}
+					return originalReplacePath(src, dest, options);
+				});
+
+			try {
+				const context = createMockFetchContext({
+					sources: [defineSource({ id: "source1", fetch: () => [] })],
+				});
+
+				const result = await finalizingStage(context);
+
+				expect(result).toBeErr();
+				expect(vol.existsSync("/downloads/source1/old.json")).toBe(true);
+				expect(vol.existsSync("/downloads/source1/file.json")).toBe(false);
+			} finally {
+				replaceSpy.mockRestore();
+			}
+		});
+
+		it("should return error if data store close fails", async () => {
+			const context = createMockFetchContext();
+			vi.mocked(context.dataStore.close).mockReturnValue(errAsync(new Error("Close failed")));
+
+			const result = await finalizingStage(context);
+
+			expect(result).toBeErr();
+		});
+	});
+
+	describe("errorRecoveryStage", () => {
+		it("should emit fetch:error event", async () => {
+			const context = createMockFetchContext();
+			const error = new ContentError("Test error");
+
+			await errorRecoveryStage(context, error);
+
+			const errorEvent = context.eventBus.getEventsOfType("content:fetch:error")[0];
+			expect(errorEvent).toEqual({ error });
+		});
+
+		it("should restore from backup when available", async () => {
+			vol.mkdirSync("/backups/test", { recursive: true });
+			vol.writeFileSync("/backups/test/file.json", '{"backup":"data"}');
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const error = new ContentError("Test error");
+			const result = await errorRecoveryStage(context, error);
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap().restoredSourceIds).toEqual(["test"]);
+			expect(vol.existsSync("/downloads/test/file.json")).toBe(true);
+		});
+
+		it("should warn when no backup exists", async () => {
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ backupAndRestore: true }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const error = new ContentError("Test error");
+			const result = await errorRecoveryStage(context, error);
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap().restoredSourceIds).toEqual([]);
+			expect(context.logger.warn).toHaveBeenCalledWith(expect.stringContaining("No backup found"));
+		});
+
+		it("should return ContentRecoveryError when restore fails", async () => {
+			vol.mkdirSync("/backups/test", { recursive: true });
+			vol.writeFileSync("/backups/test/file.json", '{"backup":"data"}');
+
+			const originalCopy = FileUtils.copy;
+			const copySpy = vi.spyOn(FileUtils, "copy").mockImplementation((src, dest, options) => {
+				if (src === "/backups/test" && dest === "/downloads/test") {
+					return errAsync(new FileUtils.FileUtilsError("restore failed"));
+				}
+				return originalCopy(src, dest, options);
+			});
+
+			try {
+				const context = createMockFetchContext({
+					config: createMockContentConfig({ backupAndRestore: true }),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const originalError = new ContentError("Original error");
+				const result = await errorRecoveryStage(context, originalError);
+
+				expect(result).toBeErr();
+				expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentRecoveryError);
+			} finally {
+				copySpy.mockRestore();
+			}
+		});
+	});
+
+	describe("cleanupStage", () => {
+		it("should skip cleanup when no options provided", async () => {
+			vol.mkdirSync("/temp/test", { recursive: true });
+			vol.mkdirSync("/backups/test", { recursive: true });
+
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await cleanupStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/test")).toBe(true);
+			expect(vol.existsSync("/backups/test")).toBe(true);
+		});
+
+		it("should clean temp directories when cleanup.temp is true", async () => {
+			vol.mkdirSync("/temp/runs/test-run/test", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/test/file.tmp", "");
+
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await cleanupStage(context, { temp: true });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/test-run/test/file.tmp")).toBe(false);
+		});
+
+		it("should clean backup directories when cleanup.backups is true", async () => {
+			vol.mkdirSync("/backups/test", { recursive: true });
+			vol.writeFileSync("/backups/test/file.json", "{}");
+
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await cleanupStage(context, { backups: true });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/backups/test/file.json")).toBe(false);
+		});
+
+		it("should remove empty directories when removeIfEmpty is true", async () => {
+			vol.mkdirSync("/temp/runs/test-run/test", { recursive: true });
+
+			const context = createMockFetchContext({
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await cleanupStage(context, { temp: true, backups: true });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/test-run")).toBe(false);
+		});
+
+		it("should ignore keep patterns during cleanup", async () => {
+			vol.mkdirSync("/temp/runs/test-run/test", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/test/.keep", "");
+			vol.writeFileSync("/temp/runs/test-run/test/file.tmp", "");
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ keep: [".keep"] }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await cleanupStage(context, { temp: true });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/test-run/test/.keep")).toBe(false);
+		});
+
+		it("should handle multiple sources", async () => {
+			vol.mkdirSync("/temp/runs/test-run/test1", { recursive: true });
+			vol.mkdirSync("/temp/runs/test-run/test2", { recursive: true });
+			vol.writeFileSync("/temp/runs/test-run/test1/file.tmp", "");
+			vol.writeFileSync("/temp/runs/test-run/test2/file.tmp", "");
+
+			const context = createMockFetchContext({
+				sources: [
+					defineSource({ id: "test1", fetch: () => [] }),
+					defineSource({ id: "test2", fetch: () => [] }),
+				],
+			});
+
+			const result = await cleanupStage(context, { temp: true });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/test-run/test1/file.tmp")).toBe(false);
+			expect(vol.existsSync("/temp/runs/test-run/test2/file.tmp")).toBe(false);
+		});
+	});
+
+	describe("Error classes", () => {
+		it("should create ContentFetchError with sourceId", () => {
+			const error = new ContentFetchError("Test error", "source1");
+			expect(error.message).toBe("Test error");
+			expect(error.sourceId).toBe("source1");
+			expect(error.name).toBe("ContentFetchError");
+		});
+
+		it("should create ContentFetchError with cause", () => {
+			const cause = new Error("Original error");
+			const error = new ContentFetchError("Test error", "source1", cause);
+			expect(error.cause).toBe(cause);
+		});
+
+		it("should create ContentRecoveryError with originalError", () => {
+			const originalError = new ContentError("Original");
+			const error = new ContentRecoveryError("Recovery failed", originalError);
+			expect(error.message).toBe("Recovery failed");
+			expect(error.originalError).toBe(originalError);
+			expect(error.name).toBe("ContentRecoveryError");
+		});
+	});
+});

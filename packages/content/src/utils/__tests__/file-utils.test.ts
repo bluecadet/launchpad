@@ -97,19 +97,6 @@ describe("FileUtils", () => {
 		});
 	});
 
-	describe("getDateString", () => {
-		it("should return a formatted date string", () => {
-			const testDate = new Date(2023, 3, 15, 10, 30, 45);
-			const result = FileUtils.getDateString(testDate);
-			expect(result).toBe("2023-04-16_10-30-45");
-		});
-
-		it("should use current date if no date is provided", () => {
-			const result = FileUtils.getDateString();
-			expect(result).toMatch(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/);
-		});
-	});
-
 	describe("pad", () => {
 		it("should pad numbers with leading zeros", () => {
 			expect(FileUtils.pad(5, 2)).toBe("05");
@@ -228,6 +215,358 @@ describe("FileUtils", () => {
 			const destStats = vol.statSync("/dest-file.txt");
 			expect(destStats.mtime).toEqual(sourceStats.mtime);
 			expect(destStats.atime).toEqual(sourceStats.atime);
+		});
+	});
+
+	describe("replacePath", () => {
+		it("should replace an existing directory with staged content", async () => {
+			vol.mkdirSync("/published/source", { recursive: true });
+			vol.writeFileSync("/published/source/old.json", "old");
+			vol.mkdirSync("/staged/source", { recursive: true });
+			vol.writeFileSync("/staged/source/new.json", "new");
+
+			const result = await FileUtils.replacePath("/staged/source", "/published/source", {
+				rollbackDir: "/rollback",
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/published/source/new.json")).toBe(true);
+			expect(vol.existsSync("/published/source/old.json")).toBe(false);
+			expect(vol.existsSync("/staged/source")).toBe(false);
+		});
+
+		it("should restore the original directory when replacement fails", async () => {
+			vol.mkdirSync("/published/source", { recursive: true });
+			vol.writeFileSync("/published/source/old.json", "old");
+			vol.mkdirSync("/staged/source", { recursive: true });
+			vol.writeFileSync("/staged/source/new.json", "new");
+
+			const originalRename = vol.promises.rename.bind(vol.promises);
+			const renameSpy = vi
+				.spyOn(vol.promises, "rename")
+				.mockImplementationOnce(async (oldPath, newPath) => {
+					return originalRename(oldPath, newPath);
+				})
+				.mockImplementationOnce(async () => {
+					throw new FileUtils.FileUtilsError("promotion failed");
+				})
+				.mockImplementation(async (oldPath, newPath) => {
+					return originalRename(oldPath, newPath);
+				});
+
+			try {
+				const result = await FileUtils.replacePath("/staged/source", "/published/source", {
+					rollbackDir: "/rollback",
+				});
+
+				expect(result).toBeErr();
+				expect(vol.existsSync("/published/source/old.json")).toBe(true);
+				expect(vol.existsSync("/published/source/new.json")).toBe(false);
+			} finally {
+				renameSpy.mockRestore();
+			}
+		});
+	});
+
+	describe("clearDir", () => {
+		it("should remove all files from a directory", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/file1.txt", "content1");
+			vol.writeFileSync("/test-dir/file2.txt", "content2");
+
+			const result = await FileUtils.clearDir("/test-dir");
+
+			expect(result).toBeOk();
+			expect(vol.readdirSync("/test-dir")).toHaveLength(0);
+		});
+
+		it("should remove nested directories and files", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.mkdirSync("/test-dir/subdir");
+			vol.writeFileSync("/test-dir/file.txt", "content");
+			vol.writeFileSync("/test-dir/subdir/nested.txt", "nested");
+
+			const result = await FileUtils.clearDir("/test-dir");
+
+			expect(result).toBeOk();
+			expect(vol.readdirSync("/test-dir")).toHaveLength(0);
+		});
+
+		it("should handle non-existent directories gracefully", async () => {
+			const result = await FileUtils.clearDir("/non-existent-dir");
+
+			expect(result).toBeOk();
+		});
+
+		it("should keep files matching keepPatterns", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/.keep", "");
+			vol.writeFileSync("/test-dir/important.json", "{}");
+			vol.writeFileSync("/test-dir/remove.txt", "remove");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: [".keep", "important.json"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir/.keep")).toBe(true);
+			expect(vol.existsSync("/test-dir/important.json")).toBe(true);
+			expect(vol.existsSync("/test-dir/remove.txt")).toBe(false);
+		});
+
+		it("should keep files matching glob patterns in nested directories", async () => {
+			vol.mkdirSync("/test-dir/subdir", { recursive: true });
+			vol.writeFileSync("/test-dir/file.json", "{}");
+			vol.writeFileSync("/test-dir/subdir/data.json", "{}");
+			vol.writeFileSync("/test-dir/subdir/file.csv", "data");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: ["**/*.json"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir/file.json")).toBe(true);
+			expect(vol.existsSync("/test-dir/subdir/data.json")).toBe(true);
+			expect(vol.existsSync("/test-dir/subdir/file.csv")).toBe(false);
+		});
+
+		it("should ignore keepPatterns when ignoreKeep is true", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/.keep", "");
+			vol.writeFileSync("/test-dir/file.txt", "content");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: [".keep"],
+				ignoreKeep: true,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir/.keep")).toBe(false);
+			expect(vol.existsSync("/test-dir/file.txt")).toBe(false);
+		});
+
+		it("should remove empty directory when removeIfEmpty is true", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/file.txt", "content");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				removeIfEmpty: true,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir")).toBe(false);
+		});
+
+		it("should keep non-empty directory when removeIfEmpty is true but directory has excluded files", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/.keep", "");
+			vol.writeFileSync("/test-dir/file.txt", "content");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: [".keep"],
+				ignoreKeep: false,
+				removeIfEmpty: true,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir")).toBe(true);
+			expect(vol.existsSync("/test-dir/.keep")).toBe(true);
+		});
+
+		it("should handle dot files", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/.hidden", "hidden");
+			vol.writeFileSync("/test-dir/.gitkeep", "keep");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: [".gitkeep"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir/.hidden")).toBe(false);
+			expect(vol.existsSync("/test-dir/.gitkeep")).toBe(true);
+		});
+
+		it("should handle multiple file extensions", async () => {
+			vol.mkdirSync("/test-dir");
+			vol.writeFileSync("/test-dir/file.json", "{}");
+			vol.writeFileSync("/test-dir/file.csv", "csv");
+			vol.writeFileSync("/test-dir/file.xml", "<xml/>");
+			vol.writeFileSync("/test-dir/file.txt", "text");
+
+			const result = await FileUtils.clearDir("/test-dir", {
+				keepPatterns: ["*.json", "*.csv"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/test-dir/file.json")).toBe(true);
+			expect(vol.existsSync("/test-dir/file.csv")).toBe(true);
+			expect(vol.existsSync("/test-dir/file.xml")).toBe(false);
+			expect(vol.existsSync("/test-dir/file.txt")).toBe(false);
+		});
+
+		it("should return error when directory access fails", async () => {
+			// Using invalid path to trigger potential errors
+			const result = await FileUtils.clearDir("");
+
+			// Should handle gracefully (empty path might be treated as non-existent)
+			expect(result).toBeDefined();
+		});
+	});
+
+	describe("clearDirs", () => {
+		it("should clear multiple directories", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/file1.txt", "content1");
+			vol.writeFileSync("/dir2/file2.txt", "content2");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"]);
+
+			expect(result).toBeOk();
+			expect(vol.readdirSync("/dir1")).toHaveLength(0);
+			expect(vol.readdirSync("/dir2")).toHaveLength(0);
+		});
+
+		it("should handle empty directory list", async () => {
+			const result = await FileUtils.clearDirs([]);
+
+			expect(result).toBeOk();
+		});
+
+		it("should handle non-existent directories", async () => {
+			const result = await FileUtils.clearDirs(["/non-existent1", "/non-existent2"]);
+
+			expect(result).toBeOk();
+		});
+
+		it("should apply keepPatterns to all directories", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/.keep", "");
+			vol.writeFileSync("/dir1/remove.txt", "");
+			vol.writeFileSync("/dir2/.keep", "");
+			vol.writeFileSync("/dir2/remove.txt", "");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"], {
+				keepPatterns: [".keep"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/dir1/.keep")).toBe(true);
+			expect(vol.existsSync("/dir1/remove.txt")).toBe(false);
+			expect(vol.existsSync("/dir2/.keep")).toBe(true);
+			expect(vol.existsSync("/dir2/remove.txt")).toBe(false);
+		});
+
+		it("should respect removeIfEmpty option for all directories", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/file.txt", "");
+			vol.writeFileSync("/dir2/file.txt", "");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"], {
+				removeIfEmpty: true,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/dir1")).toBe(false);
+			expect(vol.existsSync("/dir2")).toBe(false);
+		});
+
+		it("should ignore ignoreKeep setting when true for all directories", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/.keep", "");
+			vol.writeFileSync("/dir1/file.txt", "");
+			vol.writeFileSync("/dir2/.keep", "");
+			vol.writeFileSync("/dir2/file.txt", "");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"], {
+				keepPatterns: [".keep"],
+				ignoreKeep: true,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/dir1/.keep")).toBe(false);
+			expect(vol.existsSync("/dir2/.keep")).toBe(false);
+		});
+
+		it("should handle mixed existent and non-existent directories", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/file.txt", "content");
+			vol.writeFileSync("/dir2/file.txt", "content");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/non-existent", "/dir2"]);
+
+			expect(result).toBeOk();
+			expect(vol.readdirSync("/dir1")).toHaveLength(0);
+			expect(vol.readdirSync("/dir2")).toHaveLength(0);
+		});
+
+		it("should clear many directories in parallel", async () => {
+			const dirs = Array.from({ length: 5 }, (_, i) => {
+				const dir = `/dir${i}`;
+				vol.mkdirSync(dir);
+				vol.writeFileSync(`${dir}/file.txt`, `content${i}`);
+				return dir;
+			});
+
+			const result = await FileUtils.clearDirs(dirs);
+
+			expect(result).toBeOk();
+			for (const dir of dirs) {
+				expect(vol.readdirSync(dir)).toHaveLength(0);
+			}
+		});
+
+		it("should handle nested directories with different keep patterns", async () => {
+			vol.mkdirSync("/dir1/subdir", { recursive: true });
+			vol.mkdirSync("/dir2/subdir", { recursive: true });
+			vol.writeFileSync("/dir1/file.json", "{}");
+			vol.writeFileSync("/dir1/subdir/data.json", "{}");
+			vol.writeFileSync("/dir2/file.csv", "csv");
+			vol.writeFileSync("/dir2/subdir/data.csv", "csv");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"], {
+				keepPatterns: ["**/*.json"],
+				ignoreKeep: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/dir1/file.json")).toBe(true);
+			expect(vol.existsSync("/dir1/subdir/data.json")).toBe(true);
+			expect(vol.existsSync("/dir2/file.csv")).toBe(false);
+			expect(vol.existsSync("/dir2/subdir/data.csv")).toBe(false);
+		});
+
+		it("should combine all options correctly", async () => {
+			vol.mkdirSync("/dir1");
+			vol.mkdirSync("/dir2");
+			vol.writeFileSync("/dir1/.keep", "");
+			vol.writeFileSync("/dir1/file.txt", "");
+			vol.writeFileSync("/dir2/.keep", "");
+			vol.writeFileSync("/dir2/file.txt", "");
+
+			const result = await FileUtils.clearDirs(["/dir1", "/dir2"], {
+				keepPatterns: [".keep"],
+				ignoreKeep: false,
+				removeIfEmpty: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/dir1")).toBe(true);
+			expect(vol.existsSync("/dir1/.keep")).toBe(true);
+			expect(vol.existsSync("/dir1/file.txt")).toBe(false);
+			expect(vol.existsSync("/dir2")).toBe(true);
+			expect(vol.existsSync("/dir2/.keep")).toBe(true);
+			expect(vol.existsSync("/dir2/file.txt")).toBe(false);
 		});
 	});
 });

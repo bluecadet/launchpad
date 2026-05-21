@@ -6,24 +6,26 @@ The `sanitySource` content source is used to fetch data from Sanity.io. It suppo
 
 To use the `sanitySource` content source, include it in the list of content sources in your configuration:
 
-```typescript{1,6-15}
-import { sanitySource } from '@bluecadet/launchpad-content';
+```typescript{1,7-16}
+import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
 
 export default defineConfig({
-  content: {
-    sources: [
-      sanitySource({
-        id: 'mySanitySource',
-        projectId: 'your-project-id',
-        dataset: 'production',
-        apiToken: 'your-api-token', // Required for private datasets
-        queries: [
-          'project', // Fetches all documents of type 'project'
-          { id: 'featured', query: '*[_type == "article" && featured == true]' }
-        ]
-      })
-    ]
-  }  
+  plugins: [
+    content({
+      sources: [
+        sanitySource({
+          id: 'mySanitySource',
+          projectId: 'your-project-id',
+          dataset: 'production',
+          apiToken: 'your-api-token', // Required for private datasets
+          queries: [
+            'project', // Fetches all documents of type 'project'
+            { id: 'featured', query: '*[_type == "article" && featured == true]' }
+          ]
+        })
+      ]
+    })
+  ]
 });
 ```
 

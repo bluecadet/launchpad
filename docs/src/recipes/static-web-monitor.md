@@ -5,47 +5,50 @@ This recipe demonstrates how to use Launchpad's monitor functionality to serve s
 ## Configuration
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { monitor } from '@bluecadet/launchpad/monitor';
 import path from 'path';
 import { homedir } from 'os';
 
 export default defineConfig({
-  monitor: {
-    apps: [
-      // Static web server
-      {
-        pm2: {
-          name: "webapp-server",
-          script: "serve",       // Uses PM2's built-in serve functionality
-          cwd: "./apps/webapp",  // Path to your web app folder
-          env: {
-            PM2_SERVE_PATH: "./dist/",         // Path to static files
-            PM2_SERVE_PORT: "8080",            // Port to serve on
-            PM2_SERVE_SPA: "true",             // Enable single-page app mode
-            PM2_SERVE_HOMEPAGE: "/index.html"  // Default page
+  plugins: [
+    monitor({
+      apps: [
+        // Static web server
+        {
+          pm2: {
+            name: "webapp-server",
+            script: "serve",       // Uses PM2's built-in serve functionality
+            cwd: "./apps/webapp",  // Path to your web app folder
+            env: {
+              PM2_SERVE_PATH: "./dist/",         // Path to static files
+              PM2_SERVE_PORT: "8080",            // Port to serve on
+              PM2_SERVE_SPA: "true",             // Enable single-page app mode
+              PM2_SERVE_HOMEPAGE: "/index.html"  // Default page
+            }
+          }
+        },
+
+        // Browser to display the web app (optional)
+        {
+          pm2: {
+            name: "webapp-browser",
+            // Path to Chromium (adjust for your environment)
+            cwd: path.resolve(homedir(), "AppData/Local/Chromium/Application"),
+            script: "chrome.exe",
+            args: "--kiosk --incognito --disable-pinch --overscroll-history-navgation=0 --enable-auto-reload --autoplay-policy=no-user-gesture-required http://localhost:8080"
+          },
+          windows: {
+            foreground: true // Bring browser to foreground
+          },
+          logging: {
+            showStdout: false, // Reduce console noise
+            showStderr: false
           }
         }
-      },
-      
-      // Browser to display the web app (optional)
-      {
-        pm2: {
-          name: "webapp-browser",
-          // Path to Chromium (adjust for your environment)
-          cwd: path.resolve(homedir(), "AppData/Local/Chromium/Application"), 
-          script: "chrome.exe",
-          args: "--kiosk --incognito --disable-pinch --overscroll-history-navgation=0 --enable-auto-reload --autoplay-policy=no-user-gesture-required http://localhost:8080"
-        },
-        windows: {
-          foreground: true // Bring browser to foreground
-        },
-        logging: {
-          showStdout: false, // Reduce console noise
-          showStderr: false
-        }
-      }
-    ]
-  }
+      ]
+    })
+  ],
 });
 ```
 

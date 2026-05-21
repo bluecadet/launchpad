@@ -5,7 +5,6 @@ on:
   pull_request:
   push:
     branches:
-      - main
       - develop
     paths:
       - "packages/**"
@@ -29,16 +28,21 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node: [18, 24]
+        node: [24]
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
+
+      - name: Disable Windows Defender
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
 
       - name: Install dependencies
         run: npm ci

@@ -1,34 +1,30 @@
-import { err, ResultAsync } from "neverthrow";
-import type { LaunchpadArgv } from "../cli.js";
-import { ConfigError, ImportError } from "../errors.js";
-import { handleFatalError, initializeLogger, loadConfigAndEnv } from "../utils/command-utils.js";
+import { errAsync } from "neverthrow";
+import type { GlobalLaunchpadArgs } from "../cli.js";
+import { ConfigError } from "../errors.js";
+import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
+import { withDaemonOrController } from "../utils/controller-execution.js";
 
-export function content(argv: LaunchpadArgv) {
+export function content(argv: GlobalLaunchpadArgs) {
 	return loadConfigAndEnv(argv)
-		.mapErr((error) => handleFatalError(error, console))
+		.mapErr((error) => handleFatalError(error))
 		.andThen(({ dir, config }) => {
-			return initializeLogger(config, dir).asyncAndThen((rootLogger) => {
-				return importLaunchpadContent()
-					.andThen(({ default: LaunchpadContent }) => {
-						if (!config.content) {
-							return err(new ConfigError("No content config found in your config file."));
-						}
+			const contentPlugin = config.plugins?.find((s) => s.name === "content");
+			if (!contentPlugin) {
+				return errAsync(new ConfigError("No content plugin found in your config file."));
+			}
 
-						const contentInstance = new LaunchpadContent(config.content, rootLogger, dir);
-						return contentInstance.download();
-					})
-					.orElse((error) => handleFatalError(error, rootLogger));
-			});
+			return withDaemonOrController(dir, config.controller, {
+				mode: "task",
+				ifDaemon: (client) => {
+					// Daemon is running - just send commands via IPC
+					return client.executeCommand({ type: "content.fetch" });
+				},
+				otherwise: (controller) => {
+					// No daemon - need to register plugin and run command
+					return controller
+						.registerPlugin(contentPlugin)
+						.andThen(() => controller.executeCommand({ type: "content.fetch" }));
+				},
+			}).orElse((error) => handleFatalError(error));
 		});
-}
-
-export function importLaunchpadContent() {
-	return ResultAsync.fromPromise(
-		import("@bluecadet/launchpad-content"),
-		(e) =>
-			new ImportError(
-				'Could not find module "@bluecadet/launchpad-content". Make sure you have installed it.',
-				{ cause: e },
-			),
-	);
 }

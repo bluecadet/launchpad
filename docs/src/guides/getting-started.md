@@ -1,65 +1,66 @@
 # Getting Started
 
-## Installation
+## Quick Start
 
-Launchpad is modular - you can install just the packages you need:
+The fastest way to get set up is with the project generator:
 
 ```bash
-# Install the CLI (required)
-npm install @bluecadet/launchpad-cli
-
-# Install content management (optional)
-npm install @bluecadet/launchpad-content
-
-# Install process monitoring (optional)
-npm install @bluecadet/launchpad-monitor
-
-# Install system configuration (optional)
-npm install @bluecadet/launchpad-scaffold
+npm create @bluecadet/launchpad
 ```
 
-Alternatively, install everything at once:
+It will ask which plugins you need, configure everything, and generate a working `launchpad.config.ts`. See [Creating a Project](./creating-a-project.md) for details.
+
+## Manual Installation
+
+Install the `@bluecadet/launchpad` package, which includes the CLI and all first-party plugins:
 
 ```bash
 npm install @bluecadet/launchpad
 ```
+
+If you use CMS integrations or image processing, also install the relevant peer dependencies — see [Packages and Modularity](./packages.md) for the full list.
+
+The project generator handles this automatically.
+
+> [!TIP]
+> You can also install individual packages (`@bluecadet/launchpad-content`, `@bluecadet/launchpad-monitor`, etc.) instead of the umbrella. Both work identically at runtime. See [Packages and Modularity](./packages.md) for when to prefer one over the other.
 
 ## Basic Setup
 
 1. Create a configuration file:
 
 ```js
-// launchpad.config.js (or launchpad.config.ts, launchpad.config.mjs, etc.)
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { jsonSource } from '@bluecadet/launchpad-content';
+// launchpad.config.js (or .ts, .mjs, etc.)
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { monitor } from '@bluecadet/launchpad/monitor';
+import { jsonSource } from '@bluecadet/launchpad/content/sources';
 
 export default defineConfig({
-  content: {
-    // Content management configuration
-    sources: [
-      jsonSource({
-        id: "flickr-images",
-        files: {
-          "spaceships.json":
-            "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
-          "rockets.json":
-            "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket",
-        },
-      }),
-    ]
-  },
-  monitor: {
-    // Process management configuration
-    apps: [
-      {
-        pm2: {
-          name: "my-app",
-          script: "my-app.exe",
-          cwd: "./builds/",
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: "flickr-images",
+          files: {
+            "spaceships.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=spaceship",
+            "rockets.json": "https://api.flickr.com/services/feeds/photos_public.gne?format=json&nojsoncallback=1&tags=rocket",
+          },
+        }),
+      ]
+    }),
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: "my-app",
+            script: "my-app.exe",
+            cwd: "./builds/",
+          }
         }
-      }
-    ]
-  }
+      ]
+    }),
+  ]
 });
 ```
 

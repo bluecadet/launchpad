@@ -18,7 +18,7 @@ This will install all core packages:
 - `@bluecadet/launchpad-cli`: Command line interface
 - `@bluecadet/launchpad-content`: Content management
 - `@bluecadet/launchpad-monitor`: Process monitoring
-- `@bluecadet/launchpad-scaffold`: System configuration
+- `@bluecadet/launchpad-controller`: Central orchestration and event system
 
 ## Basic Usage
 
@@ -38,8 +38,8 @@ npx launchpad stop
 
 ## Note
 
-This is a meta-package that includes no code of its own. It simply installs all core Launchpad packages. For more targeted installations, you can install individual packages directly.
+This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content` and `@bluecadet/launchpad/monitor`. For more targeted installations, you can install individual packages directly.
 
 ## License
 
-MIT © Bluecadet
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

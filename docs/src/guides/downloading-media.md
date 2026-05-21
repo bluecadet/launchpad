@@ -15,18 +15,24 @@ When you fetch content that includes media (images, videos, etc.), Launchpad can
 
 First, add the `mediaDownloader` plugin to your configuration:
 
-```ts
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { mediaDownloader } from '@bluecadet/launchpad-content';
+```ts{3,12-14}
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
 
 export default defineConfig({
-  content: {
-    plugins: [
-      mediaDownloader({
-        maxConcurrent: 4 // number of simultaneous downloads
-      })
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        // ...
+      ],
+      transforms: [
+        mediaDownloader({
+          maxConcurrent: 4 // number of simultaneous downloads
+        })
+      ]
+    })
+  ],
 });
 ```
 
@@ -47,22 +53,26 @@ After downloading media, you can transform images using the `sharp` plugin. This
 
 Add the sharp plugin *after* the media downloader:
 
-```ts{8-13}
-import { defineConfig } from '@bluecadet/launchpad-cli';
-import { mediaDownloader, sharp } from '@bluecadet/launchpad-content';
+```ts{4,11-15}
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
+import { sharp } from '@bluecadet/launchpad/content/transforms/sharp';
 
 export default defineConfig({
-  content: {
-    plugins: [
-      mediaDownloader(),
-      sharp({
-        buildTransform: (transform) => transform
-          .resize(800, 600)
-          .jpeg({ quality: 80 }),
-        updateURLs: true
-      })
-    ]
-  }
+  plugins: [
+    content({
+      plugins: [
+        mediaDownloader(),
+        sharp({
+          buildTransform: (transform) => transform
+            .resize(800, 600)
+            .jpeg({ quality: 80 }),
+          updateURLs: true
+        })
+      ]
+    })
+  ]
 });
 ```
 
@@ -116,6 +126,6 @@ If transformations aren't working:
 
 ## Next Steps
 
-- Learn more about [content plugins](../reference/content/plugins/index.md)
-- Explore [sharp plugin options](../reference/content/plugins/sharp.md)
-- See [media downloader configuration](../reference/content/plugins/media-downloader.md)
+- Learn more about [content transforms](../reference/content/transforms/index.md)
+- Explore [sharp plugin options](../reference/content/transforms/sharp.md)
+- See [media downloader configuration](../reference/content/transforms/media-downloader.md)

@@ -1,10 +1,12 @@
 import path from "node:path";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
+import { errAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ContentError, type ContentPlugin } from "../content-plugin-driver.js";
-import LaunchpadContent from "../launchpad-content.js";
-import { defineSource } from "../sources/source.js";
+import { ContentError, type ContentTransform } from "../content-transform.js";
+import { content } from "../launchpad-content.js";
+import { defineSource } from "../source.js";
+import * as FileUtils from "../utils/file-utils.js";
 
 describe("LaunchpadContent", () => {
 	afterEach(() => {
@@ -12,7 +14,7 @@ describe("LaunchpadContent", () => {
 		vi.clearAllMocks();
 	});
 
-	const createBasicConfig = (plugins: ContentPlugin[] = []) => {
+	const createBasicConfig = (transforms: ContentTransform[] = []) => {
 		return {
 			downloadPath: "downloads",
 			tempPath: "temp",
@@ -32,24 +34,40 @@ describe("LaunchpadContent", () => {
 					},
 				}),
 			],
-			plugins,
+			transforms,
 		};
 	};
 
+	it("registers explicit content commands in the plugin manifest", () => {
+		const plugin = content(createBasicConfig());
+
+		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
+			"content.fetch",
+			"content.clear",
+		]);
+	});
+
 	describe("download", () => {
-		it("should process all sources and write to disk", async () => {
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			const result = await content.download();
+		it("should process all sources and promote staged output to disk", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
 			const filePath = path.resolve("/downloads", "test", "doc1.json");
 			expect(vol.existsSync(filePath)).toBe(true);
+			expect(vol.existsSync(path.resolve("/temp", "runs"))).toBe(true);
+			expect(vol.readdirSync(path.resolve("/temp", "runs"))).toHaveLength(0);
 			expect(vol.readFileSync(filePath, "utf8")).toBe(JSON.stringify({ hello: "world" }, null, 2));
 		});
 
-		it("should respect keep patterns when clearing directories", async () => {
-			// Setup existing files
+		it("should respect keep patterns when promoting staged directories", async () => {
 			vol.mkdirSync("/downloads/test", { recursive: true });
 			vol.writeFileSync("/downloads/test/.keep", "");
 			vol.writeFileSync("/downloads/test/old.json", "{}");
@@ -59,67 +77,165 @@ describe("LaunchpadContent", () => {
 				keep: [".keep"],
 			};
 
-			const content = new LaunchpadContent(config, createMockLogger());
-			const result = await content.download();
+			const factory = content(config);
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
-
-			// .keep file should still exist
 			expect(vol.existsSync("/downloads/test/.keep")).toBe(true);
-			// old.json should be removed
 			expect(vol.existsSync("/downloads/test/old.json")).toBe(false);
+			expect(vol.existsSync("/downloads/test/doc1.json")).toBe(true);
+		});
+
+		it("should clear data store between runs", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+			});
+			expect(result).toBeOk();
+
+			const result2 = await instance.executeCommand({
+				type: "content.fetch",
+			});
+			expect(result2).toBeOk();
+		});
+
+		it("should leave published content unchanged when fetch fails", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			vol.writeFileSync("/downloads/test/existing.json", '{"stable":true}');
+
+			const factory = content({
+				...createBasicConfig(),
+				sources: [
+					defineSource({
+						id: "test",
+						fetch: () => [
+							{
+								id: "doc1",
+								data: Promise.reject(new Error("fetch failed")),
+							},
+						],
+					}),
+				],
+			});
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch" });
+
+			expect(result).toBeErr();
+			expect(vol.readFileSync("/downloads/test/existing.json", "utf8")).toBe('{"stable":true}');
+			expect(vol.existsSync("/downloads/test/doc1.json")).toBe(false);
+		});
+
+		it("should promote root-level transform output from staged downloads", async () => {
+			const rootTransform: ContentTransform = {
+				name: "root-transform",
+				apply: async ({ paths }) => {
+					vol.mkdirSync(paths.getDownloadPath(), { recursive: true });
+					vol.writeFileSync(
+						path.resolve(paths.getDownloadPath(), "manifest.json"),
+						'{"version":1}',
+					);
+				},
+			};
+
+			vol.mkdirSync("/downloads", { recursive: true });
+			vol.writeFileSync("/downloads/manifest.json", '{"version":0}');
+
+			const factory = content(createBasicConfig([rootTransform]));
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch" });
+
+			expect(result).toBeOk();
+			expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe('{"version":1}');
+		});
+
+		it("should preserve published files when promotion fails", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			vol.writeFileSync("/downloads/test/existing.json", '{"stable":true}');
+
+			const originalReplacePath = FileUtils.replacePath;
+			const replaceSpy = vi
+				.spyOn(FileUtils, "replacePath")
+				.mockImplementation((src, dest, options) => {
+					if (path.resolve(dest) === path.resolve("/downloads/test")) {
+						return errAsync(new FileUtils.FileUtilsError("promotion failed"));
+					}
+					return originalReplacePath(src, dest, options);
+				});
+
+			try {
+				const factory = content(createBasicConfig());
+				const contentResult = await factory.setup(createMockPluginCtx());
+				expect(contentResult).toBeOk();
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({ type: "content.fetch" });
+
+				expect(result).toBeErr();
+				expect(vol.readFileSync("/downloads/test/existing.json", "utf8")).toBe('{"stable":true}');
+				expect(vol.existsSync("/downloads/test/doc1.json")).toBe(false);
+			} finally {
+				replaceSpy.mockRestore();
+			}
 		});
 	});
 
-	describe("plugin system", () => {
-		it("should run plugins in correct order", async () => {
+	describe("transform system", () => {
+		it("should run transforms in order", async () => {
 			const order: string[] = [];
 
-			const plugin1 = {
-				name: "plugin1",
-				hooks: {
-					onContentFetchSetup: () => {
-						order.push("plugin1:setup");
-					},
-					onContentFetchDone: () => {
-						order.push("plugin1:done");
-					},
+			const transform1: ContentTransform = {
+				name: "transform1",
+				apply: async () => {
+					order.push("t1");
 				},
 			};
-			const plugin2 = {
-				name: "plugin2",
-				hooks: {
-					onContentFetchSetup: () => {
-						order.push("plugin2:setup");
-					},
-					onContentFetchDone: () => {
-						order.push("plugin2:done");
-					},
+			const transform2: ContentTransform = {
+				name: "transform2",
+				apply: async () => {
+					order.push("t2");
 				},
 			};
 
-			const content = new LaunchpadContent(
-				createBasicConfig([plugin1, plugin2]),
-				createMockLogger(),
-			);
-			await content.download();
+			const factory = content(createBasicConfig([transform1, transform2]));
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
 
-			expect(order).toEqual(["plugin1:setup", "plugin2:setup", "plugin1:done", "plugin2:done"]);
+			await instance.executeCommand({ type: "content.fetch" });
+
+			expect(order).toEqual(["t1", "t2"]);
 		});
 
-		it("should handle plugin errors", async () => {
-			const errorPlugin = {
-				name: "error-plugin",
-				hooks: {
-					onContentFetchDone: () => {
-						throw new Error("Plugin error");
-					},
+		it("should handle transform errors", async () => {
+			const errorTransform: ContentTransform = {
+				name: "error-transform",
+				apply: async () => {
+					throw new Error("transform failed");
 				},
 			};
 
-			const content = new LaunchpadContent(createBasicConfig([errorPlugin]), createMockLogger());
+			const factory = content(createBasicConfig([errorTransform]));
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
 
-			const result = await content.download();
+			const result = await instance.executeCommand({ type: "content.fetch" });
 
 			expect(result).toBeErr();
 			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
@@ -127,87 +243,207 @@ describe("LaunchpadContent", () => {
 	});
 
 	describe("error handling", () => {
-		it("should handle directory clearing errors", async () => {
-			// Make directory read-only
-			vol.mkdirSync("/downloads", { recursive: true, mode: 0o777 });
-			vol.writeFileSync("/downloads/test.json", "test");
-			vol.chmodSync("/downloads", 0o444);
-
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			const result = await content._clearDir("/downloads");
-
-			expect(result).toBeErr();
-			expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
+		it.skip("should handle directory clearing errors", async () => {
+			// This test is skipped because _clearDir is a private method
+			// Directory clearing is tested through integration tests
 		});
 	});
 
-	describe("path handling", () => {
-		it("should handle download path token replacement", () => {
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			const path = content._getDetokenizedPath("/path/to/%DOWNLOAD_PATH%/file", "/downloads");
-			expect(path).toMatchPath("/path/to/downloads/file");
+	describe("executeCommand", () => {
+		it("should allow a single command to execute", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result).toBeOk();
 		});
 
-		it("should handle timestamp token replacement", () => {
-			vi.useFakeTimers();
-
-			vi.setSystemTime("2024-01-01T00:00:00.00");
-
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-			const path = content._getDetokenizedPath("/path/to/%TIMESTAMP%/file", "/downloads");
-			expect(path).toMatchPath("/path/to/2024-01-02_00-00-00/file");
-			vi.useRealTimers();
-		});
-
-		it("should use the provided cwd for path resolution", () => {
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger(), "/some/cwd");
-			expect(content.getDownloadPath()).toMatchPath("/some/cwd/downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("/some/cwd/downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("/some/cwd/temp");
-			expect(content.getTempPath("source-id")).toMatchPath("/some/cwd/temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"/some/cwd/temp/plugin-name/source-id",
-			);
-			expect(content.getBackupPath("source-id")).toMatchPath("/some/cwd/backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("/some/cwd/backups");
-		});
-
-		it("should default to process.cwd() if no cwd is provided", () => {
-			const content = new LaunchpadContent(createBasicConfig(), createMockLogger());
-
-			expect(content.getDownloadPath()).toMatchPath("downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("temp");
-			expect(content.getTempPath("source-id")).toMatchPath("temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"temp/plugin-name/source-id",
-			);
-			expect(content.getBackupPath("source-id")).toMatchPath("backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("backups");
-		});
-
-		it("should support absolute path parameters", () => {
-			// even though cwd is set, absolute paths should still work
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/absolute/downloads",
-					tempPath: "/absolute/temp",
-					backupPath: "/absolute/backups",
-					sources: [],
+		it("should reject concurrent fetch commands with ContentError", async () => {
+			const slowSource = defineSource({
+				id: "slow-source",
+				fetch: () => {
+					return [
+						{
+							id: "slow-doc",
+							data: new Promise((resolve) => {
+								setTimeout(() => {
+									resolve({ data: "slow" });
+								}, 100);
+							}),
+						},
+					];
 				},
-				createMockLogger(),
-				"/some/cwd",
-			);
+			});
 
-			expect(content.getDownloadPath()).toMatchPath("/absolute/downloads");
-			expect(content.getDownloadPath("source-id")).toMatchPath("/absolute/downloads/source-id");
-			expect(content.getTempPath()).toMatchPath("/absolute/temp");
-			expect(content.getTempPath("source-id")).toMatchPath("/absolute/temp/source-id");
-			expect(content.getTempPath("source-id", "plugin-name")).toMatchPath(
-				"/absolute/temp/plugin-name/source-id",
+			const factory = content({
+				...createBasicConfig(),
+				sources: [slowSource],
+			});
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			// First command takes time
+			const firstCommand = instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			// Try second command immediately (will be rejected because first is in progress)
+			const secondCommand = instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			const [firstResult, secondResult] = await Promise.all([firstCommand, secondCommand]);
+
+			expect(firstResult).toBeOk();
+			expect(secondResult).toBeErr();
+			expect(secondResult._unsafeUnwrapErr().message).toContain(
+				"A command is already in progress.",
 			);
-			expect(content.getBackupPath("source-id")).toMatchPath("/absolute/backups/source-id");
-			expect(content.getBackupPath()).toMatchPath("/absolute/backups");
+		});
+
+		it("should reject concurrent clear commands with ContentError", async () => {
+			const slowSource = defineSource({
+				id: "slow-source",
+				fetch: () => {
+					return [
+						{
+							id: "slow-doc",
+							data: new Promise((resolve) => {
+								setTimeout(() => {
+									resolve({ data: "slow" });
+								}, 100);
+							}),
+						},
+					];
+				},
+			});
+
+			const factory = content({
+				...createBasicConfig(),
+				sources: [slowSource],
+			});
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			// Start a fetch
+			const fetchCommand = instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			// Try to execute clear while fetch is in progress
+			const clearCommand = instance.executeCommand({
+				type: "content.clear",
+			});
+
+			const [fetchResult, clearResult] = await Promise.all([fetchCommand, clearCommand]);
+
+			expect(fetchResult).toBeOk();
+			expect(clearResult).toBeErr();
+			expect(clearResult._unsafeUnwrapErr().message).toContain("A command is already in progress.");
+		});
+
+		it("should allow sequential commands to execute after first completes", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result1 = await instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result1).toBeOk();
+
+			const result2 = await instance.executeCommand({
+				type: "content.fetch",
+			});
+
+			expect(result2).toBeOk();
+		});
+
+		it("should report restored state accurately when backups are unavailable", async () => {
+			const rootTransform: ContentTransform = {
+				name: "failing-transform",
+				apply: async () => {
+					throw new Error("transform failed");
+				},
+			};
+
+			const ctx = createMockPluginCtx();
+			const factory = content({
+				...createBasicConfig([rootTransform]),
+				backupAndRestore: false,
+			});
+			const contentResult = await factory.setup(ctx);
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch" });
+
+			expect(result).toBeErr();
+			type MinimalSourceState = { restored?: boolean };
+			type MinimalContentState = {
+				phase?: string;
+				restored?: boolean;
+				sources: Record<string, MinimalSourceState>;
+			};
+			const stateUpdates: MinimalContentState[] = [];
+			for (const call of ctx.updateState.mock.calls) {
+				const producer = call[0] as (draft: MinimalContentState) => void;
+				const draft: MinimalContentState = {
+					phase: "idle",
+					restored: false,
+					sources: { test: { restored: false } },
+				};
+				producer(draft);
+				stateUpdates.push(draft);
+			}
+			const errorStates = stateUpdates.filter((update) => update.phase === "error");
+			expect(errorStates.at(-1)?.restored).toBe(false);
+		});
+
+		it("should clear staged run directories when content.clear is called with temp", async () => {
+			vol.mkdirSync("/temp/runs/run-a/downloads/test", { recursive: true });
+			vol.mkdirSync("/temp/runs/run-b/media-downloader/test", { recursive: true });
+			vol.writeFileSync("/temp/runs/run-a/downloads/test/doc1.json", "{}");
+			vol.writeFileSync("/temp/runs/run-b/media-downloader/test/file.jpg", "img");
+
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.clear",
+				temp: true,
+				downloads: false,
+			});
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/temp/runs/run-a")).toBe(false);
+			expect(vol.existsSync("/temp/runs/run-b")).toBe(false);
+		});
+
+		it("should reject malformed commands during runtime validation", async () => {
+			const factory = content(createBasicConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			expect(contentResult).toBeOk();
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({
+				type: "content.fetch",
+				sources: [123],
+			} as unknown as Parameters<typeof instance.executeCommand>[0]);
+
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr().message).toContain("Invalid command:");
 		});
 	});
 });

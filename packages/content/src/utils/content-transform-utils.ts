@@ -1,4 +1,4 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import { ok, type Result } from "neverthrow";
 import type { DataKeys, DataStore, Document } from "./data-store.js";
@@ -48,9 +48,12 @@ export async function applyTransformToFiles({
 	}
 
 	for (const document of matchingDocuments.value) {
-		logger.debug(chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`));
+		logger.verbose(
+			chalk.gray(`Applying content transform to '${pathStr}' for key '${document.id}'`),
+		);
 
-		await document.apply(path, transformFn);
+		const applyResult = await document.apply(path, transformFn);
+		if (applyResult.isErr()) throw applyResult.error;
 	}
 }
 

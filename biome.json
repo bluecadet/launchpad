@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
 	"vcs": {
 		"enabled": false,
 		"clientKind": "git",
@@ -7,7 +7,13 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**/src/**/*.ts", "**/docs/**/*.ts", "**/docs/**/*.mts"]
+		"includes": [
+			"packages/**/src/**/*.ts",
+			"packages/**/scripts/**/*.ts",
+			"docs/**/*.ts",
+			"docs/**/*.mts",
+			"!**/worktrees"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -31,6 +37,9 @@
 				"useNumberNamespace": "error",
 				"noInferrableTypes": "error",
 				"noUselessElse": "error"
+			},
+			"suspicious": {
+				"useIterableCallbackReturn": "off"
 			}
 		}
 	},
@@ -41,14 +50,16 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.test.ts"],
+			"includes": ["**/*.test.ts", "**/__tests__/**/*.ts"],
 			"linter": {
 				"rules": {
 					"style": {
 						"noNonNullAssertion": "off"
 					},
 					"suspicious": {
-						"noExplicitAny": "off"
+						"noExplicitAny": "off",
+						"noNonNullAssertedOptionalChain": "off",
+						"noConfusingVoidType": "off"
 					}
 				}
 			}

@@ -23,25 +23,37 @@ npm install @bluecadet/launchpad-content @bluecadet/launchpad-cli
 
 ## Basic Usage
 
-```js
-// launchpad.config.js
+```ts
+// launchpad.config.ts
 import { defineConfig } from '@bluecadet/launchpad-cli';
+import { content } from '@bluecadet/launchpad-content';
+import { monitor } from '@bluecadet/launchpad-monitor';
 import { jsonSource } from '@bluecadet/launchpad-content';
 
 export default defineConfig({
-  content: {
-    sources: [
-      jsonSource({
-        id: "api-data",
-        files: {
-          "data.json": "https://api.example.com/data"
-        }
-      })
-    ]
-  }
+  plugins: [
+    content({
+      sources: [        // Add your content sources
+        jsonSource({
+          id: "api-data",
+          files: {
+            "data.json": "https://api.example.com/data"
+          }
+        })
+      ],
+      transforms: [],   // Add your plugins
+    }),
+    monitor({
+      apps: [],         // Add your apps to monitor
+    }),
+  ],
+  workflows: {
+    start: ['content.fetch', 'monitor.connect', 'monitor.start'],
+    stop: ['monitor.stop', 'monitor.disconnect'],
+  },
 });
 ```
 
 ## License
 
-MIT © Bluecadet
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

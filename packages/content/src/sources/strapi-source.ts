@@ -1,9 +1,9 @@
-import type { Logger } from "@bluecadet/launchpad-utils";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import ky from "ky";
 import qs from "qs";
 import { z } from "zod";
+import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
-import { defineSource } from "./source.js";
 
 const strapiCredentialsSchema = z.union(
 	[
@@ -19,13 +19,11 @@ const strapiCredentialsSchema = z.union(
 		}),
 	],
 	{
-		errorMap: (error) => {
+		error: (error) => {
 			if (error.code === "invalid_union")
-				return {
-					message: "Either `identifier` and `password` OR a `token` must be provided.",
-				};
+				return "Either `identifier` and `password` OR a `token` must be provided.";
 
-			return { message: error.message ?? "" };
+			return error.message ?? "";
 		},
 	},
 );
@@ -49,7 +47,10 @@ const strapiSourceSchema = z
 		 */
 		queries: z
 			.array(
-				z.union([z.string(), z.object({ contentType: z.string(), params: z.record(z.any()) })]),
+				z.union([
+					z.string(),
+					z.object({ contentType: z.string(), params: z.record(z.string(), z.any()) }),
+				]),
 			)
 			.describe(
 				"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
@@ -235,7 +236,7 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 }
 
 export default async function strapiSource(options: z.input<typeof strapiSourceSchema>) {
-	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0");
+	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0", 10);
 
 	if (majorNodeVersion < 20) {
 		throw new Error(
@@ -274,7 +275,7 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 						fetchPageFn: async (params) => {
 							const pageNum = params.offset / params.limit;
 
-							ctx.logger.debug(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
+							ctx.logger.verbose(`Fetching page ${pageNum} of ${parsedQuery.contentType}`);
 
 							const response = await ky
 								.get(
@@ -293,7 +294,7 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 
 							const transformedContent = versionUtils.transformResult(response);
 
-							if (!transformedContent || !transformedContent.length) {
+							if (!transformedContent?.length) {
 								return null; // trigger end of pagination
 							}
 

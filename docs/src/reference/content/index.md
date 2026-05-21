@@ -33,26 +33,35 @@ The content package is a powerful tool for downloading, transforming, and managi
 ## Installation
 
 ```bash
-npm install @bluecadet/launchpad-content
+npm install @bluecadet/launchpad
 ```
 
-## Basic Usage
+## JS API Usage
 
 ```typescript
-import LaunchpadContent from '@bluecadet/launchpad-content';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
 
-const content = new LaunchpadContent({
-  sources: [
-    // Content source configurations
-  ],
+export default defineConfig({
   plugins: [
-    // Plugin configurations
+    content({
+      sources: [
+        jsonSource({
+          id: 'local',
+          files: {
+            content: 'https://example.com/content.json',
+          },
+        }),
+      ],
+      transforms: [],
+      downloadPath: './content',
+    }),
   ],
-  downloadPath: './content'
+  workflows: {
+    start: [{ type: 'content.fetch' }],
+  },
 });
-
-// Start content download and processing
-await content.start();
 ```
 
 ## Configuration
@@ -60,22 +69,22 @@ await content.start();
 Content operations are configured through a `ContentConfig` object that specifies:
 
 - **Sources**: Array of content sources to fetch from
-- **Plugins**: Array of plugins for content processing
+- **Transforms**: Array of transforms for content processing
 - **Paths**: Various path configurations for content storage
 - **Backup Options**: Settings for content backup and restoration
 
 See the [Content Config](./content-config) section for detailed configuration options.
 
-## Plugins
+## Transforms
 
-The plugin system is core to the content package's functionality. Plugins can:
+The transform system is core to the content package's functionality. Transforms can:
 
 - Transform content formats
 - Process media files
 - Add custom processing steps
 - Handle errors and logging
 
-Learn more about available plugins and creating custom ones in the [Plugins](./plugins/index.md) section.
+Learn more about available transforms and creating custom ones in the [Transforms](./transforms/index.md) section.
 
 ## Error Handling
 

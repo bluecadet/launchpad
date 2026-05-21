@@ -1,6 +1,6 @@
 # Content Sources
 
-Content sources are used to fetch content from various external systems or APIs. These sources define how and where to retrieve content, which is then processed and transformed by content plugins.
+Content sources are used to fetch content from various external systems or APIs. These sources define how and where to retrieve content, which is then processed and transformed by content transforms.
 
 ## Type Reference
 
@@ -50,7 +50,7 @@ The fetched data, either as a promise returning a single document or an async it
 To define a custom content source, use the `defineSource` function:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content';
+import { defineSource } from '@bluecadet/launchpad/content/source';
 
 export default defineSource({
   id: 'myCustomSource',

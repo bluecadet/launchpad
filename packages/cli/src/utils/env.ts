@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import chalk from "chalk";
 import dotenv from "dotenv";
+import { cliLogger } from "./cli-logger.js";
 
 /**
  * Load env files from paths into process.env
@@ -18,6 +19,6 @@ export function resolveEnv(paths: string[]) {
 			path: envFilePath,
 		});
 
-		console.log(`Loaded env file '${chalk.white(envFilePath)}'`);
+		cliLogger.info(`Loaded env file '${chalk.grey(envFilePath)}'`);
 	}
 }

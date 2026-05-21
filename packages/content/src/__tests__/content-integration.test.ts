@@ -1,15 +1,15 @@
 import path from "node:path";
-import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import LaunchpadContent from "../launchpad-content.js";
-import mdToHtml from "../plugins/md-to-html.js";
-import mediaDownloader from "../plugins/media-downloader.js";
-import sanityToHtml from "../plugins/sanity-to-html.js";
+import { content } from "../launchpad-content.js";
 import jsonSource from "../sources/json-source.js";
 import sanitySource from "../sources/sanity-source.js";
+import mdToHtml from "../transforms/md-to-html.js";
+import mediaDownloader from "../transforms/media-downloader.js";
+import sanityToHtml from "../transforms/sanity-to-html.js";
 
 describe("Content Integration", () => {
 	const server = setupServer();
@@ -38,30 +38,29 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "blog",
-							files: {
-								"article.json": "https://api.example.com/content",
-							},
-						}),
-					],
-					plugins: [
-						mdToHtml({ path: "$.content" }),
-						mediaDownloader({
-							mediaPattern: /\.jpg$/,
-							maxConcurrent: 2,
-						}),
-					],
-				},
-				createMockLogger(),
-			);
+			const setupResult = await content({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "blog",
+						files: {
+							"article.json": "https://api.example.com/content",
+						},
+					}),
+				],
+				transforms: [
+					mdToHtml({ path: "$.content" }),
+					mediaDownloader({
+						mediaPattern: /\.jpg$/,
+						maxConcurrent: 2,
+					}),
+				],
+			}).setup(createMockPluginCtx());
 
-			const result = await content.download();
+			const result = await setupResult._unsafeUnwrap().executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
@@ -124,25 +123,24 @@ describe("Content Integration", () => {
 				),
 			);
 
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						sanitySource({
-							id: "cms",
-							projectId: "test-project",
-							apiToken: "test-token",
-							queries: ["article"],
-							mergePages: true,
-						}),
-					],
-					plugins: [sanityToHtml({ path: "$..content" })],
-				},
-				createMockLogger(),
-			);
+			const setupResult = await content({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					sanitySource({
+						id: "cms",
+						projectId: "test-project",
+						apiToken: "test-token",
+						queries: ["article"],
+						mergePages: true,
+					}),
+				],
+				transforms: [sanityToHtml({ path: "$..content" })],
+			}).setup(createMockPluginCtx());
 
-			const result = await content.download();
+			const result = await setupResult._unsafeUnwrap().executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
@@ -180,35 +178,36 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					sources: [
-						jsonSource({
-							id: "source1",
-							files: {
-								"content.json": "https://api1.example.com/content",
-							},
-						}),
-						jsonSource({
-							id: "source2",
-							files: {
-								"content.json": "https://api2.example.com/content",
-							},
-						}),
-					],
-					plugins: [
-						mediaDownloader({
-							mediaPattern: /\.jpg$/,
-							maxConcurrent: 1, // Force sequential downloads to test deduplication
-						}),
-					],
-				},
-				createMockLogger(),
-			);
+			const setupResult = await content({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				sources: [
+					jsonSource({
+						id: "source1",
+						files: {
+							"content.json": "https://api1.example.com/content",
+						},
+					}),
+					jsonSource({
+						id: "source2",
+						files: {
+							"content.json": "https://api2.example.com/content",
+						},
+					}),
+				],
+				transforms: [
+					mediaDownloader({
+						mediaPattern: /\.jpg$/,
+						maxConcurrent: 1, // Force sequential downloads to test deduplication
+					}),
+				],
+			}).setup(createMockPluginCtx());
 
-			const result = await content.download();
+			expect(setupResult).toBeOk();
+
+			const result = await setupResult._unsafeUnwrap().executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeOk();
 
@@ -235,24 +234,23 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					backupPath: "/backups",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: {
-								"content.json": "https://api.example.com/content",
-							},
-						}),
-					],
-				},
-				createMockLogger(),
-			);
+			const setupResult = await content({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				backupPath: "/backups",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: {
+							"content.json": "https://api.example.com/content",
+						},
+					}),
+				],
+			}).setup(createMockPluginCtx());
 
-			const result = await content.download();
+			const result = await setupResult._unsafeUnwrap().executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeErr();
 
@@ -277,27 +275,26 @@ describe("Content Integration", () => {
 				}),
 			);
 
-			const content = new LaunchpadContent(
-				{
-					downloadPath: "/downloads",
-					tempPath: "/temp",
-					backupPath: "/backups",
-					sources: [
-						jsonSource({
-							id: "test",
-							files: {
-								"content.json": "https://api.example.com/content",
-							},
-						}),
-					],
-					plugins: [
-						sanityToHtml({ path: "$..content" }), // This should fail on invalid content
-					],
-				},
-				createMockLogger(),
-			);
+			const setupResult = await content({
+				downloadPath: "/downloads",
+				tempPath: "/temp",
+				backupPath: "/backups",
+				sources: [
+					jsonSource({
+						id: "test",
+						files: {
+							"content.json": "https://api.example.com/content",
+						},
+					}),
+				],
+				transforms: [
+					sanityToHtml({ path: "$..content" }), // This should fail on invalid content
+				],
+			}).setup(createMockPluginCtx());
 
-			const result = await content.download();
+			const result = await setupResult._unsafeUnwrap().executeCommand({
+				type: "content.fetch",
+			});
 
 			expect(result).toBeErr();
 

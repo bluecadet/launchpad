@@ -9,14 +9,14 @@ Content sources in Launchpad:
 - Define where and how to fetch content
 - Return data in a standardized format
 - Can fetch from APIs, databases, files, or any data source
-- Run before content plugins process the data
+- Run before content transforms process the data
 
 ## Basic Source Structure
 
 Here's a minimal content source example:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content';
+import { defineSource } from '@bluecadet/launchpad/content/source';
 
 export default defineSource({
   id: 'my-custom-source',
@@ -34,7 +34,7 @@ export default defineSource({
 Let's create a source that fetches data from a REST API:
 
 ```typescript
-import { defineSource } from '@bluecadet/launchpad-content';
+import { defineSource } from '@bluecadet/launchpad/content/source';
 
 const myApiSource = defineSource({
   id: 'api-source',
@@ -66,14 +66,16 @@ const myApiSource = defineSource({
 Add it to your Launchpad config:
 
 ```typescript
-import { defineConfig } from '@bluecadet/launchpad-cli';
+import { defineConfig } from '@bluecadet/launchpad/cli';
 
 export default defineConfig({
-  content: {
-    sources: [
-      myApiSource
-    ]
-  }
+  plugins: [
+    content({
+      sources: [
+        myApiSource
+      ]
+    })
+  ],
 });
 ```
 
@@ -131,6 +133,6 @@ const streamingSource = defineSource({
 ## Next Steps
 
 - Learn about [Content Sources](../reference/content/sources/index.md) for full API details
-- Explore [Content Plugins](../reference/content/plugins/index.md) to process your fetched data
+- Explore [Content Plugins](../reference/content/transforms/index.md) to process your fetched data
 - See the [Content Configuration Reference](../reference/content/content-config.md) for config options
 - Check [Built-in Sources](../reference/content/sources/index.md) for implementation examples

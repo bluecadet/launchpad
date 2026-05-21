@@ -1,371 +1,343 @@
-import path from "node:path";
-import { type Logger, LogManager, onExit, PluginDriver } from "@bluecadet/launchpad-utils";
-import chalk from "chalk";
-import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
+import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
+import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
-	type ConfigContentSource,
 	type ContentConfig,
-	contentConfigSchema,
-	DOWNLOAD_PATH_TOKEN,
+	parseContentConfig,
 	type ResolvedContentConfig,
-	TIMESTAMP_TOKEN,
 } from "./content-config.js";
-import { ContentError, ContentPluginDriver } from "./content-plugin-driver.js";
-import type { ContentSource } from "./sources/source.js";
+import { type ContentState, ContentStateManager } from "./content-state.js";
+import { buildContentSection } from "./content-summarize.js";
+import { ContentError } from "./content-transform.js";
+import {
+	backupStage,
+	cleanupStage,
+	clearOldDataStage,
+	errorRecoveryStage,
+	type FetchStageContext,
+	fetchSourcesStage,
+	finalizingStage,
+	runTransformsStage,
+} from "./fetching/fetch-stages.js";
+import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
-import { FetchLogger } from "./utils/fetch-logger.js";
 import * as FileUtils from "./utils/file-utils.js";
+import { createPathsHelper } from "./utils/paths-helper.js";
 
-class LaunchpadContent {
-	_config: ResolvedContentConfig;
-	_logger: Logger;
-	_pluginDriver: ContentPluginDriver;
-	_rawSources: ConfigContentSource[];
-	_startDatetime = new Date();
-	_dataStore: DataStore;
-	_abortController = new AbortController();
-	_cwd: string;
-
-	constructor(config: ContentConfig, parentLogger: Logger, cwd = process.cwd()) {
-		this._config = contentConfigSchema.parse(config);
-
-		this._cwd = cwd;
-
-		this._logger = LogManager.getLogger("content", parentLogger);
-
-		this._dataStore = new DataStore(this._config.downloadPath);
-
-		// create all sources
-		this._rawSources = this._config.sources;
-
-		onExit(() => {
-			this._abortController.abort();
-		});
-
-		const basePluginDriver = new PluginDriver(
-			{ logger: this._logger, cwd: this._cwd },
-			this._config.plugins,
-		);
-
-		this._pluginDriver = new ContentPluginDriver(basePluginDriver, {
-			dataStore: this._dataStore,
-			options: this._config,
-			paths: {
-				getDownloadPath: this.getDownloadPath.bind(this),
-				getTempPath: this.getTempPath.bind(this),
-				getBackupPath: this.getBackupPath.bind(this),
-			},
-		});
-	}
-
-	start(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
-		const inputSources = rawSources || this._rawSources;
-		if (!inputSources || inputSources.length <= 0) {
-			this._logger.warn(chalk.yellow("No sources found to download"));
-			return okAsync(undefined);
-		}
-
-		this._startDatetime = new Date();
-
-		return this._createSourcesFromConfig(inputSources)
-			.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchSetup"))
-			.andThen((sources) => {
-				const backupAndRestore = this._config.backupAndRestore;
-				const backupProcess = backupAndRestore ? this.backup(sources) : okAsync(undefined);
-
-				return backupProcess
-					.andTee(() => this._logger.info("Clearing download directory"))
-					.andThen(() =>
-						this.clear(sources, {
-							temp: false,
-							backups: false,
-							downloads: true,
-						}),
-					)
-					.andThen(() => this._fetchSources(sources))
-					.andThrough(() => this._pluginDriver.runHookSequential("onContentFetchDone"))
-					.andThen(() =>
-						ResultAsync.fromPromise(
-							this._dataStore.close(),
-							(e) => new ContentError("Failed to close data store", { cause: e }),
-						),
-					)
-					.orElse((e) => {
-						this._pluginDriver.runHookSequential("onContentFetchError", e);
-						this._logger.error("Error in content fetch process:", e);
-						if (backupAndRestore) {
-							this._logger.info("Restoring from backup...");
-							return this.restore(sources).andThen(() => {
-								return err(
-									new ContentError("Failed to download content. Restored from backup.", {
-										cause: e,
-									}),
-								);
-							});
-						}
-						return err(e);
-					})
-					.andTee(() =>
-						this._logger.info("Content fetch complete. Clearing temp and backup directories."),
-					)
-					.andThen(() =>
-						this.clear(sources, {
-							temp: true,
-							backups: backupAndRestore,
-							downloads: false,
-						}),
-					);
-			});
-	}
-
-	/**
-	 * Alias for start(source)
-	 */
-	download(rawSources: ConfigContentSource[] | null = null): ResultAsync<void, ContentError> {
-		return this.start(rawSources);
-	}
-
-	/**
-	 * Clears all cached content except for files that match config.keep.
-	 * @param sources The sources you want to clear. If left undefined, this will clear all known sources. If no sources are passed, the entire downloads/temp/backup dirs are removed.
-	 */
-	clear(
-		sources: ContentSource[] = [],
-		{ temp = true, backups = true, downloads = true, removeIfEmpty = true } = {},
-	): ResultAsync<void, ContentError> {
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const tasks = [] as ResultAsync<void, ContentError>[];
-				if (temp) {
-					tasks.push(
-						this._clearDir(this.getTempPath(source.id), { removeIfEmpty, ignoreKeep: true }),
-					);
-				}
-				if (backups) {
-					tasks.push(
-						this._clearDir(this.getBackupPath(source.id), { removeIfEmpty, ignoreKeep: true }),
-					);
-				}
-				if (downloads) {
-					tasks.push(this._clearDir(this.getDownloadPath(source.id), { removeIfEmpty }));
-				}
-				return ResultAsync.combine(tasks);
-			}),
-		)
-			.andThen(() => {
-				const tasks: ResultAsync<void, FileUtils.FileUtilsError>[] = [];
-				if (removeIfEmpty) {
-					if (temp) tasks.push(FileUtils.removeDirIfEmpty(this.getTempPath()));
-					if (backups) tasks.push(FileUtils.removeDirIfEmpty(this.getBackupPath()));
-					if (downloads) tasks.push(FileUtils.removeDirIfEmpty(this.getDownloadPath()));
-				}
-				return ResultAsync.combine(tasks);
-			})
-			.map(() => undefined) // return void instead of void[]
-			.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
-	}
-
-	/**
-	 * Backs up all downloads of source to a separate backup dir.
-	 */
-	backup(sources: ContentSource[] = []): ResultAsync<void, ContentError> {
-		this._logger.info("Backing up downloads...");
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const downloadPath = this.getDownloadPath(source.id);
-				const backupPath = this.getBackupPath(source.id);
-
-				return FileUtils.pathExists(downloadPath).andThen((exists) => {
-					if (!exists) {
-						this._logger.warn(
-							`Skipping backup for ${source.id}: No downloads found at ${downloadPath}`,
-						);
-						return ok(undefined);
-					}
-					this._logger.info(`Backing up source: ${source.id}`);
-					return FileUtils.copy(downloadPath, backupPath);
-				});
-			}),
-		)
-			.mapErr((e) => new ContentError("Failed to backup sources", { cause: e }))
-			.map(() => undefined); // return void instead of void[]
-	}
-
-	/**
-	 * Restores all downloads of source from its backup dir if it exists.
-	 */
-	restore(sources: ContentSource[] = [], removeBackups = true): ResultAsync<void, ContentError> {
-		this._logger.info("Attempting to restore from backup...");
-
-		return ResultAsync.combine(
-			sources.map((source) => {
-				const downloadPath = this.getDownloadPath(source.id);
-				const backupPath = this.getBackupPath(source.id);
-
-				return FileUtils.pathExists(backupPath)
-					.andThen((exists) => {
-						if (!exists) {
-							this._logger.warn(`No backup found for ${source.id}`);
-							return ok(undefined);
-						}
-
-						this._logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-
-						return FileUtils.copy(backupPath, downloadPath, { preserveTimestamps: true }).andThen(
-							() => {
-								if (removeBackups) {
-									this._logger.debug(`Removing backup for ${chalk.white(source.id)}`);
-									return FileUtils.remove(backupPath);
-								}
-								return ok(undefined);
-							},
-						);
-					})
-					.mapErr(
-						(e) =>
-							new ContentError(`Failed to restore source ${chalk.white(source.id)}`, { cause: e }),
-					);
-			}),
-		).map(() => undefined); // return void instead of void[]
-	}
-
-	getDownloadPath(sourceId?: string): string {
-		if (sourceId) {
-			return path.resolve(this._cwd, this._config.downloadPath, sourceId);
-		}
-		return path.resolve(this._cwd, this._config.downloadPath);
-	}
-
-	getTempPath(sourceId?: string, pluginName?: string): string {
-		const downloadPath = this._config.downloadPath;
-		const tokenizedPath = this._config.tempPath;
-		let detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
-
-		if (pluginName) {
-			detokenizedPath = path.resolve(this._cwd, detokenizedPath, pluginName);
-		}
-
-		if (sourceId) {
-			detokenizedPath = path.resolve(this._cwd, detokenizedPath, sourceId);
-		}
-
-		return path.resolve(this._cwd, detokenizedPath);
-	}
-
-	getBackupPath(sourceId?: string): string {
-		const downloadPath = this._config.downloadPath;
-		const tokenizedPath = this._config.backupPath;
-		const detokenizedPath = this._getDetokenizedPath(tokenizedPath, downloadPath);
-		if (sourceId) {
-			return path.resolve(path.resolve(this._cwd, detokenizedPath, sourceId));
-		}
-		return path.resolve(path.resolve(this._cwd, detokenizedPath));
-	}
-
-	_createSourcesFromConfig(
-		rawSources: ConfigContentSource[],
-	): ResultAsync<ContentSource[], ContentError> {
-		return ResultAsync.combine(
-			rawSources.map((source) =>
-				ResultAsync.fromPromise(
-					// wrap source in promise to ensure it's awaited
-					Promise.resolve(source),
-					(error) => new ContentError("Failed to build source", { cause: error }),
-				),
-			),
-		).orElse((e) => {
-			this._pluginDriver.runHookSequential("onSetupError", e);
-			return err(e);
-		});
-	}
-
-	_fetchSources(sources: ContentSource[]): ResultAsync<void, ContentError> {
-		this._logger.info("Beginning content fetch process");
-		this._logger.info(
-			`Fetching ${sources.length} source(s): ${sources.map((source) => source.id).join(", ")}`,
-		);
-
-		const fetchLogger = new FetchLogger(this._logger);
-
-		return ResultAsync.combine(sources.map((source) => this._dataStore.createNamespace(source.id)))
-			.andThen(() =>
-				Result.combine(sources.map((source) => this._getSourceFetchPromises(source, fetchLogger))),
-			)
-			.andThen((fetchPromises) => {
-				return ResultAsync.combine(fetchPromises.flat());
-			})
-			.andTee(() => {
-				fetchLogger.close();
-				this._logger.info("Fetch completed.");
-			})
-			.orElse((e) => {
-				fetchLogger.close();
-				this._logger.error("Fetch failed.");
-				return err(e);
-			})
-			.map(() => undefined); // return void instead of void[];
-	}
-
-	_getSourceFetchPromises(source: ContentSource, fetchLogger: FetchLogger) {
-		const sourceLogger = LogManager.getLogger(`source:${source.id}`, this._logger);
-
-		const initializedFetch = source.fetch({
-			logger: sourceLogger,
-			dataStore: this._dataStore,
-			abortSignal: this._abortController.signal,
-		});
-
-		const fetchAsArray = Array.isArray(initializedFetch) ? initializedFetch : [initializedFetch];
-
-		return this._dataStore.namespace(source.id).andThen((namespace) => {
-			const promises = fetchAsArray.map((req) => {
-				const insertResultAsync = namespace.safeInsert(req.id, req.data).mapErr((e) => {
-					return new ContentError(`Failed to write data for ${req.id}`, e);
-				});
-
-				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
-
-				return insertResultAsync;
-			});
-
-			return ok(promises);
-		});
-	}
-
-	_clearDir(
-		dirPath: string,
-		{ removeIfEmpty = true, ignoreKeep = false } = {},
-	): ResultAsync<void, ContentError> {
-		return FileUtils.pathExists(dirPath)
-			.andThen((exists) => {
-				if (!exists) return okAsync(undefined);
-				return FileUtils.removeFilesFromDir(
-					dirPath,
-					ignoreKeep ? undefined : this._config.keep,
-				).andThen(() => {
-					if (removeIfEmpty) {
-						return FileUtils.removeDirIfEmpty(dirPath);
-					}
-
-					return okAsync(undefined);
-				});
-			})
-			.mapErr((e) => new ContentError(`Failed to clear directory: ${dirPath}`, { cause: e }));
-	}
-
-	_getDetokenizedPath(tokenizedPath: string, downloadPath: string): string {
-		let innerTokenizedPath = tokenizedPath;
-		if (innerTokenizedPath.includes(TIMESTAMP_TOKEN)) {
-			innerTokenizedPath = innerTokenizedPath.replace(
-				TIMESTAMP_TOKEN,
-				FileUtils.getDateString(this._startDatetime),
-			);
-		}
-		if (innerTokenizedPath.includes(DOWNLOAD_PATH_TOKEN)) {
-			innerTokenizedPath = innerTokenizedPath.replace(DOWNLOAD_PATH_TOKEN, downloadPath);
-		}
-		return path.join(innerTokenizedPath);
-	}
+function createFetchRunId() {
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export default LaunchpadContent;
+type ContentActionContext = PluginContext & {
+	stateManager: ContentStateManager;
+	sourceRegistry: Map<string, ContentSource>;
+	resolvedConfig: ResolvedContentConfig;
+};
+
+function fetch(
+	sourceIds: string[] | string | null,
+	ctx: ContentActionContext,
+): ResultAsync<void, Error> {
+	const normalizedSourceIds = typeof sourceIds === "string" ? [sourceIds] : sourceIds;
+	const idsToFetch = normalizedSourceIds || Array.from(ctx.sourceRegistry.keys());
+	if (!idsToFetch || idsToFetch.length === 0) {
+		ctx.logger.warn("No sources to fetch");
+		return okAsync(undefined);
+	}
+
+	const missingSourceIds: string[] = [];
+	const resolvedSources = idsToFetch
+		.map((sourceId) => {
+			const source = ctx.sourceRegistry.get(sourceId);
+			if (!source) {
+				missingSourceIds.push(sourceId);
+			}
+			return source;
+		})
+		.filter((source): source is ContentSource => source !== undefined);
+
+	if (missingSourceIds.length > 0) {
+		return errAsync(new ContentError(`Sources not registered: ${missingSourceIds.join(", ")}`));
+	}
+
+	ctx.eventBus.emit("content:fetch:start", {
+		timestamp: new Date(),
+	});
+
+	const runId = createFetchRunId();
+	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd, { runId });
+
+	// Instantiate data store only when fetch is called
+	const dataStore = new DataStore(paths.getStagedDownloadPath());
+
+	const context: FetchStageContext = {
+		transforms: ctx.resolvedConfig.transforms,
+		dataStore,
+		logger: ctx.logger,
+		eventBus: ctx.eventBus,
+		config: ctx.resolvedConfig,
+		cwd: ctx.cwd,
+		abortSignal: ctx.abortSignal,
+		runId,
+		paths,
+		sources: resolvedSources,
+	};
+
+	// Execute the fetch pipeline
+	for (const source of context.sources) {
+		ctx.stateManager.markSourceFetching(source.id);
+	}
+
+	return (
+		ctx.resolvedConfig.backupAndRestore
+			? (() => {
+					ctx.stateManager.setPhase({ phase: "backing-up" });
+					return backupStage(context);
+				})()
+			: okAsync(undefined)
+	)
+		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "clearing-old-data" });
+			return clearOldDataStage(context);
+		})
+		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "fetching-sources" });
+			return fetchSourcesStage(context);
+		})
+		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "running-transforms" });
+			return runTransformsStage(context);
+		})
+		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "finalizing", restored: false });
+			return finalizingStage(context);
+		})
+		.andThen(() => {
+			for (const source of context.sources) {
+				ctx.stateManager.markSourceSuccess(source.id);
+			}
+			ctx.stateManager.setPhase({ phase: "clearing-temp" });
+			return cleanupStage(context, {
+				temp: true,
+				backups: ctx.resolvedConfig.backupAndRestore,
+			});
+		})
+		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "idle" });
+			return okAsync(undefined);
+		})
+		.orElse((error) => {
+			// Error recovery path
+			ctx.stateManager.setPhase({ phase: "error", error, restored: false });
+			if (context.sources) {
+				for (const source of context.sources) {
+					ctx.stateManager.markSourceError(source.id, error);
+				}
+			}
+
+			return errorRecoveryStage(context, error)
+				.andThen(({ restoredSourceIds }) => {
+					for (const sourceId of restoredSourceIds) {
+						ctx.stateManager.markSourceRestored(sourceId);
+					}
+					ctx.stateManager.setPhase({
+						phase: "error",
+						error,
+						restored: restoredSourceIds.length > 0,
+					});
+					ctx.stateManager.setPhase({ phase: "clearing-temp" });
+					return cleanupStage(context, {
+						temp: true,
+						backups: ctx.resolvedConfig.backupAndRestore,
+					});
+				})
+				.andTee(() => {
+					ctx.stateManager.setPhase({ phase: "idle" });
+					dataStore._clear();
+				})
+				.orElse(() => {
+					ctx.stateManager.setPhase({ phase: "idle" });
+					dataStore._clear();
+					return errAsync(error);
+				})
+				.andThen(() => {
+					// Propagate original error after recovery
+					return err(error);
+				});
+		});
+}
+
+function clear(
+	sourceIds: string[] | string | null,
+	{ temp = false, backups = false, downloads = true },
+	ctx: ContentActionContext,
+): ResultAsync<void, Error> {
+	const normalizedSourceIds = typeof sourceIds === "string" ? [sourceIds] : sourceIds;
+	const idsToClear = normalizedSourceIds || Array.from(ctx.sourceRegistry.keys());
+
+	if (!idsToClear || idsToClear.length === 0) {
+		ctx.logger.info("No sources to clear");
+		return okAsync(undefined);
+	}
+
+	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
+
+	const clearResults: ResultAsync<void, ContentError>[] = [];
+
+	if (temp) {
+		clearResults.push(
+			FileUtils.clearDir(paths.getRunPath(), {
+				removeIfEmpty: true,
+			}),
+		);
+	}
+
+	for (const sourceId of idsToClear) {
+		if (temp) {
+			clearResults.push(
+				FileUtils.clearDir(paths.getTempPath(sourceId), {
+					removeIfEmpty: true,
+				}),
+			);
+		}
+		if (backups) {
+			clearResults.push(
+				FileUtils.clearDir(paths.getBackupPath(sourceId), {
+					removeIfEmpty: true,
+				}),
+			);
+		}
+		if (downloads) {
+			clearResults.push(
+				FileUtils.clearDir(paths.getDownloadPath(sourceId), {
+					removeIfEmpty: true,
+				}),
+			);
+		}
+	}
+
+	return ResultAsync.combine(clearResults)
+		.andThen(() => {
+			// Also remove the containing directories (without the source subdir) if they are empty after clearing
+			// e.g. .tmp/, .backup/, .downloads/
+			const clearTopResults = [];
+
+			if (temp) {
+				clearTopResults.push(FileUtils.removeDirIfEmpty(paths.getTempPath()));
+			}
+			if (backups) {
+				clearTopResults.push(FileUtils.removeDirIfEmpty(paths.getBackupPath()));
+			}
+			if (downloads) {
+				clearTopResults.push(FileUtils.removeDirIfEmpty(paths.getDownloadPath()));
+			}
+
+			if (clearTopResults.length === 0) {
+				return okAsync(undefined);
+			}
+
+			return ResultAsync.combine(clearTopResults);
+		})
+		.map(() => undefined) // Map to void
+		.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
+}
+
+/**
+ * Creates a LaunchpadContent plugin factory.
+ * Use this in your launchpad config's plugins array.
+ */
+export function content(config: ContentConfig) {
+	return definePlugin({
+		name: "content",
+		manifest: {
+			commands: [
+				{ id: "content.fetch", parser: contentCommandSchema },
+				{ id: "content.clear", parser: contentCommandSchema },
+			],
+		},
+		summarize(state: LaunchpadState): Section | null {
+			const contentState = state.plugins.content;
+			if (!contentState) return null;
+			return buildContentSection(contentState);
+		},
+		setup(ctx: PluginContext<ContentState>) {
+			return parseContentConfig(config)
+				.andTee((resolvedConfig) => {
+					if (resolvedConfig.sources.length === 0) {
+						ctx.logger.warn("No sources configured");
+					}
+				})
+				.andThen((resolvedConfig) => {
+					// initialize persistent services (services that live for the lifetime of the plugin, not per-command)
+
+					const stateManager = new ContentStateManager(ctx.updateState);
+					const sourceRegistry = new Map<string, ContentSource>();
+
+					// Check for duplicates
+					for (const source of resolvedConfig.sources) {
+						if (sourceRegistry.has(source.id)) {
+							return err(new ContentError(`Duplicate source ID detected: ${source.id}`));
+						}
+						sourceRegistry.set(source.id, source);
+					}
+
+					const sourceIds = resolvedConfig.sources.map((s) => s.id);
+					stateManager.initializeSources(sourceIds);
+					if (sourceIds.length > 0) {
+						ctx.logger.info(`Initialized ${sourceIds.length} source(s)`);
+					}
+
+					const actionContext = {
+						...ctx,
+						stateManager,
+						sourceRegistry,
+						resolvedConfig,
+					};
+
+					const commandGuard = new SingleCommandGuard();
+
+					return ok({
+						executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
+							const parsed = contentCommandSchema.safeParse(command);
+							if (!parsed.success) {
+								return errAsync(new ContentError(`Invalid command: ${parsed.error.message}`));
+							}
+
+							const validCommand = parsed.data;
+
+							switch (validCommand.type) {
+								case "content.fetch": {
+									return commandGuard.run(() => fetch(validCommand.sources ?? null, actionContext));
+								}
+								case "content.clear": {
+									return commandGuard.run(() =>
+										clear(
+											validCommand.sources ?? null,
+											{
+												temp: validCommand.temp,
+												backups: validCommand.backups,
+												downloads: validCommand.downloads,
+											},
+											actionContext,
+										),
+									);
+								}
+								case "content.backup":
+								case "content.restore": {
+									return errAsync(
+										new ContentError(`Command '${validCommand.type}' is not yet implemented`),
+									);
+								}
+								default: {
+									validCommand satisfies never;
+									return errAsync(new ContentError("Unreachable: unknown command type"));
+								}
+							}
+						},
+					});
+				});
+		},
+	});
+}

@@ -1,4 +1,6 @@
-import { FixedConsoleLogger, NO_TTY } from "@bluecadet/launchpad-utils";
+import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
+import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
+import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
 import type { ResultAsync } from "neverthrow";
 
@@ -17,9 +19,16 @@ type FetchState =
 			duration: number;
 	  };
 
-export class FetchLogger extends FixedConsoleLogger {
+export class FetchLogger extends FixedTTYLogger {
 	#fetches: Map<string, Map<string, FetchState>> = new Map();
 	#spinnerFrameIndex = 0;
+
+	constructor(
+		private logger: Logger,
+		eventBus: EventBus,
+	) {
+		super(eventBus);
+	}
 
 	async addFetch(
 		sourceId: string,
@@ -46,21 +55,15 @@ export class FetchLogger extends FixedConsoleLogger {
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			this.#fetches.get(sourceId)?.set(documentId, { state: "resolved", duration });
-			this.logger.info(
+			this.logger.verbose(
 				`${this.getIcon("resolved")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
-				{
-					[NO_TTY]: true,
-				},
 			);
 		} catch (_e) {
 			const endTime = Date.now();
 			const duration = endTime - startTime;
 			this.#fetches.get(sourceId)?.set(documentId, { state: "rejected", duration });
 			this.logger.error(
-				`${this.getIcon("rejected")} Fetched ${documentId} from ${sourceId} in ${duration}ms`,
-				{
-					[NO_TTY]: true,
-				},
+				`${this.getIcon("rejected")} Failed to fetch ${documentId} from ${sourceId}`,
 			);
 		}
 	}

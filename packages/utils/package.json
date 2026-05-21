@@ -4,9 +4,37 @@
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./logger": {
+      "types": "./dist/logger.d.ts",
+      "default": "./dist/logger.js"
+    },
+    "./fixed-tty-logger": {
+      "types": "./dist/fixed-tty-logger.d.ts",
+      "default": "./dist/fixed-tty-logger.js"
+    },
+    "./state-patcher": {
+      "types": "./dist/state-patcher.d.ts",
+      "default": "./dist/state-patcher.js"
+    },
+    "./plugin-interfaces": {
+      "types": "./dist/plugin-interfaces.d.ts",
+      "default": "./dist/plugin-interfaces.js"
+    },
+    "./event-bus": {
+      "types": "./dist/event-bus.d.ts",
+      "default": "./dist/event-bus.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./command-guard": {
+      "types": "./dist/command-guard.d.ts",
+      "default": "./dist/command-guard.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
     }
   },
   "files": [
@@ -18,6 +46,9 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=23"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bluecadet/launchpad.git"
@@ -28,19 +59,14 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "@sindresorhus/slugify": "^2.1.0",
-    "ansi-escapes": "^7.0.0",
-    "chalk": "^5.0.0",
-    "moment": "^2.29.1",
-    "neverthrow": "^8.1.1",
-    "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^4.5.5",
-    "zod": "^3.23.8"
+    "immer": "^11.1.4",
+    "neverthrow": "^8.2.0"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "vitest": "^3.0.7"
+    "h3": "^1.15.3",
+    "vitest": "^4.1.2"
   }
 }

@@ -37,30 +37,36 @@ The monitor package is a robust process management and monitoring tool designed 
 ## Installation
 
 ```bash
-npm install @bluecadet/launchpad-monitor
+npm install @bluecadet/launchpad
 ```
 
-## Basic Usage
+## JS API Usage
 
 ```typescript
-import LaunchpadMonitor from '@bluecadet/launchpad-monitor';
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { monitor } from '@bluecadet/launchpad/monitor';
 
-const monitor = new LaunchpadMonitor({
-  apps: [
-    {
-      name: "my-app",
-      pm2: {
-        script: "./app.js"
-      },
-      windows: {
-        foreground: true
-      }
-    }
-  ]
+export default defineConfig({
+  plugins: [
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: 'my-app',
+            script: './app.js',
+          },
+          windows: {
+            foreground: true,
+          },
+        },
+      ],
+    }),
+  ],
+  workflows: {
+    start: ['monitor.connect', 'monitor.start'],
+    stop: ['monitor.stop', 'monitor.disconnect'],
+  },
 });
-
-// Start monitoring
-await monitor.start();
 ```
 
 ## Configuration
@@ -74,6 +80,12 @@ Monitor operations are configured through a `MonitorConfig` object that specifie
 
 See the [Monitor Config](./monitor-config) section for detailed configuration options.
 
+## License Note
+
+The monitor package depends on PM2, which is licensed under AGPL-3.0. PM2's license does not make applications managed by PM2 become AGPL-licensed, but it does matter if you redistribute PM2, modify PM2 itself, or work under an organizational policy that restricts AGPL dependencies.
+
+Bluecadet-authored Launchpad code is licensed under ISC. Third-party dependencies retain their own licenses.
+
 ## Error Handling
 
 The package uses `neverthrow` for reliable error handling:
@@ -83,12 +95,6 @@ The package uses `neverthrow` for reliable error handling:
 - Clear error reporting
 - Process recovery strategies
 
-## Plugin Support
+## Extension Points
 
-The monitor package supports plugins for extending functionality:
-
-- Custom process management
-- Enhanced window control
-- Additional monitoring capabilities
-- Custom event handling
-- Integration with other systems
+Custom Launchpad plugins can subscribe to monitor events and dispatch monitor commands through the controller. See [Extending Monitor](./plugins.md) for the current extension model.

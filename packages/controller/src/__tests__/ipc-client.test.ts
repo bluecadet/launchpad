@@ -1,7 +1,6 @@
 import net from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IPCClient } from "../ipc-client.js";
-import type { IPCEvent, IPCResponse } from "../transports/ipc-transport.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
 import { createConnectedTestClient, createTestClient } from "./helpers.js";
@@ -71,12 +70,7 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { system: { mode: "task" } } as any,
-			};
-			simulateData(response);
+			simulateData({ jsonrpc: "2.0", id: 0, result: { system: { mode: "task" } } });
 
 			const result = await queryPromise;
 
@@ -89,32 +83,18 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "error",
-				error: new Error("Failed to get state"),
-			};
-			simulateData(response);
+			const error = new Error("Failed to get state");
+			simulateData({
+				jsonrpc: "2.0",
+				id: 0,
+				error: { code: -32603, message: error.message, data: error },
+			});
 
 			const result = await queryPromise;
 
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Controller error");
 			expect(result._unsafeUnwrapErr().cause!.message).toContain("Failed to get state");
-		});
-
-		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = await createConnectedTestClient();
-
-			const queryPromise = client.queryState();
-
-			const response = { id: "msg-0", type: "unexpected", data: {} };
-			simulateData(response);
-
-			const result = await queryPromise;
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Unexpected response type");
 		});
 
 		it("should return error if not connected", async () => {
@@ -136,15 +116,10 @@ describe("IPCClient", () => {
 			} as any);
 
 			const sentMessage = parsedWriteCall();
-			expect(sentMessage.type).toBe("execute-command");
-			expect(sentMessage.data).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
+			expect(sentMessage.method).toBe("executeCommand");
+			expect(sentMessage.params).toEqual({ type: "monitor.connect", data: { app: "test-app" } });
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "result",
-				data: { status: "success" },
-			};
-			simulateData(response);
+			simulateData({ jsonrpc: "2.0", id: 0, result: { status: "success" } });
 
 			const result = await commandPromise;
 
@@ -157,12 +132,12 @@ describe("IPCClient", () => {
 
 			const commandPromise = client.executeCommand({ type: "content.fetch" });
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "error",
-				error: new Error("Command failed"),
-			};
-			simulateData(response);
+			const error = new Error("Command failed");
+			simulateData({
+				jsonrpc: "2.0",
+				id: 0,
+				error: { code: -32603, message: error.message, data: error },
+			});
 
 			const result = await commandPromise;
 
@@ -171,20 +146,6 @@ describe("IPCClient", () => {
 				"Error dispatching command: content.fetch",
 			);
 			expect(result._unsafeUnwrapErr().cause!.message).toContain("Command failed");
-		});
-
-		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = await createConnectedTestClient();
-
-			const commandPromise = client.executeCommand({ type: "content.fetch" });
-
-			const response = { id: "msg-0", type: "state", data: {} };
-			simulateData(response);
-
-			const result = await commandPromise;
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Unexpected response type");
 		});
 
 		it("should return error if not connected", async () => {
@@ -202,8 +163,7 @@ describe("IPCClient", () => {
 
 			const shutdownPromise = client.shutdown();
 
-			const response: IPCResponse = { id: "msg-0", type: "ack" };
-			simulateData(response);
+			simulateData({ jsonrpc: "2.0", id: 0, result: null });
 
 			const result = await shutdownPromise;
 
@@ -216,32 +176,18 @@ describe("IPCClient", () => {
 
 			const shutdownPromise = client.shutdown();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "error",
-				error: new Error("Shutdown failed"),
-			};
-			simulateData(response);
+			const error = new Error("Shutdown failed");
+			simulateData({
+				jsonrpc: "2.0",
+				id: 0,
+				error: { code: -32603, message: error.message, data: error },
+			});
 
 			const result = await shutdownPromise;
 
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Shutdown error");
 			expect(result._unsafeUnwrapErr().cause!.message).toContain("Shutdown failed");
-		});
-
-		it("should return error for unexpected response type", async () => {
-			const { client, simulateData } = await createConnectedTestClient();
-
-			const shutdownPromise = client.shutdown();
-
-			const response = { id: "msg-0", type: "state", data: {} };
-			simulateData(response);
-
-			const result = await shutdownPromise;
-
-			expect(result.isErr()).toBe(true);
-			expect(result._unsafeUnwrapErr().message).toContain("Unexpected response type");
 		});
 
 		it("should return error if not connected", async () => {
@@ -260,16 +206,8 @@ describe("IPCClient", () => {
 			const query1Promise = client.queryState();
 			const query2Promise = client.queryState();
 
-			const response1: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { system: { mode: "task" } } as any,
-			};
-			const response2: IPCResponse = {
-				id: "msg-1",
-				type: "state",
-				data: { system: { mode: "persistent" } } as any,
-			};
+			const response1 = { jsonrpc: "2.0", id: 0, result: { system: { mode: "task" } } };
+			const response2 = { jsonrpc: "2.0", id: 1, result: { system: { mode: "persistent" } } };
 			const data = `${IPCSerializer.serialize(response1)}\n${IPCSerializer.serialize(response2)}\n`;
 			simulateEvent("data", Buffer.from(data));
 
@@ -287,11 +225,7 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { system: { mode: "task" } } as any,
-			};
+			const response = { jsonrpc: "2.0", id: 0, result: { system: { mode: "task" } } };
 			simulateEvent("data", Buffer.from(IPCSerializer.serialize(response)));
 
 			// Message should not be processed yet — send the terminating newline
@@ -333,19 +267,8 @@ describe("IPCClient", () => {
 			const query1Promise = client.queryState();
 			const query2Promise = client.queryState();
 
-			const response1: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { first: true } as any,
-			};
-			simulateData(response1);
-
-			const response2: IPCResponse = {
-				id: "msg-1",
-				type: "state",
-				data: { second: true } as any,
-			};
-			simulateData(response2);
+			simulateData({ jsonrpc: "2.0", id: 0, result: { first: true } });
+			simulateData({ jsonrpc: "2.0", id: 1, result: { second: true } });
 
 			const result1 = await query1Promise;
 			const result2 = await query2Promise;
@@ -360,19 +283,8 @@ describe("IPCClient", () => {
 			const queryPromise = client.queryState();
 			const commandPromise = client.executeCommand({ type: "test.command" });
 
-			const queryResponse: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { mode: "task" } as any,
-			};
-			simulateData(queryResponse);
-
-			const commandResponse: IPCResponse = {
-				id: "msg-1",
-				type: "result",
-				data: { executed: true },
-			};
-			simulateData(commandResponse);
+			simulateData({ jsonrpc: "2.0", id: 0, result: { mode: "task" } });
+			simulateData({ jsonrpc: "2.0", id: 1, result: { executed: true } });
 
 			const queryResult = await queryPromise;
 			const commandResult = await commandPromise;
@@ -389,12 +301,11 @@ describe("IPCClient", () => {
 			const handler = vi.fn();
 			client.on("command:start", handler);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "command:start",
-				data: { commandType: "test.command" },
-			};
-			simulateData(event);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:start", data: { commandType: "test.command" } },
+			});
 
 			expect(handler).toHaveBeenCalledWith({ commandType: "test.command" });
 		});
@@ -407,12 +318,14 @@ describe("IPCClient", () => {
 			client.on("command:success", handler1);
 			client.on("command:success", handler2);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "command:success",
-				data: { commandType: "test.command", result: { value: 42 } },
-			};
-			simulateData(event);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: {
+					name: "command:success",
+					data: { commandType: "test.command", result: { value: 42 } },
+				},
+			});
 
 			expect(handler1).toHaveBeenCalledWith({
 				commandType: "test.command",
@@ -430,10 +343,10 @@ describe("IPCClient", () => {
 			const handler = vi.fn();
 			client.once("system:shutdown", handler);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "system:shutdown",
-				data: { code: 0 },
+			const event = {
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "system:shutdown", data: { code: 0 } },
 			};
 
 			simulateData(event);
@@ -450,12 +363,14 @@ describe("IPCClient", () => {
 			client.on("command:error", handler);
 			client.off("command:error", handler);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "command:error",
-				data: { commandType: "test.command", error: new Error("Test error") },
-			};
-			simulateData(event);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: {
+					name: "command:error",
+					data: { commandType: "test.command", error: new Error("Test error") },
+				},
+			});
 
 			expect(handler).not.toHaveBeenCalled();
 		});
@@ -466,19 +381,16 @@ describe("IPCClient", () => {
 			const handler = vi.fn();
 			client.onAny(handler);
 
-			const event1: IPCEvent = {
-				type: "event",
-				name: "command:start",
-				data: { commandType: "cmd1" },
-			};
-			const event2: IPCEvent = {
-				type: "event",
-				name: "command:success",
-				data: { commandType: "cmd1", result: { value: 42 } },
-			};
-
-			simulateData(event1);
-			simulateData(event2);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:start", data: { commandType: "cmd1" } },
+			});
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:success", data: { commandType: "cmd1", result: { value: 42 } } },
+			});
 
 			expect(handler).toHaveBeenCalledTimes(2);
 			expect(handler).toHaveBeenNthCalledWith(1, "command:start", { commandType: "cmd1" });
@@ -495,12 +407,11 @@ describe("IPCClient", () => {
 			client.onAny(handler);
 			client.offAny(handler);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "command:start",
-				data: { commandType: "test" },
-			};
-			simulateData(event);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:start", data: { commandType: "test" } },
+			});
 
 			expect(handler).not.toHaveBeenCalled();
 		});
@@ -512,16 +423,15 @@ describe("IPCClient", () => {
 			const eventHandler = vi.fn();
 			client.on("command:success", eventHandler);
 
-			const event: IPCEvent = {
-				type: "event",
-				name: "command:success",
-				data: { commandType: "test.command", result: { success: true } },
+			const event = {
+				jsonrpc: "2.0",
+				method: "event",
+				params: {
+					name: "command:success",
+					data: { commandType: "test.command", result: { success: true } },
+				},
 			};
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: { system: { mode: "task" } } as any,
-			};
+			const response = { jsonrpc: "2.0", id: 0, result: { system: { mode: "task" } } };
 
 			const data = `${IPCSerializer.serialize(event)}\n${IPCSerializer.serialize(response)}\n`;
 			simulateEvent("data", Buffer.from(data));
@@ -542,15 +452,15 @@ describe("IPCClient", () => {
 			const handler = vi.fn();
 			client.on("command:start", handler);
 
-			const event1: IPCEvent = {
-				type: "event",
-				name: "command:start",
-				data: { commandType: "lorem" },
+			const event1 = {
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:start", data: { commandType: "lorem" } },
 			};
-			const event2: IPCEvent = {
-				type: "event",
-				name: "command:start",
-				data: { commandType: "ipsum" },
+			const event2 = {
+				jsonrpc: "2.0",
+				method: "event",
+				params: { name: "command:start", data: { commandType: "ipsum" } },
 			};
 
 			simulateEvent(
@@ -588,12 +498,14 @@ describe("IPCClient", () => {
 
 			unsubscribe();
 
-			const patch = {
-				type: "state-patch",
-				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
-				version: 2,
-			};
-			simulateData(patch);
+			simulateData({
+				jsonrpc: "2.0",
+				method: "statePatch",
+				params: {
+					patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
+					version: 2,
+				},
+			});
 
 			expect(listener).not.toHaveBeenCalled();
 		});
@@ -612,12 +524,7 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: initialState as any,
-			};
-			simulateData(response);
+			simulateData({ jsonrpc: "2.0", id: 0, result: initialState as any });
 
 			await queryPromise;
 
@@ -625,9 +532,12 @@ describe("IPCClient", () => {
 
 			// In-sequence patch (version 1 → 2)
 			simulateData({
-				type: "state-patch",
-				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
-				version: 2,
+				jsonrpc: "2.0",
+				method: "statePatch",
+				params: {
+					patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
+					version: 2,
+				},
 			});
 
 			expect(writeMock).toHaveBeenCalledTimes(1); // no re-query needed
@@ -639,9 +549,12 @@ describe("IPCClient", () => {
 
 			// Next in-sequence patch (version 2 → 3)
 			simulateData({
-				type: "state-patch",
-				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 3 }],
-				version: 3,
+				jsonrpc: "2.0",
+				method: "statePatch",
+				params: {
+					patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 3 }],
+					version: 3,
+				},
 			});
 
 			expect(writeMock).toHaveBeenCalledTimes(1);
@@ -663,37 +576,38 @@ describe("IPCClient", () => {
 
 			const queryPromise = client.queryState();
 
-			const response: IPCResponse = {
-				id: "msg-0",
-				type: "state",
-				data: initialState as any,
-			};
-			simulateData(response);
+			simulateData({ jsonrpc: "2.0", id: 0, result: initialState as any });
 
 			await queryPromise;
 
 			// Out-of-sequence patch — should trigger a re-query
 			simulateData({
-				type: "state-patch",
-				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
-				version: 5,
+				jsonrpc: "2.0",
+				method: "statePatch",
+				params: {
+					patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 2 }],
+					version: 5,
+				},
 			});
 
 			const parsedMessage = parsedWriteCall();
-			expect(parsedMessage.type).toBe("query-state");
+			expect(parsedMessage.method).toBe("queryState");
 		});
 
 		it("should trigger queryState if no initial state when patch arrives", async () => {
 			const { simulateData, parsedWriteCall } = await createConnectedTestClient();
 
 			simulateData({
-				type: "state-patch",
-				patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 1 }],
-				version: 1,
+				jsonrpc: "2.0",
+				method: "statePatch",
+				params: {
+					patches: [{ op: "replace", path: ["plugins", "test", "x"], value: 1 }],
+					version: 1,
+				},
 			});
 
 			const parsedMessage = parsedWriteCall();
-			expect(parsedMessage.type).toBe("query-state");
+			expect(parsedMessage.method).toBe("queryState");
 		});
 	});
 });

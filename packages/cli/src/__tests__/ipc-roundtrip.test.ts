@@ -8,10 +8,10 @@ function makeStateHandler(): import("./helpers/socket-server.js").RequestHandler
 	const state = createEmptyState();
 	return (msg) => {
 		const { id } = msg;
-		if (msg.type === "query-state") return { id, type: "state", data: state };
-		if (msg.type === "execute-command") return { id, type: "result", data: null };
-		if (msg.type === "shutdown") return { id, type: "ack" };
-		return { id, type: "error", error: new Error("unhandled") };
+		if (msg.method === "queryState") return { jsonrpc: "2.0", id, result: state };
+		if (msg.method === "executeCommand") return { jsonrpc: "2.0", id, result: null };
+		if (msg.method === "shutdown") return { jsonrpc: "2.0", id, result: null };
+		return { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } };
 	};
 }
 
@@ -50,7 +50,7 @@ describe("IPC round-trip", () => {
 	it("server received all messages", () => {
 		const messages = server.getReceivedMessages();
 		expect(messages).toHaveLength(3);
-		expect(messages.map((m) => m.type)).toEqual(["query-state", "execute-command", "shutdown"]);
+		expect(messages.map((m) => m.method)).toEqual(["queryState", "executeCommand", "shutdown"]);
 	});
 });
 

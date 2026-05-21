@@ -2,7 +2,6 @@ import fs from "node:fs";
 import net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPCSerializer } from "../../utils/ipc-serializer.js";
-import type { IPCMessage, IPCResponse } from "../ipc-transport.js";
 import { createMockSocket, createTestIPCTransport } from "./helpers.js";
 
 type Cb = (...args: any[]) => void;
@@ -218,14 +217,13 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = { type: "query-state", id: "msg-1" };
+			const message = { jsonrpc: "2.0", id: 1, method: "queryState" };
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
 
 			expect(mockSocket.write).toHaveBeenCalledTimes(1);
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("state");
-			expect(response.data).toEqual(testState);
+			expect(response.result).toEqual(testState);
 		});
 
 		it("should dispatch command and send result for execute-command message", async () => {
@@ -234,21 +232,19 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = {
-				type: "execute-command",
-				id: "msg-1",
-				data: { type: "content.fetch" },
+			const message = {
+				jsonrpc: "2.0",
+				id: 1,
+				method: "executeCommand",
+				params: { type: "content.fetch" },
 			};
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
-			const response = IPCSerializer.deserialize(
-				mockSocket.write.mock.calls[0]![0]!,
-			) as IPCResponse;
-			expect(response.type).toBe("result");
-			expect((response as any).data).toEqual({ result: "success" });
+			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
+			expect(response.result).toEqual({ result: "success" });
 		});
 
 		it("should send ack and emit system:shutdown for shutdown message", async () => {
@@ -257,12 +253,12 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = { type: "shutdown", id: "msg-1" };
+			const message = { jsonrpc: "2.0", id: 1, method: "shutdown" };
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("ack");
+			expect(response.result).toBeNull();
 
 			await new Promise((resolve) => setTimeout(resolve, 150));
 
@@ -279,8 +275,8 @@ describe("ipc-transport", () => {
 			dataHandler(Buffer.from("invalid json\n"));
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("error");
-			expect(response.error.message).toContain("Invalid JSON");
+			expect(response.error).toBeDefined();
+			expect(response.error.data.message).toContain("Invalid JSON");
 		});
 
 		it("should still process valid message when preceded by an empty line", async () => {
@@ -289,7 +285,7 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = { type: "query-state", id: "msg-1" };
+			const message = { jsonrpc: "2.0", id: 1, method: "queryState" };
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`\n${IPCSerializer.serialize(message)}\n`));
 
@@ -302,8 +298,8 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message1: IPCMessage = { type: "query-state", id: "msg-1" };
-			const message2: IPCMessage = { type: "query-state", id: "msg-2" };
+			const message1 = { jsonrpc: "2.0", id: 1, method: "queryState" };
+			const message2 = { jsonrpc: "2.0", id: 2, method: "queryState" };
 
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(
@@ -319,7 +315,7 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = { type: "query-state", id: "msg-1" };
+			const message = { jsonrpc: "2.0", id: 1, method: "queryState" };
 			const dataHandler = mockSocket.listeners.data![0]!;
 
 			dataHandler(Buffer.from(JSON.stringify(message)));
@@ -392,10 +388,11 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = {
-				type: "execute-command",
-				id: "msg-1",
-				data: { type: "test.command" },
+			const message = {
+				jsonrpc: "2.0",
+				id: 1,
+				method: "executeCommand",
+				params: { type: "test.command" },
 			};
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
@@ -403,9 +400,9 @@ describe("ipc-transport", () => {
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("error");
-			expect(response.error.message).toContain("IPC command execution failed");
-			expect(response.error.cause!.message).toContain("Command failed");
+			expect(response.error).toBeDefined();
+			expect(response.error.data.message).toContain("IPC command execution failed");
+			expect(response.error.data.cause!.message).toContain("Command failed");
 		});
 
 		it("should send error response when getState throws", async () => {
@@ -422,13 +419,13 @@ describe("ipc-transport", () => {
 			const mockSocket = createMockSocket();
 			connectionCallback?.(mockSocket);
 
-			const message: IPCMessage = { type: "query-state", id: "msg-1" };
+			const message = { jsonrpc: "2.0", id: 1, method: "queryState" };
 			const dataHandler = mockSocket.listeners.data![0]!;
 			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("error");
-			expect(response.error.message).toContain("Failed to get controller state");
+			expect(response.error).toBeDefined();
+			expect(response.error.data.message).toContain("Failed to get controller state");
 		});
 	});
 
@@ -466,9 +463,9 @@ describe("ipc-transport", () => {
 
 			expect(mockSocket.write).toHaveBeenCalledTimes(1);
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.type).toBe("state-patch");
-			expect(response.patches).toEqual(testPatches);
-			expect(response.version).toBe(1);
+			expect(response.method).toBe("statePatch");
+			expect(response.params.patches).toEqual(testPatches);
+			expect(response.params.version).toBe(1);
 		});
 
 		it("should broadcast state-patch to all connected clients", async () => {
@@ -500,10 +497,10 @@ describe("ipc-transport", () => {
 			const response1 = IPCSerializer.deserialize(mockSocket1.write.mock.calls[0]![0]!) as any;
 			const response2 = IPCSerializer.deserialize(mockSocket2.write.mock.calls[0]![0]!) as any;
 
-			expect(response1.type).toBe("state-patch");
-			expect(response2.type).toBe("state-patch");
-			expect(response1.version).toBe(2);
-			expect(response2.version).toBe(2);
+			expect(response1.method).toBe("statePatch");
+			expect(response2.method).toBe("statePatch");
+			expect(response1.params.version).toBe(2);
+			expect(response2.params.version).toBe(2);
 		});
 
 		it("should handle multiple patches sequentially", async () => {
@@ -529,8 +526,8 @@ describe("ipc-transport", () => {
 			const response1 = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
 			const response2 = IPCSerializer.deserialize(mockSocket.write.mock.calls[1]![0]!) as any;
 
-			expect(response1.version).toBe(1);
-			expect(response2.version).toBe(2);
+			expect(response1.params.version).toBe(1);
+			expect(response2.params.version).toBe(2);
 		});
 	});
 });

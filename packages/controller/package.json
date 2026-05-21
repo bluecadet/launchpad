@@ -53,6 +53,7 @@
     "chalk": "^5.6.2",
     "devalue": "^5.6.4",
     "immer": "^11.1.4",
+    "json-rpc-2.0": "^1.7.6",
     "neverthrow": "^8.2.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",

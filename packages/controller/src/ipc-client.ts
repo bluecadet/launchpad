@@ -12,7 +12,7 @@ import { applyPatches, enablePatches, type Patch } from "immer";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type { AllEvents } from "./all-events.js";
 import { IPCConnectionError, IPCMessageError, IPCTimeoutError } from "./errors.js";
-import type { IPCBroadcastMessage, IPCMessage, IPCResponse } from "./transports/ipc-transport.js";
+import type { IPCErrorResponse, IPCSuccessResponse } from "./transports/ipc-transport.js";
 import { IPCSerializer } from "./utils/ipc-serializer.js";
 import { getOSSocketPath } from "./utils/ipc-utils.js";
 
@@ -20,12 +20,27 @@ enablePatches();
 
 type StateChangeHandler = (newState: LaunchpadState) => void;
 
+type IPCResponse = IPCSuccessResponse | IPCErrorResponse;
+
+type IPCRequest = {
+	jsonrpc: "2.0";
+	id: number;
+	method: string;
+	params?: unknown;
+};
+
+type IPCNotification = {
+	jsonrpc: "2.0";
+	method: string;
+	params?: unknown;
+};
+
 export class IPCClient {
 	private _socket: net.Socket | null = null;
 	private _buffer = "";
 	private _eventBus = new EventBus<AllEvents>();
 	private _pendingRequests = new Map<
-		string,
+		number,
 		{
 			resolve: (response: IPCResponse) => void;
 			reject: (error: IPCConnectionError | IPCMessageError | IPCTimeoutError) => void;
@@ -133,24 +148,19 @@ export class IPCClient {
 	 * Query the controller's current state
 	 */
 	queryState(): ResultAsync<LaunchpadState, IPCConnectionError | IPCMessageError> {
-		const message: IPCMessage = {
-			type: "query-state",
-			id: this._generateId(),
-		};
+		const id = this._nextId++;
+		const message: IPCRequest = { jsonrpc: "2.0", id, method: "queryState" };
 
 		return this._sendMessage(message).andThen((response) => {
-			if (response.type === "state") {
-				// remove _version before returning
-				const { _version, ...state } = response.data;
+			if ("result" in response) {
+				const versionedState = response.result as { _version: number } & LaunchpadState;
+				const { _version, ...state } = versionedState;
 				Object.freeze(state);
-				this._lastState = state;
-				this._lastStateVersion = response.data._version;
-				return okAsync(state);
+				this._lastState = state as LaunchpadState;
+				this._lastStateVersion = _version;
+				return okAsync(state as LaunchpadState);
 			}
-			if (response.type === "error") {
-				return errAsync(new IPCMessageError("Controller error", { cause: response.error }));
-			}
-			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
+			return errAsync(new IPCMessageError("Controller error", { cause: response.error.data }));
 		});
 	}
 
@@ -158,24 +168,18 @@ export class IPCClient {
 	 * Execute a command on the controller
 	 */
 	executeCommand(command: BaseCommand): ResultAsync<unknown, IPCConnectionError | IPCMessageError> {
-		const message: IPCMessage = {
-			type: "execute-command",
-			id: this._generateId(),
-			data: command,
-		};
+		const id = this._nextId++;
+		const message: IPCRequest = { jsonrpc: "2.0", id, method: "executeCommand", params: command };
 
 		return this._sendMessage(message).andThen((response) => {
-			if (response.type === "result") {
-				return okAsync(response.data);
+			if ("result" in response) {
+				return okAsync(response.result);
 			}
-			if (response.type === "error") {
-				return errAsync(
-					new IPCMessageError(`Error dispatching command: ${command.type}`, {
-						cause: response.error,
-					}),
-				);
-			}
-			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
+			return errAsync(
+				new IPCMessageError(`Error dispatching command: ${command.type}`, {
+					cause: response.error.data,
+				}),
+			);
 		});
 	}
 
@@ -183,19 +187,14 @@ export class IPCClient {
 	 * Send shutdown command to the controller
 	 */
 	shutdown(): ResultAsync<void, IPCConnectionError | IPCMessageError> {
-		const message: IPCMessage = {
-			type: "shutdown",
-			id: this._generateId(),
-		};
+		const id = this._nextId++;
+		const message: IPCRequest = { jsonrpc: "2.0", id, method: "shutdown" };
 
 		return this._sendMessage(message).andThen((response) => {
-			if (response.type === "ack") {
+			if ("result" in response) {
 				return okAsync(undefined);
 			}
-			if (response.type === "error") {
-				return errAsync(new IPCMessageError("Shutdown error", { cause: response.error }));
-			}
-			return errAsync(new IPCMessageError(`Unexpected response type: ${response.type}`));
+			return errAsync(new IPCMessageError("Shutdown error", { cause: response.error.data }));
 		});
 	}
 
@@ -244,7 +243,7 @@ export class IPCClient {
 	 * Send a message and wait for response
 	 */
 	private _sendMessage(
-		message: IPCMessage,
+		message: IPCRequest,
 	): ResultAsync<IPCResponse, IPCConnectionError | IPCMessageError> {
 		if (!this._socket) {
 			return errAsync(new IPCConnectionError("Not connected to IPC socket"));
@@ -298,7 +297,7 @@ export class IPCClient {
 	private _handleData(data: Buffer | string): void {
 		this._buffer += data.toString();
 
-		// Process complete messages (newline-delimited JSON)
+		// Process complete messages (newline-delimited)
 		const lines = this._buffer.split("\n");
 		this._buffer = lines.pop() || "";
 
@@ -306,21 +305,26 @@ export class IPCClient {
 			if (!line.trim()) continue;
 
 			try {
-				const message = IPCSerializer.deserialize(line) as IPCResponse | IPCBroadcastMessage;
+				const message = IPCSerializer.deserialize(line) as IPCResponse | IPCNotification;
 
-				// Handle events (no id field)
-				if (message.type === "event") {
-					this._eventBus.emit(message.name, message.data);
+				// Notifications have `method` but no `id`
+				if ("method" in message && !("id" in message)) {
+					const notification = message as IPCNotification;
+					if (notification.method === "event") {
+						const params = notification.params as {
+							name: keyof AllEvents;
+							data: AllEvents[keyof AllEvents];
+						};
+						this._eventBus.emit(params.name, params.data);
+					} else if (notification.method === "statePatch") {
+						const params = notification.params as { patches: Patch[]; version: number };
+						void this._handlePatch(params.patches, params.version);
+					}
 					continue;
 				}
 
-				if (message.type === "state-patch") {
-					void this._handlePatch(message.patches, message.version);
-					continue;
-				}
-
-				// Handle request-response messages (has id field)
-				const response = message;
+				// Request-response: has `id`
+				const response = message as IPCResponse;
 				const request = this._pendingRequests.get(response.id);
 
 				if (request) {
@@ -329,7 +333,6 @@ export class IPCClient {
 				}
 			} catch (e) {
 				// Reject all pending requests with parse error
-				// This shouldn't happen with well-formed messages, but we need to handle it
 				const error = ensureError(e);
 				for (const request of this._pendingRequests.values()) {
 					request.reject(
@@ -341,12 +344,5 @@ export class IPCClient {
 				this._pendingRequests.clear();
 			}
 		}
-	}
-
-	/**
-	 * Generate a unique message ID
-	 */
-	private _generateId(): string {
-		return `msg-${this._nextId++}`;
 	}
 }

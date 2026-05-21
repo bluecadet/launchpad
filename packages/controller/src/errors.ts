@@ -108,3 +108,25 @@ export class TransportError extends ControllerError {
 		this.name = "TransportError";
 	}
 }
+
+/**
+ * JSON-RPC 2.0 error codes
+ */
+export const JSONRPC_ERROR_CODES = {
+	PARSE_ERROR: -32700,
+	METHOD_NOT_FOUND: -32601,
+	INTERNAL_ERROR: -32603,
+	SERVER_ERROR: -32000,
+} as const;
+
+/**
+ * Convert a controller error to a JSON-RPC 2.0 error object.
+ * Maps known error types to appropriate standard codes.
+ */
+export function toJSONRPCError(err: Error): { code: number; message: string; data: Error } {
+	let code: number = JSONRPC_ERROR_CODES.INTERNAL_ERROR;
+	if (err instanceof IPCMessageError) {
+		code = JSONRPC_ERROR_CODES.PARSE_ERROR;
+	}
+	return { code, message: err.message, data: err };
+}

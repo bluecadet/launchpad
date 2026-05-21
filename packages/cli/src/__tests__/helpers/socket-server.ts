@@ -3,17 +3,16 @@ import os from "node:os";
 import path from "node:path";
 import * as devalue from "devalue";
 
-// Inline the types from ipc-transport.ts (not directly exported by the package)
-export type IPCMessage =
-	| { type: "query-state"; id: string }
-	| { type: "shutdown"; id: string }
-	| { type: "execute-command"; id: string; data: unknown };
+export type IPCRequest = {
+	jsonrpc: "2.0";
+	id: number;
+	method: string;
+	params?: unknown;
+};
 
 export type IPCResponse =
-	| { id: string; type: "state"; data: unknown }
-	| { id: string; type: "ack" }
-	| { id: string; type: "result"; data: unknown }
-	| { id: string; type: "error"; error: Error };
+	| { jsonrpc: "2.0"; id: number; result: unknown }
+	| { jsonrpc: "2.0"; id: number; error: { code: number; message: string; data?: Error } };
 
 type ErrorObj = {
 	name: string;
@@ -45,12 +44,12 @@ function deserialize(serialized: string): unknown {
 	});
 }
 
-export type RequestHandler = (msg: IPCMessage) => IPCResponse;
+export type RequestHandler = (msg: IPCRequest) => IPCResponse;
 
 export type TestIPCServer = {
 	socketPath: string;
 	close: () => Promise<void>;
-	getReceivedMessages: () => IPCMessage[];
+	getReceivedMessages: () => IPCRequest[];
 };
 
 export async function createTestIPCServer(handler: RequestHandler): Promise<TestIPCServer> {
@@ -58,7 +57,7 @@ export async function createTestIPCServer(handler: RequestHandler): Promise<Test
 		process.platform === "win32"
 			? `\\\\.\\pipe\\lp-test-${process.pid}-${Date.now()}`
 			: path.join(os.tmpdir(), `lp-test-${process.pid}-${Date.now()}.sock`);
-	const received: IPCMessage[] = [];
+	const received: IPCRequest[] = [];
 
 	const server = net.createServer((socket) => {
 		let buffer = "";
@@ -68,7 +67,7 @@ export async function createTestIPCServer(handler: RequestHandler): Promise<Test
 			buffer = lines.pop() ?? "";
 			for (const line of lines) {
 				if (!line.trim()) continue;
-				const msg = deserialize(line) as IPCMessage;
+				const msg = deserialize(line) as IPCRequest;
 				received.push(msg);
 				const response = handler(msg);
 				socket.write(`${serialize(response)}\n`);

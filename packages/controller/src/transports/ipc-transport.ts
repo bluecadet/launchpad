@@ -1,6 +1,8 @@
 /**
  * IPC Transport for Unix socket communication.
  * Enables CLI commands to communicate with persistent controller.
+ *
+ * Wire format: newline-delimited devalue-serialized JSON-RPC 2.0 messages.
  */
 
 import fs from "node:fs";
@@ -12,17 +14,17 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, okAsync, ResultAsync } from "neverthrow";
 import type { AllEvents } from "../all-events.js";
-import type { AllPluginsState } from "../all-plugin-state.js";
 import {
 	CommandExecutionError,
 	IPCMessageError,
+	JSONRPC_ERROR_CODES,
 	StateAccessError,
 	TransportError,
+	toJSONRPCError,
 } from "../errors.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
@@ -32,28 +34,38 @@ export type IPCTransportOptions = {
 	socketPath: string;
 };
 
-export type IPCMessage =
-	| { type: "query-state"; id: string }
-	| { type: "shutdown"; id: string }
-	| { type: "execute-command"; id: string; data: unknown };
+// ---- JSON-RPC 2.0 message types ----
 
-export type IPCResponse =
-	| { id: string; type: "state"; data: VersionedLaunchpadState<AllPluginsState> }
-	| { id: string; type: "ack" }
-	| { id: string; type: "result"; data: unknown }
-	| { id: string; type: "error"; error: Error };
+export type IPCRequest = {
+	jsonrpc: "2.0";
+	id: number;
+	method: string;
+	params?: unknown;
+};
 
-export type IPCEvent = {
-	[K in keyof AllEvents]: {
-		type: "event";
-		name: K;
-		data: AllEvents[K];
+export type IPCSuccessResponse = {
+	jsonrpc: "2.0";
+	id: number;
+	result: unknown;
+};
+
+export type IPCErrorResponse = {
+	jsonrpc: "2.0";
+	id: number;
+	error: {
+		code: number;
+		message: string;
+		data?: Error;
 	};
-}[keyof AllEvents];
+};
 
-export type IPCBroadcastMessage =
-	| IPCEvent
-	| { type: "state-patch"; patches: Patch[]; version: number };
+export type IPCResponse = IPCSuccessResponse | IPCErrorResponse;
+
+export type IPCNotification = {
+	jsonrpc: "2.0";
+	method: string;
+	params?: unknown;
+};
 
 /**
  * Create an IPC Transport plugin
@@ -90,7 +102,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 					socket.on("data", (data) => {
 						buffer += data.toString();
 
-						// Process complete messages (newline-delimited JSON)
+						// Process complete messages (newline-delimited)
 						const lines = buffer.split("\n");
 						buffer = lines.pop() || "";
 
@@ -98,14 +110,16 @@ export function createIPCTransport(options: IPCTransportOptions) {
 							if (!line.trim()) continue;
 
 							try {
-								const message = IPCSerializer.deserialize(line) as IPCMessage;
+								const message = IPCSerializer.deserialize(line) as IPCRequest;
 								handleMessage(message, socket, ctx);
 							} catch (e) {
 								const error = ensureError(e);
 								ctx.logger.error(`Failed to parse IPC message: ${error.message}`);
 								sendError(
 									socket,
-									"unknown",
+									-1,
+									JSONRPC_ERROR_CODES.PARSE_ERROR,
+									"Parse error",
 									new IPCMessageError("Invalid JSON in IPC message", { cause: error }),
 								);
 							}
@@ -125,8 +139,11 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 				// Subscribe to EventBus for event streaming with type-safe handler
 				const handleEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
-					// Fully type-safe: event and data are correlated via the generic
-					const message = createIPCEvent(event, data);
+					const message: IPCNotification = {
+						jsonrpc: "2.0",
+						method: "event",
+						params: { name: event, data },
+					};
 					const serialized = `${IPCSerializer.serialize(message)}\n`;
 					clients.forEach((client) => {
 						try {
@@ -140,10 +157,10 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 				// Subscribe to state patches from the state store
 				const handlePatch = (patches: Patch[], version: number) => {
-					const message: IPCBroadcastMessage = {
-						type: "state-patch",
-						patches,
-						version,
+					const message: IPCNotification = {
+						jsonrpc: "2.0",
+						method: "statePatch",
+						params: { patches, version },
 					};
 					const serialized = `${IPCSerializer.serialize(message)}\n`;
 					clients.forEach((client) => {
@@ -297,54 +314,43 @@ function getErrorCode(error: Error): string | undefined {
 }
 
 /**
- * Handle an IPC message
+ * Handle a JSON-RPC 2.0 request message
  */
-function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginContext): void {
+function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginContext): void {
 	const { logger } = ctx;
 
-	switch (message.type) {
-		case "query-state": {
+	switch (message.method) {
+		case "queryState": {
 			try {
 				const state = ctx.getGlobalState();
-				sendResponse(socket, {
-					id: message.id,
-					type: "state",
-					data: state,
-				});
+				sendResult(socket, message.id, state);
 			} catch (e) {
 				const error = ensureError(e);
 				logger.error(`Failed to get state: ${error.message}`);
-				sendError(
-					socket,
-					message.id,
+				const rpcError = toJSONRPCError(
 					new StateAccessError("Failed to get controller state", { cause: error }),
 				);
+				sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
 			}
 			break;
 		}
 
-		case "execute-command": {
+		case "executeCommand": {
 			logger.info("Received execute-command via IPC");
-			const resultAsync = ctx.dispatchCommand(message.data as { type: string });
+			const resultAsync = ctx.dispatchCommand(message.params as { type: string });
 
-			// Use neverthrow's match to handle Result
 			resultAsync.match(
 				(value) => {
-					sendResponse(socket, {
-						id: message.id,
-						type: "result",
-						data: value,
-					});
+					sendResult(socket, message.id, value);
 				},
 				(error) => {
 					logger.error(`Command execution failed: ${error.message}`);
-					sendError(
-						socket,
-						message.id,
+					const rpcError = toJSONRPCError(
 						new CommandExecutionError("IPC command execution failed", {
 							cause: ensureError(error),
 						}),
 					);
+					sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
 				},
 			);
 			break;
@@ -352,10 +358,7 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 
 		case "shutdown": {
 			logger.info("Received shutdown command via IPC");
-			sendResponse(socket, {
-				id: message.id,
-				type: "ack",
-			});
+			sendResult(socket, message.id, null);
 
 			// Signal shutdown via event bus — the host process decides when to exit
 			setTimeout(() => {
@@ -366,27 +369,22 @@ function handleMessage(message: IPCMessage, socket: net.Socket, ctx: PluginConte
 		}
 
 		default: {
-			sendError(socket, "unknown", new IPCMessageError("Unknown message type"));
+			sendError(
+				socket,
+				message.id,
+				JSONRPC_ERROR_CODES.METHOD_NOT_FOUND,
+				"Method not found",
+				undefined,
+			);
 		}
 	}
 }
 
 /**
- * Create a type-safe IPC event message
- * Helper function ensures the event name and data are correctly correlated
+ * Send a JSON-RPC 2.0 success response
  */
-function createIPCEvent<K extends keyof AllEvents>(name: K, data: AllEvents[K]): IPCEvent {
-	return {
-		type: "event",
-		name,
-		data,
-	} as IPCEvent;
-}
-
-/**
- * Send a response to the client
- */
-function sendResponse(socket: net.Socket, response: IPCResponse): void {
+function sendResult(socket: net.Socket, id: number, result: unknown): void {
+	const response: IPCSuccessResponse = { jsonrpc: "2.0", id, result };
 	try {
 		socket.write(`${IPCSerializer.serialize(response)}\n`);
 	} catch (_e) {
@@ -395,12 +393,23 @@ function sendResponse(socket: net.Socket, response: IPCResponse): void {
 }
 
 /**
- * Send an error response to the client
+ * Send a JSON-RPC 2.0 error response
  */
-function sendError(socket: net.Socket, id: string, error: Error): void {
-	sendResponse(socket, {
+function sendError(
+	socket: net.Socket,
+	id: number,
+	code: number,
+	message: string,
+	data: Error | undefined,
+): void {
+	const response: IPCErrorResponse = {
+		jsonrpc: "2.0",
 		id,
-		type: "error",
-		error: error,
-	});
+		error: { code, message, ...(data !== undefined && { data }) },
+	};
+	try {
+		socket.write(`${IPCSerializer.serialize(response)}\n`);
+	} catch (_e) {
+		// Socket may be closed, ignore
+	}
 }

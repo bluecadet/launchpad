@@ -11,7 +11,8 @@
 			"packages/**/src/**/*.ts",
 			"packages/**/scripts/**/*.ts",
 			"docs/**/*.ts",
-			"docs/**/*.mts"
+			"docs/**/*.mts",
+			"!**/worktrees"
 		]
 	},
 	"formatter": {

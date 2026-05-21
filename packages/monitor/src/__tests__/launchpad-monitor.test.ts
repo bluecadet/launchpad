@@ -1,10 +1,12 @@
+import { EventEmitter } from "node:events";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { spawn } from "cross-spawn";
 import { okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { AppManager } from "../core/app-manager.js";
 import { BusManager } from "../core/bus-manager.js";
 import { ProcessManager } from "../core/process-manager.js";
-import { monitor } from "../launchpad-monitor.js";
+import { killPM2, monitor } from "../launchpad-monitor.js";
 import type { MonitorConfig } from "../monitor-config.js";
 
 AppManager.prototype.applyWindowSettings = vi.fn().mockImplementation(() => okAsync({}));
@@ -37,6 +39,35 @@ vi.mock("../utils/debounce-results.ts", () => ({
 }));
 
 describe("LaunchpadMonitor", () => {
+	describe("killPM2", () => {
+		it("logs child process output as text instead of raw buffers", async () => {
+			const stdout = new EventEmitter();
+			const stderr = new EventEmitter();
+			const child = new EventEmitter() as EventEmitter & {
+				stdout: EventEmitter;
+				stderr: EventEmitter;
+			};
+			child.stdout = stdout;
+			child.stderr = stderr;
+
+			vi.mocked(spawn).mockReturnValueOnce(child as ReturnType<typeof spawn>);
+
+			const { rootLogger } = await createTestMonitor();
+			const resultPromise = killPM2(rootLogger);
+
+			stdout.emit("data", Buffer.from("PM2 killed\n"));
+			stderr.emit("data", Buffer.from("sh: pm2: command not found\n"));
+			child.emit("close");
+
+			const result = await resultPromise;
+
+			expect(result).toBeOk();
+			expect(rootLogger.info).toHaveBeenCalledWith("PM2 killed");
+			expect(rootLogger.error).toHaveBeenCalledWith("sh: pm2: command not found");
+			expect(rootLogger.error).not.toHaveBeenCalledWith(expect.any(Buffer));
+		});
+	});
+
 	it("registers explicit monitor commands in the plugin manifest", () => {
 		const plugin = monitor({
 			apps: [

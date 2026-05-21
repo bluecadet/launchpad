@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import {
@@ -22,6 +23,8 @@ import {
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 import { buildMonitorSection } from "./monitor-summarize.js";
 
+const requireFromMonitorPackage = createRequire(import.meta.url);
+
 type MonitorActionContext = PluginContext<MonitorState> & {
 	processManager: ProcessManager;
 	busManager: BusManager;
@@ -36,10 +39,14 @@ type MonitorActionContext = PluginContext<MonitorState> & {
 export function killPM2(logger: Omit<Logger, "child">): ResultAsync<void, Error> {
 	return ResultAsync.fromPromise(
 		new Promise((resolve, reject) => {
-			const child = spawn("npm", ["exec", "pm2", "kill"], { shell: true });
+			const pm2BinPath = requireFromMonitorPackage.resolve("pm2/bin/pm2");
+			// Use the bundled PM2 CLI so callers do not need a project-local or global pm2 binary.
+			const child = spawn(process.execPath, [pm2BinPath, "kill"]);
 
-			child.stdout.on("data", (data) => logger.info(data));
-			child.stderr.on("data", (data) => logger.error(data));
+			child.stdout?.on("data", (data) => logProcessOutput(data, (message) => logger.info(message)));
+			child.stderr?.on("data", (data) =>
+				logProcessOutput(data, (message) => logger.error(message)),
+			);
 
 			child.on("error", (error) => {
 				logger.error(`PM2 could not be killed: ${error}`);
@@ -53,6 +60,14 @@ export function killPM2(logger: Omit<Logger, "child">): ResultAsync<void, Error>
 		}),
 		(error) => new Error("Failed to kill PM2", { cause: error }),
 	);
+}
+
+function logProcessOutput(data: unknown, log: (message: string) => void) {
+	const text = Buffer.isBuffer(data) ? data.toString("utf8") : String(data);
+	const message = text.trimEnd();
+	if (message) {
+		log(message);
+	}
 }
 
 function _handleExistingDaemon(

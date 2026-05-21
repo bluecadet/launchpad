@@ -21,4 +21,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-ISC © Bluecadet
+Bluecadet-authored Launchpad code is licensed under ISC. Third-party dependencies retain their own licenses.

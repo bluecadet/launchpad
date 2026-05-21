@@ -18,4 +18,4 @@ npm install @bluecadet/launchpad-controller
 
 ## License
 
-ISC
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

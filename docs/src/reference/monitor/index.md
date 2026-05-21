@@ -80,6 +80,12 @@ Monitor operations are configured through a `MonitorConfig` object that specifie
 
 See the [Monitor Config](./monitor-config) section for detailed configuration options.
 
+## License Note
+
+The monitor package depends on PM2, which is licensed under AGPL-3.0. PM2's license does not make applications managed by PM2 become AGPL-licensed, but it does matter if you redistribute PM2, modify PM2 itself, or work under an organizational policy that restricts AGPL dependencies.
+
+Bluecadet-authored Launchpad code is licensed under ISC. Third-party dependencies retain their own licenses.
+
 ## Error Handling
 
 The package uses `neverthrow` for reliable error handling:

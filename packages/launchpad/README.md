@@ -42,4 +42,4 @@ This package installs the core Launchpad packages and provides thin subpath re-e
 
 ## License
 
-ISC © Bluecadet
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

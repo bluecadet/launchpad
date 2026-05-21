@@ -26,3 +26,7 @@ If you scaffold the monitor plugin, the generated config includes both `workflow
 ## Docs
 
 See [Creating a Project](https://bluecadet.github.io/launchpad/guides/creating-a-project) for full documentation.
+
+## License
+
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

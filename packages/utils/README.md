@@ -10,3 +10,7 @@ Collection of utils used across [@bluecadet/launchpad](https://www.npmjs.com/pac
 - `PluginContext` for controller-provided runtime services
 
 Plugins should no longer rely on implicit command prefix routing. Hosts now declare orchestration explicitly with config-level workflows.
+
+## License
+
+Bluecadet-authored code in this package is licensed under ISC. Third-party dependencies retain their own licenses.

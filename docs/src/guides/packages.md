@@ -65,3 +65,17 @@ Optional integrations are not bundled in any Launchpad package. Install them alo
 | Sharp image processing | `sharp` |
 
 The project generator (`npm create @bluecadet/launchpad`) selects and installs only the peer deps you need.
+
+## License notes
+
+Bluecadet-authored Launchpad code is licensed under ISC. Third-party dependencies retain their own licenses.
+
+`@bluecadet/launchpad-monitor` depends on PM2 for process management. PM2 is licensed under AGPL-3.0, so review PM2's license terms when using, deploying, or redistributing the monitor package or the umbrella package that includes it.
+
+In practice, PM2's license does not make applications managed by PM2 become AGPL-licensed. The main impact is on compliance for the PM2 dependency itself:
+
+- If you redistribute a bundle, installer, or machine image that includes PM2, preserve PM2's license notices and be prepared to provide PM2 source as required by its license.
+- If you modify PM2 itself, expect those PM2 changes to carry AGPL obligations, including source availability for users who interact with the modified PM2 over a network.
+- Some organizations restrict AGPL dependencies. If that applies to your project, install only the Launchpad packages you need or review the monitor package before adopting it.
+
+This is a practical summary, not legal advice.

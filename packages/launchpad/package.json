@@ -186,7 +186,7 @@
   "dependencies": {
     "@bluecadet/launchpad-cli": "3.0.0",
     "@bluecadet/launchpad-content": "3.0.0",
-    "@bluecadet/launchpad-controller": "1.0.0",
+    "@bluecadet/launchpad-controller": "3.0.0",
     "@bluecadet/launchpad-monitor": "3.0.0"
   },
   "devDependencies": {

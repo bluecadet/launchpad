@@ -23,6 +23,7 @@ import type { CliDeclaration, PluginConfig } from "@bluecadet/launchpad-utils/pl
 import { errAsync, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import yargs from "yargs/yargs";
+
 import { withDaemonOrController } from "../utils/controller-execution.js";
 import {
 	type PluginCliEntry,
@@ -57,7 +58,12 @@ describe("registerPluginCliCommands", () => {
 		};
 
 		const entry: PluginCliEntry = { pluginConfig, declaration };
-		const y = registerPluginCliCommands(makeYargs(), [entry], "/project", mockControllerConfig);
+		const y = registerPluginCliCommands(
+			makeYargs(),
+			[entry],
+			"/project",
+			mockControllerConfig,
+		) as any;
 
 		const help = y.getInternalMethods().getUsageInstance().getCommands();
 		const commandNames = help.map(([name]: [string]) => name);
@@ -79,7 +85,12 @@ describe("registerPluginCliCommands", () => {
 		};
 
 		const entry: PluginCliEntry = { pluginConfig, declaration };
-		const y = registerPluginCliCommands(makeYargs(), [entry], "/project", mockControllerConfig);
+		const y = registerPluginCliCommands(
+			makeYargs(),
+			[entry],
+			"/project",
+			mockControllerConfig,
+		) as any;
 
 		const help = y.getInternalMethods().getUsageInstance().getCommands();
 		const commandNames = help.map(([name]: [string]) => name);
@@ -283,7 +294,7 @@ describe("registerPluginCliCommands", () => {
 
 		const calls = vi.mocked(mockClient.executeCommand).mock.calls;
 		expect(calls.length).toBe(1);
-		const payload = calls[0][0] as Record<string, unknown>;
+		const payload = calls[0]![0] as Record<string, unknown>;
 		expect(payload.type).toBe("my-plugin.many");
 		expect(Array.isArray(payload.files)).toBe(true);
 	});

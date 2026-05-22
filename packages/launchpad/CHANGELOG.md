@@ -1,5 +1,249 @@
 # @bluecadet/launchpad
 
+## 3.0.0
+
+### Major Changes
+
+- [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2) - Breaking changes to the content fetch pipeline, path helpers, and file path defaults.
+
+  ### Fetch API
+
+  `LaunchpadContent` gains a `loadSources()` method. `fetch()` and `clear()` now accept source IDs (strings) instead of full source objects:
+
+  ```ts
+  // Before
+  content.fetch(sourceObjects);
+
+  // After
+  content.fetch(sourceIds);
+  ```
+
+  ### Staged promotion model
+
+  Fetches no longer write directly to `downloadPath`. Instead, each run stages output under an isolated directory inside `tempPath`, then atomically promotes it into the published `downloadPath` only after every source and transform succeeds:
+
+  1. A fresh staged output tree is prepared under `tempPath/runs/<runId>/downloads/`.
+  2. Files from the currently published `downloadPath` that match `keep` rules are copied into staging.
+  3. Sources and transforms write into the staged tree only.
+  4. On success, the staged tree is promoted into `downloadPath`.
+  5. On failure, the staged tree is discarded and the previously published `downloadPath` is left unchanged.
+
+  This means failed fetches no longer corrupt published content without requiring `backupAndRestore`. Backup is still available as an extra safety net but is no longer the primary rollback mechanism.
+
+  **Breaking for custom transforms**: `paths.getDownloadPath()` now returns the staged run path, not the published path. If you need to read currently published files, use the new `paths.getPublishedDownloadPath()`. Do not write to the published path during a fetch run.
+
+  New path helper methods: `getPublishedDownloadPath()`, `getStagedDownloadPath()`, `getRunPath()`.
+
+  ### Default file paths
+
+  Default `tempPath` changes from `.tmp/` to `.launchpad/tmp/`. Tokenization logic is removed from all path generation — backup, download, and temp paths are no longer namespaced by token.
+
+- [#283](https://github.com/bluecadet/launchpad/pull/283) [`73e0d1e`](https://github.com/bluecadet/launchpad/commit/73e0d1e52d623c82fb86488bce35b31e54f8fec8) - Remove the `scaffold` package and `launchpad scaffold` CLI command. Windows kiosk and exhibit machine configuration is now handled by [Preflight](https://github.com/bluecadet/preflight), a dedicated tool by Bluecadet.
+
+  **Migration**: If you relied on `launchpad scaffold` or `@bluecadet/launchpad/scaffold`, switch to [Preflight](https://github.com/bluecadet/preflight).
+
+- [#293](https://github.com/bluecadet/launchpad/pull/293) [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c) - Plugins can now declare CLI commands in their manifest. The hardcoded `content` and `monitor` CLI commands are removed and replaced with manifest declarations inside their respective plugins.
+
+  ### Plugin-declared CLI commands
+
+  Third-party plugins can expose CLI commands by adding a `cli` field to their `PluginManifest`. The CLI loads plugin manifests at startup and registers declared commands as yargs commands — no CLI package changes needed.
+
+  ```ts
+  definePlugin({
+    name: "my-plugin",
+    manifest: {
+      commands: [{ id: "my-plugin.sync" }],
+      cli: [
+        {
+          name: "sync",
+          description: "Sync data",
+          commands: [{ type: "my-plugin.sync" }],
+          flags: {
+            force: {
+              type: "boolean",
+              alias: "f",
+              description: "Force re-sync",
+            },
+          },
+        },
+      ],
+    },
+    // ...
+  });
+  ```
+
+  ```bash
+  launchpad sync           # dispatches my-plugin.sync
+  launchpad sync --force   # dispatches { type: "my-plugin.sync", force: true }
+  ```
+
+  Leaf commands support `flags` (typed options with `boolean`, `string`, or `number` types, including array flags) and `positionals` (ordered arguments, including variadic). Group commands nest subcommands under a parent name:
+
+  ```ts
+  cli: [
+    {
+      name: "monitor",
+      subcommands: [
+        { name: "start", mode: "persistent", commands: [{ type: "monitor.connect" }, { type: "monitor.start" }] },
+        { name: "stop",  mode: "task",       commands: [{ type: "monitor.stop" }] },
+      ],
+    },
+  ],
+  ```
+
+  The CLI exits with a descriptive error at startup if two plugins declare the same top-level command name. If the config file is missing or invalid, built-in commands (`start`, `stop`, `status`) remain available — plugin commands are silently absent.
+
+  ### Breaking: `launchpad content` and `launchpad monitor` command changes
+
+  ```bash
+  # Before
+  launchpad content         # fetch all content
+  launchpad monitor         # start monitor (persistent)
+
+  # After
+  launchpad content fetch   # fetch all content
+  launchpad monitor start   # start monitor (persistent)
+  launchpad monitor stop    # stop monitor
+  launchpad monitor restart # restart monitored apps
+  ```
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Replaces the hook-based plugin system with a unified plugin model across all packages.
+
+  ### Config shape
+
+  The top-level `content` and `monitor` keys are replaced by a `plugins` array:
+
+  ```ts
+  // Before
+  { content: { sources: [...] }, monitor: { apps: [...] } }
+
+  // After
+  import { content, monitor } from '@bluecadet/launchpad';
+  { plugins: [content({ sources: [...] }), monitor({ apps: [...] })] }
+  ```
+
+  ### Renamed factory functions
+
+  - `createLaunchpadContent` → `content` (`@bluecadet/launchpad-content`)
+  - `createLaunchpadMonitor` → `monitor` (`@bluecadet/launchpad-monitor`)
+
+  ### Content transforms
+
+  The `plugins` config field is renamed to `transforms`, and `ContentPlugin` / `ContentPluginDriver` are replaced by `ContentTransform`:
+
+  ```ts
+  // Before
+  {
+    plugins: [sanityToHtml(), mediaDownloader()];
+  }
+
+  // After
+  {
+    transforms: [sanityToHtml(), mediaDownloader()];
+  }
+  ```
+
+  Events renamed: `content:plugin:start/done/error` → `content:transform:start/done/error`; payload field `pluginName` → `transformName`.
+
+  ### Monitor plugins removed
+
+  The `plugins` config field and `MonitorPlugin` / `MonitorPluginDriver` types are removed. Previously, monitor plugins received lifecycle callbacks (`beforeConnect`, `afterConnect`, `beforeAppStart`, `afterAppStart`, `onAppLog`, etc.) invoked by the driver. All of those lifecycle moments — and more — are now emitted as typed events on the shared event bus:
+
+  | Old hook                               | New event                                              |
+  | -------------------------------------- | ------------------------------------------------------ |
+  | `beforeConnect` / `afterConnect`       | `monitor:connect:start` / `monitor:connect:done`       |
+  | `beforeDisconnect` / `afterDisconnect` | `monitor:disconnect:start` / `monitor:disconnect:done` |
+  | `beforeAppStart` / `afterAppStart`     | `monitor:app:start` / `monitor:app:started`            |
+  | `beforeAppStop` / `afterAppStop`       | `monitor:app:stop` / `monitor:app:stopped`             |
+  | `onAppError`                           | `monitor:app:error`                                    |
+  | `onAppLog` / `onAppErrorLog`           | `monitor:app:log` / `monitor:app:errorLog`             |
+  | `beforeShutdown`                       | `monitor:beforeShutdown`                               |
+
+  Additional events with no hook equivalent: `monitor:app:online`, `monitor:app:exit`, `monitor:app:crash`, `monitor:app:restart` / `monitor:app:restarted`, and Windows-specific `monitor:window:foreground` / `monitor:window:minimize` / `monitor:window:hide` / `monitor:window:error`.
+
+  ```ts
+  // Before
+  { plugins: [{ beforeAppStart: ({ appName }) => { ... }, onAppLog: ({ appName, data }) => { ... } }] }
+
+  // After
+  eventBus.on('monitor:app:start', ({ appName }) => { ... })
+  eventBus.on('monitor:app:log', ({ appName, data }) => { ... })
+  ```
+
+  ### Plugin author renames
+
+  `defineSubsystem` → `definePlugin`, `SubsystemConfig` → `PluginConfig`, `SubsystemContext` → `PluginContext`, `InstantiatedSubsystem` → `InstantiatedPlugin`. A new optional `startupCommands` field is added to `PluginConfig`.
+
+  `PluginDriver` and `HookContextProvider` are removed from `@bluecadet/launchpad-utils`. The new `definePlugin` model replaces the hook-based driver pattern entirely.
+
+  ### Updated import paths
+
+  Most re-exports have been removed from index files in favor of explicit sub-path exports. Nearly all import paths across the ecosystem have changed — see each package's `package.json#exports` for the updated paths.
+
+  `@bluecadet/launchpad` (the meta package) now exposes sub-path exports that mirror the individual packages (e.g. `@bluecadet/launchpad/content/transforms/media-downloader`), replacing the previous flat re-export structure.
+
+  ### New `@bluecadet/launchpad-controller` package
+
+  Provides a centralized controller used internally by the CLI for command execution. End-user APIs are unchanged.
+
+  ### Logging
+
+  File logging config and logic move to the controller package; terminal logging moves to the CLI. Logs are now routed through the event bus, making them visible across processes.
+
+  ### Subsystems are now functions
+
+  Plugins are functional instead of class-based, allowing for simpler logic and easier testing. No changes to the CLI — only to the JS API.
+
+  ### Declaration merging
+
+  Declaration merging moves from the controller package to the utils package, improving type safety when the controller is not a direct dependency.
+
+- [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2) - Introduces `StatusSnapshot` and `ctx.updateState()` for plugin status and state management.
+
+  ### Status: `summarize()`
+
+  Plugins expose an optional `summarize?(state) => Section | null` property on the value returned by `definePlugin()`. It is a pure function over `LaunchpadState` — no chalk, no side effects.
+
+  ```ts
+  definePlugin({
+    setup(ctx) {
+      /* ... */
+    },
+    summarize(state): Section | null {
+      const s = state.plugins.myPlugin;
+      if (!s) return null;
+      return {
+        name: "myPlugin",
+        order: 20,
+        title: "My Plugin",
+        rows: [{ type: "kv", label: "Phase", value: s.phase }],
+      };
+    },
+  });
+  ```
+
+  The controller composes a `StatusSnapshot` from each plugin's `summarize` and exposes it over IPC via `client.queryStatusSnapshot()` and `client.onStatusSnapshotChange()`. The CLI's `formatSnapshot()` owns all chalk formatting.
+
+  `Tone`, `Row`, `Section`, and `StatusSnapshot` are exported from `@bluecadet/launchpad-utils/types`.
+
+  ### State: `ctx.updateState()`
+
+  Plugins call `ctx.updateState(patch)` to establish and update their state slice. The controller lazily creates a scoped state store per plugin on first call, handling patch generation, versioning, and broadcasting across processes via Immer.
+
+  ### CLI: `--watch` flag on `status`
+
+  `launchpad status --watch` streams live state updates from a running controller.
+
+### Patch Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d) - Bump dependencies with vulnerabilities
+
+- Updated dependencies [[`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`73e0d1e`](https://github.com/bluecadet/launchpad/commit/73e0d1e52d623c82fb86488bce35b31e54f8fec8), [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`1460cfd`](https://github.com/bluecadet/launchpad/commit/1460cfd8b762c851935ffe58679c68cfd29dd59f), [`41f432d`](https://github.com/bluecadet/launchpad/commit/41f432d7c51bd1dce64868e002af2d1bd7bb4733), [`b0925c8`](https://github.com/bluecadet/launchpad/commit/b0925c8552e39d23ab9eef76d91ea8cbc2782f92), [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d), [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c), [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2), [`9061c4d`](https://github.com/bluecadet/launchpad/commit/9061c4d5b967b6973e364428998b4478f9f663bd), [`f18098c`](https://github.com/bluecadet/launchpad/commit/f18098c1454303dc42daeb6e4fbb1a277d32eade), [`22c2428`](https://github.com/bluecadet/launchpad/commit/22c2428abe7a9f21ee66fcdcc108dba0dda5ce09), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789)]:
+  - @bluecadet/launchpad-content@3.0.0
+  - @bluecadet/launchpad-cli@3.0.0
+  - @bluecadet/launchpad-monitor@3.0.0
+  - @bluecadet/launchpad-controller@1.0.0
+
 ## 2.0.14
 
 ### Patch Changes

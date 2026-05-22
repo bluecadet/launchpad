@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-monitor",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "",
   "type": "module",
   "files": [
@@ -53,7 +53,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/monitor",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~2.1.0",
+    "@bluecadet/launchpad-utils": "~3.0.0",
     "chalk": "^5.6.2",
     "cross-spawn": "^7.0.6",
     "neverthrow": "^8.2.0",

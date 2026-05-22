@@ -1,5 +1,69 @@
 # @bluecadet/launchpad-content
 
+## 3.0.0
+
+### Major Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Breaking changes to the content fetch pipeline, path helpers, and file path defaults. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2) - Replaces the hook-based plugin system with a unified plugin model across all packages. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Introduces `StatusSnapshot` and `ctx.updateState()` for plugin status and state management. See the `@bluecadet/launchpad` changelog for migration details.
+
+### Minor Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Emit `content:source:error` event when an individual content source fails during a fetch.
+
+  Previously, source errors were only surfaced through the fetch result. Now a `content:source:error` event is emitted on the event bus with `{ sourceId, error }`, allowing subscribers to react to partial failures without waiting for the entire fetch to complete.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Introduce `EventBus<TEvents>` and per-package event types.
+
+  `EventBus<TEvents extends Record<string, unknown>>` is available from `@bluecadet/launchpad-utils`. The default `TEvents` is `Record<string, unknown>`, so untyped usage works out of the box. Plugins and custom integrations can create typed event buses scoped to their own event contracts.
+
+  Each plugin package exports its event types directly:
+
+  - `ContentEvents` from `@bluecadet/launchpad-content`
+  - `MonitorEvents` from `@bluecadet/launchpad-monitor`
+  - `CoreEvents` from `@bluecadet/launchpad-utils`
+
+- [#293](https://github.com/bluecadet/launchpad/pull/293) [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c) - Plugins can now declare CLI commands via `manifest.cli`. The hardcoded `content` and `monitor` CLI commands are removed — both plugins now declare their commands via their manifests. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Add Zod runtime validation for plugin commands.
+
+  Content and monitor plugins now validate incoming commands against Zod schemas before processing. Invalid commands are rejected with a typed error at the plugin boundary rather than failing deep in business logic.
+
+  `ContentCommandSchema` and `MonitorCommandSchema` are exported from their respective packages for use in custom integrations.
+
+### Patch Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`1460cfd`](https://github.com/bluecadet/launchpad/commit/1460cfd8b762c851935ffe58679c68cfd29dd59f) - Fix orphaned promises in data store
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d) - Bump dependencies with vulnerabilities
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Adds persistent controller mode with a JSON-RPC 2.0 IPC interface.
+
+  ### `launchpad start`
+
+  A new `start` command launches the controller in persistent mode, opening an IPC socket so subsequent CLI commands connect to the running instance:
+
+  ```bash
+  launchpad start         # foreground
+  launchpad start -d      # background (detached)
+  ```
+
+  ### IPC
+
+  The CLI communicates with a running controller over a JSON-RPC 2.0 socket. The `IPCClient` API (`queryState()`, `executeCommand()`, `shutdown()`, event subscriptions) is the programmatic interface for this. A CLI and daemon must be on the same version.
+
+  ### `LaunchpadConfig` moved to utils
+
+  `LaunchpadConfig` moves from `@bluecadet/launchpad-cli` to `@bluecadet/launchpad-utils`, enabling declaration merging without a direct dependency on the CLI package.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`22c2428`](https://github.com/bluecadet/launchpad/commit/22c2428abe7a9f21ee66fcdcc108dba0dda5ce09) - Clear content data store when starting new fetch. Prevents stale content when refetching with persistent controller instance.
+
+- Updated dependencies [[`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c), [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a)]:
+  - @bluecadet/launchpad-utils@3.0.0
+
 ## 2.3.0
 
 ### Minor Changes

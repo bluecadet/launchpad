@@ -65,18 +65,6 @@
     "yargs": "^18.0.0",
     "zod": "^4.3.6"
   },
-  "peerDependencies": {
-    "@bluecadet/launchpad-content": "~2.3.0",
-    "@bluecadet/launchpad-monitor": "~2.1.0"
-  },
-  "peerDependenciesMeta": {
-    "@bluecadet/launchpad-content": {
-      "optional": true
-    },
-    "@bluecadet/launchpad-monitor": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",

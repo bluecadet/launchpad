@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GitCommitVertical, Github, Hexagon, Logs } from "@lucide/vue";
+import { GitCommitVertical, GitFork, Hexagon, Logs } from "@lucide/vue";
 
 import { data as packageVersions } from "./package-versions.data.js";
 
@@ -18,7 +18,7 @@ const props = defineProps<{
     <li class="version"><GitCommitVertical size="18"/> v{{ packageVersions[package] }}</li>
     <li class="link">
       <a :href="`https://github.com/bluecadet/launchpad/tree/develop/packages/${package}`" target="_blank" rel="noopener noreferrer">
-        <Github size="18"/> github
+        <GitFork size="18"/> github
       </a>
     </li>
     <li class="link">

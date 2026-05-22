@@ -105,9 +105,45 @@ export interface CommandDescriptor<TCommand extends BaseCommand = BaseCommand> {
 	readonly parser?: CommandParser<TCommand>;
 }
 
+export interface CliFlag {
+	type: "boolean" | "string" | "number";
+	alias?: string | string[];
+	description?: string;
+	default?: boolean | string | number | (boolean | string | number)[];
+	required?: boolean;
+	array?: boolean;
+}
+
+export interface CliPositional {
+	name: string;
+	type: "string" | "number";
+	description?: string;
+	required?: boolean;
+	variadic?: boolean;
+}
+
+export interface CliLeafCommand {
+	name: string;
+	description?: string;
+	mode?: "task" | "persistent";
+	commands: BaseCommand[];
+	flags?: Record<string, CliFlag>;
+	positionals?: CliPositional[];
+}
+
+export interface CliGroupCommand {
+	name: string;
+	description?: string;
+	subcommands: Array<CliLeafCommand | CliGroupCommand>;
+}
+
+export type CliDeclaration = CliLeafCommand | CliGroupCommand;
+
 export interface PluginManifest<TCommand extends BaseCommand = BaseCommand> {
 	/** Explicit controller-owned command registrations for this plugin. */
 	readonly commands?: readonly CommandDescriptor<TCommand>[];
+	/** CLI commands this plugin exposes via the launchpad CLI. */
+	readonly cli?: readonly CliDeclaration[];
 }
 
 /**

@@ -256,6 +256,20 @@ export function content(config: ContentConfig) {
 				{ id: "content.fetch", parser: contentCommandSchema },
 				{ id: "content.clear", parser: contentCommandSchema },
 			],
+			cli: [
+				{
+					name: "content",
+					description: "Content commands",
+					subcommands: [
+						{
+							name: "fetch",
+							description: "Fetch all content sources",
+							commands: [{ type: "content.fetch" }],
+							mode: "task",
+						},
+					],
+				},
+			],
 		},
 		summarize(state: LaunchpadState): Section | null {
 			const contentState = state.plugins.content;

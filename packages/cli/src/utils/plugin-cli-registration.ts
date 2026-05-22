@@ -9,7 +9,10 @@ import type {
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { okAsync } from "neverthrow";
 import type { Argv } from "yargs";
+import { cliLogger } from "./cli-logger.js";
 import { withDaemonOrController } from "./controller-execution.js";
+
+const RESERVED_COMMAND_NAMES = new Set(["start", "stop", "status", "help", "version"]);
 
 export type PluginCliEntry = {
 	pluginConfig: PluginConfig;
@@ -106,7 +109,7 @@ function registerLeaf(
 			const argValues = collectArgValues(args as Record<string, unknown>, leaf);
 
 			const buildCommands = (baseCommands: BaseCommand[]): BaseCommand[] =>
-				baseCommands.map((cmd) => ({ ...cmd, ...argValues }));
+				baseCommands.map((cmd) => ({ ...argValues, ...cmd }));
 
 			const result = await withDaemonOrController(dir, controllerConfig, {
 				mode: leaf.mode ?? "task",
@@ -127,7 +130,7 @@ function registerLeaf(
 			});
 
 			if (result.isErr()) {
-				console.error(result.error.message);
+				cliLogger.error(result.error);
 				process.exit(1);
 			}
 		},
@@ -172,6 +175,11 @@ function detectConflicts(entries: PluginCliEntry[]): void {
 	const seen = new Map<string, string>();
 	for (const { pluginConfig, declaration } of entries) {
 		const name = declaration.name;
+		if (RESERVED_COMMAND_NAMES.has(name)) {
+			throw new Error(
+				`CLI command conflict: "${name}" is a reserved command name and cannot be declared by plugin "${pluginConfig.name}"`,
+			);
+		}
 		if (seen.has(name)) {
 			throw new Error(
 				`CLI command conflict: "${name}" is declared by both "${seen.get(name)}" and "${pluginConfig.name}"`,

@@ -81,11 +81,16 @@ export type GlobalLaunchpadArgs = {
 			},
 		);
 
-	const { loadConfigAndEnv } = await import("./utils/command-utils.js");
+	const { loadConfigAndEnv, handleFatalError } = await import("./utils/command-utils.js");
 	const { registerPluginCliCommands } = await import("./utils/plugin-cli-registration.js");
 
-	const rawArgs = yargs(argv).help(false).version(false);
-	const parsedGlobal = await rawArgs.parseAsync();
+	const parsedGlobal = await yargs(argv)
+		.option("config", { alias: "c", type: "string" })
+		.option("env", { alias: "e", type: "array" })
+		.option("env-cascade", { alias: "E", type: "string" })
+		.help(false)
+		.version(false)
+		.parseAsync();
 
 	const configResult = await loadConfigAndEnv(parsedGlobal as GlobalLaunchpadArgs);
 
@@ -101,9 +106,7 @@ export type GlobalLaunchpadArgs = {
 			try {
 				yargsInstance = registerPluginCliCommands(yargsInstance, entries, dir, config.controller);
 			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
-				console.error(`Error registering plugin CLI commands: ${message}`);
-				process.exit(1);
+				handleFatalError(err instanceof Error ? err : new Error(String(err)));
 			}
 		}
 	}

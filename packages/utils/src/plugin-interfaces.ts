@@ -109,7 +109,7 @@ export interface CliFlag {
 	type: "boolean" | "string" | "number";
 	alias?: string | string[];
 	description?: string;
-	default?: boolean | string | number;
+	default?: boolean | string | number | (boolean | string | number)[];
 	required?: boolean;
 	array?: boolean;
 }

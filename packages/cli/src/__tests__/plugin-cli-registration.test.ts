@@ -318,4 +318,52 @@ describe("registerPluginCliCommands", () => {
 		expect(exitSpy).toHaveBeenCalledWith(1);
 		exitSpy.mockRestore();
 	});
+
+	it.each([
+		"start",
+		"stop",
+		"status",
+		"help",
+		"version",
+	])('throws when a plugin declares reserved command name "%s"', (reservedName) => {
+		const pluginConfig = makePlugin("my-plugin");
+		const declaration: CliDeclaration = {
+			name: reservedName,
+			commands: [{ type: "my-plugin.action" }],
+		};
+
+		expect(() =>
+			registerPluginCliCommands(
+				makeYargs(),
+				[{ pluginConfig, declaration }],
+				"/project",
+				mockControllerConfig,
+			),
+		).toThrow(new RegExp(`"${reservedName}".*reserved|reserved.*"${reservedName}"`));
+	});
+
+	it("base command type field is not overwritten by a flag named 'type'", async () => {
+		const pluginConfig = makePlugin("my-plugin");
+		const declaration: CliDeclaration = {
+			name: "typed-cmd",
+			commands: [{ type: "my-plugin.action" }],
+			flags: {
+				type: { type: "string", description: "a flag that would shadow the command type" },
+			},
+		};
+
+		const mockClient = createMockIPCClient();
+		vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+			opts.ifDaemon(mockClient as unknown as IPCClient, 999),
+		);
+
+		const entry: PluginCliEntry = { pluginConfig, declaration };
+		const y = registerPluginCliCommands(makeYargs(), [entry], "/project", mockControllerConfig);
+
+		await y.parseAsync(["typed-cmd", "--type", "overridden"]);
+
+		expect(vi.mocked(mockClient.executeCommand)).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "my-plugin.action" }),
+		);
+	});
 });

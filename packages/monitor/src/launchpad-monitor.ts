@@ -263,6 +263,32 @@ export function monitor(config: MonitorConfig) {
 				{ id: "monitor.restart", parser: monitorCommandSchema },
 				{ id: "monitor.shutdown", parser: monitorCommandSchema },
 			],
+			cli: [
+				{
+					name: "monitor",
+					description: "Monitor commands",
+					subcommands: [
+						{
+							name: "start",
+							description: "Start the monitor",
+							mode: "persistent",
+							commands: [{ type: "monitor.connect" }, { type: "monitor.start" }],
+						},
+						{
+							name: "stop",
+							description: "Stop the monitor",
+							mode: "task",
+							commands: [{ type: "monitor.stop" }],
+						},
+						{
+							name: "restart",
+							description: "Restart monitored apps",
+							mode: "task",
+							commands: [{ type: "monitor.restart" }],
+						},
+					],
+				},
+			],
 		},
 		summarize(state: LaunchpadState): Section | null {
 			const monitorState = state.plugins.monitor;

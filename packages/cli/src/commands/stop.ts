@@ -86,7 +86,7 @@ export function stop(argv: GlobalLaunchpadArgs) {
 }
 
 // wait helper wrapped in ResultAsync
-export function wait(ms: number): ResultAsync<void, never> {
+function wait(ms: number): ResultAsync<void, never> {
 	return ResultAsync.fromSafePromise(new Promise((resolve) => setTimeout(resolve, ms)));
 }
 

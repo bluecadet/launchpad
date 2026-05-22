@@ -7,7 +7,7 @@
  * Base error class for all controller-related errors.
  * Extends Error to support the `cause` parameter for error chaining.
  */
-export class ControllerError extends Error {
+class ControllerError extends Error {
 	override readonly cause?: Error;
 
 	constructor(message: string, options?: { cause?: Error }) {
@@ -20,7 +20,7 @@ export class ControllerError extends Error {
 /**
  * Base class for IPC-related errors.
  */
-export class IPCError extends ControllerError {
+class IPCError extends ControllerError {
 	constructor(message: string, options?: { cause?: Error }) {
 		super(message, options);
 		this.name = "IPCError";
@@ -83,19 +83,6 @@ export class StateAccessError extends ControllerError {
 	constructor(message = "Failed to access state", options?: { cause?: Error }) {
 		super(message, options);
 		this.name = "StateAccessError";
-	}
-}
-
-/**
- * Thrown when process operations fail (PM2 interactions).
- */
-export class ProcessError extends ControllerError {
-	readonly pid?: number;
-
-	constructor(message = "Process error", options?: { cause?: Error; pid?: number }) {
-		super(message, options);
-		this.name = "ProcessError";
-		this.pid = options?.pid;
 	}
 }
 

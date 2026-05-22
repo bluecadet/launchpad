@@ -49,7 +49,6 @@ export const logConfigSchema = z
 	})
 	.prefault({});
 
-export type LogConfig = z.input<typeof logConfigSchema>;
 export type ResolvedLogConfig = z.output<typeof logConfigSchema>;
 
 class EventBusTransport extends Transport {
@@ -143,7 +142,7 @@ function proxyChildMethod(logger: winston.Logger): Logger {
 	});
 }
 
-export function bindConsoleToLogger(logger: winston.Logger) {
+function bindConsoleToLogger(logger: winston.Logger) {
 	const consoleLogger = logger.child({ module: "console" });
 	console.log = consoleLogger.verbose.bind(consoleLogger);
 	console.info = consoleLogger.verbose.bind(consoleLogger);

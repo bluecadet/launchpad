@@ -190,8 +190,7 @@
     "@bluecadet/launchpad-monitor": "2.1.0"
   },
   "devDependencies": {
-    "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "patch-package": "^8.0.1"
+    "@bluecadet/launchpad-tsconfig": "0.1.0"
   },
   "keywords": [
     "bluecadet",

@@ -53,15 +53,17 @@
     "chalk": "^5.6.2",
     "devalue": "^5.6.4",
     "immer": "^11.1.4",
-    "json-rpc-2.0": "^1.7.1",
     "neverthrow": "^8.2.0",
+    "triple-beam": "^1.4.1",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
+    "winston-transport": "^4.9.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "memfs": "^4.57.1",
     "vitest": "^4.1.2"
   }
 }

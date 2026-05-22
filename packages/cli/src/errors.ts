@@ -19,32 +19,12 @@ class LaunchpadCLIError extends Error {
 }
 
 /**
- * Thrown when module import fails.
- */
-export class ImportError extends LaunchpadCLIError {
-	constructor(message: string, options?: { cause?: Error }) {
-		super(message, options);
-		this.name = "ImportError";
-	}
-}
-
-/**
  * Thrown when configuration file loading or validation fails.
  */
 export class ConfigError extends LaunchpadCLIError {
 	constructor(message: string, options?: { cause?: Error }) {
 		super(message, options);
 		this.name = "ConfigError";
-	}
-}
-
-/**
- * Thrown when monitor plugin encounters an error.
- */
-export class MonitorError extends LaunchpadCLIError {
-	constructor(message: string, options?: { cause?: Error }) {
-		super(message, options);
-		this.name = "MonitorError";
 	}
 }
 

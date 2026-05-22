@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "tags": [
+    "-lintignore"
+  ],
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": ["@emnapi/core", "@emnapi/runtime"]
+    },
+    "docs": {
+      "entry": [
+        "src/components/*.vue",
+        "src/components/*.data.ts"
+      ]
+    },
+    "packages/content": {
+      "ignoreDependencies": ["@portabletext/markdown"]
+    },
+    "packages/cli": {
+      "ignoreDependencies": ["@bluecadet/launchpad-monitor"]
+    }
+  }
+}

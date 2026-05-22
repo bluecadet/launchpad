@@ -23,6 +23,31 @@ env:
 
 jobs:
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Lint dependency versions
+        # ignore internal launchpad dependency mismatches. These versions
+        # are handled by changesets.
+        run: npx sherif -i @bluecadet/launchpad*
+
+      - name: Knip
+        run: npm run knip
+
   ci:
     name: CI
     strategy:
@@ -34,6 +59,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
@@ -46,14 +72,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        
-      - name: lint
-        run: npm run lint
-
-      - name: lint dependency versions
-        # ignore internal launchpad dependency mismatches. These versions
-        # are handled by changesets. 
-        run: npx sherif -i @bluecadet/launchpad*
 
       - name: Validate types
         run: npm run build

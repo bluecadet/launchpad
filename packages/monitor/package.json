@@ -71,6 +71,7 @@
     "@types/semver": "^7.7.1",
     "@types/tail": "2.2",
     "axon": "^2.0.3",
+    "immer": "^11.1.4",
     "vitest": "^4.1.2"
   }
 }

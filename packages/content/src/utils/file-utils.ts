@@ -187,7 +187,7 @@ export function copy(
 /**
  * Copies a directory from `src` to `dest`.
  */
-export function copyDir(
+function copyDir(
 	src: string,
 	dest: string,
 	options = { preserveTimestamps: true },
@@ -223,7 +223,7 @@ export function copyFile(src: string, dest: string): ResultAsync<void, FileUtils
  * Atomically replace a file or directory from `src` to `dest` when possible.
  * Falls back to copy + remove when rename cannot be used across devices.
  */
-export function move(
+function move(
 	src: string,
 	dest: string,
 	options = { preserveTimestamps: true },

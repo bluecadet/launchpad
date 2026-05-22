@@ -3,14 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import * as devalue from "devalue";
 
-export type IPCRequest = {
+type IPCRequest = {
 	jsonrpc: "2.0";
 	id: number;
 	method: string;
 	params?: unknown;
 };
 
-export type IPCResponse =
+type IPCResponse =
 	| { jsonrpc: "2.0"; id: number; result: unknown }
 	| { jsonrpc: "2.0"; id: number; error: { code: number; message: string; data?: Error } };
 

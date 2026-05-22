@@ -1,5 +1,67 @@
 # @bluecadet/launchpad-monitor
 
+## 3.0.0
+
+### Major Changes
+
+- [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2) - Replaces the hook-based plugin system with a unified plugin model across all packages. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Introduces `StatusSnapshot` and `ctx.updateState()` for plugin status and state management. See the `@bluecadet/launchpad` changelog for migration details.
+
+### Minor Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Introduce `EventBus<TEvents>` and per-package event types.
+
+  `EventBus<TEvents extends Record<string, unknown>>` is available from `@bluecadet/launchpad-utils`. The default `TEvents` is `Record<string, unknown>`, so untyped usage works out of the box. Plugins and custom integrations can create typed event buses scoped to their own event contracts.
+
+  Each plugin package exports its event types directly:
+
+  - `ContentEvents` from `@bluecadet/launchpad-content`
+  - `MonitorEvents` from `@bluecadet/launchpad-monitor`
+  - `CoreEvents` from `@bluecadet/launchpad-utils`
+
+- [#293](https://github.com/bluecadet/launchpad/pull/293) [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c) - Plugins can now declare CLI commands via `manifest.cli`. The hardcoded `content` and `monitor` CLI commands are removed — both plugins now declare their commands via their manifests. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Add Zod runtime validation for plugin commands.
+
+  Content and monitor plugins now validate incoming commands against Zod schemas before processing. Invalid commands are rejected with a typed error at the plugin boundary rather than failing deep in business logic.
+
+  `ContentCommandSchema` and `MonitorCommandSchema` are exported from their respective packages for use in custom integrations.
+
+### Patch Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`41f432d`](https://github.com/bluecadet/launchpad/commit/41f432d7c51bd1dce64868e002af2d1bd7bb4733) - Fix monitor shutdown not working properly.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d) - Bump dependencies with vulnerabilities
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789) - Remove `process.exit()` calls from library code.
+
+  Library code should never terminate the host process. The monitor and IPC transport now emit a `system:shutdown` event on the event bus instead of calling `process.exit(0)` on graceful shutdown. The CLI handles this event and exits cleanly. Programmatic users of the monitor or controller who relied on the implicit exit should listen for `system:shutdown` instead.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Adds persistent controller mode with a JSON-RPC 2.0 IPC interface.
+
+  ### `launchpad start`
+
+  A new `start` command launches the controller in persistent mode, opening an IPC socket so subsequent CLI commands connect to the running instance:
+
+  ```bash
+  launchpad start         # foreground
+  launchpad start -d      # background (detached)
+  ```
+
+  ### IPC
+
+  The CLI communicates with a running controller over a JSON-RPC 2.0 socket. The `IPCClient` API (`queryState()`, `executeCommand()`, `shutdown()`, event subscriptions) is the programmatic interface for this. A CLI and daemon must be on the same version.
+
+  ### `LaunchpadConfig` moved to utils
+
+  `LaunchpadConfig` moves from `@bluecadet/launchpad-cli` to `@bluecadet/launchpad-utils`, enabling declaration merging without a direct dependency on the CLI package.
+
+- [#273](https://github.com/bluecadet/launchpad/pull/273) [`9061c4d`](https://github.com/bluecadet/launchpad/commit/9061c4d5b967b6973e364428998b4478f9f663bd) - Fix pm2 'ENOENT' bug
+
+- Updated dependencies [[`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c), [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a)]:
+  - @bluecadet/launchpad-utils@3.0.0
+
 ## 2.1.0
 
 ### Minor Changes

@@ -1,5 +1,57 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.0
+
+### Major Changes
+
+- [#283](https://github.com/bluecadet/launchpad/pull/283) [`73e0d1e`](https://github.com/bluecadet/launchpad/commit/73e0d1e52d623c82fb86488bce35b31e54f8fec8) - Remove the `scaffold` package and `launchpad scaffold` CLI command. Windows kiosk and exhibit machine configuration is now handled by [Preflight](https://github.com/bluecadet/preflight), a dedicated tool by Bluecadet.
+
+  **Migration**: If you relied on `launchpad scaffold` or `@bluecadet/launchpad/scaffold`, switch to [Preflight](https://github.com/bluecadet/preflight).
+
+- [#293](https://github.com/bluecadet/launchpad/pull/293) [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c) - Plugins can now declare CLI commands via `manifest.cli`. The hardcoded `content` and `monitor` CLI commands are removed — both plugins now declare their commands via their manifests. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2) - Replaces the hook-based plugin system with a unified plugin model across all packages. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`f18098c`](https://github.com/bluecadet/launchpad/commit/f18098c1454303dc42daeb6e4fbb1a277d32eade) - Add log level flag to CLI to control verbosity of terminal output.
+
+  ```bash
+  npx launchpad <command> -v # or --verbose, includes verbose logs
+  npx launchpad <command> -vv # for more verbosity, includes debug logs
+  ```
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Introduces `StatusSnapshot` and `ctx.updateState()` for plugin status and state management. See the `@bluecadet/launchpad` changelog for migration details.
+
+### Minor Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Breaking changes to the content fetch pipeline, path helpers, and file path defaults. See the `@bluecadet/launchpad` changelog for migration details.
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a) - Adds persistent controller mode with a JSON-RPC 2.0 IPC interface.
+
+  ### `launchpad start`
+
+  A new `start` command launches the controller in persistent mode, opening an IPC socket so subsequent CLI commands connect to the running instance:
+
+  ```bash
+  launchpad start         # foreground
+  launchpad start -d      # background (detached)
+  ```
+
+  ### IPC
+
+  The CLI communicates with a running controller over a JSON-RPC 2.0 socket. The `IPCClient` API (`queryState()`, `executeCommand()`, `shutdown()`, event subscriptions) is the programmatic interface for this. A CLI and daemon must be on the same version.
+
+  ### `LaunchpadConfig` moved to utils
+
+  `LaunchpadConfig` moves from `@bluecadet/launchpad-cli` to `@bluecadet/launchpad-utils`, enabling declaration merging without a direct dependency on the CLI package.
+
+### Patch Changes
+
+- [#280](https://github.com/bluecadet/launchpad/pull/280) [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d) - Bump dependencies with vulnerabilities
+
+- Updated dependencies [[`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`b0925c8`](https://github.com/bluecadet/launchpad/commit/b0925c8552e39d23ab9eef76d91ea8cbc2782f92), [`b29a443`](https://github.com/bluecadet/launchpad/commit/b29a443decb554c89b708872ab056e831175040d), [`8d6cf1e`](https://github.com/bluecadet/launchpad/commit/8d6cf1e0b9ceccdf1cbdf586d6ed181301972789), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a), [`ce098d3`](https://github.com/bluecadet/launchpad/commit/ce098d3508a7278ff201d3e50bb2e90fe49a1c3c), [`bde09a4`](https://github.com/bluecadet/launchpad/commit/bde09a41af069d7195fcebf467624a7cedca1de2), [`7debdda`](https://github.com/bluecadet/launchpad/commit/7debddaac84c3f3276d0dfdcb65c4b2ede44873a)]:
+  - @bluecadet/launchpad-utils@3.0.0
+  - @bluecadet/launchpad-controller@1.0.0
+
 ## 2.2.1
 
 ### Patch Changes

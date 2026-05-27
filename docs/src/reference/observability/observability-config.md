@@ -26,15 +26,15 @@ observability({
 ## `include`
 
 **Type:** `string[]`  
-**Default:** `["log:*", "command:*", "workflow:*", "monitor:*", "system:*"]`
+**Default:** `["log:*"]`
 
 Event name patterns to forward. Supports `*` wildcards. An empty array forwards all events.
 
 ```typescript
-// Only forward error logs and monitor crash events
+// Also forward lifecycle events alongside logs
 observability({
   transports: [...],
-  include: ['log:error', 'log:warn', 'monitor:app:crash'],
+  include: ['log:*', 'command:*', 'workflow:*', 'monitor:*', 'system:*'],
 });
 ```
 

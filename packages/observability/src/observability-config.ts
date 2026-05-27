@@ -3,11 +3,11 @@ import { z } from "zod";
 export const observabilityCoreConfigSchema = z.object({
 	/**
 	 * Event name patterns to include. Supports * wildcards.
-	 * Defaults to capturing logs, commands, workflows, monitor, and system events.
+	 * Defaults to log events only. Add patterns like "command:*" or "monitor:*" to include lifecycle events.
 	 */
 	include: z
 		.array(z.string())
-		.default(["log:*", "command:*", "workflow:*", "monitor:*", "system:*"])
+		.default(["log:*"])
 		.describe("Event name patterns to include. Supports * wildcards."),
 	/**
 	 * Event name patterns to exclude. Takes precedence over include patterns.

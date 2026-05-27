@@ -80,6 +80,30 @@ describe("ProcessManager", () => {
 			expect(pm2.start).toHaveBeenCalledWith(options, expect.any(Function));
 			expect(result.isOk()).toBe(true);
 		});
+
+		it("should wrap PM2 Error instances as cause", async () => {
+			const pm2Error = new Error("spawn ENOENT");
+			pm2.start = vi.fn().mockImplementation((_opts, cb) => cb(pm2Error));
+
+			const result = await processManager.startProcess({ name: "test-app", script: "./app.js" });
+
+			expect(result.isErr()).toBe(true);
+			const error = result._unsafeUnwrapErr();
+			expect(error.message).toBe("Failed to start PM2");
+			expect(error.cause).toBeInstanceOf(Error);
+			expect(error.cause?.message).toBe("spawn ENOENT");
+		});
+
+		it("should wrap non-Error PM2 failures (strings) as Error cause", async () => {
+			pm2.start = vi.fn().mockImplementation((_opts, cb) => cb("app script not found"));
+
+			const result = await processManager.startProcess({ name: "test-app", script: "./app.js" });
+
+			expect(result.isErr()).toBe(true);
+			const error = result._unsafeUnwrapErr();
+			expect(error.cause).toBeInstanceOf(Error);
+			expect(error.cause?.message).toBe("app script not found");
+		});
 	});
 
 	describe("stopProcess", () => {

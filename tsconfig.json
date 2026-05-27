@@ -11,6 +11,9 @@
       "path": "packages/monitor"
     },
     {
+      "path": "packages/observability"
+    },
+    {
       "path": "packages/content"
     },
     {

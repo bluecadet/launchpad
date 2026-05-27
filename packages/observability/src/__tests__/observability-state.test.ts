@@ -26,7 +26,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.initTransport("loki");
 
-			expect(getState().transports["loki"]).toEqual({
+			expect(getState().transports.loki).toEqual({
 				status: "ok",
 				bufferSize: 0,
 				lastPushAt: null,
@@ -44,8 +44,8 @@ describe("ObservabilityStateManager", () => {
 			manager.initTransport("datadog");
 
 			expect(Object.keys(getState().transports)).toHaveLength(2);
-			expect(getState().transports["loki"]).toBeDefined();
-			expect(getState().transports["datadog"]).toBeDefined();
+			expect(getState().transports.loki).toBeDefined();
+			expect(getState().transports.datadog).toBeDefined();
 		});
 	});
 
@@ -57,7 +57,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.recordPushSuccess("loki", 5);
 
-			expect(getState().transports["loki"]!.status).toBe("ok");
+			expect(getState().transports.loki!.status).toBe("ok");
 		});
 
 		it("sets lastPushAt to a recent Date", () => {
@@ -69,7 +69,7 @@ describe("ObservabilityStateManager", () => {
 			manager.recordPushSuccess("loki", 5);
 			const after = Date.now();
 
-			const lastPushAt = getState().transports["loki"]!.lastPushAt;
+			const lastPushAt = getState().transports.loki!.lastPushAt;
 			expect(lastPushAt).toBeInstanceOf(Date);
 			expect(lastPushAt!.getTime()).toBeGreaterThanOrEqual(before);
 			expect(lastPushAt!.getTime()).toBeLessThanOrEqual(after);
@@ -83,7 +83,7 @@ describe("ObservabilityStateManager", () => {
 			manager.recordPushSuccess("loki", 10);
 			manager.recordPushSuccess("loki", 5);
 
-			expect(getState().transports["loki"]!.totalPushed).toBe(15);
+			expect(getState().transports.loki!.totalPushed).toBe(15);
 		});
 
 		it("clears lastError on success", () => {
@@ -92,10 +92,10 @@ describe("ObservabilityStateManager", () => {
 			manager.initTransport("loki");
 
 			manager.recordPushError("loki", new Error("connection refused"), 1);
-			expect(getState().transports["loki"]!.lastError).not.toBeNull();
+			expect(getState().transports.loki!.lastError).not.toBeNull();
 
 			manager.recordPushSuccess("loki", 1);
-			expect(getState().transports["loki"]!.lastError).toBeNull();
+			expect(getState().transports.loki!.lastError).toBeNull();
 		});
 
 		it("is a no-op for unknown transport names", () => {
@@ -103,7 +103,7 @@ describe("ObservabilityStateManager", () => {
 			const manager = new ObservabilityStateManager(updateState);
 
 			expect(() => manager.recordPushSuccess("unknown", 5)).not.toThrow();
-			expect(getState().transports["unknown"]).toBeUndefined();
+			expect(getState().transports.unknown).toBeUndefined();
 		});
 	});
 
@@ -115,7 +115,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.recordPushError("loki", new Error("timeout"), 3);
 
-			expect(getState().transports["loki"]!.status).toBe("degraded");
+			expect(getState().transports.loki!.status).toBe("degraded");
 		});
 
 		it("sets status to failing when bufferSize is 0", () => {
@@ -125,7 +125,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.recordPushError("loki", new Error("timeout"), 0);
 
-			expect(getState().transports["loki"]!.status).toBe("failing");
+			expect(getState().transports.loki!.status).toBe("failing");
 		});
 
 		it("stores the error message in lastError", () => {
@@ -135,7 +135,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.recordPushError("loki", new Error("connection refused"), 1);
 
-			expect(getState().transports["loki"]!.lastError).toBe("connection refused");
+			expect(getState().transports.loki!.lastError).toBe("connection refused");
 		});
 
 		it("updates bufferSize", () => {
@@ -145,7 +145,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.recordPushError("loki", new Error("err"), 7);
 
-			expect(getState().transports["loki"]!.bufferSize).toBe(7);
+			expect(getState().transports.loki!.bufferSize).toBe(7);
 		});
 
 		it("is a no-op for unknown transport names", () => {
@@ -165,7 +165,7 @@ describe("ObservabilityStateManager", () => {
 			manager.recordDropped("loki", 3);
 			manager.recordDropped("loki", 2);
 
-			expect(getState().transports["loki"]!.totalDropped).toBe(5);
+			expect(getState().transports.loki!.totalDropped).toBe(5);
 		});
 
 		it("is a no-op for unknown transport names", () => {
@@ -173,7 +173,7 @@ describe("ObservabilityStateManager", () => {
 			const manager = new ObservabilityStateManager(updateState);
 
 			expect(() => manager.recordDropped("unknown", 5)).not.toThrow();
-			expect(getState().transports["unknown"]).toBeUndefined();
+			expect(getState().transports.unknown).toBeUndefined();
 		});
 	});
 
@@ -185,7 +185,7 @@ describe("ObservabilityStateManager", () => {
 
 			manager.updateBufferSize("loki", 10);
 
-			expect(getState().transports["loki"]!.bufferSize).toBe(10);
+			expect(getState().transports.loki!.bufferSize).toBe(10);
 		});
 
 		it("resets status from degraded to ok when buffer reaches 0", () => {
@@ -194,11 +194,11 @@ describe("ObservabilityStateManager", () => {
 			manager.initTransport("loki");
 
 			manager.recordPushError("loki", new Error("err"), 3);
-			expect(getState().transports["loki"]!.status).toBe("degraded");
+			expect(getState().transports.loki!.status).toBe("degraded");
 
 			manager.updateBufferSize("loki", 0);
 
-			expect(getState().transports["loki"]!.status).toBe("ok");
+			expect(getState().transports.loki!.status).toBe("ok");
 		});
 
 		it("does not change failing status when buffer reaches 0", () => {
@@ -207,11 +207,11 @@ describe("ObservabilityStateManager", () => {
 			manager.initTransport("loki");
 
 			manager.recordPushError("loki", new Error("err"), 0);
-			expect(getState().transports["loki"]!.status).toBe("failing");
+			expect(getState().transports.loki!.status).toBe("failing");
 
 			manager.updateBufferSize("loki", 0);
 
-			expect(getState().transports["loki"]!.status).toBe("failing");
+			expect(getState().transports.loki!.status).toBe("failing");
 		});
 
 		it("does not reset ok status when buffer is non-zero", () => {
@@ -222,7 +222,7 @@ describe("ObservabilityStateManager", () => {
 			manager.recordPushSuccess("loki", 5);
 			manager.updateBufferSize("loki", 3);
 
-			expect(getState().transports["loki"]!.status).toBe("ok");
+			expect(getState().transports.loki!.status).toBe("ok");
 		});
 
 		it("is a no-op for unknown transport names", () => {

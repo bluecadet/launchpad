@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 3.0.1
+
+### Patch Changes
+
+- [#294](https://github.com/bluecadet/launchpad/pull/294) [`f595316`](https://github.com/bluecadet/launchpad/commit/f5953169d00e1890a81c79e26466078e88aa8ae3) - capture pm2 errors thrown on startup instead of ignoring
+
 ## 3.0.0
 
 ### Major Changes

@@ -30,3 +30,13 @@ export function shouldIncludeEvent(event: string, include: string[], exclude: st
 	const excluded = exclude.length > 0 && matchesAnyPattern(event, exclude);
 	return !excluded;
 }
+
+export function makeEventFilter(include: string[], exclude: string[]): (event: string) => boolean {
+	const includeRegexes = include.map(patternToRegex);
+	const excludeRegexes = exclude.map(patternToRegex);
+	return (event: string): boolean => {
+		const included = includeRegexes.length === 0 || includeRegexes.some((r) => r.test(event));
+		if (!included) return false;
+		return excludeRegexes.length === 0 || !excludeRegexes.some((r) => r.test(event));
+	};
+}

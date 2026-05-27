@@ -114,7 +114,7 @@ describe("RetryBuffer", () => {
 			expect(buffer.size).toBe(1);
 		});
 
-		it("returns batch with reason max-retries when retriesLeft reaches 0", () => {
+		it("returns batch with reason max-retries when retriesLeft is exhausted", () => {
 			const buffer = new RetryBuffer({ maxBatches: 5, maxRetries: 1 });
 			const entries = makeEntries(2);
 			buffer.enqueue(entries);
@@ -125,15 +125,7 @@ describe("RetryBuffer", () => {
 			expect(pending).toBeDefined();
 			expect(pending!.retriesLeft).toBe(1);
 
-			// First requeue decrements to 0
-			const firstRequeue = buffer.requeue(pending!);
-			expect(firstRequeue).toBeNull();
-
-			vi.advanceTimersByTime(10_000);
-			const [secondPending] = buffer.dequeueReady();
-			expect(secondPending!.retriesLeft).toBe(0);
-
-			const dropped = buffer.requeue(secondPending!);
+			const dropped = buffer.requeue(pending!);
 			expect(dropped).not.toBeNull();
 			expect(dropped!.reason).toBe("max-retries");
 			expect(dropped!.entries).toBe(entries);

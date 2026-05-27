@@ -82,7 +82,7 @@ export default defineConfig({
 					},
 					{
 						text: "Contributing",
-						link: "https://github.com/bluecadet/launchpad/blob/develop/CONTRIBUTING.md",
+						link: "https://github.com/bluecadet/launchpad/blob/main/CONTRIBUTING.md",
 					},
 				],
 			},
@@ -194,7 +194,7 @@ export default defineConfig({
 		socialLinks: [{ icon: "github", link: "https://github.com/bluecadet/launchpad" }],
 
 		editLink: {
-			pattern: "https://github.com/bluecadet/launchpad/edit/develop/docs/src/:path",
+			pattern: "https://github.com/bluecadet/launchpad/edit/main/docs/src/:path",
 			text: "Edit this page on GitHub",
 		},
 

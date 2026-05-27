@@ -17,7 +17,7 @@ const props = defineProps<{
   <ul>
     <li class="version"><GitCommitVertical size="18"/> v{{ packageVersions[package] }}</li>
     <li class="link">
-      <a :href="`https://github.com/bluecadet/launchpad/tree/develop/packages/${package}`" target="_blank" rel="noopener noreferrer">
+      <a :href="`https://github.com/bluecadet/launchpad/tree/main/packages/${package}`" target="_blank" rel="noopener noreferrer">
         <GitFork size="18"/> github
       </a>
     </li>
@@ -27,7 +27,7 @@ const props = defineProps<{
       </a>
     </li>
     <li class="link">
-      <a :href="`https://github.com/bluecadet/launchpad/tree/develop/packages/${package}/CHANGELOG.md`" target="_blank" rel="noopener noreferrer">
+      <a :href="`https://github.com/bluecadet/launchpad/tree/main/packages/${package}/CHANGELOG.md`" target="_blank" rel="noopener noreferrer">
         <Logs size="18"/> changelog
       </a>
     </li>

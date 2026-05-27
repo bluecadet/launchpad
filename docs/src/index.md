@@ -17,6 +17,7 @@ Launchpad provides a collection of tools designed to streamline the development,
 - 🔍 **Process Monitoring**: Keep your applications running reliably
 - 💻 **Command Line Interface**: Easy-to-use commands for common operations
 - 🔌 **Plugin Architecture**: Extend functionality with custom plugins
+- 📊 **Observability**: Forward logs and events to external aggregators
 
 ## Why Launchpad?
 
@@ -32,6 +33,7 @@ Launchpad provides a collection of tools designed to streamline the development,
   <PackageCard package="controller" href="./reference/controller" description="Central orchestration and event system" />
   <PackageCard package="content" href="./reference/content" description="Content pipeline and transformation tools" />
   <PackageCard package="monitor" href="./reference/monitor" description="Process monitoring and management" />
+  <PackageCard package="observability" href="./reference/observability" description="Log aggregation and event forwarding to Grafana Loki and other backends" />
 </ul>
 
 > [!TIP] Windows system setup

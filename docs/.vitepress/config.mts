@@ -183,6 +183,20 @@ export default defineConfig({
 						],
 					},
 					{
+						text: "Observability",
+						link: "/reference/observability",
+						items: [
+							{ text: "Observability Config", link: "/reference/observability/observability-config" },
+							{ text: "Events", link: "/reference/observability/events" },
+							{
+								text: "Transports",
+								items: [
+									{ text: "Loki", link: "/reference/observability/transports/loki" },
+								],
+							},
+						],
+					},
+					{
 						text: "Controller",
 						link: "/reference/controller",
 						items: [{ text: "Events", link: "/reference/controller/events" }],

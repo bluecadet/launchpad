@@ -125,7 +125,7 @@ export function observability(config: ObservabilityConfig) {
 						const dropped = buffer.enqueue(batch);
 						stateManager.recordPushError(transport.name, error, buffer.size);
 						ctx.logger.warn(
-							`[observability] push to "${transport.name}" failed — will retry (${resolved.buffer.maxRetries} attempts left): ${error.message}`,
+							`[observability] push to "${transport.name}" failed (${resolved.buffer.maxRetries} retries queued): ${error.message}`,
 						);
 						ctx.eventBus.emit("observability:push:error", {
 							transport: transport.name,
@@ -156,12 +156,9 @@ export function observability(config: ObservabilityConfig) {
 								});
 							},
 							(error) => {
-								const retriesLeft = pending.retriesLeft - 1;
 								const dropped = buffer.requeue(pending);
+								const retriesLeft = dropped ? 0 : pending.retriesLeft - 1;
 								stateManager.recordPushError(transport.name, error, buffer.size);
-								ctx.logger.warn(
-									`[observability] retry failed for "${transport.name}" — ${retriesLeft} attempts left: ${error.message}`,
-								);
 								ctx.eventBus.emit("observability:push:error", {
 									transport: transport.name,
 									error,
@@ -189,6 +186,10 @@ export function observability(config: ObservabilityConfig) {
 
 			const eventHandler = (event: string, data: unknown) => {
 				if (!shouldIncludeEvent(event, resolved.include, resolved.exclude)) return;
+				// Skip log events emitted by this plugin itself to prevent a feedback loop
+				// where push failure warnings get captured, batched, and pushed (also failing).
+				const payload = data as { module?: string };
+				if (typeof payload?.module === "string" && payload.module === "observability") return;
 				batcher.add(eventToLogEntry(event, data));
 			};
 

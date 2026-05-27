@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.1
+
+### Patch Changes
+
+- [#294](https://github.com/bluecadet/launchpad/pull/294) [`c1f791a`](https://github.com/bluecadet/launchpad/commit/c1f791a2c884fdd15ab8eed3e47949b999d879b9) - Remove dotenv ads from the CLI
+
 ## 3.0.0
 
 ### Major Changes

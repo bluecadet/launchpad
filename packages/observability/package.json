@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-observability",
-  "version": "4.0.0",
+  "version": "3.0.0",
   "description": "Observability plugin for @bluecadet/launchpad — forwards logs and events to external aggregators",
   "type": "module",
   "files": [

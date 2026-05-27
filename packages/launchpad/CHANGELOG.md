@@ -6,7 +6,7 @@
 
 - Updated dependencies [[`f595316`](https://github.com/bluecadet/launchpad/commit/f5953169d00e1890a81c79e26466078e88aa8ae3), [`4396230`](https://github.com/bluecadet/launchpad/commit/4396230cdeba0a2c745a71bade43d3e83656c372), [`c1f791a`](https://github.com/bluecadet/launchpad/commit/c1f791a2c884fdd15ab8eed3e47949b999d879b9)]:
   - @bluecadet/launchpad-monitor@3.0.1
-  - @bluecadet/launchpad-observability@4.0.0
+  - @bluecadet/launchpad-observability@3.0.0
   - @bluecadet/launchpad-cli@3.0.1
 
 ## 3.0.0

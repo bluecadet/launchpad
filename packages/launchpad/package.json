@@ -208,7 +208,7 @@
     "@bluecadet/launchpad-content": "3.0.0",
     "@bluecadet/launchpad-controller": "3.0.0",
     "@bluecadet/launchpad-monitor": "3.0.1",
-    "@bluecadet/launchpad-observability": "4.0.0"
+    "@bluecadet/launchpad-observability": "3.0.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

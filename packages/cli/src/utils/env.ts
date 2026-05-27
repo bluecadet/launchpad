@@ -17,6 +17,7 @@ export function resolveEnv(paths: string[]) {
 		// load env file
 		dotenv.config({
 			path: envFilePath,
+			quiet: true,
 		});
 
 		cliLogger.info(`Loaded env file '${chalk.grey(envFilePath)}'`);

@@ -1,6 +1,6 @@
 import { ResultAsync } from "neverthrow";
 import { z } from "zod";
-import type { LogEntry, LogLevel } from "../core/log-entry.js";
+import type { LogEntry } from "../core/log-entry.js";
 import type { ObservabilityTransport } from "../core/transport.js";
 
 // ─── Config Schema ─────────────────────────────────────────────────────────
@@ -95,8 +95,7 @@ function buildLokiPayload(
 			streamMap.set(key, { stream: labels, values: [] });
 		}
 
-		const stream = streamMap.get(key)!;
-		stream.values.push([toNsTimestamp(entry.timestamp), entry.message]);
+		streamMap.get(key)?.values.push([toNsTimestamp(entry.timestamp), entry.message]);
 	}
 
 	return { streams: Array.from(streamMap.values()) };

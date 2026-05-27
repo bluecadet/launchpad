@@ -165,7 +165,6 @@ describe("RetryBuffer", () => {
 			const buffer = new RetryBuffer({ maxBatches: 2, maxRetries: 3 });
 
 			const firstEntries = makeEntries(1);
-			const thirdEntries = makeEntries(1);
 
 			// Enqueue first batch and make it ready
 			buffer.enqueue(firstEntries);

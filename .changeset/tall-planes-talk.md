@@ -2,4 +2,4 @@
 "@bluecadet/launchpad-cli": patch
 ---
 
-Remove dotenv adds from the CLI
+Remove dotenv ads from the CLI

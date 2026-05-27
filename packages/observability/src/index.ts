@@ -6,7 +6,7 @@ import {
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { Batcher } from "./core/batcher.js";
-import { shouldIncludeEvent } from "./core/event-filter.js";
+import { makeEventFilter } from "./core/event-filter.js";
 import { eventToLogEntry, type LogEntry } from "./core/log-entry.js";
 import { RetryBuffer } from "./core/retry-buffer.js";
 import {
@@ -70,6 +70,7 @@ export function observability(config: ObservabilityConfig) {
 			}
 
 			const resolved = coreConfigResult.data;
+			const eventFilter = makeEventFilter(resolved.include, resolved.exclude);
 			const { transports } = config;
 
 			if (transports.length === 0) {
@@ -78,6 +79,16 @@ export function observability(config: ObservabilityConfig) {
 
 			const stateManager = new ObservabilityStateManager(ctx.updateState);
 			const retryBuffers = new Map<string, RetryBuffer>();
+			const inFlightPushes = new Set<Promise<void>>();
+			function trackPush(push: Promise<void>): void {
+				inFlightPushes.add(push);
+				void push.finally(() => inFlightPushes.delete(push));
+			}
+			function awaitInFlight(): ResultAsync<void, Error> {
+				return ResultAsync.fromPromise(Promise.all([...inFlightPushes]), (e) => e as Error).map(
+					() => undefined,
+				);
+			}
 
 			for (const transport of transports) {
 				stateManager.initTransport(transport.name);
@@ -111,30 +122,32 @@ export function observability(config: ObservabilityConfig) {
 				if (!buffer) return;
 				const start = Date.now();
 
-				transport.push(batch).match(
-					() => {
-						stateManager.recordPushSuccess(transport.name, batch.length);
-						stateManager.updateBufferSize(transport.name, buffer.size);
-						ctx.eventBus.emit("observability:push:success", {
-							transport: transport.name,
-							batchSize: batch.length,
-							durationMs: Date.now() - start,
-						});
-					},
-					(error) => {
-						const dropped = buffer.enqueue(batch);
-						stateManager.recordPushError(transport.name, error, buffer.size);
-						ctx.logger.warn(
-							`[observability] push to "${transport.name}" failed (${resolved.buffer.maxRetries} retries queued): ${error.message}`,
-						);
-						ctx.eventBus.emit("observability:push:error", {
-							transport: transport.name,
-							error,
-							batchSize: batch.length,
-							retriesLeft: resolved.buffer.maxRetries,
-						});
-						handleDropped(transport, dropped);
-					},
+				trackPush(
+					transport.push(batch).match(
+						() => {
+							stateManager.recordPushSuccess(transport.name, batch.length);
+							stateManager.updateBufferSize(transport.name, buffer.size);
+							ctx.eventBus.emit("observability:push:success", {
+								transport: transport.name,
+								batchSize: batch.length,
+								durationMs: Date.now() - start,
+							});
+						},
+						(error) => {
+							const dropped = buffer.enqueue(batch);
+							stateManager.recordPushError(transport.name, error, buffer.size);
+							ctx.logger.warn(
+								`[observability] push to "${transport.name}" failed (${resolved.buffer.maxRetries} retries queued): ${error.message}`,
+							);
+							ctx.eventBus.emit("observability:push:error", {
+								transport: transport.name,
+								error,
+								batchSize: batch.length,
+								retriesLeft: resolved.buffer.maxRetries,
+							});
+							handleDropped(transport, dropped);
+						},
+					),
 				);
 			}
 
@@ -145,28 +158,30 @@ export function observability(config: ObservabilityConfig) {
 
 					for (const pending of buffer.dequeueReady()) {
 						const start = Date.now();
-						transport.push(pending.entries).match(
-							() => {
-								stateManager.recordPushSuccess(transport.name, pending.entries.length);
-								stateManager.updateBufferSize(transport.name, buffer.size);
-								ctx.eventBus.emit("observability:push:success", {
-									transport: transport.name,
-									batchSize: pending.entries.length,
-									durationMs: Date.now() - start,
-								});
-							},
-							(error) => {
-								const dropped = buffer.requeue(pending);
-								const retriesLeft = dropped ? 0 : pending.retriesLeft - 1;
-								stateManager.recordPushError(transport.name, error, buffer.size);
-								ctx.eventBus.emit("observability:push:error", {
-									transport: transport.name,
-									error,
-									batchSize: pending.entries.length,
-									retriesLeft,
-								});
-								handleDropped(transport, dropped);
-							},
+						trackPush(
+							transport.push(pending.entries).match(
+								() => {
+									stateManager.recordPushSuccess(transport.name, pending.entries.length);
+									stateManager.updateBufferSize(transport.name, buffer.size);
+									ctx.eventBus.emit("observability:push:success", {
+										transport: transport.name,
+										batchSize: pending.entries.length,
+										durationMs: Date.now() - start,
+									});
+								},
+								(error) => {
+									const dropped = buffer.requeue(pending);
+									const retriesLeft = dropped ? 0 : pending.retriesLeft - 1;
+									stateManager.recordPushError(transport.name, error, buffer.size);
+									ctx.eventBus.emit("observability:push:error", {
+										transport: transport.name,
+										error,
+										batchSize: pending.entries.length,
+										retriesLeft,
+									});
+									handleDropped(transport, dropped);
+								},
+							),
 						);
 					}
 				}
@@ -185,7 +200,7 @@ export function observability(config: ObservabilityConfig) {
 			});
 
 			const eventHandler = (event: string, data: unknown) => {
-				if (!shouldIncludeEvent(event, resolved.include, resolved.exclude)) return;
+				if (!eventFilter(event)) return;
 				// Skip log events emitted by this plugin itself to prevent a feedback loop
 				// where push failure warnings get captured, batched, and pushed (also failing).
 				const payload = data as { module?: string };
@@ -206,7 +221,7 @@ export function observability(config: ObservabilityConfig) {
 					switch (parsed.data.type) {
 						case "observability.flush": {
 							batcher.flush();
-							return okAsync(undefined);
+							return awaitInFlight();
 						}
 						default: {
 							return errAsync(new Error("Unknown observability command type"));
@@ -219,30 +234,33 @@ export function observability(config: ObservabilityConfig) {
 					ctx.eventBus.offAny(eventHandler);
 					batcher.stop();
 
-					// Drain any remaining retry batches so they don't vanish silently
-					for (const transport of transports) {
-						const buffer = retryBuffers.get(transport.name);
-						if (!buffer) continue;
-						const remaining = buffer.drain();
-						if (remaining.length > 0) {
-							const totalEntries = remaining.reduce((sum, b) => sum + b.length, 0);
-							ctx.logger.warn(
-								`observability: dropping ${totalEntries} buffered log entries for transport "${transport.name}" on shutdown`,
-							);
-							for (const batch of remaining) {
-								stateManager.recordDropped(transport.name, batch.length);
-								ctx.eventBus.emit("observability:push:dropped", {
-									transport: transport.name,
-									batchSize: batch.length,
-									reason: "max-retries",
-								});
+					return awaitInFlight().andThen(() => {
+						for (const transport of transports) {
+							const buffer = retryBuffers.get(transport.name);
+							if (!buffer) continue;
+							const remaining = buffer.drain();
+							if (remaining.length > 0) {
+								const totalEntries = remaining.reduce((sum, b) => sum + b.length, 0);
+								ctx.logger.warn(
+									`observability: dropping ${totalEntries} buffered log entries for transport "${transport.name}" on shutdown`,
+								);
+								for (const batch of remaining) {
+									stateManager.recordDropped(transport.name, batch.length);
+									ctx.eventBus.emit("observability:push:dropped", {
+										transport: transport.name,
+										batchSize: batch.length,
+										reason: "max-retries",
+									});
+								}
 							}
 						}
-					}
 
-					return ResultAsync.combine(
-						transports.flatMap((t) => (typeof t.disconnect === "function" ? [t.disconnect()] : [])),
-					).map(() => undefined);
+						return ResultAsync.combine(
+							transports.flatMap((t) =>
+								typeof t.disconnect === "function" ? [t.disconnect()] : [],
+							),
+						).map(() => undefined);
+					});
 				},
 			});
 		},

@@ -54,7 +54,7 @@ export class RetryBuffer {
 	 * Returns the dropped batch if it has exhausted retries or the buffer was full.
 	 */
 	requeue(batch: PendingBatch): DroppedBatch | null {
-		if (batch.retriesLeft <= 0) {
+		if (batch.retriesLeft <= 1) {
 			return { entries: batch.entries, reason: "max-retries" };
 		}
 

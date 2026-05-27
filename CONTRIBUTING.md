@@ -157,8 +157,8 @@ npm test -- <file-pattern>
 
 ### Branch Strategy
 
-- **develop**: Primary development branch. All PRs should target this branch.
-- **feature branches**: Create from `develop` with descriptive names (e.g., `feat/controller-mode`, `fix/content-timing`)
+- **main**: Primary development branch. All PRs should target this branch.
+- **feature branches**: Create from `main` with descriptive names (e.g., `feat/controller-mode`, `fix/content-timing`)
 
 ### Code Style
 
@@ -379,15 +379,15 @@ Don't create changesets for:
 ### Release Process
 
 1. **Create changeset**: Include with your PR when adding user-facing changes
-2. **Open PR**: Open a PR against `develop`
-3. **Merge PR**: Once approved, merge the PR into `develop`
+2. **Open PR**: Open a PR against `main`
+3. **Merge PR**: Once approved, merge the PR into `main`
 4. **Wait for Version PR**: The [Changesets GitHub action](https://github.com/changesets/action#with-publishing) automatically creates a "Version Packages" PR
 5. **Review and merge**: Review the version bumps and changelog, then merge the PR
 6. **Automatic publish**: npm packages are automatically published to the npm registry
 
 ### Branch Management
 
-- **develop**: Primary development branch. All PRs target this branch.
+- **main**: Primary development branch. All PRs target this branch.
 
 ## Best Practices
 

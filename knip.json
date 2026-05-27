@@ -16,8 +16,6 @@
     "packages/content": {
       "ignoreDependencies": ["@portabletext/markdown"]
     },
-    "packages/cli": {
-      "ignoreDependencies": ["@bluecadet/launchpad-monitor"]
-    }
+    "packages/cli": {}
   }
 }

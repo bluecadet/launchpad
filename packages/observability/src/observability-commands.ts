@@ -7,7 +7,7 @@ export type ObservabilityFlushCommand = BaseCommand & {
 
 export type ObservabilityCommand = ObservabilityFlushCommand;
 
-export const observabilityFlushCommandSchema = z
+const observabilityFlushCommandSchema = z
 	.object({
 		type: z.literal("observability.flush"),
 	})

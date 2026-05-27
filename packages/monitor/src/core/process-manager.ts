@@ -1,3 +1,4 @@
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { err, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import pm2 from "pm2";
@@ -82,7 +83,7 @@ function wrapPm2Function<T>(
 				}
 			});
 		}),
-		(error) => new PM2Error(errorMessage, { cause: error as Error }),
+		(error) => new PM2Error(errorMessage, { cause: ensureError(error) }),
 	);
 }
 

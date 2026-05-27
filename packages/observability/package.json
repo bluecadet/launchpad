@@ -1,0 +1,61 @@
+{
+  "name": "@bluecadet/launchpad-observability",
+  "version": "3.0.0",
+  "description": "Observability plugin for @bluecadet/launchpad — forwards logs and events to external aggregators",
+  "type": "module",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./transports/loki": {
+      "types": "./dist/transports/loki.d.ts",
+      "default": "./dist/transports/loki.js"
+    },
+    "./config": {
+      "types": "./dist/observability-config.d.ts",
+      "default": "./dist/observability-config.js"
+    },
+    "./events": {
+      "types": "./dist/observability-events.d.ts",
+      "default": "./dist/observability-events.js"
+    },
+    "./state": {
+      "types": "./dist/observability-state.d.ts",
+      "default": "./dist/observability-state.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "engines": {
+    "node": ">=23"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluecadet/launchpad.git"
+  },
+  "author": "Bluecadet",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bluecadet/launchpad/issues"
+  },
+  "homepage": "https://github.com/bluecadet/launchpad/packages/observability",
+  "dependencies": {
+    "@bluecadet/launchpad-utils": "~3.0.0",
+    "neverthrow": "^8.2.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bluecadet/launchpad-testing": "0.1.0",
+    "@bluecadet/launchpad-tsconfig": "0.1.0",
+    "vitest": "^4.1.2"
+  }
+}

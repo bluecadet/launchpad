@@ -162,6 +162,26 @@
     "./monitor/state": {
       "types": "./dist/monitor/state.d.ts",
       "default": "./dist/monitor/state.js"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "default": "./dist/observability/index.js"
+    },
+    "./observability/transports/loki": {
+      "types": "./dist/observability/transports/loki.d.ts",
+      "default": "./dist/observability/transports/loki.js"
+    },
+    "./observability/config": {
+      "types": "./dist/observability/observability-config.d.ts",
+      "default": "./dist/observability/observability-config.js"
+    },
+    "./observability/events": {
+      "types": "./dist/observability/observability-events.d.ts",
+      "default": "./dist/observability/observability-events.js"
+    },
+    "./observability/state": {
+      "types": "./dist/observability/observability-state.d.ts",
+      "default": "./dist/observability/observability-state.js"
     }
   },
   "maintainers": [
@@ -187,7 +207,8 @@
     "@bluecadet/launchpad-cli": "3.0.0",
     "@bluecadet/launchpad-content": "3.0.0",
     "@bluecadet/launchpad-controller": "3.0.0",
-    "@bluecadet/launchpad-monitor": "3.0.0"
+    "@bluecadet/launchpad-monitor": "3.0.0",
+    "@bluecadet/launchpad-observability": "3.0.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

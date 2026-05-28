@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.2
+
+### Patch Changes
+
+- [#297](https://github.com/bluecadet/launchpad/pull/297) [`3d0863c`](https://github.com/bluecadet/launchpad/commit/3d0863c53a08a897d45b8516bb25eed119063a8e) - Fix monitor child processes not stopping when terminal window is closed via X button.
+
 ## 3.0.1
 
 ### Patch Changes

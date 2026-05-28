@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-monitor
 
+## 3.0.2
+
+### Patch Changes
+
+- [#299](https://github.com/bluecadet/launchpad/pull/299) [`221eb24`](https://github.com/bluecadet/launchpad/commit/221eb2468c0f9bf81727fc9dd81c64b405e5be44) - Fix monitored apps not being stopped when Launchpad exits via SIGINT/SIGTERM. The monitor plugin's `disconnect()` hook now calls `shutdown()` (stop apps + disconnect) instead of only disconnecting from PM2.
+
 ## 3.0.1
 
 ### Patch Changes

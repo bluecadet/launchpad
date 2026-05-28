@@ -382,7 +382,7 @@ export function monitor(config: MonitorConfig) {
 					}
 				},
 				disconnect(_reason: DisconnectReason) {
-					return disconnect(actionCtx);
+					return shutdown(actionCtx);
 				},
 			});
 		},

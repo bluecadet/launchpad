@@ -196,7 +196,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						ctx.logger.verbose("IPC Transport is shutting down");
 						ctx.eventBus.offAny(handleEvent);
 						unsubscribePatch();
-						clients.forEach((client) => client.end());
+						clients.forEach((client) => client.destroy());
 
 						return ResultAsync.fromPromise(
 							new Promise<void>((resolve) => {

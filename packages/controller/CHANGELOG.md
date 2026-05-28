@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-controller
 
+## 3.0.1
+
+### Patch Changes
+
+- [#299](https://github.com/bluecadet/launchpad/pull/299) [`10e105d`](https://github.com/bluecadet/launchpad/commit/10e105d4c2d1102c846e5585a714b3e09fd1c147) - Fix libuv assertion error on Windows when closing IPC transport during shutdown by using `socket.destroy()` instead of `socket.end()`.
+
 ## 1.0.0
 
 ### Major Changes

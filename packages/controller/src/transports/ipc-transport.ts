@@ -80,14 +80,11 @@ export function createIPCTransport(options: IPCTransportOptions) {
 			const socketPath = getOSSocketPath(options.socketPath);
 
 			if (process.platform === "win32" && options.socketPath !== socketPath) {
-				// notify user that the socket path has been updated to conform with windows named pipe reqs,
-				// as it might not be where they expect it
-
-				ctx.logger.warn(
-					`Windows named pipes must be located in ${chalk.grey("\\\\?\\pipe\\")} or ${chalk.grey("\\\\.\\pipe\\")}. `,
-				);
-				ctx.logger.warn(
-					`The configured socketPath has been moved to the ${chalk.grey("\\\\?\\pipe\\")} directory to conform with this requirement.`,
+				// On Windows the socket path is mapped into the named pipe namespace, so the
+				// IPC endpoint won't live at the configured filesystem location. This is
+				// expected, so surface it at verbose level rather than as a warning.
+				ctx.logger.verbose(
+					`Using Windows named pipe ${chalk.grey(socketPath)} for IPC (configured socketPath ${chalk.grey(options.socketPath)} is not a valid pipe location).`,
 				);
 			}
 

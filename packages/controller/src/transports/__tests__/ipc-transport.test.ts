@@ -330,6 +330,10 @@ describe("ipc-transport", () => {
 		it("should log and track multiple connected clients", async () => {
 			const { context } = await createStartedIPCTransport();
 
+			// Ignore any setup-time verbose logs (e.g. the Windows named-pipe remap
+			// notice) so we count only per-client connection logging.
+			vi.mocked(context.logger.verbose).mockClear();
+
 			const mockSocket1 = createMockSocket();
 			const mockSocket2 = createMockSocket();
 

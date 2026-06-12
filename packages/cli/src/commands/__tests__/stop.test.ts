@@ -30,21 +30,21 @@ import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller
 import { killPM2 } from "@bluecadet/launchpad-monitor/launchpad-monitor";
 import { createMockIPCClient } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
-import { ConfigError, IPCConnectionError } from "../../errors.js";
+import { IPCConnectionError } from "../../errors.js";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { cliLogger } from "../../utils/cli-logger.js";
-import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
+import { handleFatalError } from "../../utils/command-utils.js";
 import { DaemonNotRunningError, withDaemon } from "../../utils/controller-execution.js";
 import { stop } from "../stop.js";
 
 const mockControllerConfig = controllerConfigSchema.parse({});
 const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
+const loadedConfig = () => ({ dir: "/test", config: mockConfig });
 
 describe("stop", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.clearAllMocks();
-		vi.mocked(loadConfigAndEnv).mockReturnValue(okAsync({ dir: "/test", config: mockConfig }));
 		vi.spyOn(process, "exit").mockImplementation(() => {
 			throw new Error("exit");
 		});
@@ -63,7 +63,7 @@ describe("stop", () => {
 			op(mockClient as unknown as IPCClient, 999),
 		);
 
-		const resultPromise = stop({});
+		const resultPromise = stop(loadedConfig());
 		await vi.runAllTimersAsync();
 		const result = await resultPromise;
 
@@ -75,15 +75,8 @@ describe("stop", () => {
 	it("daemon not running (no monitor plugin) — handleFatalError is called", async () => {
 		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
 
-		await expect(stop({})).rejects.toThrow("exit");
+		await expect(stop(loadedConfig())).rejects.toThrow("exit");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalledWith(expect.any(DaemonNotRunningError));
-	});
-
-	it("loadConfigAndEnv fails — handleFatalError called", async () => {
-		vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("config load failed")));
-
-		await expect(stop({})).rejects.toThrow("exit");
-		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
 
 	it("process still running after IPC shutdown — SIGTERM sent, then process stops", async () => {
@@ -96,7 +89,7 @@ describe("stop", () => {
 		);
 		const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
 
-		const resultPromise = stop({});
+		const resultPromise = stop(loadedConfig());
 		await vi.runAllTimersAsync();
 		const result = await resultPromise;
 
@@ -115,7 +108,7 @@ describe("stop", () => {
 		);
 		const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
 
-		const resultPromise = stop({});
+		const resultPromise = stop(loadedConfig());
 		await vi.runAllTimersAsync();
 		const result = await resultPromise;
 
@@ -142,7 +135,7 @@ describe("stop", () => {
 		// is attached, which triggers PromiseRejectionHandledWarning.
 		vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
 
-		const resultPromise = stop({});
+		const resultPromise = stop(loadedConfig());
 		await vi.runAllTimersAsync();
 		await resultPromise;
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
@@ -151,7 +144,7 @@ describe("stop", () => {
 	it("withDaemon fails with non-DaemonNotRunningError — handleFatalError called", async () => {
 		vi.mocked(withDaemon).mockReturnValue(errAsync(new IPCConnectionError("IPC connection reset")));
 
-		await expect(stop({})).rejects.toThrow("exit");
+		await expect(stop(loadedConfig())).rejects.toThrow("exit");
 		expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 	});
 
@@ -159,13 +152,10 @@ describe("stop", () => {
 		const configWithMonitor = resolveLaunchpadConfig({
 			plugins: [{ name: "monitor", setup: vi.fn() }],
 		});
-		vi.mocked(loadConfigAndEnv).mockReturnValue(
-			okAsync({ dir: "/test", config: configWithMonitor }),
-		);
 		vi.mocked(withDaemon).mockReturnValue(errAsync(new DaemonNotRunningError()));
 		vi.mocked(killPM2).mockReturnValue(okAsync(undefined));
 
-		await stop({});
+		await stop({ dir: "/test", config: configWithMonitor });
 
 		expect(vi.mocked(killPM2)).toHaveBeenCalled();
 		expect(vi.mocked(handleFatalError)).not.toHaveBeenCalled();

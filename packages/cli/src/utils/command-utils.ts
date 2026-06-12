@@ -9,9 +9,11 @@ import { cliLogger } from "./cli-logger.js";
 import { findFirstConfigRecursive, loadConfigFromFile } from "./config.js";
 import { resolveEnv } from "./env.js";
 
+export type LoadedConfig = { dir: string; config: ResolvedLaunchpadOptions };
+
 export function loadConfigAndEnv(
 	argv: GlobalLaunchpadArgs,
-): ResultAsync<{ dir: string; config: ResolvedLaunchpadOptions }, ConfigError> {
+): ResultAsync<LoadedConfig, ConfigError> {
 	const configPath = argv.config ?? findFirstConfigRecursive();
 
 	if (!configPath) {

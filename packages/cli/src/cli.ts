@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import { fileURLToPath } from "node:url";
 import type { Argv } from "yargs";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 import { cliLogger } from "./utils/cli-logger.js";
+import type { LoadedConfig } from "./utils/command-utils.js";
 
 export type GlobalLaunchpadArgs = {
 	config?: string;
@@ -12,20 +14,45 @@ export type GlobalLaunchpadArgs = {
 	verbose?: number;
 };
 
-(async () => {
-	const argv = hideBin(process.argv);
-
-	let yargsInstance: Argv = yargs(argv)
+/** Declares the global options that control config + env file resolution. */
+function withGlobalConfigOptions(y: Argv): Argv {
+	return y
 		.option("config", { alias: "c", describe: "Path to your JS config file", type: "string" })
 		.option("env", { alias: "e", describe: "Path(s) to your .env file(s)", type: "array" })
-		.option("verbose", { alias: "v", describe: "Increase logging verbosity", type: "count" })
-		.count("verbose")
 		.option("env-cascade", {
 			alias: "E",
 			describe:
 				"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 			type: "string",
-		})
+		});
+}
+
+export async function run(argv: string[]): Promise<void> {
+	const { loadConfigAndEnv, handleFatalError } = await import("./utils/command-utils.js");
+	const { registerPluginCliCommands } = await import("./utils/plugin-cli-registration.js");
+
+	// Plugin CLI commands are registered dynamically from the resolved config, so
+	// it must be loaded before yargs parses argv. Pre-parse just the config/env
+	// options so the config + env files load exactly once, then share that single
+	// result with both plugin CLI registration and the built-in command handlers.
+	const parsedGlobal = await withGlobalConfigOptions(yargs(argv))
+		.help(false)
+		.version(false)
+		.parseAsync();
+
+	const resolvedConfig = await loadConfigAndEnv(parsedGlobal as GlobalLaunchpadArgs);
+
+	// Built-in commands require a config; resolve it or fail fast. Deferred until a
+	// command actually runs so `--help` and plugin discovery tolerate a missing config.
+	const requireConfig = (): LoadedConfig =>
+		resolvedConfig.match(
+			(value) => value,
+			(error) => handleFatalError(error),
+		);
+
+	let yargsInstance: Argv = withGlobalConfigOptions(yargs(argv))
+		.option("verbose", { alias: "v", describe: "Increase logging verbosity", type: "count" })
+		.count("verbose")
 		.middleware(async (args) => {
 			switch (args.verbose) {
 				case 1:
@@ -52,16 +79,16 @@ export type GlobalLaunchpadArgs = {
 			},
 			async (args) => {
 				const { start } = await import("./commands/start.js");
-				await start(args);
+				await start(args, requireConfig());
 			},
 		)
 		.command(
 			"stop",
 			"Stops launchpad controller gracefully.",
 			() => {},
-			async (args) => {
+			async () => {
 				const { stop } = await import("./commands/stop.js");
-				await stop(args);
+				await stop(requireConfig());
 			},
 		)
 		.command(
@@ -77,25 +104,12 @@ export type GlobalLaunchpadArgs = {
 			},
 			async (args) => {
 				const { status } = await import("./commands/status.js");
-				await status(args);
+				await status(args, requireConfig());
 			},
 		);
 
-	const { loadConfigAndEnv, handleFatalError } = await import("./utils/command-utils.js");
-	const { registerPluginCliCommands } = await import("./utils/plugin-cli-registration.js");
-
-	const parsedGlobal = await yargs(argv)
-		.option("config", { alias: "c", type: "string" })
-		.option("env", { alias: "e", type: "array" })
-		.option("env-cascade", { alias: "E", type: "string" })
-		.help(false)
-		.version(false)
-		.parseAsync();
-
-	const configResult = await loadConfigAndEnv(parsedGlobal as GlobalLaunchpadArgs);
-
-	if (configResult.isOk()) {
-		const { dir, config } = configResult.value;
+	if (resolvedConfig.isOk()) {
+		const { dir, config } = resolvedConfig.value;
 		const entries = (config.plugins ?? []).flatMap((pluginConfig) => {
 			const cli = pluginConfig.manifest?.cli;
 			if (!cli) return [];
@@ -112,4 +126,9 @@ export type GlobalLaunchpadArgs = {
 	}
 
 	await yargsInstance.help().parseAsync();
-})();
+}
+
+// Auto-run only when invoked as the CLI binary, not when imported (e.g. in tests).
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+	run(hideBin(process.argv));
+}

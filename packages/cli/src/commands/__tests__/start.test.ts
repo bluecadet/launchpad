@@ -41,16 +41,16 @@ import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createMockController } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
-import { ConfigError } from "../../errors.js";
 import { resolveLaunchpadConfig } from "../../launchpad-config.js";
 import { cliLogger } from "../../utils/cli-logger.js";
-import { handleFatalError, loadConfigAndEnv } from "../../utils/command-utils.js";
+import { handleFatalError } from "../../utils/command-utils.js";
 import { withDaemonOrController } from "../../utils/controller-execution.js";
 import { onTerminate } from "../../utils/on-terminate.js";
 import { start } from "../start.js";
 
 const mockControllerConfig = controllerConfigSchema.parse({});
 const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
+const loadedConfig = () => ({ dir: "/test", config: mockConfig });
 
 type MockChild = EventEmitter & {
 	pid: number;
@@ -69,7 +69,6 @@ const createMockChild = (): MockChild => {
 describe("start", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		vi.mocked(loadConfigAndEnv).mockReturnValue(okAsync({ dir: "/test", config: mockConfig }));
 		vi.mocked(handleFatalError).mockImplementation(() => {
 			throw new Error("fatal");
 		});
@@ -96,7 +95,7 @@ describe("start", () => {
 				>;
 			});
 
-			await expect(start({ detach: false })).rejects.toThrow("process.exit");
+			expect(() => start({ detach: false }, loadedConfig())).toThrow("process.exit");
 			expect(exitSpy).toHaveBeenCalledWith(1);
 		});
 
@@ -107,7 +106,7 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			const result = await start({ detach: false });
+			const result = await start({ detach: false }, loadedConfig());
 
 			expect(result.isOk()).toBe(true);
 		});
@@ -121,16 +120,13 @@ describe("start", () => {
 				setup: vi.fn(),
 			};
 			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin], workflows });
-			vi.mocked(loadConfigAndEnv).mockReturnValue(
-				okAsync({ dir: "/test", config: configWithPlugin }),
-			);
 
 			const mockController = createMockController();
 			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			const result = await start({ detach: false });
+			const result = await start({ detach: false }, { dir: "/test", config: configWithPlugin });
 
 			expect(result.isOk()).toBe(true);
 			expect(vi.mocked(mockController.registerPlugin)).toHaveBeenCalledWith(mockPlugin);
@@ -155,7 +151,7 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			const result = await start({ detach: false });
+			const result = await start({ detach: false }, loadedConfig());
 
 			expect(result.isOk()).toBe(true);
 			expect(detachedMock.sendReadyMessage).toHaveBeenCalled();
@@ -176,7 +172,7 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			await start({ detach: false });
+			await start({ detach: false }, loadedConfig());
 
 			expect(terminateCallback).toBeDefined();
 			terminateCallback!();
@@ -187,9 +183,6 @@ describe("start", () => {
 		it("registerPlugin fails — handleFatalError called", async () => {
 			const mockPlugin = { name: "content" as const, setup: vi.fn() };
 			const configWithPlugin = resolveLaunchpadConfig({ plugins: [mockPlugin] });
-			vi.mocked(loadConfigAndEnv).mockReturnValue(
-				okAsync({ dir: "/test", config: configWithPlugin }),
-			);
 
 			const mockController = createMockController({
 				registerPlugin: vi.fn().mockReturnValue(errAsync(new Error("Plugin failed"))),
@@ -198,7 +191,9 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			await expect(start({ detach: false })).rejects.toThrow("fatal");
+			await expect(
+				start({ detach: false }, { dir: "/test", config: configWithPlugin }),
+			).rejects.toThrow("fatal");
 			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 		});
 
@@ -211,9 +206,6 @@ describe("start", () => {
 				plugins: [mockPlugin],
 				workflows: { start: ["content.fetch"] },
 			});
-			vi.mocked(loadConfigAndEnv).mockReturnValue(
-				okAsync({ dir: "/test", config: configWithPlugin }),
-			);
 
 			const mockController = createMockController({
 				runWorkflow: vi.fn().mockReturnValue(errAsync(new Error("Workflow failed"))),
@@ -222,14 +214,9 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			await expect(start({ detach: false })).rejects.toThrow("fatal");
-			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
-		});
-
-		it("loadConfigAndEnv fails — handleFatalError called", async () => {
-			vi.mocked(loadConfigAndEnv).mockReturnValue(errAsync(new ConfigError("no config")));
-
-			await expect(start({ detach: false })).rejects.toThrow("fatal");
+			await expect(
+				start({ detach: false }, { dir: "/test", config: configWithPlugin }),
+			).rejects.toThrow("fatal");
 			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 		});
 	});
@@ -246,7 +233,7 @@ describe("start", () => {
 			const child = createMockChild();
 			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
-			const resultPromise = start({ detach: true });
+			const resultPromise = start({ detach: true }, loadedConfig());
 
 			// Simulate child sending ready message
 			child.emit("message", { type: "ready" });
@@ -261,7 +248,7 @@ describe("start", () => {
 			const child = createMockChild();
 			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
-			const resultPromise = start({ detach: true });
+			const resultPromise = start({ detach: true }, loadedConfig());
 
 			// Simulate child exiting with error before ready
 			child.emit("exit", 1);
@@ -275,7 +262,7 @@ describe("start", () => {
 			const child = createMockChild();
 			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
-			const resultPromise = start({ detach: true });
+			const resultPromise = start({ detach: true }, loadedConfig());
 
 			child.emit("error", new Error("spawn failed"));
 
@@ -290,7 +277,7 @@ describe("start", () => {
 			const child = createMockChild();
 			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
-			const resultPromise = start({ detach: true });
+			const resultPromise = start({ detach: true }, loadedConfig());
 
 			const logMsg = { type: "log", level: "info", payload: { args: ["hello"] } };
 			child.emit("message", logMsg);
@@ -307,7 +294,7 @@ describe("start", () => {
 			const child = createMockChild();
 			vi.mocked(fork).mockReturnValue(child as unknown as ReturnType<typeof fork>);
 
-			const resultPromise = start({ detach: true });
+			const resultPromise = start({ detach: true }, loadedConfig());
 
 			child.emit("message", { type: "unknown-type" });
 			// Also emit ready so it resolves

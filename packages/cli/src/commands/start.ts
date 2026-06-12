@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { fromPromise, okAsync, type ResultAsync } from "neverthrow";
 import type { GlobalLaunchpadArgs } from "../cli.js";
 import { cliLogger } from "../utils/cli-logger.js";
-import { handleFatalError, loadConfigAndEnv } from "../utils/command-utils.js";
+import { handleFatalError, type LoadedConfig } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";
 import {
 	isDetached,
@@ -13,12 +13,15 @@ import {
 } from "../utils/detached-messaging.js";
 import { onTerminate } from "../utils/on-terminate.js";
 
-export function start(argv: GlobalLaunchpadArgs & { detach?: boolean }): ResultAsync<void, Error> {
+export function start(
+	argv: GlobalLaunchpadArgs & { detach?: boolean },
+	loaded: LoadedConfig,
+): ResultAsync<void, Error> {
 	if (argv.detach) {
 		return startDetached(argv);
 	}
 
-	return startForeground(argv);
+	return startForeground(loaded);
 }
 
 function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
@@ -73,56 +76,52 @@ function startDetached(_argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
 	});
 }
 
-function startForeground(argv: GlobalLaunchpadArgs): ResultAsync<void, Error> {
-	return loadConfigAndEnv(argv)
-		.mapErr((error) => handleFatalError(error))
-		.andThen(({ dir, config }) => {
-			return withDaemonOrController(dir, config.controller, {
-				mode: "persistent",
-				ifDaemon: (_client, pid) => {
-					// Daemon already running
-					cliLogger.error(`Launchpad is already running (PID: ${pid})`);
-					cliLogger.error("Stop it with: launchpad stop");
-					process.exit(1);
-				},
-				otherwise: (controller) => {
+function startForeground({ dir, config }: LoadedConfig): ResultAsync<void, Error> {
+	return withDaemonOrController(dir, config.controller, {
+		mode: "persistent",
+		ifDaemon: (_client, pid) => {
+			// Daemon already running
+			cliLogger.error(`Launchpad is already running (PID: ${pid})`);
+			cliLogger.error("Stop it with: launchpad stop");
+			process.exit(1);
+		},
+		otherwise: (controller) => {
+			if (isDetached) {
+				process.title = "launchpad";
+			}
+
+			onTerminate(() => {
+				controller.stop().match(
+					() => process.exit(0),
+					() => process.exit(1),
+				);
+			});
+
+			// Listen for shutdown events from IPC or plugins
+			controller.getEventBus().on("system:shutdown", ({ code }) => {
+				controller.stop().match(
+					() => process.exit(code ?? 0),
+					() => process.exit(1),
+				);
+			});
+
+			const plugins = config.plugins ?? [];
+
+			return plugins
+				.reduce(
+					(chain, plugin) => chain.andThen(() => controller.registerPlugin(plugin)),
+					okAsync<void, Error>(undefined),
+				)
+				.andTee(() => {
+					controller.setWorkflows(config.workflows ?? {});
+				})
+				.andThen(() => controller.runWorkflow("start"))
+				.andTee(() => {
 					if (isDetached) {
-						process.title = "launchpad";
+						sendReadyMessage();
 					}
-
-					onTerminate(() => {
-						controller.stop().match(
-							() => process.exit(0),
-							() => process.exit(1),
-						);
-					});
-
-					// Listen for shutdown events from IPC or plugins
-					controller.getEventBus().on("system:shutdown", ({ code }) => {
-						controller.stop().match(
-							() => process.exit(code ?? 0),
-							() => process.exit(1),
-						);
-					});
-
-					const plugins = config.plugins ?? [];
-
-					return plugins
-						.reduce(
-							(chain, plugin) => chain.andThen(() => controller.registerPlugin(plugin)),
-							okAsync<void, Error>(undefined),
-						)
-						.andTee(() => {
-							controller.setWorkflows(config.workflows ?? {});
-						})
-						.andThen(() => controller.runWorkflow("start"))
-						.andTee(() => {
-							if (isDetached) {
-								sendReadyMessage();
-							}
-							cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");
-						});
-				},
-			}).orElse((error) => handleFatalError(error));
-		});
+					cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");
+				});
+		},
+	}).orElse((error) => handleFatalError(error));
 }

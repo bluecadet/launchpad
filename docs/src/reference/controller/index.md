@@ -81,6 +81,23 @@ export default defineConfig({
 
 The controller exposes `setWorkflows()` and `runWorkflow()` so every host can run the same named workflow sequence. `LaunchpadController.stop()` automatically runs the `stop` workflow before plugin disconnects.
 
+#### Step failure handling
+
+Workflows run every step **best-effort**. If a step fails, the controller records the error, emits `workflow:step:error`, and continues with the remaining steps. After all steps run, the workflow reports an aggregated failure (`workflow:error`) if any step errored.
+
+This means a failed `content.fetch` no longer prevents `monitor.start` from launching apps — content fetching stages its output before promoting it, so the previously-published content remains on disk and the monitor runs against the last good content.
+
+To make a step fatal — halting the workflow and skipping the remaining steps when it fails — wrap it in an object with `stopOnError`:
+
+```typescript
+export default defineConfig({
+  workflows: {
+    // 'publish' is skipped if 'build' fails
+    deploy: [{ step: 'build', stopOnError: true }, 'publish'],
+  },
+});
+```
+
 ### State Management
 
 Plugins own their domain logic; the controller owns the state infrastructure. Plugins call `ctx.updateState()` to establish and mutate their state slice — the controller lazily creates a scoped store on first call and handles patch generation, versioning, and broadcasting.

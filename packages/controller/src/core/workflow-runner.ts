@@ -1,7 +1,7 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { okAsync, type ResultAsync } from "neverthrow";
-import { resolveWorkflowStep, type WorkflowMap } from "./workflow-types.js";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { resolveWorkflowStep, type WorkflowMap, type WorkflowStep } from "./workflow-types.js";
 
 export class WorkflowRunner {
 	private _workflows: WorkflowMap = {};
@@ -23,25 +23,31 @@ export class WorkflowRunner {
 
 		this._eventBus.emit("workflow:start", { name, stepCount: steps.length });
 
-		let chain: ResultAsync<void, Error> = okAsync(undefined);
-		for (const [index, step] of steps.entries()) {
-			const command = resolveWorkflowStep(step);
-			chain = chain.andThen(() => this._executeStep(name, index, command));
-		}
+		return ResultAsync.fromSafePromise(this._runSteps(name, steps)).andThen((errors) => {
+			if (errors.length > 0) {
+				const error = aggregateWorkflowErrors(name, errors);
+				this._eventBus.emit("workflow:error", { name, stepCount: steps.length, error });
+				return errAsync(error);
+			}
 
-		return chain
-			.map(() => {
-				this._eventBus.emit("workflow:success", { name, stepCount: steps.length });
-				return undefined;
-			})
-			.mapErr((error: Error) => {
-				this._eventBus.emit("workflow:error", {
-					name,
-					stepCount: steps.length,
-					error,
-				});
-				return error;
-			});
+			this._eventBus.emit("workflow:success", { name, stepCount: steps.length });
+			return okAsync(undefined);
+		});
+	}
+
+	private async _runSteps(name: string, steps: readonly WorkflowStep[]): Promise<Error[]> {
+		const errors: Error[] = [];
+		for (const [index, step] of steps.entries()) {
+			const { command, stopOnError } = resolveWorkflowStep(step);
+			const result = await this._executeStep(name, index, command);
+			if (result.isErr()) {
+				errors.push(result.error);
+				if (stopOnError) {
+					break;
+				}
+			}
+		}
+		return errors;
 	}
 
 	private _executeStep(
@@ -74,4 +80,15 @@ export class WorkflowRunner {
 				return error;
 			});
 	}
+}
+
+function aggregateWorkflowErrors(name: string, errors: Error[]): Error {
+	const [first] = errors;
+	if (first && errors.length === 1) {
+		return first;
+	}
+	return new AggregateError(
+		errors,
+		`Workflow "${name}" completed with ${errors.length} step failures`,
+	);
 }

@@ -1,19 +1,7 @@
-import type { WorkflowMap, WorkflowStep } from "@bluecadet/launchpad-controller";
+import { type WorkflowMap, workflowStepSchema } from "@bluecadet/launchpad-controller";
 import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import z from "zod";
-
-const workflowStepSchema = z.custom<WorkflowStep>((value) => {
-	if (typeof value === "string") {
-		return /^.+\..+$/.test(value);
-	}
-
-	if (typeof value !== "object" || value === null) {
-		return false;
-	}
-
-	return "type" in value && typeof value.type === "string";
-});
 
 export const launchpadConfigSchema = z
 	.object({

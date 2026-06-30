@@ -64,11 +64,12 @@ describe("WorkflowRunner", () => {
 		expect(executeCommand).not.toHaveBeenCalled();
 	});
 
-	it("stops later steps after a failure", async () => {
+	it("runs later steps after a non-fatal failure", async () => {
 		const eventBus = createMockEventBus();
+		const fetchError = new Error("fetch failed");
 		const executeCommand = createExecuteCommandMock((command) => {
-			if (command.type === "monitor.connect") {
-				return errAsync(new Error("connect failed"));
+			if (command.type === "content.fetch") {
+				return errAsync(fetchError);
 			}
 			return okAsync(undefined);
 		});
@@ -83,9 +84,69 @@ describe("WorkflowRunner", () => {
 		expect(executeCommand.mock.calls.map(([command]) => command)).toEqual([
 			{ type: "content.fetch" },
 			{ type: "monitor.connect" },
+			{ type: "monitor.start" },
+		]);
+		expect(eventBus.getEventsOfType("workflow:success")).toEqual([]);
+		expect(eventBus.getEventsOfType("workflow:error")).toEqual([
+			expect.objectContaining({ name: "start", stepCount: 3, error: fetchError }),
+		]);
+	});
+
+	it("halts remaining steps when a stopOnError step fails", async () => {
+		const eventBus = createMockEventBus();
+		const executeCommand = createExecuteCommandMock((command) => {
+			if (command.type === "monitor.connect") {
+				return errAsync(new Error("connect failed"));
+			}
+			return okAsync(undefined);
+		});
+		const runner = new WorkflowRunner(eventBus, executeCommand);
+		runner.setWorkflows({
+			start: ["content.fetch", { step: "monitor.connect", stopOnError: true }, "monitor.start"],
+		});
+
+		const result = await runner.run("start");
+
+		expect(result.isErr()).toBe(true);
+		expect(executeCommand.mock.calls.map(([command]) => command)).toEqual([
+			{ type: "content.fetch" },
+			{ type: "monitor.connect" },
 		]);
 		expect(eventBus.getEventsOfType("workflow:error")).toEqual([
 			expect.objectContaining({ name: "start", stepCount: 3, error: expect.any(Error) }),
 		]);
+	});
+
+	it("aggregates multiple non-fatal failures", async () => {
+		const eventBus = createMockEventBus();
+		const executeCommand = createExecuteCommandMock((command) => {
+			if (command.type === "monitor.connect" || command.type === "monitor.start") {
+				return errAsync(new Error(`${command.type} failed`));
+			}
+			return okAsync(undefined);
+		});
+		const runner = new WorkflowRunner(eventBus, executeCommand);
+		runner.setWorkflows({
+			start: ["content.fetch", "monitor.connect", "monitor.start"],
+		});
+
+		const result = await runner.run("start");
+
+		expect(result.isErr()).toBe(true);
+		const error = result._unsafeUnwrapErr();
+		expect(error).toBeInstanceOf(AggregateError);
+		if (error instanceof AggregateError) {
+			expect(error.errors).toHaveLength(2);
+		}
+	});
+
+	it("resolves stopOnError step objects to their command", async () => {
+		const executeCommand = createExecuteCommandMock();
+		const runner = new WorkflowRunner(createMockEventBus(), executeCommand);
+		runner.setWorkflows({ start: [{ step: "content.fetch", stopOnError: true }] });
+
+		await runner.run("start");
+
+		expect(executeCommand).toHaveBeenCalledWith({ type: "content.fetch" });
 	});
 });

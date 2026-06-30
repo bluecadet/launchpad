@@ -18,7 +18,8 @@ import { WorkflowRunner } from "./core/workflow-runner.js";
 import type { WorkflowMap } from "./core/workflow-types.js";
 
 export type { CoreEvents } from "./core/command-dispatcher.js";
-export type { WorkflowMap, WorkflowStep } from "./core/workflow-types.js";
+export type { WorkflowMap, WorkflowStep, WorkflowStepOptions } from "./core/workflow-types.js";
+export { workflowStepSchema } from "./core/workflow-types.js";
 
 import type { AllEvents } from "./all-events.js";
 import type { AllPluginsState } from "./all-plugin-state.js";

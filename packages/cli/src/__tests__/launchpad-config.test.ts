@@ -16,6 +16,18 @@ describe("launchpadConfigSchema", () => {
 		});
 	});
 
+	it("accepts stopOnError step objects", () => {
+		const config = resolveLaunchpadConfig({
+			workflows: {
+				deploy: [{ step: "content.fetch", stopOnError: true }, "monitor.start"],
+			},
+		});
+
+		expect(config.workflows).toEqual({
+			deploy: [{ step: "content.fetch", stopOnError: true }, "monitor.start"],
+		});
+	});
+
 	it("defaults workflows to an empty object", () => {
 		const config = resolveLaunchpadConfig({});
 

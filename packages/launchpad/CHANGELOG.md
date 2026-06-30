@@ -1,5 +1,13 @@
 # @bluecadet/launchpad
 
+## 3.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`f03604e`](https://github.com/bluecadet/launchpad/commit/f03604ecfaa2675dcf6333f73c912733a9fb6d97), [`9b1eeeb`](https://github.com/bluecadet/launchpad/commit/9b1eeebfa6757d136fbc3987ee809c80ab6972e9), [`109f9fb`](https://github.com/bluecadet/launchpad/commit/109f9fbffbf16de715eaa87635138ebeb64986d2)]:
+  - @bluecadet/launchpad-controller@3.1.0
+  - @bluecadet/launchpad-cli@3.0.3
+
 ## 3.0.3
 
 ### Patch Changes

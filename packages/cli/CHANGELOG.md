@@ -1,5 +1,16 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.3
+
+### Patch Changes
+
+- [#301](https://github.com/bluecadet/launchpad/pull/301) [`9b1eeeb`](https://github.com/bluecadet/launchpad/commit/9b1eeebfa6757d136fbc3987ee809c80ab6972e9) - Fix duplicate dotenv and config loading on startup
+
+- [#301](https://github.com/bluecadet/launchpad/pull/301) [`109f9fb`](https://github.com/bluecadet/launchpad/commit/109f9fbffbf16de715eaa87635138ebeb64986d2) - Workflows now run every step best-effort instead of halting on the first failure. A failed step is recorded and the remaining steps still run; the workflow reports an aggregated error at the end. This means a failed `content.fetch` no longer prevents `monitor.start` from launching apps against the last successfully published content. Wrap a step as `{ step: 'command.id', stopOnError: true }` to opt into the old halt-on-failure behavior for that step.
+
+- Updated dependencies [[`f03604e`](https://github.com/bluecadet/launchpad/commit/f03604ecfaa2675dcf6333f73c912733a9fb6d97), [`109f9fb`](https://github.com/bluecadet/launchpad/commit/109f9fbffbf16de715eaa87635138ebeb64986d2)]:
+  - @bluecadet/launchpad-controller@3.1.0
+
 ## 3.0.2
 
 ### Patch Changes

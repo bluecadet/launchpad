@@ -21,19 +21,99 @@ import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
 import type { FetchStageContext } from "./fetch-context.js";
 
+/**
+ * Reads `manifest.json` once per `clearOldDataStage` call under versioning, warning a single
+ * time if it's missing or unreadable so per-source seeding can degrade to empty without
+ * repeating the warning for every source.
+ */
+function readActiveVersionManifest(
+	context: FetchStageContext,
+): ResultAsync<Manifest | undefined, never> {
+	const publishedRoot = context.paths.getPublishedDownloadPath();
+
+	return ResultAsync.fromSafePromise(ManifestUtils.readManifest(publishedRoot)).map((result) => {
+		if (result.status === "ok") {
+			return result.manifest;
+		}
+
+		if (result.status === "missing") {
+			context.logger.warn(
+				`No manifest found at ${publishedRoot}; seeding staged directories empty for this fetch.`,
+			);
+		} else {
+			context.logger.warn(
+				`Failed to read manifest at ${publishedRoot}: ${result.error.message}; seeding staged directories empty for this fetch.`,
+			);
+		}
+
+		return undefined;
+	});
+}
+
+/**
+ * Resolves the directory `clearOldDataStage` should seed keep-matching files from. Off
+ * versioning, that's today's published source path. Under versioning, it's the active
+ * version's directory for this source, resolved via the manifest's `sources[].path` — never
+ * "newest dir on disk" — so a never-promoted orphan can't be used as a seed.
+ */
+function resolveSeedPath(
+	context: FetchStageContext,
+	sourceId: string,
+	activeManifest: Manifest | undefined,
+): ResultAsync<string | undefined, FileUtils.FileUtilsError> {
+	if (!context.config.versioning) {
+		return okAsync(context.paths.getPublishedDownloadPath(sourceId));
+	}
+
+	if (!activeManifest) {
+		return okAsync(undefined);
+	}
+
+	const manifestSource = activeManifest.sources.find((source) => source.sourceId === sourceId);
+	if (!manifestSource) {
+		context.logger.warn(
+			`Active version ${activeManifest.versionId} has no entry for source ${sourceId}; seeding staged directory empty.`,
+		);
+		return okAsync(undefined);
+	}
+
+	const versionSourcePath = path.join(
+		context.paths.getPublishedDownloadPath(),
+		activeManifest.versionPath,
+		manifestSource.path,
+	);
+
+	return FileUtils.pathExists(versionSourcePath).andThen((exists) => {
+		if (!exists) {
+			context.logger.warn(
+				`Active version directory not found at ${versionSourcePath}; seeding staged directory for ${sourceId} empty.`,
+			);
+			return okAsync(undefined);
+		}
+		return okAsync(versionSourcePath);
+	});
+}
+
 function prepareStagedSourceDirectory(
 	context: FetchStageContext,
 	sourceId: string,
+	activeManifest: Manifest | undefined,
 ): ResultAsync<void, ContentError> {
 	const stagedPath = context.paths.getStagedDownloadPath(sourceId);
-	const publishedPath = context.paths.getPublishedDownloadPath(sourceId);
 
-	return FileUtils.clearDir(stagedPath, {
-		ignoreKeep: true,
-		removeIfEmpty: true,
-	})
-		.andThen(() => FileUtils.ensureDir(stagedPath))
-		.andThen(() => FileUtils.copyMatchingFiles(publishedPath, stagedPath, context.config.keep))
+	return resolveSeedPath(context, sourceId, activeManifest)
+		.andThen((seedPath) =>
+			FileUtils.clearDir(stagedPath, {
+				ignoreKeep: true,
+				removeIfEmpty: true,
+			})
+				.andThen(() => FileUtils.ensureDir(stagedPath))
+				.andThen(() =>
+					seedPath
+						? FileUtils.copyMatchingFiles(seedPath, stagedPath, context.config.keep)
+						: okAsync(undefined),
+				),
+		)
 		.mapErr(
 			(error) =>
 				new ContentError(`Failed to prepare staged directory for ${sourceId}`, { cause: error }),
@@ -255,9 +335,15 @@ export function clearOldDataStage(context: FetchStageContext): ResultAsync<void,
 		return errAsync(new ContentError("Sources not initialized"));
 	}
 
-	return ResultAsync.combine(
-		context.sources.map((source) => prepareStagedSourceDirectory(context, source.id)),
-	).map(() => undefined);
+	const activeManifest = context.config.versioning
+		? readActiveVersionManifest(context)
+		: okAsync(undefined);
+
+	return activeManifest.andThen((manifest) =>
+		ResultAsync.combine(
+			context.sources.map((source) => prepareStagedSourceDirectory(context, source.id, manifest)),
+		).map(() => undefined),
+	);
 }
 
 /**

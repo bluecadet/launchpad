@@ -159,6 +159,158 @@ describe("Fetch Stages", () => {
 			expect(result).toBeOk();
 			expect(vol.existsSync("/temp/runs/test-run/downloads/nonexistent")).toBe(true);
 		});
+
+		describe("under versioning", () => {
+			it("should seed each source from the manifest's active version, resolved via sources[].path", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion/test1-dir", { recursive: true });
+				vol.mkdirSync("/downloads/versions/activeVersion/test2-dir", { recursive: true });
+				vol.writeFileSync("/downloads/versions/activeVersion/test1-dir/.keep", "");
+				vol.writeFileSync("/downloads/versions/activeVersion/test2-dir/.keep", "");
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [
+							{ sourceId: "test1", path: "test1-dir" },
+							{ sourceId: "test2", path: "test2-dir" },
+						],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keep: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [
+						defineSource({ id: "test1", fetch: () => [] }),
+						defineSource({ id: "test2", fetch: () => [] }),
+					],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test1/.keep")).toBe(true);
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test2/.keep")).toBe(true);
+			});
+
+			it("should seed empty and warn when no manifest exists yet", async () => {
+				vol.mkdirSync("/downloads", { recursive: true });
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keep: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("No manifest found"),
+				);
+			});
+
+			it("should seed empty and warn when the manifest's version dir is missing", async () => {
+				vol.mkdirSync("/downloads", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "goneVersion",
+						versionPath: "versions/goneVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "test", path: "test" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keep: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("Active version directory not found"),
+				);
+			});
+
+			it("should seed empty and warn when the active version has no entry for a source", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "other", path: "other" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keep: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("has no entry for source test"),
+				);
+			});
+
+			it("should never seed from an orphan dir newer than the active version", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion/test", { recursive: true });
+				vol.writeFileSync("/downloads/versions/activeVersion/test/.keep", "active");
+				vol.mkdirSync("/downloads/versions/zzz-newer-orphan/test", { recursive: true });
+				vol.writeFileSync("/downloads/versions/zzz-newer-orphan/test/.keep", "orphan");
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "test", path: "test" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keep: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.readFileSync("/temp/runs/test-run/downloads/test/.keep", "utf8")).toBe("active");
+			});
+		});
 	});
 
 	describe("fetchSourcesStage", () => {

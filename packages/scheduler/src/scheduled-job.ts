@@ -16,7 +16,8 @@ export type ScheduledJobDeps = {
 /** Outcome of a single dispatch attempt, as observed by the retry loop. */
 export type DispatchOutcome = "success" | "overlapSkip" | "failure";
 
-type RetryState = {
+/** Per-job bookkeeping surfaced later by status and runtime commands. */
+type JobRunState = {
 	attemptCount: number;
 	lastOutcome: DispatchOutcome | null;
 	lastErrorMessage: string | null;
@@ -24,7 +25,7 @@ type RetryState = {
 	stoppedWithError: boolean;
 };
 
-function initialRetryState(): RetryState {
+function initialRunState(): JobRunState {
 	return {
 		attemptCount: 0,
 		lastOutcome: null,
@@ -53,7 +54,7 @@ export class ScheduledJob {
 	private _timer: NodeJS.Timeout | null = null;
 	private _stopped = true;
 	private _skippedOverlapCount = 0;
-	private _retry: RetryState = initialRetryState();
+	private _runState: JobRunState = initialRunState();
 
 	constructor(
 		private readonly _commandId: CommandId,
@@ -71,27 +72,27 @@ export class ScheduledJob {
 
 	/** Consecutive failures since the last success (or since start). Resets to 0 on success. */
 	get attemptCount(): number {
-		return this._retry.attemptCount;
+		return this._runState.attemptCount;
 	}
 
 	/** Outcome of the most recently completed dispatch, or `null` before the first one. */
 	get lastOutcome(): DispatchOutcome | null {
-		return this._retry.lastOutcome;
+		return this._runState.lastOutcome;
 	}
 
 	/** Message of the most recent non-overlap failure. Cleared on success. */
 	get lastErrorMessage(): string | null {
-		return this._retry.lastErrorMessage;
+		return this._runState.lastErrorMessage;
 	}
 
 	/** When the job's next timer is due to fire, or `null` if none is scheduled. */
 	get nextFireAt(): Date | null {
-		return this._retry.nextFireAt;
+		return this._runState.nextFireAt;
 	}
 
 	/** True once an opt-in `maxAttempts` policy has exhausted and stopped the job. */
 	get stoppedWithError(): boolean {
-		return this._retry.stoppedWithError;
+		return this._runState.stoppedWithError;
 	}
 
 	/** Schedules the job from `now`. No-op for `enabled: false` jobs. */
@@ -108,6 +109,10 @@ export class ScheduledJob {
 	/** Cancels any pending timer. In-flight dispatches are left to finish on their own. */
 	stop(): void {
 		this._stopped = true;
+		this.clearTimer();
+	}
+
+	private clearTimer(): void {
 		if (this._timer) {
 			clearTimeout(this._timer);
 			this._timer = null;
@@ -115,16 +120,13 @@ export class ScheduledJob {
 	}
 
 	private scheduleNext(from: Date): void {
-		if (this._stopped || this._retry.stoppedWithError) return;
-		if (this._timer) {
-			clearTimeout(this._timer);
-			this._timer = null;
-		}
+		if (this._stopped || this._runState.stoppedWithError) return;
+		this.clearTimer();
 		const delayMs =
-			this._retry.attemptCount > 0
-				? computeRetryDelayMs(this._retry.attemptCount, this._spec.retry, this._spec.jitter)
+			this._runState.attemptCount > 0
+				? computeRetryDelayMs(this._runState.attemptCount, this._spec.retry, this._spec.jitter)
 				: this._computeDelayMs(from);
-		this._retry.nextFireAt = new Date(from.getTime() + delayMs);
+		this._runState.nextFireAt = new Date(from.getTime() + delayMs);
 		this._timer = setTimeout(() => {
 			this._timer = null;
 			this.onTick(new Date());
@@ -137,75 +139,83 @@ export class ScheduledJob {
 		if (this._isWallClockAnchored) {
 			// Cron never queues: the next occurrence is scheduled up front, alongside dispatch.
 			this.scheduleNext(referenceTime);
-			void this.dispatchAndObserve().then(({ completedAt, outcome }) =>
-				this.handleOutcome(outcome, completedAt),
+			void this.dispatchAndObserve().then(({ completedAt, outcome, errorMessage }) =>
+				this.handleOutcome(outcome, completedAt, errorMessage),
 			);
 			return;
 		}
 
-		void this.dispatchAndObserve().then(({ completedAt, outcome }) =>
-			this.handleOutcome(outcome, completedAt),
+		void this.dispatchAndObserve().then(({ completedAt, outcome, errorMessage }) =>
+			this.handleOutcome(outcome, completedAt, errorMessage),
 		);
 	}
 
 	/**
-	 * Applies a dispatch outcome to retry state, then reschedules (or, on exhaustion,
+	 * Applies a dispatch outcome to run state, then reschedules (or, on exhaustion,
 	 * stops). For a wall-clock-anchored job whose attempt count didn't change (a healthy
 	 * success, or an overlap skip at any point), the timer `onTick` already armed up
 	 * front is still correct — replacing it here would re-anchor to completion time and
 	 * undermine "cron never queues, in-flight overlap is a skip."
 	 */
-	private handleOutcome(outcome: DispatchOutcome, completedAt: Date): void {
-		const attemptCountBefore = this._retry.attemptCount;
-		this._retry.lastOutcome = outcome;
+	private handleOutcome(
+		outcome: DispatchOutcome,
+		completedAt: Date,
+		errorMessage: string | null,
+	): void {
+		const attemptCountBefore = this._runState.attemptCount;
+		this._runState.lastOutcome = outcome;
 
 		if (outcome === "success") {
-			this.resetRetryState();
+			this.resetRunState();
 		} else if (outcome === "failure") {
-			this._retry.attemptCount += 1;
+			this._runState.attemptCount += 1;
+			this._runState.lastErrorMessage = errorMessage;
 			const { retry } = this._spec;
-			if (!retry.forever && this._retry.attemptCount >= retry.maxAttempts) {
+			if (!retry.forever && this._runState.attemptCount >= retry.maxAttempts) {
 				this.stopForExhaustion();
 				return;
 			}
 		}
 
-		const attemptCountChanged = this._retry.attemptCount !== attemptCountBefore;
+		const attemptCountChanged = this._runState.attemptCount !== attemptCountBefore;
 		if (this._isWallClockAnchored && !attemptCountChanged) return;
 		this.scheduleNext(completedAt);
 	}
 
-	private resetRetryState(): void {
-		this._retry.attemptCount = 0;
-		this._retry.lastErrorMessage = null;
-		this._retry.stoppedWithError = false;
+	private resetRunState(): void {
+		this._runState.attemptCount = 0;
+		this._runState.lastErrorMessage = null;
+		this._runState.stoppedWithError = false;
 	}
 
 	private stopForExhaustion(): void {
-		this._retry.stoppedWithError = true;
-		this._retry.nextFireAt = null;
-		if (this._timer) {
-			clearTimeout(this._timer);
-			this._timer = null;
-		}
+		this._runState.stoppedWithError = true;
+		this._runState.nextFireAt = null;
+		this.clearTimer();
 	}
 
-	private dispatchAndObserve(): Promise<{ completedAt: Date; outcome: DispatchOutcome }> {
+	private dispatchAndObserve(): Promise<{
+		completedAt: Date;
+		outcome: DispatchOutcome;
+		errorMessage: string | null;
+	}> {
 		return this._deps
 			.dispatch(this._spec.command)
 			.match(
-				(): DispatchOutcome => "success",
-				(error): DispatchOutcome => {
+				(): { outcome: DispatchOutcome; errorMessage: string | null } => ({
+					outcome: "success",
+					errorMessage: null,
+				}),
+				(error): { outcome: DispatchOutcome; errorMessage: string | null } => {
 					if (isOverlapSkipError(error)) {
 						this._skippedOverlapCount += 1;
 						this._deps.logger.info(`Skipped ${this._commandId}: command already in progress`);
-						return "overlapSkip";
+						return { outcome: "overlapSkip", errorMessage: null };
 					}
 					this._deps.logger.error(`${this._commandId} failed`, error);
-					this._retry.lastErrorMessage = error.message;
-					return "failure";
+					return { outcome: "failure", errorMessage: error.message };
 				},
 			)
-			.then((outcome) => ({ completedAt: new Date(), outcome }));
+			.then(({ outcome, errorMessage }) => ({ completedAt: new Date(), outcome, errorMessage }));
 	}
 }

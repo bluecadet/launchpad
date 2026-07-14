@@ -314,6 +314,36 @@ describe("ScheduledJob", () => {
 				expect(dispatch).toHaveBeenCalledTimes(2);
 			});
 
+			it("a success mid-retry resets backoff and resumes the normal wall-clock cadence", async () => {
+				const dispatch = vi
+					.fn()
+					.mockReturnValueOnce(errAsync(new Error("boom")))
+					.mockReturnValue(okAsync(undefined));
+				const job = new ScheduledJob(
+					"content.sync",
+					getSpec({ interval: undefined, cron: "0 3 * * *", jitter: false }),
+					{ logger, dispatch },
+				);
+
+				job.start();
+				await vi.advanceTimersByTimeAsync(3 * 60 * 60 * 1000); // t=3h: first occurrence fails
+				expect(job.attemptCount).toBe(1);
+
+				await vi.advanceTimersByTimeAsync(15_000); // retry succeeds, resets backoff
+				expect(dispatch).toHaveBeenCalledTimes(2);
+				expect(job.attemptCount).toBe(0);
+				expect(job.lastOutcome).toBe("success");
+
+				// Next fire resumes the normal daily wall-clock cadence (next 3am, 24h after the
+				// *original* occurrence, i.e. 24h minus the 15s already spent retrying) — not
+				// another backoff tier anchored to the retry's own completion time.
+				const remainingUntilNextOccurrence = 24 * 60 * 60 * 1000 - 15_000;
+				await vi.advanceTimersByTimeAsync(remainingUntilNextOccurrence - 1);
+				expect(dispatch).toHaveBeenCalledTimes(2);
+				await vi.advanceTimersByTimeAsync(1);
+				expect(dispatch).toHaveBeenCalledTimes(3);
+			});
+
 			it("overlap skip mid-retry leaves the already-armed backoff timer untouched", async () => {
 				const boom = new Error("boom");
 				const overlapError = new Error("Plugin command execution failed", {

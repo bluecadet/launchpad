@@ -43,11 +43,11 @@ const retryLimitedInputSchema = z
 	})
 	.strict();
 
-type ResolvedRetry =
+export type ResolvedRetry =
 	| { forever: true; backoff: { initial: number; max: number; factor: number } }
 	| { forever: false; maxAttempts: number };
 
-const DEFAULT_BACKOFF = { initial: 15_000, max: 300_000, factor: 2 };
+export const DEFAULT_BACKOFF = { initial: 15_000, max: 300_000, factor: 2 };
 
 // A discriminated union can't be used here: the discriminator key ("forever") must itself be
 // optional/defaultable, but z.discriminatedUnion requires it present in the raw input to pick a

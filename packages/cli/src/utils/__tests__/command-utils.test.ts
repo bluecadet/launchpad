@@ -14,8 +14,8 @@ vi.mock("../cli-logger.js", async () => ({
 	},
 }));
 
-import type { GlobalLaunchpadArgs } from "../../cli.js";
 import { ConfigError } from "../../errors.js";
+import type { GlobalLaunchpadArgs } from "../../run.js";
 import { cliLogger } from "../cli-logger.js";
 import { handleFatalError, loadConfigAndEnv } from "../command-utils.js";
 import { findFirstConfigRecursive, loadConfigFromFile } from "../config.js";

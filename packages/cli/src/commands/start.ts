@@ -1,7 +1,7 @@
 import { fork } from "node:child_process";
 import chalk from "chalk";
 import { fromPromise, okAsync, type ResultAsync } from "neverthrow";
-import type { GlobalLaunchpadArgs } from "../cli.js";
+import type { GlobalLaunchpadArgs } from "../run.js";
 import { cliLogger } from "../utils/cli-logger.js";
 import { handleFatalError, type LoadedConfig } from "../utils/command-utils.js";
 import { withDaemonOrController } from "../utils/controller-execution.js";

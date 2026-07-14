@@ -17,8 +17,8 @@ vi.mock("../commands/start.js", () => ({ start: vi.fn().mockResolvedValue(undefi
 vi.mock("../commands/stop.js", () => ({ stop: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../commands/status.js", () => ({ status: vi.fn().mockResolvedValue(undefined) }));
 
-import { run } from "../cli.js";
 import { start } from "../commands/start.js";
+import { run } from "../run.js";
 import { findFirstConfigRecursive, loadConfigFromFile } from "../utils/config.js";
 import { resolveEnv } from "../utils/env.js";
 

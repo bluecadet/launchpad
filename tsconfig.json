@@ -11,6 +11,9 @@
       "path": "packages/monitor"
     },
     {
+      "path": "packages/scheduler"
+    },
+    {
       "path": "packages/content"
     },
     {

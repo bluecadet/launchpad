@@ -1,5 +1,5 @@
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { scheduler } from "../launchpad-scheduler.js";
 
 describe("scheduler plugin", () => {
@@ -22,5 +22,49 @@ describe("scheduler plugin", () => {
 		const result = await plugin.setup(createMockPluginCtx());
 
 		expect(result).toBeErr();
+	});
+
+	describe("scheduling behavior", () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("dispatches zero commands when no jobs are configured", async () => {
+			const ctx = createMockPluginCtx();
+			const plugin = scheduler({});
+			await plugin.setup(ctx);
+
+			await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
+
+		it("dispatches the configured command once its interval elapses", async () => {
+			const ctx = createMockPluginCtx();
+			const plugin = scheduler({ "content.fetch": { interval: "5m", jitter: false } });
+			await plugin.setup(ctx);
+
+			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+			expect(ctx.dispatchCommand).toHaveBeenCalledExactlyOnceWith({ type: "content.fetch" });
+		});
+
+		it("cancels all timers on disconnect", async () => {
+			const ctx = createMockPluginCtx();
+			const plugin = scheduler({ "content.fetch": { interval: "5m", jitter: false } });
+			const result = await plugin.setup(ctx);
+			if (result.isErr() || !result.value.disconnect) {
+				throw new Error("Expected setup to return a disconnectable plugin instance");
+			}
+
+			await result.value.disconnect({ type: "manual" });
+			await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
 	});
 });

@@ -134,10 +134,20 @@ export function ensureDir(dirPath: string): ResultAsync<void, FileUtilsError> {
 
 /**
  * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
+ * `maxRetries`/`retryDelay` default to 0 (no retry), matching `fs.rm`'s own defaults; pass them
+ * explicitly to retry transient locks (e.g. Windows sharing violations) on a multi-pass sweep.
  */
-export function remove(dir: string): ResultAsync<void, FileUtilsError> {
+export function remove(
+	dir: string,
+	options: { maxRetries?: number; retryDelay?: number } = {},
+): ResultAsync<void, FileUtilsError> {
 	return ResultAsync.fromPromise(
-		fs.promises.rm(dir, { recursive: true, force: true }),
+		fs.promises.rm(dir, {
+			recursive: true,
+			force: true,
+			maxRetries: options.maxRetries ?? 0,
+			retryDelay: options.retryDelay ?? 0,
+		}),
 		(e) => new FileUtilsError(`Failed to remove ${dir}`, { cause: e }),
 	);
 }

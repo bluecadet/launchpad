@@ -159,6 +159,37 @@ describe("FileUtils", () => {
 			const result = await FileUtils.remove("/non-existing");
 			expect(result).toBeOk();
 		});
+
+		it("should default maxRetries/retryDelay to 0", async () => {
+			vol.mkdirSync("/test-dir");
+			const rmSpy = vi.spyOn(vol.promises, "rm");
+
+			await FileUtils.remove("/test-dir");
+
+			expect(rmSpy).toHaveBeenCalledWith("/test-dir", {
+				recursive: true,
+				force: true,
+				maxRetries: 0,
+				retryDelay: 0,
+			});
+			rmSpy.mockRestore();
+		});
+
+		it("should pass maxRetries/retryDelay through to fs.rm when provided", async () => {
+			vol.mkdirSync("/test-dir");
+			const rmSpy = vi.spyOn(vol.promises, "rm");
+
+			const result = await FileUtils.remove("/test-dir", { maxRetries: 3, retryDelay: 50 });
+
+			expect(result).toBeOk();
+			expect(rmSpy).toHaveBeenCalledWith("/test-dir", {
+				recursive: true,
+				force: true,
+				maxRetries: 3,
+				retryDelay: 50,
+			});
+			rmSpy.mockRestore();
+		});
 	});
 
 	describe("pathExists", () => {

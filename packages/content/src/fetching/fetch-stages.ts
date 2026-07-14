@@ -5,6 +5,7 @@
  * Stages are composed in LaunchpadContent._executeFetchPipeline.
  */
 
+import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import chalk from "chalk";
 import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -13,6 +14,8 @@ import {
 	type ContentTransform,
 	type ContentTransformContext,
 } from "../content-transform.js";
+import type { Manifest } from "../manifest.js";
+import * as ManifestUtils from "../manifest.js";
 import type { ContentSource } from "../source.js";
 import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
@@ -104,6 +107,70 @@ function promoteStagedRootEntries(context: FetchStageContext): ResultAsync<void,
 		);
 }
 
+/**
+ * Promotes the entire staged downloads root into a fresh `versions/<versionId>/` directory
+ * in a single move, then atomically swaps the manifest to point at it. The manifest rename
+ * is the sole commit point; any failure before it leaves the active version untouched.
+ */
+function promoteVersioned(context: FetchStageContext): ResultAsync<void, ContentError> {
+	const stagedRoot = context.paths.getStagedDownloadPath();
+	const publishedRoot = context.paths.getPublishedDownloadPath();
+	const versionId = ManifestUtils.mintVersionId();
+	const versionRelativePath = path.posix.join("versions", versionId);
+	const versionAbsolutePath = path.join(publishedRoot, "versions", versionId);
+
+	context.attemptedVersionPath = versionAbsolutePath;
+
+	return FileUtils.pathExists(stagedRoot)
+		.andThen((exists) => {
+			if (!exists) {
+				return okAsync(undefined);
+			}
+
+			return FileUtils.move(stagedRoot, versionAbsolutePath).andThen(() => {
+				const generatedAt = new Date().toISOString();
+				const manifest: Manifest = {
+					schemaVersion: ManifestUtils.MANIFEST_SCHEMA_VERSION,
+					versionId,
+					versionPath: versionRelativePath,
+					generatedAt,
+					sources: context.sources.map((source) => ({ sourceId: source.id, path: source.id })),
+				};
+
+				return ManifestUtils.writeManifest(publishedRoot, manifest).andTee(() => {
+					// Committed: clear the attempt marker so a later, unrelated stage failure
+					// (e.g. cleanupStage) can't cause error recovery to delete the now-active,
+					// manifest-referenced version.
+					context.attemptedVersionPath = undefined;
+					context.eventBus?.emit("content:version:promoted", {
+						versionId,
+						versionPath: versionRelativePath,
+						generatedAt,
+					});
+				});
+			});
+		})
+		.mapErr((error) => new ContentError("Failed to promote versioned output", { cause: error }));
+}
+
+/**
+ * Best-effort delete of the version dir this run tried to create, for the versioned-output
+ * error path. The retention sweep is the backstop for anything left behind by a failed delete.
+ */
+function cleanupOrphanedVersion(context: FetchStageContext): ResultAsync<void, never> {
+	const versionPath = context.attemptedVersionPath;
+	if (!versionPath) {
+		return okAsync(undefined);
+	}
+
+	return FileUtils.remove(versionPath).orElse((error) => {
+		context.logger.warn(
+			`Failed to remove orphaned version directory ${versionPath}: ${error.message}`,
+		);
+		return okAsync(undefined);
+	});
+}
+
 export type { FetchStageContext } from "./fetch-context.js";
 
 /**
@@ -138,7 +205,10 @@ export class ContentRecoveryError extends ContentError {
  * Stage 2: Back up existing downloads (optional).
  */
 export function backupStage(context: FetchStageContext): ResultAsync<void, ContentError> {
-	const backupRequired = context.config.backupAndRestore;
+	// Superseded under versioning: retained version dirs are strictly better backups, and the
+	// active version is never touched mid-fetch, so there's nothing to protect. Silent, since
+	// `backupAndRestore` defaults to true and a warning would fire for every versioned config.
+	const backupRequired = context.config.backupAndRestore && !context.config.versioning;
 	if (!backupRequired) {
 		return okAsync(undefined);
 	}
@@ -363,6 +433,10 @@ export function finalizingStage(context: FetchStageContext): ResultAsync<void, C
 				return okAsync(undefined);
 			}
 
+			if (context.config.versioning) {
+				return promoteVersioned(context);
+			}
+
 			return ResultAsync.combine(
 				context.sources.map((source) => promoteStagedSourceDirectory(context, source.id)),
 			)
@@ -387,6 +461,12 @@ export const errorRecoveryStage = (
 	context.logger.error("Error in content fetch process. Running recovery steps...");
 
 	context.eventBus?.emit("content:fetch:error", { error });
+
+	// Superseded under versioning: the active version was never touched, so there's nothing to
+	// restore. Instead, best-effort delete the version dir this run tried to create.
+	if (context.config.versioning) {
+		return cleanupOrphanedVersion(context).map(() => ({ restoredSourceIds: [] }));
+	}
 
 	if (!context.config.backupAndRestore) {
 		return okAsync({ restoredSourceIds: [] });

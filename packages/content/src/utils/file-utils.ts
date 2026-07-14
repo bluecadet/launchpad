@@ -223,7 +223,7 @@ export function copyFile(src: string, dest: string): ResultAsync<void, FileUtils
  * Atomically replace a file or directory from `src` to `dest` when possible.
  * Falls back to copy + remove when rename cannot be used across devices.
  */
-function move(
+export function move(
 	src: string,
 	dest: string,
 	options = { preserveTimestamps: true },

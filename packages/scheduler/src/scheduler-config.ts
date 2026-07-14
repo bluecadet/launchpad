@@ -132,6 +132,8 @@ export const schedulerConfigSchema = z
 		return resolved;
 	});
 
+// Hand-typed rather than z.input/z.output of schedulerConfigSchema: z.record's key schema can
+// only produce `string`, not the branded CommandId template-literal type.
 export type SchedulerConfig = Partial<Record<CommandId, ScheduleSpec>>;
 export type ResolvedSchedulerConfig = Partial<Record<CommandId, ResolvedScheduleSpec>>;
 

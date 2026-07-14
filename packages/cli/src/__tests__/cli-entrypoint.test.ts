@@ -16,7 +16,7 @@ describe("CLI entrypoint", () => {
 
 		try {
 			symlinkSync(compiledCliPath, linkedCliPath);
-			const result = spawnSync(linkedCliPath, ["--help"], { encoding: "utf8" });
+			const result = spawnSync(process.execPath, [linkedCliPath, "--help"], { encoding: "utf8" });
 
 			expect(result.status).toBe(0);
 			expect(result.stdout).toContain("Starts launchpad controller.");

@@ -16,6 +16,7 @@ import {
 } from "../content-transform.js";
 import type { Manifest } from "../manifest.js";
 import * as ManifestUtils from "../manifest.js";
+import { type SweepResult, sweepVersions } from "../retention-sweep.js";
 import type { ContentSource } from "../source.js";
 import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
@@ -534,6 +535,25 @@ export function finalizingStage(context: FetchStageContext): ResultAsync<void, C
 				sources: context.sources?.map((s) => s.id) || [],
 			});
 		});
+}
+
+/**
+ * Stage 6 (Versioned only): keep-N retention sweep of `versions/`, run once per successful
+ * versioned fetch. A no-op (resolves `undefined`) with versioning off. Never fails the fetch:
+ * a version dir that can't be fully removed is left in place and reported as pending-delete,
+ * to be retried on the next sweep.
+ */
+export function sweepStage(
+	context: FetchStageContext,
+): ResultAsync<SweepResult | undefined, never> {
+	context.logger.debug("Beginning phase: sweeping-versions");
+
+	if (!context.config.versioning) {
+		return okAsync(undefined);
+	}
+
+	const downloadPath = context.paths.getPublishedDownloadPath();
+	return sweepVersions(downloadPath, context.config.versioning, context.logger);
 }
 
 /**

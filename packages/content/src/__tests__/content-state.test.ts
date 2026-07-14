@@ -1,10 +1,12 @@
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { produce } from "immer";
 import { vol } from "memfs";
+import { errAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ContentState } from "../content-state.js";
 import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
+import * as FileUtils from "../utils/file-utils.js";
 
 function createTestCtx(cwd?: string) {
 	const baseCtx = createMockPluginCtx(cwd);
@@ -381,6 +383,72 @@ describe("ContentState", () => {
 			state = getState();
 			expect(state.sources["source-1"]).toBeDefined();
 			expect(state.sources["source-1"]?.state).toBe("success");
+		});
+	});
+
+	describe("versioned retention sweep state", () => {
+		it("records retention state after a successful versioned fetch", async () => {
+			const config = {
+				...createBasicConfig(1),
+				versioning: { keep: 1, ackTimeout: 1_800_000 },
+			};
+			const { instance, getState } = await setupContent(config);
+
+			const result = await instance.executeCommand({ type: "content.fetch" });
+			expect(result).toBeOk();
+
+			const state = getState();
+			expect(state.retention).toBeDefined();
+			expect(state.retention?.retainedCount).toBe(1);
+			expect(state.retention?.pendingDeleteCount).toBe(0);
+			expect(state.retention?.acks).toEqual([]);
+			expect(state.retention?.sweptAt).toBeInstanceOf(Date);
+		});
+
+		it("reports a pending-delete version once the retention count is exceeded", async () => {
+			const config = {
+				...createBasicConfig(1),
+				versioning: { keep: 1, ackTimeout: 1_800_000 },
+			};
+
+			// Seed a pre-existing older version + manifest, as if left by a prior fetch. The
+			// upcoming fetch mints a new (newer) version, making this one the sole deletion
+			// candidate under `keep: 1`.
+			vol.mkdirSync("/downloads/versions/20200101T000000Z/source-1", { recursive: true });
+			vol.writeFileSync(
+				"/downloads/manifest.json",
+				JSON.stringify({
+					schemaVersion: 1,
+					versionId: "20200101T000000Z",
+					versionPath: "versions/20200101T000000Z",
+					generatedAt: "2020-01-01T00:00:00.000Z",
+					sources: [{ sourceId: "source-1", path: "source-1" }],
+				}),
+			);
+
+			const { instance, getState } = await setupContent(config);
+
+			const removeSpy = vi
+				.spyOn(FileUtils, "remove")
+				.mockReturnValueOnce(errAsync(new FileUtils.FileUtilsError("locked")));
+
+			const result = await instance.executeCommand({ type: "content.fetch" });
+			expect(result).toBeOk();
+
+			const state = getState();
+			expect(state.retention?.retainedCount).toBe(1);
+			expect(state.retention?.pendingDeleteCount).toBe(1);
+
+			removeSpy.mockRestore();
+		});
+
+		it("leaves retention undefined when versioning is off", async () => {
+			const config = createBasicConfig(1);
+			const { instance, getState } = await setupContent(config);
+
+			await instance.executeCommand({ type: "content.fetch" });
+
+			expect(getState().retention).toBeUndefined();
 		});
 	});
 });

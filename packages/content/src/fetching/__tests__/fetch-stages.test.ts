@@ -16,6 +16,7 @@ import {
 	fetchSourcesStage,
 	finalizingStage,
 	runTransformsStage,
+	sweepStage,
 } from "../fetch-stages.js";
 import {
 	createMockContentConfig,
@@ -675,6 +676,43 @@ describe("Fetch Stages", () => {
 					writeManifestSpy.mockRestore();
 				}
 			});
+		});
+	});
+
+	describe("sweepStage", () => {
+		it("should be a no-op when versioning is off", async () => {
+			vol.mkdirSync("/downloads/versions/oldVersion", { recursive: true });
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: false }),
+			});
+
+			const result = await sweepStage(context);
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap()).toBeUndefined();
+			expect(vol.existsSync("/downloads/versions/oldVersion")).toBe(true);
+		});
+
+		it("should sweep versions/ under the published download path when versioning is on", async () => {
+			vol.mkdirSync("/downloads/versions/20260101T000000Z", { recursive: true });
+			vol.mkdirSync("/downloads/versions/20260102T000000Z", { recursive: true });
+			vol.mkdirSync("/downloads/versions/20260103T000000Z", { recursive: true });
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: { keep: 1, ackTimeout: 1_800_000 } }),
+			});
+
+			const result = await sweepStage(context);
+
+			expect(result).toBeOk();
+			const sweepResult = result._unsafeUnwrap();
+			expect(sweepResult?.retainedVersionIds).toEqual(["20260103T000000Z"]);
+			expect(sweepResult?.deletedVersionIds.sort()).toEqual([
+				"20260101T000000Z",
+				"20260102T000000Z",
+			]);
+			expect(vol.existsSync("/downloads/versions/20260101T000000Z")).toBe(false);
+			expect(vol.existsSync("/downloads/versions/20260103T000000Z")).toBe(true);
 		});
 	});
 

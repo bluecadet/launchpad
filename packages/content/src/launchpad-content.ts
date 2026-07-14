@@ -20,6 +20,7 @@ import {
 	fetchSourcesStage,
 	finalizingStage,
 	runTransformsStage,
+	sweepStage,
 } from "./fetching/fetch-stages.js";
 import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
@@ -115,6 +116,13 @@ function fetch(
 			return finalizingStage(context);
 		})
 		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "sweeping-versions" });
+			return sweepStage(context);
+		})
+		.andThen((sweepResult) => {
+			if (sweepResult) {
+				ctx.stateManager.recordSweep(sweepResult);
+			}
 			for (const source of context.sources) {
 				ctx.stateManager.markSourceSuccess(source.id);
 			}

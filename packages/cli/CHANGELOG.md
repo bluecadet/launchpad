@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.4
+
+### Patch Changes
+
+- [`dc4e471`](https://github.com/bluecadet/launchpad/commit/dc4e471daf8993c48860561a14fb31780b812b41) - Fix the installed `launchpad` command exiting silently when invoked through npm's binary symlink.
+
 ## 3.0.3
 
 ### Patch Changes

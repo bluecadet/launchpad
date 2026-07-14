@@ -10,17 +10,24 @@ export type GlobalLaunchpadArgs = {
 	verbose?: number;
 };
 
-/** Declares the global options that control config + env file resolution. */
-function withGlobalConfigOptions(y: Argv): Argv {
+/** Declares options that can appear before or after a command. */
+function withGlobalOptions(y: Argv): Argv {
 	return y
 		.option("config", { alias: "c", describe: "Path to your JS config file", type: "string" })
-		.option("env", { alias: "e", describe: "Path(s) to your .env file(s)", type: "array" })
+		.option("env", {
+			alias: "e",
+			describe: "Path(s) to your .env file(s)",
+			nargs: 1,
+			type: "array",
+		})
 		.option("env-cascade", {
 			alias: "E",
 			describe:
 				"cascade env variables from `.env`, `.env.<arg>`, `.env.local`, `.env.<arg>.local` in launchpad root dir",
 			type: "string",
-		});
+		})
+		.option("verbose", { alias: "v", describe: "Increase logging verbosity", type: "count" })
+		.count("verbose");
 }
 
 export async function run(argv: string[]): Promise<void> {
@@ -28,13 +35,10 @@ export async function run(argv: string[]): Promise<void> {
 	const { registerPluginCliCommands } = await import("./utils/plugin-cli-registration.js");
 
 	// Plugin CLI commands are registered dynamically from the resolved config, so
-	// it must be loaded before yargs parses argv. Pre-parse just the config/env
-	// options so the config + env files load exactly once, then share that single
+	// it must be loaded before yargs parses argv. Pre-parse the global options so
+	// the config + env files load exactly once, then share that single
 	// result with both plugin CLI registration and the built-in command handlers.
-	const parsedGlobal = await withGlobalConfigOptions(yargs(argv))
-		.help(false)
-		.version(false)
-		.parseAsync();
+	const parsedGlobal = await withGlobalOptions(yargs(argv)).help(false).version(false).parseAsync();
 
 	const resolvedConfig = await loadConfigAndEnv(parsedGlobal as GlobalLaunchpadArgs);
 
@@ -46,9 +50,7 @@ export async function run(argv: string[]): Promise<void> {
 			(error) => handleFatalError(error),
 		);
 
-	let yargsInstance: Argv = withGlobalConfigOptions(yargs(argv))
-		.option("verbose", { alias: "v", describe: "Increase logging verbosity", type: "count" })
-		.count("verbose")
+	let yargsInstance: Argv = withGlobalOptions(yargs(argv))
 		.middleware(async (args) => {
 			switch (args.verbose) {
 				case 1:
@@ -121,5 +123,12 @@ export async function run(argv: string[]): Promise<void> {
 		}
 	}
 
-	await yargsInstance.help().parseAsync();
+	yargsInstance = yargsInstance.help();
+	const hasCommand = parsedGlobal._.length > 0;
+	if (!hasCommand && !argv.includes("--version")) {
+		yargsInstance.showHelp("log");
+		return;
+	}
+
+	await yargsInstance.parseAsync();
 }

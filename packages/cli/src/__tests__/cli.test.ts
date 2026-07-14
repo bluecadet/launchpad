@@ -46,4 +46,13 @@ describe("cli run", () => {
 			expect.objectContaining({ dir: "/project" }),
 		);
 	});
+
+	it.each([
+		{ argv: ["--env", ".env", "start"], optionType: "array-valued" },
+		{ argv: ["--verbose", "start"], optionType: "count" },
+	])("runs a command after a $optionType global option", async ({ argv }) => {
+		await run(argv);
+
+		expect(start).toHaveBeenCalledTimes(1);
+	});
 });

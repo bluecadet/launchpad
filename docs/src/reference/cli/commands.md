@@ -120,6 +120,8 @@ Use this when you want to manage applications independently or connect to an exi
 
 ## Global Options
 
+Run `launchpad` without a command to print the available built-in and configured plugin commands.
+
 All commands support these options:
 
 | Option | Description | Type |

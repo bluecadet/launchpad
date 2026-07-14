@@ -47,4 +47,11 @@ export type FetchStageContext = {
 
 	// Resolved sources to fetch (set by pipeline orchestrator)
 	sources: Array<ContentSource>;
+
+	/**
+	 * Absolute path of the version directory this run attempted to promote into, under
+	 * versioned output mode. Set by `finalizingStage` before the move so that
+	 * `errorRecoveryStage` can best-effort delete an orphaned version dir on failure.
+	 */
+	attemptedVersionPath?: string;
 };

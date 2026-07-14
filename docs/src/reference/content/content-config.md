@@ -87,3 +87,13 @@ Maximum time in milliseconds to wait for network requests before timing out.
 - **Default:** `<>:"|?*`
 
 Special characters to encode in file paths for both content and media downloads. Ensures valid filenames across systems.
+
+### `versioning`
+
+- **Type:** `boolean | { keep?: number; ackTimeout?: string | number }`
+- **Default:** `false`
+
+Enables versioned output mode: each successful fetch is promoted into an immutable `versions/<versionId>/` directory with an atomically-swapped `manifest.json` pointer, instead of writing directly into `downloadPath`. Pass `true` to use the defaults below, or an object to override them.
+
+- `keep` - number of versions to retain. Default `3`.
+- `ackTimeout` - how long a consuming app's ack lease stays fresh before the retention sweep ignores it. Accepts duration shorthand (`"500ms"`, `"30s"`, `"5m"`, `"2h"`) or a raw millisecond number. Default `"30m"`.

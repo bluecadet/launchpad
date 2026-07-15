@@ -19,19 +19,18 @@ Every successful fetch creates a new `versionId`, even when the CMS returned ide
 
 ## Check before fetching
 
-Schedule a CMS-specific `refresh.check` command instead of `content.fetch`. It asks the CMS for its latest `modifiedAt` value, then fetches only when that value is newer.
+> [!NOTE]
+> Requires `@bluecadet/launchpad` 3.1.0 or later.
 
-<<< ./live-content-refresh-examples/refresh-plugin.ts
-
-Replace `getCmsModifiedAt()` with the request appropriate to your CMS. The first check after boot compares the CMS value with the active manifest's `generatedAt`. Later checks compare CMS values in memory. If the manifest is missing or cannot be read, the plugin fetches unconditionally.
-
-The fetch is awaited before the check completes. Scheduler intervals are therefore measured after the whole check-and-fetch cycle, and a fetch failure is reported to the scheduler for its normal retry policy. `lastSeen` is updated only after a successful fetch, so a failed fetch is tried again.
-
-Register the plugin, schedule its command, and keep versioning enabled:
+Add the content package's [`refetchChecker`](/reference/content/refetch-checker) plugin and schedule its `refetch.check` command instead of `content.fetch`. The check asks the CMS for its latest `modifiedAt` value, then fetches only when that value is newer.
 
 <<< ./live-content-refresh-examples/checked-config.ts
 
-This plugin is deliberately application-specific. It keeps the scheduler command-agnostic and lets each CMS choose the most reliable freshness signal.
+`getLatestModifiedAt` is the only CMS-specific part: return the most recent modification value your CMS reports, in a format whose lexicographic order matches chronological order (an ISO 8601 timestamp qualifies). Each CMS chooses its most reliable freshness signal; the checker supplies the rest.
+
+The first check after boot compares the CMS value with the active manifest's `generatedAt`. Later checks compare CMS values in memory. If the manifest is missing or cannot be read, the checker fetches unconditionally.
+
+The fetch is awaited before the check completes. Scheduler intervals are therefore measured after the whole check-and-fetch cycle, and a fetch failure is reported to the scheduler for its normal retry policy. The last seen CMS value is recorded only after a successful fetch, so a failed fetch is tried again.
 
 ## Node consumers with `IPCClient`
 

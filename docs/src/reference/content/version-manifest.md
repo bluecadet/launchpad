@@ -81,7 +81,7 @@ A fresh lease retains its named version in addition to the normal keep count. On
 
 A lease only extends retention; it does not block cleanup forever. An application that does not write a lease must reload promptly after detecting a new `versionId`, because its old version can be deleted once it falls outside normal retention.
 
-Node consumers connected to a running Launchpad daemon can instead renew the same lease through `content.ack`. See the [IPCClient consumer recipe](/recipes/live-content-refresh#node-consumers-with-ipcclient).
+Node consumers connected to a running Launchpad daemon can instead renew the same lease through `content.ack`, and can read the active manifest without knowing its on-disk location through [`content.manifest.read`](./refetch-checker#manifest-discovery-content-manifest-read). See the [IPCClient consumer recipe](/recipes/live-content-refresh#node-consumers-with-ipcclient).
 
 ## Platform guidance
 

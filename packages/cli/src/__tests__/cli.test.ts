@@ -16,9 +16,19 @@ vi.mock("../utils/cli-logger.js", () => ({
 vi.mock("../commands/start.js", () => ({ start: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../commands/stop.js", () => ({ stop: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../commands/status.js", () => ({ status: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../utils/command-utils.js", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../utils/command-utils.js")>();
+	return {
+		...actual,
+		handleFatalError: vi.fn(() => {
+			throw new Error("fatal");
+		}),
+	};
+});
 
 import { start } from "../commands/start.js";
 import { run } from "../run.js";
+import { handleFatalError } from "../utils/command-utils.js";
 import { findFirstConfigRecursive, loadConfigFromFile } from "../utils/config.js";
 import { resolveEnv } from "../utils/env.js";
 
@@ -54,5 +64,23 @@ describe("cli run", () => {
 		await run(argv);
 
 		expect(start).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports a command handler error without printing usage text", async () => {
+		// yargs' default .fail() dumps the command's usage/help before the error,
+		// which buried runtime errors (e.g. IPC serialization failures) in noise.
+		const handlerError = new Error("Cannot stringify arbitrary non-POJOs");
+		vi.mocked(start).mockRejectedValueOnce(handlerError);
+		const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+		// yargs swallows exceptions thrown by .fail() for async handlers and
+		// re-rejects with the original error; in production handleFatalError
+		// exits the process before that matters.
+		await expect(run(["start"])).rejects.toThrow("Cannot stringify arbitrary non-POJOs");
+
+		expect(handleFatalError).toHaveBeenCalledWith(handlerError);
+		expect(consoleLogSpy).not.toHaveBeenCalled();
+
+		consoleLogSpy.mockRestore();
 	});
 });

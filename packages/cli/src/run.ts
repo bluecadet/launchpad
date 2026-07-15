@@ -123,7 +123,17 @@ export async function run(argv: string[]): Promise<void> {
 		}
 	}
 
-	yargsInstance = yargsInstance.help();
+	yargsInstance = yargsInstance.help().fail((msg, err) => {
+		if (err) {
+			// Runtime failure inside a command handler — yargs' default behavior
+			// would dump the command's usage text before the error. Just report it.
+			handleFatalError(err);
+			return;
+		}
+		yargsInstance.showHelp("log");
+		cliLogger.error(msg);
+		process.exit(1);
+	});
 	const hasCommand = parsedGlobal._.length > 0;
 	if (!hasCommand && !argv.includes("--version")) {
 		yargsInstance.showHelp("log");

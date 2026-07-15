@@ -197,13 +197,37 @@ describe("start", () => {
 			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
 		});
 
-		it("start workflow fails — handleFatalError called", async () => {
+		it("start workflow fails — logs the error and keeps the controller running", async () => {
 			const mockPlugin = {
 				name: "content" as const,
 				setup: vi.fn(),
 			};
 			const configWithPlugin = resolveLaunchpadConfig({
 				plugins: [mockPlugin],
+				workflows: { start: ["content.fetch"] },
+			});
+
+			const workflowError = new Error("Workflow failed");
+			const mockController = createMockController({
+				runWorkflow: vi.fn().mockReturnValue(errAsync(workflowError)),
+			});
+			vi.mocked(withDaemonOrController).mockImplementation((_dir, _cfg, opts) =>
+				opts.otherwise(mockController as unknown as LaunchpadController),
+			);
+
+			const result = await start({ detach: false }, { dir: "/test", config: configWithPlugin });
+
+			expect(result.isOk()).toBe(true);
+			expect(vi.mocked(handleFatalError)).not.toHaveBeenCalled();
+			expect(vi.mocked(cliLogger.error)).toHaveBeenCalledWith(workflowError);
+			expect(vi.mocked(cliLogger.warn)).toHaveBeenCalledWith(
+				expect.stringContaining("workflow steps failed"),
+			);
+		});
+
+		it("start workflow fails while detached — still sends ready message", async () => {
+			detachedMock.isDetached = true;
+			const configWithWorkflow = resolveLaunchpadConfig({
 				workflows: { start: ["content.fetch"] },
 			});
 
@@ -214,10 +238,10 @@ describe("start", () => {
 				opts.otherwise(mockController as unknown as LaunchpadController),
 			);
 
-			await expect(
-				start({ detach: false }, { dir: "/test", config: configWithPlugin }),
-			).rejects.toThrow("fatal");
-			expect(vi.mocked(handleFatalError)).toHaveBeenCalled();
+			const result = await start({ detach: false }, { dir: "/test", config: configWithWorkflow });
+
+			expect(result.isOk()).toBe(true);
+			expect(detachedMock.sendReadyMessage).toHaveBeenCalled();
 		});
 	});
 

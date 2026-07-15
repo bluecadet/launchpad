@@ -115,7 +115,15 @@ function startForeground({ dir, config }: LoadedConfig): ResultAsync<void, Error
 				.andTee(() => {
 					controller.setWorkflows(config.workflows ?? {});
 				})
-				.andThen(() => controller.runWorkflow("start"))
+				.andThen(() =>
+					// A failed workflow step is not fatal: log it and keep the
+					// controller running so healthy plugins stay up.
+					controller.runWorkflow("start").orElse((error) => {
+						cliLogger.error(error);
+						cliLogger.warn("Some 'start' workflow steps failed; launchpad will keep running.");
+						return okAsync<void, Error>(undefined);
+					}),
+				)
 				.andTee(() => {
 					if (isDetached) {
 						sendReadyMessage();

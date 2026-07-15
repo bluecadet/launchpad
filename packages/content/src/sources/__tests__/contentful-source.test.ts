@@ -1,7 +1,16 @@
+import { createClient } from "contentful";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import contentfulSource from "../contentful-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
+
+vi.mock("contentful", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("contentful")>();
+	return {
+		...actual,
+		createClient: vi.fn(actual.createClient),
+	};
+});
 
 const { server } = setupMSWServer();
 
@@ -293,5 +302,26 @@ describe("contentfulSource", () => {
 		};
 
 		expect(data.entries.every((entry) => entry.sys.contentType.sys.id === "article")).toBe(true);
+	});
+
+	it("should configure the Contentful client with a default 60s request timeout", async () => {
+		await contentfulSource({
+			id: "test-contentful",
+			space: "test-space",
+			deliveryToken: "test-token",
+		});
+
+		expect(createClient).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 60_000 }));
+	});
+
+	it("should allow overriding the Contentful client request timeout", async () => {
+		await contentfulSource({
+			id: "test-contentful",
+			space: "test-space",
+			deliveryToken: "test-token",
+			maxTimeout: 5_000,
+		});
+
+		expect(createClient).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 5_000 }));
 	});
 });

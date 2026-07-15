@@ -1,7 +1,16 @@
+import { createClient } from "@sanity/client";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import sanitySource from "../sanity-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
+
+vi.mock("@sanity/client", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@sanity/client")>();
+	return {
+		...actual,
+		createClient: vi.fn(actual.createClient),
+	};
+});
 
 const { server } = setupMSWServer();
 
@@ -298,5 +307,28 @@ describe("sanitySource", () => {
 		vi.runAllTimersAsync();
 
 		await expect(promise).rejects.toThrowError(abortReason);
+	});
+
+	it("should configure the Sanity client with a default 60s request timeout", async () => {
+		await sanitySource({
+			id: "test-sanity",
+			projectId: "test-project",
+			apiToken: "test-token",
+			queries: ["test"],
+		});
+
+		expect(createClient).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 60_000 }));
+	});
+
+	it("should allow overriding the Sanity client request timeout", async () => {
+		await sanitySource({
+			id: "test-sanity",
+			projectId: "test-project",
+			apiToken: "test-token",
+			queries: ["test"],
+			maxTimeout: 5_000,
+		});
+
+		expect(createClient).toHaveBeenLastCalledWith(expect.objectContaining({ timeout: 5_000 }));
 	});
 });

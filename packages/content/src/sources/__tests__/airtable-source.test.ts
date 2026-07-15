@@ -1,3 +1,4 @@
+import Airtable from "airtable";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import airtableSource from "../airtable-source.js";
@@ -211,5 +212,36 @@ describe("airtableSource", () => {
 		expect(result).toHaveLength(1);
 
 		await expect(result[0]!.data).rejects.toThrow();
+	});
+
+	it("should configure the Airtable client with a default 60s request timeout", async () => {
+		const configureSpy = vi.spyOn(Airtable, "configure");
+
+		await airtableSource({
+			id: "test-airtable",
+			baseId: "timeout-base",
+			apiKey: "test-key",
+			tables: ["table1"],
+		});
+
+		expect(configureSpy).toHaveBeenCalledWith(expect.objectContaining({ requestTimeout: 60_000 }));
+
+		configureSpy.mockRestore();
+	});
+
+	it("should allow overriding the Airtable client request timeout", async () => {
+		const configureSpy = vi.spyOn(Airtable, "configure");
+
+		await airtableSource({
+			id: "test-airtable",
+			baseId: "timeout-base",
+			apiKey: "test-key",
+			tables: ["table1"],
+			maxTimeout: 5_000,
+		});
+
+		expect(configureSpy).toHaveBeenCalledWith(expect.objectContaining({ requestTimeout: 5_000 }));
+
+		configureSpy.mockRestore();
 	});
 });

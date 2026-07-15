@@ -27,6 +27,8 @@ const sanitySourceSchema = z.object({
 	maxNumPages: z.number().describe("Max number of pages").default(1000),
 	/** To combine paginated files into a single file. Defaults to false. */
 	mergePages: z.boolean().describe("To combine paginated files into a single file.").default(false),
+	/** Max request timeout in ms. Defaults to 60 seconds. */
+	maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
 });
 
 export default async function sanitySource(options: z.input<typeof sanitySourceSchema>) {
@@ -40,6 +42,7 @@ export default async function sanitySource(options: z.input<typeof sanitySourceS
 		apiVersion: parsedOptions.apiVersion,
 		token: parsedOptions.apiToken,
 		useCdn: parsedOptions.useCdn,
+		timeout: parsedOptions.maxTimeout,
 	});
 
 	return defineSource({

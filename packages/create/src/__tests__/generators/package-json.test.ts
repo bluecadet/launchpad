@@ -11,6 +11,7 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: false,
 	useMonitor: false,
+	useScheduler: false,
 	contentSources: [],
 	contentTransforms: [],
 	monitorApps: [],
@@ -123,6 +124,16 @@ describe("getRequiredPackages", () => {
 			contentTransforms: ["sanityImageUrlTransform"],
 		});
 		expect(packages).toContain("@sanity/image-url");
+	});
+
+	it("includes @bluecadet/launchpad-scheduler when useScheduler is true", () => {
+		const packages = getRequiredPackages({ ...baseAnswers, useScheduler: true });
+		expect(packages).toContain("@bluecadet/launchpad-scheduler");
+	});
+
+	it("omits @bluecadet/launchpad-scheduler when useScheduler is false", () => {
+		const packages = getRequiredPackages(baseAnswers);
+		expect(packages).not.toContain("@bluecadet/launchpad-scheduler");
 	});
 });
 

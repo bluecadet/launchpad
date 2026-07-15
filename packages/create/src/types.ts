@@ -21,6 +21,7 @@ export interface Answers {
 	packageName: string;
 	useContent: boolean;
 	useMonitor: boolean;
+	useScheduler: boolean;
 	contentSources: ContentSource[];
 	contentTransforms: ContentTransform[];
 	monitorApps: MonitorAppAnswers[];

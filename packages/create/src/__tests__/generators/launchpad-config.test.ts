@@ -7,6 +7,7 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: false,
 	useMonitor: false,
+	useScheduler: false,
 	contentSources: [],
 	contentTransforms: [],
 	monitorApps: [],
@@ -14,6 +15,13 @@ const baseAnswers: Answers = {
 };
 
 describe("generateLaunchpadConfig", () => {
+	it("does not link to the live content refresh recipe when scheduler and content are unused", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+		const recipeLink = "https://bluecadet.github.io/launchpad/recipes/live-content-refresh";
+
+		expect(result).not.toContain(recipeLink);
+	});
+
 	it("always imports defineConfig", () => {
 		const result = generateLaunchpadConfig({
 			...baseAnswers,
@@ -87,6 +95,63 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("monitor(");
 		expect(result).toContain("start: ['content.fetch', 'monitor.connect', 'monitor.start']");
 		expect(result).toContain("stop: ['monitor.stop', 'monitor.disconnect']");
+	});
+
+	it("generates scheduler config with a guide-link comment", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useScheduler: true,
+		});
+		const recipeLink = "https://bluecadet.github.io/launchpad/recipes/live-content-refresh";
+
+		expect(result).toContain("from '@bluecadet/launchpad/scheduler'");
+		expect(result).toContain("scheduler(");
+		expect(result).toContain("'content.fetch': '15m'");
+		expect(result).toContain(`// See ${recipeLink}`);
+		expect(result).not.toContain("content(");
+		expect(result.split(recipeLink)).toHaveLength(2);
+	});
+
+	it("omits the scheduler plugin and import when not selected", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+		expect(result).not.toContain("from '@bluecadet/launchpad/scheduler'");
+		expect(result).not.toContain("scheduler(");
+	});
+
+	it("includes a commented-out versioning hint with the guide link when content is selected alone", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useContent: true,
+			contentSources: ["json"],
+		});
+		const recipeLink = "https://bluecadet.github.io/launchpad/recipes/live-content-refresh";
+
+		expect(result).toContain("// versioning: true,");
+		expect(result).toContain(recipeLink);
+		// Content-only: the versioning hint is the only place the guide is linked,
+		// since it's the path to adding the (unscaffolded) scheduler.
+		expect(result.split(recipeLink)).toHaveLength(2);
+	});
+
+	it("generates config with content, monitor, and scheduler together", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useContent: true,
+			contentSources: ["json"],
+			useMonitor: true,
+			monitorApps: [{ name: "app", script: "./app.exe", cwd: "./" }],
+			useScheduler: true,
+		});
+		const recipeLink = "https://bluecadet.github.io/launchpad/recipes/live-content-refresh";
+
+		expect(result).toContain("content(");
+		expect(result).toContain("monitor(");
+		expect(result).toContain("scheduler(");
+		// The versioning hint stays, but without the link since the scheduler entry carries it.
+		expect(result).toContain("// versioning: true,");
+		// The guide link should appear exactly once, on the scheduler entry, not duplicated elsewhere.
+		expect(result.split(recipeLink)).toHaveLength(2);
+		expect(result).toContain(`// See ${recipeLink}`);
 	});
 
 	it("includes all selected sources in a single barrel import", () => {

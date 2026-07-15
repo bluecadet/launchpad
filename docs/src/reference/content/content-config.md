@@ -87,3 +87,12 @@ Maximum time in milliseconds to wait for network requests before timing out.
 - **Default:** `<>:"|?*`
 
 Special characters to encode in file paths for both content and media downloads. Ensures valid filenames across systems.
+
+### `versioning`
+
+- **Type:** `boolean | { keepVersions?: number; ackTimeout?: string | number }`
+- **Default:** `false`
+
+Enables immutable versioned output. Pass `true` to use the defaults, or an object to override `keepVersions` and `ackTimeout`.
+
+See [Versioning](./versioning) for configuration defaults, publishing, retention, mode-switch behavior, and status output. Applications that consume versioned content must follow the [Version Manifest](./version-manifest) contract.

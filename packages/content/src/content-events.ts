@@ -28,6 +28,13 @@ export type ContentEvents = {
 		source?: string;
 	};
 
+	/** Emitted immediately after the manifest swap under versioned output mode. */
+	"content:version:promoted": {
+		versionId: string;
+		versionPath: string;
+		generatedAt: string;
+	};
+
 	// Source-specific events
 	"content:source:start": {
 		sourceId: string;

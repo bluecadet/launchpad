@@ -2,6 +2,7 @@ import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { writeAckLease } from "./acks.js";
 import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
 import {
 	type ContentConfig,
@@ -20,7 +21,9 @@ import {
 	fetchSourcesStage,
 	finalizingStage,
 	runTransformsStage,
+	sweepStage,
 } from "./fetching/fetch-stages.js";
+import { resolveOutputStrategy } from "./fetching/output-strategy.js";
 import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
@@ -41,6 +44,18 @@ function fetch(
 	ctx: ContentActionContext,
 ): ResultAsync<void, Error> {
 	const normalizedSourceIds = typeof sourceIds === "string" ? [sourceIds] : sourceIds;
+
+	// Under versioning, promotion moves the whole staged root into a new version and rebuilds the
+	// manifest from the fetched sources, so a subset fetch would silently drop every unfetched
+	// source from the active version. Reject it rather than publish a version missing sources.
+	if (normalizedSourceIds !== null && ctx.resolvedConfig.versioning) {
+		return errAsync(
+			new ContentError(
+				"content.fetch with a sources filter is not supported when versioning is enabled",
+			),
+		);
+	}
+
 	const idsToFetch = normalizedSourceIds || Array.from(ctx.sourceRegistry.keys());
 	if (!idsToFetch || idsToFetch.length === 0) {
 		ctx.logger.warn("No sources to fetch");
@@ -78,6 +93,7 @@ function fetch(
 		logger: ctx.logger,
 		eventBus: ctx.eventBus,
 		config: ctx.resolvedConfig,
+		output: resolveOutputStrategy(ctx.resolvedConfig),
 		cwd: ctx.cwd,
 		abortSignal: ctx.abortSignal,
 		runId,
@@ -115,6 +131,13 @@ function fetch(
 			return finalizingStage(context);
 		})
 		.andThen(() => {
+			ctx.stateManager.setPhase({ phase: "sweeping-versions" });
+			return sweepStage(context);
+		})
+		.andThen((sweepResult) => {
+			if (sweepResult) {
+				ctx.stateManager.recordSweep(sweepResult);
+			}
 			for (const source of context.sources) {
 				ctx.stateManager.markSourceSuccess(source.id);
 			}
@@ -244,6 +267,22 @@ function clear(
 		.mapErr((error) => new ContentError("Failed to clear directories", { cause: error }));
 }
 
+/** See `writeAckLease` for the ack lease contract. Requires `versioning` to be enabled. */
+function ack(
+	consumerId: string,
+	versionId: string,
+	ctx: ContentActionContext,
+): ResultAsync<void, Error> {
+	if (!ctx.resolvedConfig.versioning) {
+		return errAsync(new ContentError("content.ack requires versioning to be enabled"));
+	}
+
+	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
+	return writeAckLease(paths.getPublishedDownloadPath(), consumerId, versionId).mapErr(
+		(error) => new ContentError(error.message, { cause: error }),
+	);
+}
+
 /**
  * Creates a LaunchpadContent plugin factory.
  * Use this in your launchpad config's plugins array.
@@ -255,6 +294,7 @@ export function content(config: ContentConfig) {
 			commands: [
 				{ id: "content.fetch", parser: contentCommandSchema },
 				{ id: "content.clear", parser: contentCommandSchema },
+				{ id: "content.ack", parser: contentCommandSchema },
 			],
 			cli: [
 				{
@@ -287,6 +327,11 @@ export function content(config: ContentConfig) {
 					// initialize persistent services (services that live for the lifetime of the plugin, not per-command)
 
 					const stateManager = new ContentStateManager(ctx.updateState);
+					stateManager.setVersioning(
+						resolvedConfig.versioning
+							? { keepVersions: resolvedConfig.versioning.keepVersions }
+							: false,
+					);
 					const sourceRegistry = new Map<string, ContentSource>();
 
 					// Check for duplicates
@@ -337,6 +382,9 @@ export function content(config: ContentConfig) {
 											actionContext,
 										),
 									);
+								}
+								case "content.ack": {
+									return ack(validCommand.consumerId, validCommand.versionId, actionContext);
 								}
 								case "content.backup":
 								case "content.restore": {

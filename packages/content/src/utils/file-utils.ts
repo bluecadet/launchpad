@@ -95,6 +95,16 @@ export function pad(num: number, size: number) {
 	return `${num}`.padStart(size, "0");
 }
 
+/**
+ * Builds a collision-resistant scratch name (for temp/rollback files) by suffixing `prefix`
+ * with the process id, a millisecond timestamp, and random characters. Callers join the result
+ * to the directory it belongs in.
+ */
+export function scratchName(prefix: string): string {
+	const random = Math.random().toString(36).slice(2, 10);
+	return `${prefix}-${process.pid}-${Date.now()}-${random}`;
+}
+
 export function removeDirIfEmpty(dirPath: string): ResultAsync<void, FileUtilsError> {
 	if (!isDir(dirPath)) {
 		return okAsync(undefined);
@@ -134,10 +144,20 @@ export function ensureDir(dirPath: string): ResultAsync<void, FileUtilsError> {
 
 /**
  * Removes a file or directory. The directory can have contents. If the path does not exist, silently does nothing.
+ * `maxRetries`/`retryDelay` default to 0 (no retry), matching `fs.rm`'s own defaults; pass them
+ * explicitly to retry transient locks (e.g. Windows sharing violations) on a multi-pass sweep.
  */
-export function remove(dir: string): ResultAsync<void, FileUtilsError> {
+export function remove(
+	dir: string,
+	options: { maxRetries?: number; retryDelay?: number } = {},
+): ResultAsync<void, FileUtilsError> {
 	return ResultAsync.fromPromise(
-		fs.promises.rm(dir, { recursive: true, force: true }),
+		fs.promises.rm(dir, {
+			recursive: true,
+			force: true,
+			maxRetries: options.maxRetries ?? 0,
+			retryDelay: options.retryDelay ?? 0,
+		}),
 		(e) => new FileUtilsError(`Failed to remove ${dir}`, { cause: e }),
 	);
 }
@@ -219,25 +239,63 @@ export function copyFile(src: string, dest: string): ResultAsync<void, FileUtils
 	);
 }
 
+const RETRYABLE_RENAME_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Renames `src` to `dest`, retrying on retryable codes (`EPERM`/`EACCES`/`EBUSY`, e.g. Windows
+ * sharing violations) until `retriesRemaining` is exhausted. Non-retryable errors (including
+ * `EXDEV`, handled by the caller) fail immediately.
+ */
+function renameWithRetry(
+	src: string,
+	dest: string,
+	retriesRemaining: number,
+	retryDelay: number,
+): ResultAsync<void, NodeJS.ErrnoException> {
+	return ResultAsync.fromPromise(
+		fs.promises.rename(src, dest),
+		(error) => error as NodeJS.ErrnoException,
+	).orElse((error) => {
+		if (retriesRemaining <= 0 || !RETRYABLE_RENAME_CODES.has(error.code ?? "")) {
+			return errAsync(error);
+		}
+		return ResultAsync.fromSafePromise(delay(retryDelay)).andThen(() =>
+			renameWithRetry(src, dest, retriesRemaining - 1, retryDelay),
+		);
+	});
+}
+
 /**
  * Atomically replace a file or directory from `src` to `dest` when possible.
  * Falls back to copy + remove when rename cannot be used across devices.
+ * `maxRetries`/`retryDelay` default to 0 (no retry), mirroring the documented contract on
+ * `remove()`; pass them explicitly to retry the rename step on transient locks (e.g. Windows
+ * sharing violations: `EPERM`/`EACCES`/`EBUSY`) before falling back to copy+remove or failing.
  */
-function move(
+export function move(
 	src: string,
 	dest: string,
-	options = { preserveTimestamps: true },
+	options: {
+		preserveTimestamps?: boolean;
+		maxRetries?: number;
+		retryDelay?: number;
+	} = {},
 ): ResultAsync<void, FileUtilsError> {
+	const preserveTimestamps = options.preserveTimestamps ?? true;
+	const maxRetries = options.maxRetries ?? 0;
+	const retryDelay = options.retryDelay ?? 0;
+
 	return ensureDir(path.dirname(dest)).andThen(() =>
-		ResultAsync.fromPromise(fs.promises.rename(src, dest), (error) => error).orElse((error) => {
-			const moveError = error as NodeJS.ErrnoException;
-			if (moveError.code !== "EXDEV") {
-				return errAsync(
-					new FileUtilsError(`Failed to move ${src} to ${dest}`, { cause: moveError }),
-				);
+		renameWithRetry(src, dest, maxRetries, retryDelay).orElse((error) => {
+			if (error.code !== "EXDEV") {
+				return errAsync(new FileUtilsError(`Failed to move ${src} to ${dest}`, { cause: error }));
 			}
 
-			return copy(src, dest, options).andThen(() => remove(src));
+			return copy(src, dest, { preserveTimestamps }).andThen(() => remove(src));
 		}),
 	);
 }
@@ -281,7 +339,7 @@ export function replacePath(
 			if (destinationExists) {
 				rollbackPath = path.resolve(
 					options.rollbackDir ?? path.dirname(dest),
-					`${path.basename(dest)}.rollback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+					scratchName(`${path.basename(dest)}.rollback`),
 				);
 
 				await remove(rollbackPath).match(

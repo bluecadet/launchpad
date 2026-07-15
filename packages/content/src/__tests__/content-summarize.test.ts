@@ -18,20 +18,205 @@ describe("buildContentSection", () => {
 	});
 
 	it("returns a Section with correct metadata", () => {
-		const section = buildContentSection({ phase: "idle", sources: {} });
+		const section = buildContentSection({ phase: "idle", sources: {}, versioning: false });
 		expect(section.name).toBe("content");
 		expect(section.order).toBe(20);
 		expect(section.title).toBe("Content");
 	});
 
 	it("includes Phase kv row", () => {
-		const section = buildContentSection({ phase: "fetching-sources", sources: {} });
+		const section = buildContentSection({
+			phase: "fetching-sources",
+			sources: {},
+			versioning: false,
+		});
 		const phaseRow = section.rows.find((r) => r.type === "kv" && r.label === "Phase");
 		expect(phaseRow).toMatchObject({ type: "kv", label: "Phase", value: "fetching-sources" });
 	});
 
+	it("renders no Version/Retained rows when the versioning snapshot is false", () => {
+		const section = buildContentSection({ phase: "idle", sources: {}, versioning: false });
+		expect(
+			section.rows.some(
+				(row) => row.type === "kv" && (row.label === "Version" || row.label === "Retained"),
+			),
+		).toBe(false);
+	});
+
+	it("renders no Version/Retained rows when the versioning snapshot is absent (legacy/defensive state)", () => {
+		// Simulates a ContentState that predates the versioning field, or a partial patch that
+		// hasn't applied it yet. buildContentSection must not crash and must render exactly like
+		// the versioning-off path.
+		const legacyState = { phase: "idle", sources: {} } as unknown as ContentState;
+		const section = buildContentSection(legacyState);
+		expect(
+			section.rows.some(
+				(row) => row.type === "kv" && (row.label === "Version" || row.label === "Retained"),
+			),
+		).toBe(false);
+	});
+
+	it("shows none-yet versioning status before the first fetch", () => {
+		const section = buildContentSection(
+			{ phase: "idle", sources: {}, versioning: { keepVersions: 3 } },
+			new Date("2026-07-14T15:34:45Z"),
+		);
+
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Version",
+			value: "none yet",
+			tone: "neutral",
+		});
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Retained",
+			value: "0 versions (keep 3)",
+			tone: "ok",
+		});
+		expect(section.rows.some((row) => row.type === "list" && row.label === "Acks")).toBe(false);
+	});
+
+	it("renders the versioning rows purely from state (no second argument besides `now`)", () => {
+		const section = buildContentSection(
+			{
+				phase: "idle",
+				sources: {},
+				versioning: { keepVersions: 3 },
+				retention: {
+					versionId: "20260714T153045Z",
+					promotedAt: new Date("2026-07-14T15:30:45Z"),
+					retainedCount: 1,
+					pendingDeleteCount: 0,
+					acks: [],
+					sweptAt: new Date("2026-07-14T15:30:46Z"),
+				},
+			},
+			new Date("2026-07-14T15:34:45Z"),
+		);
+
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Version",
+			value: "20260714T153045Z · promoted 4m ago",
+			tone: "ok",
+		});
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Retained",
+			value: "1 version (keep 3)",
+			tone: "ok",
+		});
+	});
+
+	it("shows the active version and pending deletions", () => {
+		const section = buildContentSection(
+			{
+				phase: "idle",
+				sources: {},
+				versioning: { keepVersions: 3 },
+				retention: {
+					versionId: "20260714T153045Z",
+					promotedAt: new Date("2026-07-14T15:30:45Z"),
+					retainedCount: 3,
+					pendingDeleteCount: 2,
+					acks: [],
+					sweptAt: new Date("2026-07-14T15:30:46Z"),
+				},
+			},
+			new Date("2026-07-14T15:34:45Z"),
+		);
+
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Version",
+			value: "20260714T153045Z · promoted 4m ago",
+			tone: "ok",
+		});
+		expect(section.rows).toContainEqual({
+			type: "kv",
+			label: "Retained",
+			value: "5 versions (keep 3, 2 pending delete)",
+			tone: "warn",
+		});
+	});
+
+	it("shows fresh ack leases", () => {
+		const section = buildContentSection(
+			{
+				phase: "idle",
+				sources: {},
+				versioning: { keepVersions: 3 },
+				retention: {
+					retainedCount: 3,
+					pendingDeleteCount: 0,
+					acks: [
+						{
+							consumerId: "kiosk-1",
+							versionId: "20260714T153045Z",
+							ackedAt: new Date("2026-07-14T15:32:45Z"),
+							fresh: true,
+						},
+					],
+					sweptAt: new Date("2026-07-14T15:32:46Z"),
+				},
+			},
+			new Date("2026-07-14T15:34:45Z"),
+		);
+
+		expect(section.rows).toContainEqual({
+			type: "list",
+			label: "Acks",
+			items: [
+				{
+					type: "kv",
+					label: "kiosk-1",
+					value: "20260714T153045Z · 2m ago",
+					tone: "ok",
+				},
+			],
+		});
+	});
+
+	it("shows expired ack leases neutrally", () => {
+		const section = buildContentSection(
+			{
+				phase: "idle",
+				sources: {},
+				versioning: { keepVersions: 3 },
+				retention: {
+					retainedCount: 3,
+					pendingDeleteCount: 0,
+					acks: [
+						{
+							consumerId: "kiosk-1",
+							versionId: "20260714T153045Z",
+							ackedAt: new Date("2026-07-14T12:34:45Z"),
+							fresh: false,
+						},
+					],
+					sweptAt: new Date("2026-07-14T12:34:46Z"),
+				},
+			},
+			new Date("2026-07-14T15:34:45Z"),
+		);
+
+		expect(section.rows).toContainEqual({
+			type: "list",
+			label: "Acks",
+			items: [
+				{
+					type: "kv",
+					label: "kiosk-1",
+					value: "20260714T153045Z · expired 3h ago",
+					tone: "neutral",
+				},
+			],
+		});
+	});
+
 	it("omits Sources list row when sources is empty", () => {
-		const section = buildContentSection({ phase: "idle", sources: {} });
+		const section = buildContentSection({ phase: "idle", sources: {}, versioning: false });
 		const sourcesRow = section.rows.find((r) => r.type === "list" && r.label === "Sources");
 		expect(sourcesRow).toBeUndefined();
 	});
@@ -40,6 +225,7 @@ describe("buildContentSection", () => {
 		const section = buildContentSection({
 			phase: "idle",
 			sources: { site: { state: "pending" } },
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list" && r.label === "Sources");
 		expect(sourcesRow).toBeDefined();
@@ -50,6 +236,7 @@ describe("buildContentSection", () => {
 		const section = buildContentSection({
 			phase: "idle",
 			sources: { site: { state: "pending" } },
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
 		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
@@ -65,6 +252,7 @@ describe("buildContentSection", () => {
 		const section = buildContentSection({
 			phase: "fetching-sources",
 			sources: { site: { state: "fetching", startTime: new Date() } },
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
 		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
@@ -89,6 +277,7 @@ describe("buildContentSection", () => {
 					duration: 400,
 				},
 			},
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
 		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
@@ -113,6 +302,7 @@ describe("buildContentSection", () => {
 					restored: false,
 				},
 			},
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
 		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
@@ -135,6 +325,7 @@ describe("buildContentSection", () => {
 					restored: true,
 				},
 			},
+			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
 		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
@@ -158,8 +349,28 @@ describe("content plugin summarize wiring", () => {
 	it("summarize returns Section when content state is present", async () => {
 		const { content } = await import("../launchpad-content.js");
 		const plugin = content({ sources: [] });
-		const state = makeState({ phase: "idle", sources: {} });
+		const state = makeState({ phase: "idle", sources: {}, versioning: false });
 		const section = plugin.summarize?.(state);
 		expect(section).toMatchObject({ name: "content", title: "Content" });
+		expect(
+			section?.rows.some(
+				(row) => row.type === "kv" && (row.label === "Version" || row.label === "Retained"),
+			),
+		).toBe(false);
+	});
+
+	it("renders versioning rows purely from the state passed to summarize, without requiring setup to have run first", async () => {
+		const { content } = await import("../launchpad-content.js");
+		const plugin = content({ sources: [] });
+		// Note: setup() is deliberately not called here. summarize must read the versioning
+		// snapshot from the state it's given, not from any setup-time closure.
+		const state = makeState({ phase: "idle", sources: {}, versioning: { keepVersions: 3 } });
+		const section = plugin.summarize?.(state);
+		expect(section?.rows).toContainEqual({
+			type: "kv",
+			label: "Retained",
+			value: "0 versions (keep 3)",
+			tone: "ok",
+		});
 	});
 });

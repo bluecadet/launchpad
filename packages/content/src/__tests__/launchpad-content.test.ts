@@ -3,6 +3,7 @@ import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts"
 import { vol } from "memfs";
 import { errAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getAckFilePath } from "../acks.js";
 import { ContentError, type ContentTransform } from "../content-transform.js";
 import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
@@ -44,6 +45,7 @@ describe("LaunchpadContent", () => {
 		expect(plugin.manifest?.commands?.map((command) => command.id)).toEqual([
 			"content.fetch",
 			"content.clear",
+			"content.ack",
 		]);
 	});
 
@@ -192,6 +194,87 @@ describe("LaunchpadContent", () => {
 			} finally {
 				replaceSpy.mockRestore();
 			}
+		});
+	});
+
+	describe("versioning subset-fetch guard", () => {
+		const createVersionedConfig = () => ({
+			downloadPath: "downloads",
+			tempPath: "temp",
+			backupPath: "backups",
+			versioning: true as const,
+			sources: [
+				defineSource({
+					id: "a",
+					fetch: () => [{ id: "doc", data: Promise.resolve({ from: "a" }) }],
+				}),
+				defineSource({
+					id: "b",
+					fetch: () => [{ id: "doc", data: Promise.resolve({ from: "b" }) }],
+				}),
+			],
+		});
+
+		it("rejects a sources-filtered fetch when versioning is enabled, promoting nothing", async () => {
+			const factory = content(createVersionedConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch", sources: ["a"] });
+
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr().message).toContain("sources filter");
+			expect(vol.existsSync("/downloads/manifest.json")).toBe(false);
+			expect(vol.existsSync("/downloads/versions")).toBe(false);
+		});
+
+		it("leaves the active version and manifest untouched when a filtered fetch is rejected", async () => {
+			vol.mkdirSync("/downloads/versions/20260101T000000Z/a", { recursive: true });
+			vol.writeFileSync("/downloads/versions/20260101T000000Z/a/doc.json", '{"from":"a"}');
+			const manifestJson = JSON.stringify({
+				schemaVersion: 1,
+				versionId: "20260101T000000Z",
+				versionPath: "versions/20260101T000000Z",
+				generatedAt: "2026-01-01T00:00:00.000Z",
+				sources: [{ sourceId: "a", path: "a" }],
+			});
+			vol.writeFileSync("/downloads/manifest.json", manifestJson);
+
+			const factory = content(createVersionedConfig());
+			const contentResult = await factory.setup(createMockPluginCtx());
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch", sources: ["a"] });
+
+			expect(result).toBeErr();
+			expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe(manifestJson);
+			expect(vol.readdirSync("/downloads/versions")).toEqual(["20260101T000000Z"]);
+		});
+
+		it("still allows a sources-filtered fetch in flat (non-versioned) mode", async () => {
+			const factory = content({
+				downloadPath: "downloads",
+				tempPath: "temp",
+				backupPath: "backups",
+				sources: [
+					defineSource({
+						id: "a",
+						fetch: () => [{ id: "doc", data: Promise.resolve({ from: "a" }) }],
+					}),
+					defineSource({
+						id: "b",
+						fetch: () => [{ id: "doc", data: Promise.resolve({ from: "b" }) }],
+					}),
+				],
+			});
+			const contentResult = await factory.setup(createMockPluginCtx());
+			const instance = contentResult._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.fetch", sources: ["a"] });
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/downloads/a/doc.json")).toBe(true);
+			expect(vol.existsSync("/downloads/b/doc.json")).toBe(false);
 		});
 	});
 
@@ -366,6 +449,121 @@ describe("LaunchpadContent", () => {
 			});
 
 			expect(result2).toBeOk();
+		});
+
+		describe("content.ack", () => {
+			it("writes the lease file with the exact contract body", async () => {
+				const factory = content({
+					...createBasicConfig(),
+					versioning: true,
+				});
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "kiosk-1",
+					versionId: "20260714T153045Z",
+				});
+
+				expect(result).toBeOk();
+				expect(vol.readFileSync(getAckFilePath("/downloads", "kiosk-1"), "utf8")).toBe(
+					JSON.stringify({ versionId: "20260714T153045Z" }),
+				);
+			});
+
+			it("renews an existing lease by bumping its mtime", async () => {
+				const factory = content({
+					...createBasicConfig(),
+					versioning: true,
+				});
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "kiosk-1",
+					versionId: "20260714T153045Z",
+				});
+				const ackPath = getAckFilePath("/downloads", "kiosk-1");
+				const oldMtime = new Date("2026-07-14T15:00:00.000Z");
+				vol.utimesSync(ackPath, oldMtime, oldMtime);
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "kiosk-1",
+					versionId: "20260714T153045Z",
+				});
+
+				expect(result).toBeOk();
+				expect(vol.statSync(ackPath).mtime.getTime()).toBeGreaterThan(oldMtime.getTime());
+			});
+
+			it("rejects a missing consumerId with a clean command error", async () => {
+				const factory = content({
+					...createBasicConfig(),
+					versioning: true,
+				});
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					versionId: "20260714T153045Z",
+				} as unknown as Parameters<typeof instance.executeCommand>[0]);
+
+				expect(result).toBeErr();
+				expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
+			});
+
+			it("rejects a missing versionId with a clean command error", async () => {
+				const factory = content({
+					...createBasicConfig(),
+					versioning: true,
+				});
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "kiosk-1",
+				} as unknown as Parameters<typeof instance.executeCommand>[0]);
+
+				expect(result).toBeErr();
+				expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
+			});
+
+			it("rejects a hostile consumerId", async () => {
+				const factory = content({
+					...createBasicConfig(),
+					versioning: true,
+				});
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "../evil",
+					versionId: "20260714T153045Z",
+				});
+
+				expect(result).toBeErr();
+			});
+
+			it("errors cleanly when versioning is off", async () => {
+				const factory = content(createBasicConfig());
+				const contentResult = await factory.setup(createMockPluginCtx());
+				const instance = contentResult._unsafeUnwrap();
+
+				const result = await instance.executeCommand({
+					type: "content.ack",
+					consumerId: "kiosk-1",
+					versionId: "20260714T153045Z",
+				});
+
+				expect(result).toBeErr();
+				expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentError);
+			});
 		});
 
 		it("should report restored state accurately when backups are unavailable", async () => {

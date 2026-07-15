@@ -9,6 +9,7 @@ import { vi } from "vitest";
 import type { ResolvedContentConfig } from "../../content-config.js";
 import type { ContentTransform } from "../../content-transform.js";
 import type { FetchStageContext } from "../fetch-context.js";
+import { resolveOutputStrategy } from "../output-strategy.js";
 
 function createMockPathsHelper(
 	config: ResolvedContentConfig,
@@ -74,13 +75,14 @@ export const createMockContentConfig = (
 };
 
 export const createMockFetchContext = (overrides: Partial<FetchStageContext> = {}) => {
-	const config = createMockContentConfig();
+	const config = overrides.config ?? createMockContentConfig();
 	const cwd = "/project";
 	const runId = "test-run";
 	const mockLogger = createMockLogger();
 	const mockEventBus = createMockEventBus();
 	return {
 		config,
+		output: resolveOutputStrategy(config),
 		cwd,
 		logger: mockLogger,
 		abortSignal: new AbortController().signal,

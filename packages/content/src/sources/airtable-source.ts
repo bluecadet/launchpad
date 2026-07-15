@@ -41,6 +41,8 @@ const airtableSourceSchema = z.object({
 		.default(true),
 	/** Airtable API Key */
 	apiKey: z.string().describe("Airtable API Key"),
+	/** Max request timeout in ms. Defaults to 60 seconds. */
+	maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
 });
 
 /**
@@ -144,6 +146,7 @@ export default async function airtableSource(options: z.input<typeof airtableSou
 	Airtable.configure({
 		endpointUrl: assembledOptions.endpointUrl,
 		apiKey: assembledOptions.apiKey,
+		requestTimeout: assembledOptions.maxTimeout,
 	});
 
 	const base = Airtable.base(assembledOptions.baseId);

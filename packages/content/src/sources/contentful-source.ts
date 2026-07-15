@@ -76,6 +76,8 @@ const contentfulSourceSchema = z
 			limit: 1000, // This is the max that Contentful supports,
 			include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
 		}),
+		/** Max request timeout in ms. Defaults to 60 seconds. */
+		maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
 	})
 	.and(contentfulCredentialsSchema);
 
@@ -107,6 +109,7 @@ export default async function contentfulSource(options: z.input<typeof contentfu
 	const client = createClient({
 		...assembled,
 		accessToken,
+		timeout: assembled.maxTimeout,
 	});
 
 	return defineSource({

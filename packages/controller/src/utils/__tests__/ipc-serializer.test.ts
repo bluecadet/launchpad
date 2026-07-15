@@ -163,6 +163,128 @@ describe("IPCSerializer", () => {
 		});
 	});
 
+	describe("non-POJO payloads (serialize must never throw)", () => {
+		// Mirrors airtable's AirtableError, which does not extend Error.
+		class FakeAirtableError {
+			constructor(
+				public error: string,
+				public message: string,
+				public statusCode: number,
+			) {}
+		}
+
+		it("should serialize errors whose cause does not extend Error", () => {
+			const cause = new FakeAirtableError("AUTHENTICATION_REQUIRED", "Invalid API key", 401);
+			const error = new Error("Failed to fetch source airtable", { cause });
+
+			const serialized = IPCSerializer.serialize(error);
+			const deserialized = IPCSerializer.deserialize(serialized) as Error;
+
+			expect(deserialized.message).toBe("Failed to fetch source airtable");
+			expect(deserialized.cause instanceof Error).toBe(true);
+			expect((deserialized.cause as Error).message).toBe("Invalid API key");
+			expect((deserialized.cause as Error).name).toBe("FakeAirtableError");
+		});
+
+		it("should serialize event payloads containing deeply nested non-Error error objects", () => {
+			const payload = {
+				name: "content:document:error",
+				data: {
+					sourceId: "airtable",
+					documentId: "stories",
+					error: new Error("Failed to write data", {
+						cause: new FakeAirtableError("AUTHENTICATION_REQUIRED", "Invalid API key", 401),
+					}),
+				},
+			};
+
+			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload)) as any;
+
+			expect(deserialized.data.error.message).toBe("Failed to write data");
+			expect(deserialized.data.error.cause.message).toBe("Invalid API key");
+		});
+
+		it("should flatten arbitrary class instances to plain objects", () => {
+			class Custom {
+				constructor(public id: string) {}
+			}
+
+			const serialized = IPCSerializer.serialize({ items: [new Custom("a"), new Custom("b")] });
+			const deserialized = IPCSerializer.deserialize(serialized) as any;
+
+			expect(deserialized.items).toEqual([{ id: "a" }, { id: "b" }]);
+		});
+
+		it("should replace functions and symbols with placeholders", () => {
+			const payload = {
+				callback: function doThing() {},
+				token: Symbol("secret"),
+			};
+
+			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload)) as any;
+
+			expect(deserialized.callback).toBe("[function doThing]");
+			expect(deserialized.token).toBe("Symbol(secret)");
+		});
+
+		it("should replace promises with placeholders", () => {
+			const payload = { pending: Promise.resolve(42) };
+
+			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload)) as any;
+
+			expect(deserialized.pending).toBe("[promise]");
+		});
+
+		it("should handle cyclic payloads containing non-POJOs", () => {
+			class Node {
+				next?: Node;
+				constructor(public id: string) {}
+			}
+			const a = new Node("a");
+			const b = new Node("b");
+			a.next = b;
+			b.next = a;
+
+			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize({ root: a })) as any;
+
+			expect(deserialized.root.id).toBe("a");
+			expect(deserialized.root.next.id).toBe("b");
+			expect(deserialized.root.next.next).toBe(deserialized.root);
+		});
+
+		it("should preserve Dates, Maps, and Sets when sanitizing", () => {
+			class Wrapper {
+				when = new Date("2024-01-01T00:00:00Z");
+				tags = new Set(["a", "b"]);
+				lookup = new Map([["key", new Wrapper2()]]);
+			}
+			class Wrapper2 {
+				value = 42;
+			}
+
+			const deserialized = IPCSerializer.deserialize(
+				IPCSerializer.serialize({ data: new Wrapper() }),
+			) as any;
+
+			expect(deserialized.data.when).toEqual(new Date("2024-01-01T00:00:00Z"));
+			expect(deserialized.data.tags).toEqual(new Set(["a", "b"]));
+			expect(deserialized.data.lookup.get("key")).toEqual({ value: 42 });
+		});
+
+		it("should never throw, even for payloads with throwing getters", () => {
+			const payload = {
+				get boom(): string {
+					throw new Error("getter exploded");
+				},
+			};
+
+			expect(() => IPCSerializer.serialize(payload)).not.toThrow();
+			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload));
+			expect(typeof deserialized).toBe("string");
+			expect(deserialized).toContain("unserializable IPC payload");
+		});
+	});
+
 	describe("complex real-world scenarios", () => {
 		it("should handle IPC response with complex data", () => {
 			const response = {

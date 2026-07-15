@@ -131,6 +131,33 @@ describe("PatchedStateManager", () => {
 			expect(handler2).toHaveBeenCalledTimes(1); // Still 1
 			expect(handler3).toHaveBeenCalledTimes(2);
 		});
+
+		it("should isolate throwing handlers from updateState and other handlers", () => {
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const manager = new PatchedStateManager({ count: 0 });
+			const throwingHandler = vi.fn(() => {
+				throw new Error("subscriber exploded");
+			});
+			const laterHandler = vi.fn();
+
+			manager.onPatch(throwingHandler);
+			manager.onPatch(laterHandler);
+
+			expect(() =>
+				manager.updateState((draft) => {
+					draft.count = 1;
+				}),
+			).not.toThrow();
+
+			expect(manager.state.count).toBe(1);
+			expect(laterHandler).toHaveBeenCalledTimes(1);
+			expect(consoleSpy).toHaveBeenCalledWith(
+				"Error in state patch handler:",
+				expect.objectContaining({ message: "subscriber exploded" }),
+			);
+
+			consoleSpy.mockRestore();
+		});
 	});
 
 	describe("updateState", () => {

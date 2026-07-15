@@ -135,6 +135,7 @@ export default defineConfig({
 							{ text: "Content Config", link: "/reference/content/content-config" },
 							{ text: "Versioning", link: "/reference/content/versioning" },
 							{ text: "Version Manifest", link: "/reference/content/version-manifest" },
+							{ text: "Refetch Checker", link: "/reference/content/refetch-checker" },
 							{ text: "Events", link: "/reference/content/events" },
 							{ text: "DataStore", link: "/reference/content/data-store" },
 							{

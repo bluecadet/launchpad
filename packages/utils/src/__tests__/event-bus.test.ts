@@ -33,6 +33,46 @@ describe("EventBus", () => {
 			expect(handler2).toHaveBeenCalledWith({ value: 456 });
 		});
 
+		it("should not propagate a throwing listener to the emitter", () => {
+			const bus = new EventBus();
+			const errorHandler = vi.fn(() => {
+				throw new Error("Listener error");
+			});
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			bus.on("test:event", errorHandler);
+
+			expect(() => bus.emit("test:event", {})).not.toThrow();
+			expect(errorHandler).toHaveBeenCalled();
+			expect(consoleSpy).toHaveBeenCalledWith(
+				expect.stringContaining("Error in event handler for 'test:event'"),
+				expect.any(Error),
+			);
+
+			consoleSpy.mockRestore();
+		});
+
+		it("should still run other listeners when one throws", () => {
+			const bus = new EventBus();
+			const errorHandler = vi.fn(() => {
+				throw new Error("Listener error");
+			});
+			const goodHandlerBefore = vi.fn();
+			const goodHandlerAfter = vi.fn();
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			bus.on("test:event", goodHandlerBefore);
+			bus.on("test:event", errorHandler);
+			bus.on("test:event", goodHandlerAfter);
+			bus.emit("test:event", { value: 1 });
+
+			expect(goodHandlerBefore).toHaveBeenCalledWith({ value: 1 });
+			expect(errorHandler).toHaveBeenCalledWith({ value: 1 });
+			expect(goodHandlerAfter).toHaveBeenCalledWith({ value: 1 });
+
+			consoleSpy.mockRestore();
+		});
+
 		it("should return true when event has listeners", () => {
 			const bus = new EventBus();
 			bus.on("test:event", () => {});

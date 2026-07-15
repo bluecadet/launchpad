@@ -1,5 +1,17 @@
 # @bluecadet/launchpad-utils
 
+## 3.1.0
+
+### Minor Changes
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`53fb2fc`](https://github.com/bluecadet/launchpad/commit/53fb2fc74cecd47b33585618a6b39d875d308b02) - Add `duration` and `status-format` entry points as the canonical home for duration parsing and status-row time formatting, replacing the near-duplicate implementations scattered across `@bluecadet/launchpad-scheduler` and `@bluecadet/launchpad-content`. `duration` exports `parseDuration` (null-returning) and a `durationSchema`/`Duration` zod pair. `status-format` exports `formatDurationMs`, `formatTimeAgo`, `formatTimeUntil`, and `formatClockTime` for rendering `Row`/`Section` status entries.
+
+### Patch Changes
+
+- [#309](https://github.com/bluecadet/launchpad/pull/309) [`13cfbe6`](https://github.com/bluecadet/launchpad/commit/13cfbe6ce9bb9efb7a3a3d5d16080538af040acf) - Fix `PatchedStateManager.updateState` letting a throwing patch subscriber unwind into the code that produced the state update and skip the remaining subscribers. Handlers are now invoked with the same catch-and-log isolation as `EventBus` handlers.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`3665436`](https://github.com/bluecadet/launchpad/commit/3665436402021470f2e9654e81fa978a8fe4daff) - Fix `EventBus.emit` letting a throwing `on()` listener escape into the caller's control flow (e.g. rejecting a neverthrow pipeline mid-flight and crashing the process via an unhandled rejection). Regular listeners are now invoked individually with the same catch-and-log isolation already used for `onAny` wildcard handlers, so one throwing listener no longer stops later listeners from running.
+
 ## 3.0.0
 
 ### Major Changes

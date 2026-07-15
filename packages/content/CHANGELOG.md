@@ -1,5 +1,36 @@
 # @bluecadet/launchpad-content
 
+## 3.1.0
+
+### Minor Changes
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Show the active version, retained-version cleanup status, and consumer ack leases in Content status when versioning is enabled.
+
+- [#310](https://github.com/bluecadet/launchpad/pull/310) [`27b06d8`](https://github.com/bluecadet/launchpad/commit/27b06d844132da8859457878e9c8b1d30dc48e5a) - Add `refetchChecker`, a packaged check-before-fetch plugin. Its `refetch.check` command asks the CMS for its latest modification value via a user-supplied `getLatestModifiedAt` probe and dispatches `content.fetch` only when that value is newer, so fast schedules stop minting a new content version (and reloading every polling app) on identical content. The first check after boot compares against the active manifest's `generatedAt`; later checks compare CMS values in memory; a missing or unreadable manifest fetches unconditionally.
+
+  Add a `content.manifest.read` command that returns the active version manifest as JSON-safe data (`ok`/`missing`/`invalid`). `refetchChecker` uses it to find its baseline without duplicating `downloadPath`; IPC consumers and other plugins can use it to read the manifest without knowing its on-disk location.
+
+  Export the manifest read API (`readManifest`, `Manifest`, `ManifestReadResult`, `ManifestError`, `MANIFEST_FILENAME`) from the package root.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Add the keep-N retention sweep for versioned output, run at the end of each successful versioned fetch. The retention set is the `keepVersions` newest version dirs by name (default 3), union the manifest's active version, union any version named by a fresh ack lease (`<downloadPath>/acks/<consumerId>.json`, freshness by mtime vs `ackTimeout`, default 30m); everything else under `versions/` is deleted. Deletion is best-effort and idempotent -- a locked dir is left in place and retried on the next sweep. Sweep results (retained/pending-delete counts, per-consumer ack freshness) are tracked on the content plugin's state.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Add the `content.ack` command: IPC sugar that writes/renews `<downloadPath>/acks/<consumerId>.json` with `{ versionId }`, the same lease file an app could write itself. Both `consumerId` and `versionId` are required -- there's no acking "whatever is current" -- and `consumerId` is sanitized against path traversal. Errors cleanly with `versioning` off, since the acks directory concept doesn't exist otherwise.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Wire versioned output into the fetch pipeline: under `versioning`, `finalizingStage` moves the staged downloads root whole into `versions/<versionId>/` and atomically swaps `manifest.json` as the sole commit point, emitting `content:version:promoted` right after. `backupStage` and the restore half of `errorRecoveryStage` are silent no-ops under versioning (retained versions are the backup); a failed promotion instead best-effort deletes the orphaned version dir. Opt-in via `versioning` config; no change to default output behavior.
+
+### Patch Changes
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Validate `versioning.keepVersions` as a non-negative integer. Fractional or negative values are now rejected at config parse time. `0` remains valid and means retention relies solely on the active-version and fresh-ack backstops.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d) - Harden versioned-output promotion against same-second collisions. Two fetches promoted within the same UTC second previously minted the same second-granular version id; the second promotion's move failed and its error cleanup could delete the first fetch's live, manifest-referenced version. Promotion now resolves a collision-free id up front (bumping to a lexically-ordered `<id>-01` suffix when the directory already exists) before moving, so the move never lands on an existing version and error cleanup can only ever remove this run's own directory. Orphan cleanup on the error path now uses the same retry policy as the retention sweep, and the sweep additionally reaps stale `.manifest.json.tmp-*` scratch files left by a crash mid-write.
+
+  Reject a `content.fetch` that names a subset of sources while versioning is enabled. Promotion moves the entire staged root and rebuilds the manifest from the fetched sources, so a subset fetch would silently drop every unfetched source from the active version. Subset fetches remain supported in the flat output mode.
+
+- [#308](https://github.com/bluecadet/launchpad/pull/308) [`e4c6d48`](https://github.com/bluecadet/launchpad/commit/e4c6d487e829a3df18c261fa8f9a808ff73a6d62) - Add a configurable `maxTimeout` option (default 60s) to the Airtable, Contentful, and Sanity sources, wired into each SDK's native request timeout (`requestTimeout`, `timeout`, `timeout` respectively). Previously these sources built their SDK clients with no timeout, so a stalled connection could hang an unattended scheduled fetch indefinitely.
+
+- Updated dependencies [[`13cfbe6`](https://github.com/bluecadet/launchpad/commit/13cfbe6ce9bb9efb7a3a3d5d16080538af040acf), [`3665436`](https://github.com/bluecadet/launchpad/commit/3665436402021470f2e9654e81fa978a8fe4daff), [`53fb2fc`](https://github.com/bluecadet/launchpad/commit/53fb2fc74cecd47b33585618a6b39d875d308b02)]:
+  - @bluecadet/launchpad-utils@3.1.0
+
 ## 3.0.0
 
 ### Major Changes

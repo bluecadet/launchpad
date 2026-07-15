@@ -1,5 +1,16 @@
 # @bluecadet/launchpad-controller
 
+## 3.1.1
+
+### Patch Changes
+
+- [#309](https://github.com/bluecadet/launchpad/pull/309) [`92d2ba3`](https://github.com/bluecadet/launchpad/commit/92d2ba3a0e4496ef24ebb251bb899c32685fceb4) - Fix IPC serialization crashing on payloads devalue can't stringify ("Cannot stringify arbitrary non-POJOs"). Event and state payloads can carry class instances like airtable's `AirtableError` (which doesn't extend `Error`), functions, or promises. `IPCSerializer.serialize` now sanitizes the payload and retries on failure — error-likes become real Errors, class instances become plain objects — and can never throw.
+
+- [#309](https://github.com/bluecadet/launchpad/pull/309) [`0aa5d60`](https://github.com/bluecadet/launchpad/commit/0aa5d601bd910614aa64041ac3da6c45ab27efc9) - Contain plugin code that throws synchronously or rejects its underlying promise. A plugin `executeCommand` that threw (instead of returning `errAsync`) unwound out of the command dispatcher into `ResultAsync.fromSafePromise` in the workflow runner, crashing the process; a throwing plugin `setup` similarly escaped `registerPlugin`. Both are now converted to err Results at the plugin boundary, so a faulty plugin fails its command or registration without taking launchpad down.
+
+- Updated dependencies [[`13cfbe6`](https://github.com/bluecadet/launchpad/commit/13cfbe6ce9bb9efb7a3a3d5d16080538af040acf), [`3665436`](https://github.com/bluecadet/launchpad/commit/3665436402021470f2e9654e81fa978a8fe4daff), [`53fb2fc`](https://github.com/bluecadet/launchpad/commit/53fb2fc74cecd47b33585618a6b39d875d308b02)]:
+  - @bluecadet/launchpad-utils@3.1.0
+
 ## 3.1.0
 
 ### Minor Changes

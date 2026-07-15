@@ -107,6 +107,8 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("from '@bluecadet/launchpad/scheduler'");
 		expect(result).toContain("scheduler(");
 		expect(result).toContain("'content.fetch': '15m'");
+		expect(result).toContain("refetchChecker");
+		expect(result).toContain("'refetch.check'");
 		expect(result).toContain(`// See ${recipeLink}`);
 		expect(result).not.toContain("content(");
 		expect(result.split(recipeLink)).toHaveLength(2);

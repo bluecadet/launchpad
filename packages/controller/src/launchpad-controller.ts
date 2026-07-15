@@ -1,4 +1,5 @@
 import path from "node:path";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type {
@@ -67,8 +68,7 @@ export class LaunchpadController {
 
 		const updateState = this._stateStore.getPluginUpdater(plugin.name);
 
-		return plugin
-			.setup(this.getPluginCtx(plugin.name, updateState))
+		return this.safeSetup(plugin, updateState)
 			.andThen((instance) => {
 				const manifestCommands = plugin.manifest?.commands ?? [];
 				if (manifestCommands.length > 0 && !instance.executeCommand) {
@@ -98,6 +98,18 @@ export class LaunchpadController {
 				this._logger.error(`Failed to register plugin '${plugin.name}'`);
 				return errAsync(error);
 			});
+	}
+
+	/** A plugin setup that throws synchronously (instead of returning errAsync)
+	 * must surface as a registration error, not unwind into the caller. */
+	private safeSetup(
+		plugin: PluginConfig,
+		updateState: (producer: (draft: unknown) => void) => void,
+	): ResultAsync<InstantiatedPlugin, Error> {
+		return ResultAsync.fromThrowable(
+			async () => await plugin.setup(this.getPluginCtx(plugin.name, updateState)),
+			ensureError,
+		)().andThen((result) => result);
 	}
 
 	getPlugin(name: string): InstantiatedPlugin | undefined {

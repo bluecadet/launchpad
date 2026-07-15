@@ -35,6 +35,14 @@
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
+    },
+    "./duration": {
+      "types": "./dist/duration.d.ts",
+      "default": "./dist/duration.js"
+    },
+    "./status-format": {
+      "types": "./dist/status-format.d.ts",
+      "default": "./dist/status-format.js"
     }
   },
   "files": [
@@ -60,7 +68,8 @@
   },
   "dependencies": {
     "immer": "^11.1.4",
-    "neverthrow": "^8.2.0"
+    "neverthrow": "^8.2.0",
+    "zod": "^4.3.6"
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/utils",
   "devDependencies": {

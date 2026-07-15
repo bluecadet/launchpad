@@ -47,7 +47,15 @@ export class PatchedStateManager<TState> {
 			capturedPatches = patches;
 		});
 		if (capturedPatches.length > 0) {
-			this._patchHandlers.forEach((handler) => handler(capturedPatches));
+			this._patchHandlers.forEach((handler) => {
+				try {
+					handler(capturedPatches);
+				} catch (err) {
+					// A throwing subscriber must not unwind into the code that
+					// produced the state update (or skip the remaining handlers).
+					console.error("Error in state patch handler:", err);
+				}
+			});
 		}
 		return this._state;
 	}

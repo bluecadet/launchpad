@@ -11,6 +11,7 @@
 		{ "path": "../content/tsconfig.src.json" },
 		{ "path": "../controller/tsconfig.src.json" },
 		{ "path": "../monitor/tsconfig.src.json" },
-		{ "path": "../observability/tsconfig.src.json" }
+		{ "path": "../observability/tsconfig.src.json" },
+		{ "path": "../scheduler/tsconfig.src.json" }
 	]
 }

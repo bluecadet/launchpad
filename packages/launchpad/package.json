@@ -182,6 +182,18 @@
     "./observability/state": {
       "types": "./dist/observability/observability-state.d.ts",
       "default": "./dist/observability/observability-state.js"
+    },
+    "./scheduler": {
+      "types": "./dist/scheduler/index.d.ts",
+      "default": "./dist/scheduler/index.js"
+    },
+    "./scheduler/launchpad-scheduler": {
+      "types": "./dist/scheduler/launchpad-scheduler.d.ts",
+      "default": "./dist/scheduler/launchpad-scheduler.js"
+    },
+    "./scheduler/config": {
+      "types": "./dist/scheduler/config.d.ts",
+      "default": "./dist/scheduler/config.js"
     }
   },
   "maintainers": [
@@ -208,7 +220,8 @@
     "@bluecadet/launchpad-content": "3.0.0",
     "@bluecadet/launchpad-controller": "3.1.0",
     "@bluecadet/launchpad-monitor": "3.0.2",
-    "@bluecadet/launchpad-observability": "3.0.0"
+    "@bluecadet/launchpad-observability": "3.0.0",
+    "@bluecadet/launchpad-scheduler": "0.1.0"
   },
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0"

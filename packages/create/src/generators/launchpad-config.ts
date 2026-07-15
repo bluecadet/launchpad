@@ -186,6 +186,8 @@ function buildSchedulerPlugin(): string {
 		// See https://bluecadet.github.io/launchpad/recipes/live-content-refresh
 		scheduler({
 			'content.fetch': '15m',
+			// For fast schedules, add refetchChecker from '@bluecadet/launchpad/content'
+			// and schedule 'refetch.check' here instead of 'content.fetch'.
 		})
 	`;
 }

@@ -1,0 +1,8 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "./dist"
+	},
+	"include": ["src/recipes/live-content-refresh-examples/**/*.ts"]
+}

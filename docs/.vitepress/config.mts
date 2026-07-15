@@ -113,6 +113,7 @@ export default defineConfig({
 					{ text: "Transforming Sanity Images", link: "/recipes/transforming-sanity-images" },
 					{ text: "Serving Static Web Apps", link: "/recipes/static-web-monitor" },
 					{ text: "Custom Plugin", link: "/recipes/custom-plugin" },
+					{ text: "Live Content Refresh", link: "/recipes/live-content-refresh" },
 				],
 			},
 			{
@@ -132,6 +133,8 @@ export default defineConfig({
 						link: "/reference/content",
 						items: [
 							{ text: "Content Config", link: "/reference/content/content-config" },
+							{ text: "Versioning", link: "/reference/content/versioning" },
+							{ text: "Version Manifest", link: "/reference/content/version-manifest" },
 							{ text: "Events", link: "/reference/content/events" },
 							{ text: "DataStore", link: "/reference/content/data-store" },
 							{
@@ -195,6 +198,14 @@ export default defineConfig({
 								text: "Transports",
 								items: [{ text: "Loki", link: "/reference/observability/transports/loki" }],
 							},
+						],
+					},
+					{
+						text: "Scheduler",
+						link: "/reference/scheduler",
+						items: [
+							{ text: "Scheduler Config", link: "/reference/scheduler/scheduler-config" },
+							{ text: "Commands & Events", link: "/reference/scheduler/commands" },
 						],
 					},
 					{

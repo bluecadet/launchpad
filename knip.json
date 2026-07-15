@@ -10,7 +10,8 @@
     "docs": {
       "entry": [
         "src/components/*.vue",
-        "src/components/*.data.ts"
+        "src/components/*.data.ts",
+        "src/recipes/*-examples/*.ts"
       ]
     },
     "packages/content": {

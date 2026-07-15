@@ -87,6 +87,8 @@ Workflows run every step **best-effort**. If a step fails, the controller record
 
 This means a failed `content.fetch` no longer prevents `monitor.start` from launching apps — content fetching stages its output before promoting it, so the previously-published content remains on disk and the monitor runs against the last good content.
 
+`launchpad start` treats the aggregated failure the same way: it logs the errors and keeps the controller running, so a failed workflow step never takes down apps that started successfully.
+
 To make a step fatal — halting the workflow and skipping the remaining steps when it fails — wrap it in an object with `stopOnError`:
 
 ```typescript

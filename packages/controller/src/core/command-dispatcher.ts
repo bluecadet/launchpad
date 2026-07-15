@@ -1,7 +1,7 @@
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { errAsync, type ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import { CommandExecutionError } from "../errors.js";
 import type { CommandRegistry } from "./command-registry.js";
 
@@ -73,13 +73,25 @@ export class CommandDispatcher {
 		return this.executeWithEvents(parsed.value, () => registered.execute(parsed.value));
 	}
 
+	/**
+	 * Invokes plugin code defensively. A plugin that throws synchronously
+	 * (instead of returning errAsync) or rejects the underlying promise must
+	 * surface as an err Result — never unwind into the dispatch caller, where
+	 * it would escape neverthrow chains entirely.
+	 */
+	private safeExecute(execute: () => ResultAsync<unknown, Error>): ResultAsync<unknown, Error> {
+		return ResultAsync.fromThrowable(async () => await execute(), ensureError)().andThen(
+			(result) => result,
+		);
+	}
+
 	private executeWithEvents(
 		command: BaseCommand,
 		execute: () => ResultAsync<unknown, Error>,
 	): ResultAsync<unknown, CommandExecutionError> {
 		this._eventBus.emit("command:start", { commandType: command.type, ...command });
 
-		return execute()
+		return this.safeExecute(execute)
 			.map((value) => {
 				this._eventBus.emit("command:success", {
 					commandType: command.type,

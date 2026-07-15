@@ -5,7 +5,7 @@ import {
 	type InstantiatedPlugin,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-import { errAsync, okAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
@@ -103,6 +103,101 @@ describe("LaunchpadController", () => {
 
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("does not implement executeCommand");
+		});
+	});
+
+	describe("plugin fault containment", () => {
+		it("contains a plugin setup that throws synchronously", async () => {
+			const controller = createController();
+
+			const result = await controller.registerPlugin(
+				definePlugin({
+					name: "explosive",
+					setup: () => {
+						throw new Error("setup exploded");
+					},
+				}),
+			);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toBe("setup exploded");
+			expect(controller.hasPlugin("explosive")).toBe(false);
+		});
+
+		it("keeps the workflow and controller running when a plugin command throws", async () => {
+			const controller = createController("task");
+			const healthyExecute = vi.fn().mockReturnValue(okAsync(undefined));
+
+			await controller.registerPlugin(
+				definePlugin({
+					name: "explosive",
+					manifest: { commands: [{ id: "explosive.run" }] },
+					setup: () =>
+						okAsync({
+							executeCommand: () => {
+								throw new Error("command exploded");
+							},
+						}),
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "healthy",
+					manifest: { commands: [{ id: "healthy.run" }] },
+					setup: () => okAsync({ executeCommand: healthyExecute }),
+				}),
+			);
+
+			await controller.start();
+			controller.setWorkflows({ start: ["explosive.run", "healthy.run"] });
+
+			const workflowResult = await controller.runWorkflow("start");
+
+			// The workflow reports the failure, but the throwing plugin didn't
+			// unwind the runner: the next step still executed…
+			expect(workflowResult.isErr()).toBe(true);
+			expect(healthyExecute).toHaveBeenCalledWith({ type: "healthy.run" });
+
+			// …and the controller is still alive and dispatching commands.
+			expect(controller.isStarted()).toBe(true);
+			const followUp = await controller.executeCommand({ type: "healthy.run" });
+			expect(followUp.isOk()).toBe(true);
+
+			const stopResult = await controller.stop();
+			expect(stopResult.isOk()).toBe(true);
+		});
+
+		it("keeps the workflow running when a plugin command rejects its underlying promise", async () => {
+			const controller = createController("task");
+			const healthyExecute = vi.fn().mockReturnValue(okAsync(undefined));
+
+			await controller.registerPlugin(
+				definePlugin({
+					name: "rejecting",
+					manifest: { commands: [{ id: "rejecting.run" }] },
+					setup: () =>
+						okAsync({
+							executeCommand: () =>
+								ResultAsync.fromSafePromise(Promise.reject(new Error("promise rejected"))),
+						}),
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "healthy",
+					manifest: { commands: [{ id: "healthy.run" }] },
+					setup: () => okAsync({ executeCommand: healthyExecute }),
+				}),
+			);
+
+			await controller.start();
+			controller.setWorkflows({ start: ["rejecting.run", "healthy.run"] });
+
+			const workflowResult = await controller.runWorkflow("start");
+
+			expect(workflowResult.isErr()).toBe(true);
+			expect(healthyExecute).toHaveBeenCalledWith({ type: "healthy.run" });
+			expect(controller.isStarted()).toBe(true);
 		});
 	});
 

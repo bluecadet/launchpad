@@ -4,7 +4,7 @@ import type {
 	CommandDescriptor,
 	InstantiatedPlugin,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { errAsync, okAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { CommandDispatcher } from "../command-dispatcher.js";
 import { CommandRegistry } from "../command-registry.js";
@@ -148,6 +148,41 @@ describe("CommandDispatcher", () => {
 			const error = result._unsafeUnwrapErr();
 			expect(error.message).toContain("Plugin command execution failed");
 			expect(error.cause).toBe(customError);
+		});
+
+		it("should contain plugins that throw synchronously instead of returning errAsync", async () => {
+			const thrown = new Error("plugin exploded");
+			const executeCommand = vi.fn().mockImplementation(() => {
+				throw thrown;
+			});
+			const { eventBus, dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
+			const emitSpy = vi.spyOn(eventBus, "emit");
+
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().cause).toBe(thrown);
+			expect(emitSpy).toHaveBeenCalledWith(
+				"command:error",
+				expect.objectContaining({ commandType: "content.fetch" }),
+			);
+		});
+
+		it("should contain plugins whose ResultAsync rejects its underlying promise", async () => {
+			const rejection = new Error("underlying promise rejected");
+			const executeCommand = vi
+				.fn()
+				.mockReturnValue(ResultAsync.fromSafePromise(Promise.reject(rejection)));
+			const { dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
+
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().cause).toBe(rejection);
 		});
 
 		it("should resolve command aliases through the explicit registry", async () => {

@@ -28,7 +28,20 @@ export class EventBus<TEvents extends object = LaunchpadEvents> extends EventEmi
 				console.error(`Error in wildcard event handler for '${event}':`, err);
 			}
 		});
-		return super.emit(event, data);
+
+		// Iterate raw listeners individually (rather than delegating to
+		// super.emit) so a throwing listener can't stop later listeners
+		// from running and can't reject a caller's in-flight promise chain
+		// (e.g. neverthrow) via an unhandled exception/rejection.
+		const listeners = this.rawListeners(event) as EventHandler<TEvents, K>[];
+		for (const listener of listeners) {
+			try {
+				listener(data);
+			} catch (err) {
+				console.error(`Error in event handler for '${event}':`, err);
+			}
+		}
+		return listeners.length > 0;
 	}
 
 	override on<K extends EventKey<TEvents>>(event: K, handler: EventHandler<TEvents, K>): this {

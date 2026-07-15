@@ -1,0 +1,7 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/test.json",
+	"compilerOptions": {
+		"types": ["node"]
+	},
+	"references": [{ "path": "./tsconfig.src.json" }]
+}

@@ -27,6 +27,9 @@
     },
     {
       "path": "packages/create"
+    },
+    {
+      "path": "docs"
     }
   ],
   "include": []

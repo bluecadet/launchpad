@@ -12,6 +12,7 @@
 			"packages/**/scripts/**/*.ts",
 			"docs/**/*.ts",
 			"docs/**/*.mts",
+			"!docs/**/dist",
 			"!**/worktrees"
 		]
 	},

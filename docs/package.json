@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@bluecadet/launchpad": "3.0.5",
-    "@bluecadet/launchpad-cli": "3.0.4",
-    "@bluecadet/launchpad-content": "3.0.0",
-    "@bluecadet/launchpad-monitor": "3.0.2",
+    "@bluecadet/launchpad": "3.0.6",
+    "@bluecadet/launchpad-cli": "3.0.5",
+    "@bluecadet/launchpad-content": "3.1.0",
+    "@bluecadet/launchpad-monitor": "3.0.3",
     "vitepress": "^2.0.0-alpha.15"
   },
   "dependencies": {

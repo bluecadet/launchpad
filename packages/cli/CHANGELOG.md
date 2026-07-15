@@ -1,5 +1,17 @@
 # @bluecadet/launchpad-cli
 
+## 3.0.5
+
+### Patch Changes
+
+- [#309](https://github.com/bluecadet/launchpad/pull/309) [`9408043`](https://github.com/bluecadet/launchpad/commit/9408043e8563cab26ee8b5065e191f19620f9f43) - Fix `launchpad start` exiting when a `start` workflow step fails. Step failures are now logged and the controller keeps running, so healthy plugins stay up when e.g. a content fetch fails. Runtime command errors also no longer dump the command's usage/help text before the error message.
+
+- [`8ab079a`](https://github.com/bluecadet/launchpad/commit/8ab079ac4bf2b4fb5a8851825f383ab7606db662) - Print built-in and configured plugin commands when `launchpad` runs without a command.
+
+- Updated dependencies [[`92d2ba3`](https://github.com/bluecadet/launchpad/commit/92d2ba3a0e4496ef24ebb251bb899c32685fceb4), [`13cfbe6`](https://github.com/bluecadet/launchpad/commit/13cfbe6ce9bb9efb7a3a3d5d16080538af040acf), [`3665436`](https://github.com/bluecadet/launchpad/commit/3665436402021470f2e9654e81fa978a8fe4daff), [`53fb2fc`](https://github.com/bluecadet/launchpad/commit/53fb2fc74cecd47b33585618a6b39d875d308b02), [`0aa5d60`](https://github.com/bluecadet/launchpad/commit/0aa5d601bd910614aa64041ac3da6c45ab27efc9)]:
+  - @bluecadet/launchpad-controller@3.1.1
+  - @bluecadet/launchpad-utils@3.1.0
+
 ## 3.0.4
 
 ### Patch Changes

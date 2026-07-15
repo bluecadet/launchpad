@@ -1,5 +1,17 @@
 # @bluecadet/launchpad
 
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`9408043`](https://github.com/bluecadet/launchpad/commit/9408043e8563cab26ee8b5065e191f19620f9f43), [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`92d2ba3`](https://github.com/bluecadet/launchpad/commit/92d2ba3a0e4496ef24ebb251bb899c32685fceb4), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`386e6e6`](https://github.com/bluecadet/launchpad/commit/386e6e61651e5410494ca99172468175598fc57c), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`8ab079a`](https://github.com/bluecadet/launchpad/commit/8ab079ac4bf2b4fb5a8851825f383ab7606db662), [`27b06d8`](https://github.com/bluecadet/launchpad/commit/27b06d844132da8859457878e9c8b1d30dc48e5a), [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`e4c6d48`](https://github.com/bluecadet/launchpad/commit/e4c6d487e829a3df18c261fa8f9a808ff73a6d62), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`47cfc57`](https://github.com/bluecadet/launchpad/commit/47cfc57edf36753d9d162968060c938038e60a6d), [`a3e41db`](https://github.com/bluecadet/launchpad/commit/a3e41db0802cb99d729d3c1065464cecc7d3a60c), [`0aa5d60`](https://github.com/bluecadet/launchpad/commit/0aa5d601bd910614aa64041ac3da6c45ab27efc9)]:
+  - @bluecadet/launchpad-content@3.1.0
+  - @bluecadet/launchpad-cli@3.0.5
+  - @bluecadet/launchpad-scheduler@3.0.0
+  - @bluecadet/launchpad-controller@3.1.1
+  - @bluecadet/launchpad-monitor@3.0.3
+  - @bluecadet/launchpad-observability@3.0.1
+
 ## 3.0.5
 
 ### Patch Changes

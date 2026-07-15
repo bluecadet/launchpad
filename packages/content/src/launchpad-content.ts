@@ -3,7 +3,11 @@ import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plu
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { writeAckLease } from "./acks.js";
-import { type ContentCommand, contentCommandSchema } from "./content-commands.js";
+import {
+	type ContentCommand,
+	contentCommandSchema,
+	type ManifestReadCommandResult,
+} from "./content-commands.js";
 import {
 	type ContentConfig,
 	parseContentConfig,
@@ -24,6 +28,7 @@ import {
 	sweepStage,
 } from "./fetching/fetch-stages.js";
 import { resolveOutputStrategy } from "./fetching/output-strategy.js";
+import { readManifest } from "./manifest.js";
 import type { ContentSource } from "./source.js";
 import { DataStore } from "./utils/data-store.js";
 import * as FileUtils from "./utils/file-utils.js";
@@ -283,6 +288,17 @@ function ack(
 	);
 }
 
+/** Reads the active version manifest from the published download path as JSON-safe data. */
+function readActiveManifest(
+	ctx: ContentActionContext,
+): ResultAsync<ManifestReadCommandResult, Error> {
+	const paths = createPathsHelper(ctx.resolvedConfig, ctx.cwd);
+	return ResultAsync.fromSafePromise(readManifest(paths.getPublishedDownloadPath())).map(
+		(result): ManifestReadCommandResult =>
+			result.status === "invalid" ? { status: "invalid", message: result.error.message } : result,
+	);
+}
+
 /**
  * Creates a LaunchpadContent plugin factory.
  * Use this in your launchpad config's plugins array.
@@ -295,6 +311,7 @@ export function content(config: ContentConfig) {
 				{ id: "content.fetch", parser: contentCommandSchema },
 				{ id: "content.clear", parser: contentCommandSchema },
 				{ id: "content.ack", parser: contentCommandSchema },
+				{ id: "content.manifest.read", parser: contentCommandSchema },
 			],
 			cli: [
 				{
@@ -385,6 +402,9 @@ export function content(config: ContentConfig) {
 								}
 								case "content.ack": {
 									return ack(validCommand.consumerId, validCommand.versionId, actionContext);
+								}
+								case "content.manifest.read": {
+									return readActiveManifest(actionContext);
 								}
 								case "content.backup":
 								case "content.restore": {

@@ -27,6 +27,10 @@ export function getRequiredPackages(answers: Answers): string[] {
 		}
 	}
 
+	if (answers.useScheduler) {
+		packages.push("@bluecadet/launchpad-scheduler");
+	}
+
 	return packages;
 }
 

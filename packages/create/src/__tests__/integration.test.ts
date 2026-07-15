@@ -12,6 +12,7 @@ const baseAnswers: Answers = {
 	packageName: "my-installation",
 	useContent: true,
 	useMonitor: true,
+	useScheduler: false,
 	contentSources: ["json"],
 	contentTransforms: ["mediaDownloader"],
 	monitorApps: [{ name: "my-app", script: "./my-app.exe", cwd: "./builds/" }],
@@ -51,6 +52,21 @@ describe("applyGenerators", () => {
 		expect(config).toContain("workflows");
 		expect(config).toContain("start: ['content.fetch', 'monitor.connect', 'monitor.start']");
 		expect(config).toContain("stop: ['monitor.stop', 'monitor.disconnect']");
+	});
+
+	it("includes the scheduler plugin and dependency when useScheduler is true", async () => {
+		vol.mkdirSync("/project", { recursive: true });
+		const answers = { ...baseAnswers, useScheduler: true };
+
+		await applyGenerators(answers, mockDeps(answers));
+
+		const config = vol.readFileSync("/project/launchpad.config.ts", "utf-8") as string;
+		expect(config).toContain("scheduler(");
+
+		const pkg = JSON.parse(vol.readFileSync("/project/package.json", "utf-8") as string) as {
+			dependencies: Record<string, string>;
+		};
+		expect(pkg.dependencies["@bluecadet/launchpad-scheduler"]).toBeDefined();
 	});
 
 	it("merges into existing package.json without overwriting", async () => {

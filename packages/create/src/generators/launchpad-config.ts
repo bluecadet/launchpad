@@ -51,6 +51,10 @@ function buildImports(answers: Answers): string {
 		lines.push(`import { monitor } from '@bluecadet/launchpad/monitor';`);
 	}
 
+	if (answers.useScheduler) {
+		lines.push(`import { scheduler } from '@bluecadet/launchpad/scheduler';`);
+	}
+
 	return lines.join("\n");
 }
 
@@ -142,6 +146,13 @@ function buildContentPlugin(answers: Answers): string {
 		lines.push("\ttransforms: [", transformsBlock, "\t],");
 	}
 
+	// Pairs with the scheduler for live-reloading content; see the recipe below.
+	lines.push(
+		answers.useScheduler
+			? "\t// versioning: true,"
+			: "\t// versioning: true, // live reloads: https://bluecadet.github.io/launchpad/recipes/live-content-refresh",
+	);
+
 	lines.push("})");
 	return lines.join("\n");
 }
@@ -168,6 +179,15 @@ function buildMonitorPlugin(answers: Answers): string {
 		.join("\n");
 
 	return ["monitor({", "\tapps: [", appsBlock, "\t],", "})"].join("\n");
+}
+
+function buildSchedulerPlugin(): string {
+	return dedent`
+		// See https://bluecadet.github.io/launchpad/recipes/live-content-refresh
+		scheduler({
+			'content.fetch': '15m',
+		})
+	`;
 }
 
 function buildWorkflows(answers: Answers): string[] {
@@ -206,6 +226,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	const plugins: string[] = [];
 	if (answers.useContent) plugins.push(buildContentPlugin(answers));
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
+	if (answers.useScheduler) plugins.push(buildSchedulerPlugin());
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");
 	const workflowsBlock = buildWorkflows(answers);

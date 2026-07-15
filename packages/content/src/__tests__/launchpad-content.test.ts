@@ -46,6 +46,7 @@ describe("LaunchpadContent", () => {
 			"content.fetch",
 			"content.clear",
 			"content.ack",
+			"content.manifest.read",
 		]);
 	});
 
@@ -275,6 +276,53 @@ describe("LaunchpadContent", () => {
 			expect(result).toBeOk();
 			expect(vol.existsSync("/downloads/a/doc.json")).toBe(true);
 			expect(vol.existsSync("/downloads/b/doc.json")).toBe(false);
+		});
+	});
+
+	describe("content.manifest.read", () => {
+		it("returns the active manifest when one is published", async () => {
+			const manifest = {
+				schemaVersion: 1,
+				versionId: "20260101T000000Z",
+				versionPath: "versions/20260101T000000Z",
+				generatedAt: "2026-01-01T00:00:00.000Z",
+				sources: [{ sourceId: "test", path: "test" }],
+			};
+			vol.mkdirSync("/downloads", { recursive: true });
+			vol.writeFileSync("/downloads/manifest.json", JSON.stringify(manifest));
+
+			const factory = content(createBasicConfig());
+			const instance = (await factory.setup(createMockPluginCtx()))._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.manifest.read" });
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap()).toEqual({ status: "ok", manifest });
+		});
+
+		it("returns a missing status when no manifest exists", async () => {
+			const factory = content(createBasicConfig());
+			const instance = (await factory.setup(createMockPluginCtx()))._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.manifest.read" });
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap()).toEqual({ status: "missing" });
+		});
+
+		it("returns an invalid status with a message for a malformed manifest", async () => {
+			vol.mkdirSync("/downloads", { recursive: true });
+			vol.writeFileSync("/downloads/manifest.json", "{not json");
+
+			const factory = content(createBasicConfig());
+			const instance = (await factory.setup(createMockPluginCtx()))._unsafeUnwrap();
+
+			const result = await instance.executeCommand({ type: "content.manifest.read" });
+
+			expect(result).toBeOk();
+			const value = result._unsafeUnwrap();
+			expect(value).toMatchObject({ status: "invalid" });
+			expect(value).toHaveProperty("message", expect.stringContaining("manifest"));
 		});
 	});
 

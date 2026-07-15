@@ -5,6 +5,7 @@
 
 import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { z } from "zod";
+import type { Manifest } from "./manifest.js";
 
 const stringArraySchema = z.array(z.string()).optional();
 
@@ -55,6 +56,23 @@ export type ContentAckCommand = BaseCommand & {
 };
 
 /**
+ * Read the active version manifest (`manifest.json` in the published download path).
+ * Only meaningful under versioning; without it the manifest never exists.
+ */
+export type ContentManifestReadCommand = BaseCommand & {
+	type: "content.manifest.read";
+};
+
+/**
+ * JSON-safe result of `content.manifest.read`. `invalid` carries the parse failure as a
+ * message rather than an Error instance so results survive IPC serialization.
+ */
+export type ManifestReadCommandResult =
+	| { status: "ok"; manifest: Manifest }
+	| { status: "missing" }
+	| { status: "invalid"; message: string };
+
+/**
  * Union of all content command types
  */
 export type ContentCommand =
@@ -62,7 +80,8 @@ export type ContentCommand =
 	| ContentClearCommand
 	| ContentBackupCommand
 	| ContentRestoreCommand
-	| ContentAckCommand;
+	| ContentAckCommand
+	| ContentManifestReadCommand;
 
 export type ContentCommandMap = {
 	"content.fetch": { input: ContentFetchCommand; output: undefined };
@@ -70,6 +89,10 @@ export type ContentCommandMap = {
 	"content.backup": { input: ContentBackupCommand; output: undefined };
 	"content.restore": { input: ContentRestoreCommand; output: undefined };
 	"content.ack": { input: ContentAckCommand; output: undefined };
+	"content.manifest.read": {
+		input: ContentManifestReadCommand;
+		output: ManifestReadCommandResult;
+	};
 };
 
 export const contentFetchCommandSchema = z
@@ -112,10 +135,17 @@ export const contentAckCommandSchema = z
 	})
 	.strict();
 
+export const contentManifestReadCommandSchema = z
+	.object({
+		type: z.literal("content.manifest.read"),
+	})
+	.strict();
+
 export const contentCommandSchema = z.discriminatedUnion("type", [
 	contentFetchCommandSchema,
 	contentClearCommandSchema,
 	contentBackupCommandSchema,
 	contentRestoreCommandSchema,
 	contentAckCommandSchema,
+	contentManifestReadCommandSchema,
 ]);

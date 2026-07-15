@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-scheduler",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "description": "Generic command scheduler plugin for Launchpad",
   "type": "module",
   "files": [

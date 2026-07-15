@@ -2,7 +2,9 @@
  * Content plugin state exported for public API.
  */
 
+import type { AckLease } from "./acks.js";
 import type { ContentError } from "./content-transform.js";
+import type { SweepResult } from "./retention-sweep.js";
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
 
@@ -59,6 +61,9 @@ export type ContentPhase =
 			restored: boolean;
 	  }
 	| {
+			phase: "sweeping-versions";
+	  }
+	| {
 			phase: "error";
 			error: ContentError;
 			restored: boolean;
@@ -67,8 +72,32 @@ export type ContentPhase =
 			phase: "clearing-temp";
 	  };
 
+/**
+ * Result of the most recent versioned-output retention sweep. Undefined until the first
+ * versioned fetch completes, or permanently under non-versioned output.
+ */
+export type RetentionState = {
+	/** Version ID from the manifest active during the most recent sweep. */
+	versionId?: string;
+	/** Manifest promotion time for the active version. */
+	promotedAt?: Date;
+	retainedCount: number;
+	pendingDeleteCount: number;
+	acks: AckLease[];
+	sweptAt: Date;
+};
+
+/**
+ * Display snapshot of the resolved versioning config, recorded once at setup.
+ * `false` when versioned output is disabled. Only carries what summarize needs
+ * to render — not the full resolved config (e.g. no `ackTimeout`).
+ */
+export type VersioningSnapshot = { keepVersions: number } | false;
+
 export type ContentState = ContentPhase & {
 	sources: Record<string, SourceFetchState>;
+	retention?: RetentionState;
+	versioning: VersioningSnapshot;
 };
 
 declare module "@bluecadet/launchpad-utils/types" {
@@ -79,12 +108,19 @@ declare module "@bluecadet/launchpad-utils/types" {
 
 export class ContentStateManager {
 	constructor(private readonly updateState: (producer: (draft: ContentState) => void) => void) {
-		this.updateState(() => ({ phase: "idle", sources: {} }));
+		this.updateState(() => ({ phase: "idle", sources: {}, versioning: false }));
 	}
 
 	setPhase(newPhase: ContentPhase): void {
 		this.updateState((draft) => {
 			Object.assign(draft, newPhase);
+		});
+	}
+
+	/** Records the resolved versioning snapshot once at setup, for pure rendering in summarize. */
+	setVersioning(versioning: VersioningSnapshot): void {
+		this.updateState((draft) => {
+			draft.versioning = versioning;
 		});
 	}
 
@@ -146,6 +182,23 @@ export class ContentStateManager {
 					restored: true,
 				};
 			}
+		});
+	}
+
+	recordSweep(result: SweepResult, sweptAt: Date = new Date()): void {
+		this.updateState((draft) => {
+			draft.retention = {
+				...(result.activeVersion
+					? {
+							versionId: result.activeVersion.versionId,
+							promotedAt: result.activeVersion.promotedAt,
+						}
+					: {}),
+				retainedCount: result.retainedVersionIds.length,
+				pendingDeleteCount: result.pendingDeleteVersionIds.length,
+				acks: result.acks,
+				sweptAt,
+			};
 		});
 	}
 }

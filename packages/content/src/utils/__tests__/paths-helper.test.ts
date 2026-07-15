@@ -14,6 +14,7 @@ describe("PathsHelper", () => {
 		encodeChars: '<>:"|?*',
 		sources: [],
 		transforms: [],
+		versioning: false as const,
 	} satisfies ResolvedContentConfig;
 
 	const cwd = "/home/user/project";

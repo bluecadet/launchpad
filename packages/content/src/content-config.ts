@@ -1,3 +1,4 @@
+import { durationSchema } from "@bluecadet/launchpad-utils/duration";
 import { ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { ContentTransform } from "./content-transform.js";
@@ -5,6 +6,34 @@ import { ContentError } from "./content-transform.js";
 import { type ContentSource, contentSourceSchema } from "./source.js";
 
 export type ConfigContentSource = ContentSource | Promise<ContentSource>;
+
+const versioningOptionsSchema = z.object({
+	/** Number of versions to retain (in addition to the active version and any freshly-leased versions). `0` relies solely on the active-version and fresh-ack backstops. Defaults to 3. */
+	keepVersions: z
+		.number()
+		.int()
+		.min(0)
+		.describe(
+			"Number of versions to retain, in addition to the active version and fresh acks. 0 relies solely on those backstops. Defaults to 3.",
+		)
+		.default(3),
+	/** How long an ack lease (`acks/<consumerId>.json`) stays fresh before it's ignored by the retention sweep. Accepts duration shorthand (e.g. `"30m"`) or a raw millisecond number. Defaults to 30 minutes. */
+	ackTimeout: durationSchema
+		.describe(
+			"How long an ack lease stays fresh before it's ignored by the retention sweep. Accepts duration shorthand (e.g. '30m') or a raw millisecond number. Defaults to 30 minutes.",
+		)
+		.prefault("30m"),
+});
+
+const versioningSchema = z.union([z.boolean(), versioningOptionsSchema]).transform((value) => {
+	if (value === false) {
+		return false as const;
+	}
+	if (value === true) {
+		return versioningOptionsSchema.parse({});
+	}
+	return value;
+});
 
 /**
  * Configuration for content sources and plugins.
@@ -67,11 +96,19 @@ export const contentConfigSchema = z.object({
 			'Characters to encode in the path when saving files locally. Defaults to `<>:"|?*`. Applies to both content source paths and media download paths.',
 		)
 		.default('<>:"|?*'),
+	/** Enables versioned output mode: each successful fetch is promoted into an immutable `versions/<versionId>/` directory with an atomically-swapped `manifest.json` pointer, instead of writing directly into `downloadPath`. Pass `true` for defaults, or an object to override `keepVersions`/`ackTimeout`. Defaults to `false` (today's flat `downloadPath` layout). */
+	versioning: versioningSchema
+		.describe(
+			"Enables versioned output mode: each successful fetch is promoted into an immutable `versions/<versionId>/` directory with an atomically-swapped `manifest.json` pointer, instead of writing directly into `downloadPath`. Pass `true` for defaults, or an object to override `keepVersions`/`ackTimeout`. Defaults to `false` (today's flat `downloadPath` layout).",
+		)
+		.default(false),
 });
 
 export type ContentConfig = z.input<typeof contentConfigSchema>;
 
 export type ResolvedContentConfig = z.output<typeof contentConfigSchema>;
+
+export type ResolvedVersioningConfig = ResolvedContentConfig["versioning"];
 
 /**
  * Type helper to define content config.

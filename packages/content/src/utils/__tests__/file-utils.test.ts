@@ -2,6 +2,12 @@ import { vol } from "memfs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as FileUtils from "../file-utils.js";
 
+function errnoException(code: string): NodeJS.ErrnoException {
+	const error = new Error(code) as NodeJS.ErrnoException;
+	error.code = code;
+	return error;
+}
+
 describe("FileUtils", () => {
 	beforeEach(() => {
 		vol.reset();
@@ -159,6 +165,37 @@ describe("FileUtils", () => {
 			const result = await FileUtils.remove("/non-existing");
 			expect(result).toBeOk();
 		});
+
+		it("should default maxRetries/retryDelay to 0", async () => {
+			vol.mkdirSync("/test-dir");
+			const rmSpy = vi.spyOn(vol.promises, "rm");
+
+			await FileUtils.remove("/test-dir");
+
+			expect(rmSpy).toHaveBeenCalledWith("/test-dir", {
+				recursive: true,
+				force: true,
+				maxRetries: 0,
+				retryDelay: 0,
+			});
+			rmSpy.mockRestore();
+		});
+
+		it("should pass maxRetries/retryDelay through to fs.rm when provided", async () => {
+			vol.mkdirSync("/test-dir");
+			const rmSpy = vi.spyOn(vol.promises, "rm");
+
+			const result = await FileUtils.remove("/test-dir", { maxRetries: 3, retryDelay: 50 });
+
+			expect(result).toBeOk();
+			expect(rmSpy).toHaveBeenCalledWith("/test-dir", {
+				recursive: true,
+				force: true,
+				maxRetries: 3,
+				retryDelay: 50,
+			});
+			rmSpy.mockRestore();
+		});
 	});
 
 	describe("pathExists", () => {
@@ -215,6 +252,101 @@ describe("FileUtils", () => {
 			const destStats = vol.statSync("/dest-file.txt");
 			expect(destStats.mtime).toEqual(sourceStats.mtime);
 			expect(destStats.atime).toEqual(sourceStats.atime);
+		});
+	});
+
+	describe("move", () => {
+		it("should rename src to dest", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const result = await FileUtils.move("/src.txt", "/dest.txt");
+			expect(result).toBeOk();
+			expect(vol.existsSync("/src.txt")).toBe(false);
+			expect(vol.readFileSync("/dest.txt", "utf8")).toBe("content");
+		});
+
+		it("should default maxRetries/retryDelay to 0 and fail immediately on a transient error", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const renameSpy = vi.spyOn(vol.promises, "rename").mockImplementation(async () => {
+				throw errnoException("EBUSY");
+			});
+
+			const result = await FileUtils.move("/src.txt", "/dest.txt");
+
+			expect(result).toBeErr();
+			expect(renameSpy).toHaveBeenCalledTimes(1);
+			renameSpy.mockRestore();
+		});
+
+		it("should retry the rename on a transient error and succeed", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const originalRename = vol.promises.rename.bind(vol.promises);
+			const renameSpy = vi
+				.spyOn(vol.promises, "rename")
+				.mockImplementationOnce(async () => {
+					throw errnoException("EBUSY");
+				})
+				.mockImplementation(async (oldPath, newPath) => originalRename(oldPath, newPath));
+
+			const resultPromise = FileUtils.move("/src.txt", "/dest.txt", {
+				maxRetries: 2,
+				retryDelay: 50,
+			});
+			await vi.advanceTimersByTimeAsync(50);
+			const result = await resultPromise;
+
+			expect(result).toBeOk();
+			expect(renameSpy).toHaveBeenCalledTimes(2);
+			expect(vol.readFileSync("/dest.txt", "utf8")).toBe("content");
+			renameSpy.mockRestore();
+		});
+
+		it("should give up after maxRetries is exhausted and return a FileUtilsError", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const renameSpy = vi.spyOn(vol.promises, "rename").mockImplementation(async () => {
+				throw errnoException("EBUSY");
+			});
+
+			const resultPromise = FileUtils.move("/src.txt", "/dest.txt", {
+				maxRetries: 2,
+				retryDelay: 50,
+			});
+			await vi.advanceTimersByTimeAsync(150);
+			const result = await resultPromise;
+
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr()).toBeInstanceOf(FileUtils.FileUtilsError);
+			expect(renameSpy).toHaveBeenCalledTimes(3);
+			renameSpy.mockRestore();
+		});
+
+		it("should not retry a non-retryable rename error", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const renameSpy = vi.spyOn(vol.promises, "rename").mockImplementation(async () => {
+				throw errnoException("ENOSPC");
+			});
+
+			const result = await FileUtils.move("/src.txt", "/dest.txt", {
+				maxRetries: 3,
+				retryDelay: 50,
+			});
+
+			expect(result).toBeErr();
+			expect(renameSpy).toHaveBeenCalledTimes(1);
+			renameSpy.mockRestore();
+		});
+
+		it("should fall back to copy+remove across devices (EXDEV)", async () => {
+			vol.writeFileSync("/src.txt", "content");
+			const renameSpy = vi.spyOn(vol.promises, "rename").mockImplementation(async () => {
+				throw errnoException("EXDEV");
+			});
+
+			const result = await FileUtils.move("/src.txt", "/dest.txt");
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/src.txt")).toBe(false);
+			expect(vol.readFileSync("/dest.txt", "utf8")).toBe("content");
+			renameSpy.mockRestore();
 		});
 	});
 
@@ -568,5 +700,17 @@ describe("FileUtils", () => {
 			expect(vol.existsSync("/dir2/.keep")).toBe(true);
 			expect(vol.existsSync("/dir2/file.txt")).toBe(false);
 		});
+	});
+});
+
+describe("scratchName", () => {
+	it("suffixes the prefix with the process id, a timestamp, and random characters", () => {
+		const name = FileUtils.scratchName(".manifest.json.tmp");
+		expect(name).toMatch(new RegExp(`^\\.manifest\\.json\\.tmp-${process.pid}-\\d+-[a-z0-9]+$`));
+	});
+
+	it("produces a distinct name on every call", () => {
+		const names = new Set(Array.from({ length: 1000 }, () => FileUtils.scratchName("scratch")));
+		expect(names.size).toBe(1000);
 	});
 });

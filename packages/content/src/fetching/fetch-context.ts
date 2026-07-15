@@ -11,6 +11,7 @@ import type { ContentTransform } from "../content-transform.js";
 import type { ContentSource } from "../source.js";
 import type { DataStore } from "../utils/data-store.js";
 import type { PathsHelper } from "../utils/paths-helper.js";
+import type { OutputStrategy } from "./output-strategy.js";
 
 /**
  * Lightweight context for fetch pipeline stages.
@@ -30,6 +31,8 @@ import type { PathsHelper } from "../utils/paths-helper.js";
 export type FetchStageContext = {
 	// Immutable configuration
 	readonly config: ResolvedContentConfig;
+	/** Output strategy resolved once from `config.versioning`; stages consult it for all mode-specific behavior. */
+	readonly output: OutputStrategy;
 	readonly cwd: string;
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
@@ -47,4 +50,11 @@ export type FetchStageContext = {
 
 	// Resolved sources to fetch (set by pipeline orchestrator)
 	sources: Array<ContentSource>;
+
+	/**
+	 * Absolute path of the version directory this run attempted to promote into, under
+	 * versioned output mode. Set by `finalizingStage` before the move so that
+	 * `errorRecoveryStage` can best-effort delete an orphaned version dir on failure.
+	 */
+	attemptedVersionPath?: string;
 };

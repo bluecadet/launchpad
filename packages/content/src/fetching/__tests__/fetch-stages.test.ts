@@ -1,7 +1,9 @@
+import path from "node:path";
 import { vol } from "memfs";
 import { errAsync, ok, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ContentError } from "../../content-transform.js";
+import * as ManifestUtils from "../../manifest.js";
 import { defineSource } from "../../source.js";
 import * as FileUtils from "../../utils/file-utils.js";
 import {
@@ -14,6 +16,7 @@ import {
 	fetchSourcesStage,
 	finalizingStage,
 	runTransformsStage,
+	sweepStage,
 } from "../fetch-stages.js";
 import {
 	createMockContentConfig,
@@ -85,6 +88,24 @@ describe("Fetch Stages", () => {
 			expect(vol.existsSync("/backups/test/file.json")).toBe(true);
 			expect(vol.readFileSync("/backups/test/file.json", "utf8")).toBe('{"data":"test"}');
 		});
+
+		it("should skip backup when versioning is enabled, even if backupAndRestore is true", async () => {
+			vol.mkdirSync("/downloads/test", { recursive: true });
+			vol.writeFileSync("/downloads/test/file.json", '{"data":"test"}');
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({
+					backupAndRestore: true,
+					versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+				}),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+
+			const result = await backupStage(context);
+
+			expect(result).toBeOk();
+			expect(vol.existsSync("/backups/test/file.json")).toBe(false);
+		});
 	});
 
 	describe("clearOldDataStage", () => {
@@ -138,6 +159,158 @@ describe("Fetch Stages", () => {
 
 			expect(result).toBeOk();
 			expect(vol.existsSync("/temp/runs/test-run/downloads/nonexistent")).toBe(true);
+		});
+
+		describe("under versioning", () => {
+			it("should seed each source from the manifest's active version, resolved via sources[].path", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion/test1-dir", { recursive: true });
+				vol.mkdirSync("/downloads/versions/activeVersion/test2-dir", { recursive: true });
+				vol.writeFileSync("/downloads/versions/activeVersion/test1-dir/.keep", "");
+				vol.writeFileSync("/downloads/versions/activeVersion/test2-dir/.keep", "");
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [
+							{ sourceId: "test1", path: "test1-dir" },
+							{ sourceId: "test2", path: "test2-dir" },
+						],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [
+						defineSource({ id: "test1", fetch: () => [] }),
+						defineSource({ id: "test2", fetch: () => [] }),
+					],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test1/.keep")).toBe(true);
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test2/.keep")).toBe(true);
+			});
+
+			it("should seed empty and warn when no manifest exists yet", async () => {
+				vol.mkdirSync("/downloads", { recursive: true });
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("No manifest found"),
+				);
+			});
+
+			it("should seed empty and warn when the manifest's version dir is missing", async () => {
+				vol.mkdirSync("/downloads", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "goneVersion",
+						versionPath: "versions/goneVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "test", path: "test" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("Active version directory not found"),
+				);
+			});
+
+			it("should seed empty and warn when the active version has no entry for a source", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "other", path: "other" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.existsSync("/temp/runs/test-run/downloads/test")).toBe(true);
+				expect(vol.readdirSync("/temp/runs/test-run/downloads/test")).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("has no entry for source test"),
+				);
+			});
+
+			it("should never seed from an orphan dir newer than the active version", async () => {
+				vol.mkdirSync("/downloads/versions/activeVersion/test", { recursive: true });
+				vol.writeFileSync("/downloads/versions/activeVersion/test/.keep", "active");
+				vol.mkdirSync("/downloads/versions/zzz-newer-orphan/test", { recursive: true });
+				vol.writeFileSync("/downloads/versions/zzz-newer-orphan/test/.keep", "orphan");
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "activeVersion",
+						versionPath: "versions/activeVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "test", path: "test" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						keep: [".keep"],
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "test", fetch: () => [] })],
+				});
+
+				const result = await clearOldDataStage(context);
+
+				expect(result).toBeOk();
+				expect(vol.readFileSync("/temp/runs/test-run/downloads/test/.keep", "utf8")).toBe("active");
+			});
 		});
 	});
 
@@ -324,6 +497,343 @@ describe("Fetch Stages", () => {
 
 			expect(result).toBeErr();
 		});
+
+		describe("under versioning", () => {
+			it("should move the staged root into versions/<versionId>, swap the manifest, and emit the promoted event after the swap", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.mkdirSync("/temp/runs/test-run/downloads/source2", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+				vol.writeFileSync("/temp/runs/test-run/downloads/source2/file.json", '{"id":2}');
+
+				vol.mkdirSync("/downloads/versions/oldVersion/source1", { recursive: true });
+				vol.writeFileSync("/downloads/versions/oldVersion/source1/file.json", '{"id":"old"}');
+				vol.writeFileSync(
+					"/downloads/manifest.json",
+					JSON.stringify({
+						schemaVersion: 1,
+						versionId: "oldVersion",
+						versionPath: "versions/oldVersion",
+						generatedAt: "2026-01-01T00:00:00.000Z",
+						sources: [{ sourceId: "source1", path: "source1" }],
+					}),
+				);
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [
+						defineSource({ id: "source1", fetch: () => [] }),
+						defineSource({ id: "source2", fetch: () => [] }),
+					],
+				});
+
+				const result = await finalizingStage(context);
+
+				expect(result).toBeOk();
+
+				const manifest = JSON.parse(vol.readFileSync("/downloads/manifest.json", "utf8") as string);
+				expect(manifest.schemaVersion).toBe(1);
+				expect(manifest.versionId).toMatch(/^\d{8}T\d{6}Z$/);
+				expect(manifest.versionPath).toBe(`versions/${manifest.versionId}`);
+				expect(manifest.sources).toEqual([
+					{ sourceId: "source1", path: "source1" },
+					{ sourceId: "source2", path: "source2" },
+				]);
+
+				expect(vol.existsSync(`/downloads/${manifest.versionPath}/source1/file.json`)).toBe(true);
+				expect(vol.existsSync(`/downloads/${manifest.versionPath}/source2/file.json`)).toBe(true);
+
+				// Previously active version is untouched
+				expect(vol.readFileSync("/downloads/versions/oldVersion/source1/file.json", "utf8")).toBe(
+					'{"id":"old"}',
+				);
+
+				const events = context.eventBus.getEmittedEvents();
+				const promotedIndex = events.findIndex((e) => e.event === "content:version:promoted");
+				const doneIndex = events.findIndex((e) => e.event === "content:fetch:done");
+				expect(promotedIndex).toBeGreaterThanOrEqual(0);
+				expect(doneIndex).toBeGreaterThan(promotedIndex);
+
+				expect(events[promotedIndex]?.data).toEqual({
+					versionId: manifest.versionId,
+					versionPath: manifest.versionPath,
+					generatedAt: manifest.generatedAt,
+				});
+			});
+
+			it("should not delete the just-committed version if error recovery runs afterward for an unrelated failure", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+
+				const context = createMockFetchContext({
+					config: createMockContentConfig({
+						versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+					}),
+					sources: [defineSource({ id: "source1", fetch: () => [] })],
+				});
+
+				const result = await finalizingStage(context);
+				expect(result).toBeOk();
+
+				const manifestBefore = JSON.parse(
+					vol.readFileSync("/downloads/manifest.json", "utf8") as string,
+				);
+
+				// Simulate a later, unrelated stage (e.g. cleanupStage) failing after promotion
+				// already committed, which routes through the same error-recovery path.
+				await errorRecoveryStage(context, new ContentError("unrelated later-stage failure"));
+
+				expect(vol.existsSync(`/downloads/${manifestBefore.versionPath}/source1/file.json`)).toBe(
+					true,
+				);
+				expect(JSON.parse(vol.readFileSync("/downloads/manifest.json", "utf8") as string)).toEqual(
+					manifestBefore,
+				);
+			});
+
+			it("should leave the active version and manifest untouched, and best-effort delete the orphan, when promotion fails before the swap", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+
+				vol.mkdirSync("/downloads/versions/oldVersion/source1", { recursive: true });
+				vol.writeFileSync("/downloads/versions/oldVersion/source1/file.json", '{"id":"old"}');
+				const originalManifestJson = JSON.stringify({
+					schemaVersion: 1,
+					versionId: "oldVersion",
+					versionPath: "versions/oldVersion",
+					generatedAt: "2026-01-01T00:00:00.000Z",
+					sources: [{ sourceId: "source1", path: "source1" }],
+				});
+				vol.writeFileSync("/downloads/manifest.json", originalManifestJson);
+
+				const moveSpy = vi
+					.spyOn(FileUtils, "move")
+					.mockReturnValue(errAsync(new FileUtils.FileUtilsError("promotion failed")));
+
+				try {
+					const context = createMockFetchContext({
+						config: createMockContentConfig({
+							versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+						}),
+						sources: [defineSource({ id: "source1", fetch: () => [] })],
+					});
+
+					const result = await finalizingStage(context);
+					expect(result).toBeErr();
+
+					expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe(originalManifestJson);
+					expect(vol.readFileSync("/downloads/versions/oldVersion/source1/file.json", "utf8")).toBe(
+						'{"id":"old"}',
+					);
+
+					const error = result._unsafeUnwrapErr();
+					const recovery = await errorRecoveryStage(context, error);
+					expect(recovery).toBeOk();
+					expect(recovery._unsafeUnwrap().restoredSourceIds).toEqual([]);
+					expect(vol.existsSync(context.attemptedVersionPath as string)).toBe(false);
+				} finally {
+					moveSpy.mockRestore();
+				}
+			});
+
+			it("should leave an orphan dir and nothing else when the crash happens between the move and the manifest swap", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":1}');
+
+				vol.mkdirSync("/downloads/versions/oldVersion/source1", { recursive: true });
+				vol.writeFileSync("/downloads/versions/oldVersion/source1/file.json", '{"id":"old"}');
+				const originalManifestJson = JSON.stringify({
+					schemaVersion: 1,
+					versionId: "oldVersion",
+					versionPath: "versions/oldVersion",
+					generatedAt: "2026-01-01T00:00:00.000Z",
+					sources: [{ sourceId: "source1", path: "source1" }],
+				});
+				vol.writeFileSync("/downloads/manifest.json", originalManifestJson);
+
+				const writeManifestSpy = vi
+					.spyOn(ManifestUtils, "writeManifest")
+					.mockReturnValue(errAsync(new ManifestUtils.ManifestError("simulated crash")));
+
+				try {
+					const context = createMockFetchContext({
+						config: createMockContentConfig({
+							versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+						}),
+						sources: [defineSource({ id: "source1", fetch: () => [] })],
+					});
+
+					const result = await finalizingStage(context);
+					expect(result).toBeErr();
+
+					// Active version and manifest are untouched
+					expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe(originalManifestJson);
+					expect(vol.readFileSync("/downloads/versions/oldVersion/source1/file.json", "utf8")).toBe(
+						'{"id":"old"}',
+					);
+
+					// The move completed (orphan dir left behind); recovery never ran
+					const orphanPath = context.attemptedVersionPath as string;
+					expect(vol.existsSync(orphanPath)).toBe(true);
+					expect(vol.existsSync(path.join(orphanPath, "source1", "file.json"))).toBe(true);
+
+					const versionDirs = vol.readdirSync("/downloads/versions");
+					expect(versionDirs.sort()).toEqual(["oldVersion", path.basename(orphanPath)].sort());
+				} finally {
+					writeManifestSpy.mockRestore();
+				}
+			});
+
+			it("mints a suffixed version id when the minted id's dir already exists, leaving the existing version untouched", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":"new"}');
+
+				// A prior same-second promotion already owns the minted id.
+				vol.mkdirSync("/downloads/versions/20260714T153045Z/source1", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/versions/20260714T153045Z/source1/file.json",
+					'{"id":"existing"}',
+				);
+
+				const mintSpy = vi
+					.spyOn(ManifestUtils, "mintVersionId")
+					.mockReturnValue("20260714T153045Z");
+
+				try {
+					const context = createMockFetchContext({
+						config: createMockContentConfig({
+							versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+						}),
+						sources: [defineSource({ id: "source1", fetch: () => [] })],
+					});
+
+					const result = await finalizingStage(context);
+					expect(result).toBeOk();
+
+					const manifest = JSON.parse(
+						vol.readFileSync("/downloads/manifest.json", "utf8") as string,
+					);
+					expect(manifest.versionId).toBe("20260714T153045Z-01");
+					expect(manifest.versionPath).toBe("versions/20260714T153045Z-01");
+
+					// The pre-existing version dir is neither merged into nor deleted.
+					expect(
+						vol.readFileSync("/downloads/versions/20260714T153045Z/source1/file.json", "utf8"),
+					).toBe('{"id":"existing"}');
+					// This run's content lands in the suffixed dir.
+					expect(
+						vol.readFileSync("/downloads/versions/20260714T153045Z-01/source1/file.json", "utf8"),
+					).toBe('{"id":"new"}');
+
+					// The suffix sorts after the base id and before the next second's id, so retention's
+					// newest-by-name ordering is preserved.
+					expect("20260714T153045Z" < manifest.versionId).toBe(true);
+					expect(manifest.versionId < "20260714T153046Z").toBe(true);
+
+					// Committed, so the attempt marker is cleared.
+					expect(context.attemptedVersionPath).toBeUndefined();
+				} finally {
+					mintSpy.mockRestore();
+				}
+			});
+
+			it("never deletes a pre-existing same-second version when this run's promotion fails after the move", async () => {
+				vol.mkdirSync("/temp/runs/test-run/downloads/source1", { recursive: true });
+				vol.writeFileSync("/temp/runs/test-run/downloads/source1/file.json", '{"id":"new"}');
+
+				// The live, manifest-referenced version that happens to share the minted id -- exactly
+				// the directory the old error path would have deleted on the second same-second fetch.
+				vol.mkdirSync("/downloads/versions/20260714T153045Z/source1", { recursive: true });
+				vol.writeFileSync(
+					"/downloads/versions/20260714T153045Z/source1/file.json",
+					'{"id":"live"}',
+				);
+				const liveManifestJson = JSON.stringify({
+					schemaVersion: 1,
+					versionId: "20260714T153045Z",
+					versionPath: "versions/20260714T153045Z",
+					generatedAt: "2026-07-14T15:30:45.000Z",
+					sources: [{ sourceId: "source1", path: "source1" }],
+				});
+				vol.writeFileSync("/downloads/manifest.json", liveManifestJson);
+
+				const mintSpy = vi
+					.spyOn(ManifestUtils, "mintVersionId")
+					.mockReturnValue("20260714T153045Z");
+				// Crash between the move and the manifest swap on this run.
+				const writeManifestSpy = vi
+					.spyOn(ManifestUtils, "writeManifest")
+					.mockReturnValue(errAsync(new ManifestUtils.ManifestError("simulated crash")));
+
+				try {
+					const context = createMockFetchContext({
+						config: createMockContentConfig({
+							versioning: { keepVersions: 3, ackTimeout: 1_800_000 },
+						}),
+						sources: [defineSource({ id: "source1", fetch: () => [] })],
+					});
+
+					const result = await finalizingStage(context);
+					expect(result).toBeErr();
+
+					// This run's orphan is the suffixed dir, never the live one.
+					expect(context.attemptedVersionPath).toBe(
+						path.join("/downloads/versions", "20260714T153045Z-01"),
+					);
+
+					const recovery = await errorRecoveryStage(context, result._unsafeUnwrapErr());
+					expect(recovery).toBeOk();
+
+					// The live version and its manifest survive; only the orphaned suffixed dir is removed.
+					expect(
+						vol.readFileSync("/downloads/versions/20260714T153045Z/source1/file.json", "utf8"),
+					).toBe('{"id":"live"}');
+					expect(vol.readFileSync("/downloads/manifest.json", "utf8")).toBe(liveManifestJson);
+					expect(vol.existsSync("/downloads/versions/20260714T153045Z-01")).toBe(false);
+				} finally {
+					writeManifestSpy.mockRestore();
+					mintSpy.mockRestore();
+				}
+			});
+		});
+	});
+
+	describe("sweepStage", () => {
+		it("should be a no-op when versioning is off", async () => {
+			vol.mkdirSync("/downloads/versions/oldVersion", { recursive: true });
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: false }),
+			});
+
+			const result = await sweepStage(context);
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap()).toBeUndefined();
+			expect(vol.existsSync("/downloads/versions/oldVersion")).toBe(true);
+		});
+
+		it("should sweep versions/ under the published download path when versioning is on", async () => {
+			vol.mkdirSync("/downloads/versions/20260101T000000Z", { recursive: true });
+			vol.mkdirSync("/downloads/versions/20260102T000000Z", { recursive: true });
+			vol.mkdirSync("/downloads/versions/20260103T000000Z", { recursive: true });
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: { keepVersions: 1, ackTimeout: 1_800_000 } }),
+			});
+
+			const result = await sweepStage(context);
+
+			expect(result).toBeOk();
+			const sweepResult = result._unsafeUnwrap();
+			expect(sweepResult?.retainedVersionIds).toEqual(["20260103T000000Z"]);
+			expect(sweepResult?.deletedVersionIds.sort()).toEqual([
+				"20260101T000000Z",
+				"20260102T000000Z",
+			]);
+			expect(vol.existsSync("/downloads/versions/20260101T000000Z")).toBe(false);
+			expect(vol.existsSync("/downloads/versions/20260103T000000Z")).toBe(true);
+		});
 	});
 
 	describe("errorRecoveryStage", () => {
@@ -393,6 +903,48 @@ describe("Fetch Stages", () => {
 				expect(result._unsafeUnwrapErr()).toBeInstanceOf(ContentRecoveryError);
 			} finally {
 				copySpy.mockRestore();
+			}
+		});
+
+		it("should skip restore and best-effort delete the orphaned version dir under versioning", async () => {
+			vol.mkdirSync("/downloads/versions/newVersion/test", { recursive: true });
+			vol.writeFileSync("/downloads/versions/newVersion/test/file.json", "{}");
+
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: { keepVersions: 3, ackTimeout: 1_800_000 } }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+			context.attemptedVersionPath = "/downloads/versions/newVersion";
+
+			const error = new ContentError("Test error");
+			const result = await errorRecoveryStage(context, error);
+
+			expect(result).toBeOk();
+			expect(result._unsafeUnwrap().restoredSourceIds).toEqual([]);
+			expect(vol.existsSync("/downloads/versions/newVersion")).toBe(false);
+		});
+
+		it("should log a warning and continue when the orphaned version dir can't be removed", async () => {
+			const context = createMockFetchContext({
+				config: createMockContentConfig({ versioning: { keepVersions: 3, ackTimeout: 1_800_000 } }),
+				sources: [defineSource({ id: "test", fetch: () => [] })],
+			});
+			context.attemptedVersionPath = "/downloads/versions/newVersion";
+
+			const removeSpy = vi
+				.spyOn(FileUtils, "remove")
+				.mockReturnValue(errAsync(new FileUtils.FileUtilsError("locked")));
+
+			try {
+				const result = await errorRecoveryStage(context, new ContentError("Test error"));
+
+				expect(result).toBeOk();
+				expect(result._unsafeUnwrap().restoredSourceIds).toEqual([]);
+				expect(context.logger.warn).toHaveBeenCalledWith(
+					expect.stringContaining("Failed to remove orphaned version directory"),
+				);
+			} finally {
+				removeSpy.mockRestore();
 			}
 		});
 	});

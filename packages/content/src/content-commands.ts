@@ -45,19 +45,31 @@ export type ContentRestoreCommand = BaseCommand & {
 };
 
 /**
+ * Write/renew an ack lease for a consumer, extending retention of a named version
+ * beyond keep-N for as long as the lease stays fresh. Only meaningful under versioning.
+ */
+export type ContentAckCommand = BaseCommand & {
+	type: "content.ack";
+	consumerId: string;
+	versionId: string;
+};
+
+/**
  * Union of all content command types
  */
 export type ContentCommand =
 	| ContentFetchCommand
 	| ContentClearCommand
 	| ContentBackupCommand
-	| ContentRestoreCommand;
+	| ContentRestoreCommand
+	| ContentAckCommand;
 
 export type ContentCommandMap = {
 	"content.fetch": { input: ContentFetchCommand; output: undefined };
 	"content.clear": { input: ContentClearCommand; output: undefined };
 	"content.backup": { input: ContentBackupCommand; output: undefined };
 	"content.restore": { input: ContentRestoreCommand; output: undefined };
+	"content.ack": { input: ContentAckCommand; output: undefined };
 };
 
 export const contentFetchCommandSchema = z
@@ -92,9 +104,18 @@ export const contentRestoreCommandSchema = z
 	})
 	.strict();
 
+export const contentAckCommandSchema = z
+	.object({
+		type: z.literal("content.ack"),
+		consumerId: z.string().min(1),
+		versionId: z.string().min(1),
+	})
+	.strict();
+
 export const contentCommandSchema = z.discriminatedUnion("type", [
 	contentFetchCommandSchema,
 	contentClearCommandSchema,
 	contentBackupCommandSchema,
 	contentRestoreCommandSchema,
+	contentAckCommandSchema,
 ]);

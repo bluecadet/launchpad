@@ -56,8 +56,8 @@
       "default": "./dist/content/state.js"
     },
     "./content/transforms": {
-      "types": "./dist/content/transforms/index.d.ts",
-      "default": "./dist/content/transforms/index.js"
+      "types": "./dist/content/transforms.d.ts",
+      "default": "./dist/content/transforms.js"
     },
     "./content/transforms/md-to-html": {
       "types": "./dist/content/transforms/md-to-html.d.ts",
@@ -96,8 +96,8 @@
       "default": "./dist/content/source.js"
     },
     "./content/sources": {
-      "types": "./dist/content/sources/index.d.ts",
-      "default": "./dist/content/sources/index.js"
+      "types": "./dist/content/sources.d.ts",
+      "default": "./dist/content/sources.js"
     },
     "./content/sources/airtable": {
       "types": "./dist/content/sources/airtable.d.ts",
@@ -139,6 +139,10 @@
       "types": "./dist/controller/transports/ipc.d.ts",
       "default": "./dist/controller/transports/ipc.js"
     },
+    "./controller/transports/http": {
+      "types": "./dist/controller/transports/http.d.ts",
+      "default": "./dist/controller/transports/http.js"
+    },
     "./monitor": {
       "types": "./dist/monitor/index.d.ts",
       "default": "./dist/monitor/index.js"
@@ -172,16 +176,16 @@
       "default": "./dist/observability/transports/loki.js"
     },
     "./observability/config": {
-      "types": "./dist/observability/observability-config.d.ts",
-      "default": "./dist/observability/observability-config.js"
+      "types": "./dist/observability/config.d.ts",
+      "default": "./dist/observability/config.js"
     },
     "./observability/events": {
-      "types": "./dist/observability/observability-events.d.ts",
-      "default": "./dist/observability/observability-events.js"
+      "types": "./dist/observability/events.d.ts",
+      "default": "./dist/observability/events.js"
     },
     "./observability/state": {
-      "types": "./dist/observability/observability-state.d.ts",
-      "default": "./dist/observability/observability-state.js"
+      "types": "./dist/observability/state.d.ts",
+      "default": "./dist/observability/state.js"
     },
     "./scheduler": {
       "types": "./dist/scheduler/index.d.ts",

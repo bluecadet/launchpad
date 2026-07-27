@@ -1,6 +1,7 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type {
+	ControllerMode,
 	LaunchpadState,
 	StatusSnapshot,
 	VersionedLaunchpadState,
@@ -87,11 +88,20 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
+export function createStubStatusSnapshot(): StatusSnapshot {
+	return {
+		header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+		sections: [],
+	};
+}
+
 export function createMockPluginCtx(cwd = "/") {
 	return {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		cwd,
+		mode: "task" as ControllerMode,
+		getStatusSnapshot: vi.fn().mockImplementation(createStubStatusSnapshot),
 		abortSignal: new AbortController().signal as AbortSignal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
 		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
@@ -109,6 +119,8 @@ export function createMockBasePluginCtx(cwd = "/") {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		cwd,
+		mode: "task" as ControllerMode,
+		getStatusSnapshot: vi.fn().mockImplementation(createStubStatusSnapshot),
 		abortSignal: new AbortController().signal as AbortSignal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
 		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),

@@ -45,6 +45,11 @@ export function createTestIPCTransport() {
 		cwd: "/",
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
+		mode: "task",
+		getStatusSnapshot: vi.fn().mockReturnValue({
+			header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+			sections: [],
+		}),
 		abortSignal: abortController.signal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync({ result: "success" })),
 		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" }, plugins: {}, _version: 0 }),

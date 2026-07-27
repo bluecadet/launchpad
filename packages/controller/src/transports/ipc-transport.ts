@@ -14,7 +14,6 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, okAsync, ResultAsync } from "neverthrow";
@@ -33,8 +32,6 @@ import { getOSSocketPath } from "../utils/ipc-utils.js";
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
 	socketPath: string;
-	/** Returns a fresh StatusSnapshot for queryStatusSnapshot requests and push notifications. */
-	getStatusSnapshot: () => StatusSnapshot;
 };
 
 // ---- JSON-RPC 2.0 message types ----
@@ -111,7 +108,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 
 							try {
 								const message = IPCSerializer.deserialize(line) as IPCRequest;
-								handleMessage(message, socket, ctx, options.getStatusSnapshot);
+								handleMessage(message, socket, ctx);
 							} catch (e) {
 								const error = ensureError(e);
 								ctx.logger.error(`Failed to parse IPC message: ${error.message}`);
@@ -164,7 +161,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 					};
 					const serializedPatch = `${IPCSerializer.serialize(patchMessage)}\n`;
 
-					const snapshot = options.getStatusSnapshot();
+					const snapshot = ctx.getStatusSnapshot();
 					const snapshotMessage: IPCNotification = {
 						jsonrpc: "2.0",
 						method: "statusSnapshot",
@@ -326,12 +323,7 @@ function getErrorCode(error: Error): string | undefined {
 /**
  * Handle a JSON-RPC 2.0 request message
  */
-function handleMessage(
-	message: IPCRequest,
-	socket: net.Socket,
-	ctx: PluginContext,
-	getStatusSnapshot: () => StatusSnapshot,
-): void {
+function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginContext): void {
 	const { logger } = ctx;
 
 	switch (message.method) {
@@ -352,7 +344,7 @@ function handleMessage(
 
 		case "queryStatusSnapshot": {
 			try {
-				const snapshot = getStatusSnapshot();
+				const snapshot = ctx.getStatusSnapshot();
 				sendResult(socket, message.id, snapshot);
 			} catch (e) {
 				const error = ensureError(e);

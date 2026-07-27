@@ -57,13 +57,7 @@ export function createTestIPCTransport() {
 		updateState: vi.fn(),
 	} satisfies MutableContext;
 
-	const transport = createIPCTransport({
-		socketPath: "/test/socket",
-		getStatusSnapshot: () => ({
-			header: { startTime: new Date().toISOString(), uptimeMs: 0, mode: "task" },
-			sections: [],
-		}),
-	});
+	const transport = createIPCTransport({ socketPath: "/test/socket" });
 
 	return { transport, context };
 }

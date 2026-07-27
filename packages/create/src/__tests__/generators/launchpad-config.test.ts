@@ -208,6 +208,17 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("export default defineConfig(");
 	});
 
+	it("hints at the http transport with a matching commented import", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+
+		expect(result).toContain(
+			"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
+		);
+		expect(result).toContain(
+			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
+		);
+	});
+
 	it("includes sanity-specific transform named exports", () => {
 		const result = generateLaunchpadConfig({
 			...baseAnswers,

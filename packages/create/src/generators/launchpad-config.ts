@@ -55,6 +55,8 @@ function buildImports(answers: Answers): string {
 		lines.push(`import { scheduler } from '@bluecadet/launchpad/scheduler';`);
 	}
 
+	lines.push(`// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';`);
+
 	return lines.join("\n");
 }
 
@@ -229,6 +231,9 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	if (answers.useContent) plugins.push(buildContentPlugin(answers));
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
 	if (answers.useScheduler) plugins.push(buildSchedulerPlugin());
+	plugins.push(
+		"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
+	);
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");
 	const workflowsBlock = buildWorkflows(answers);

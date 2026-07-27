@@ -28,6 +28,10 @@
       "types": "./dist/transports/ipc-transport.d.ts",
       "default": "./dist/transports/ipc-transport.js"
     },
+    "./transports/http": {
+      "types": "./dist/transports/http-transport.d.ts",
+      "default": "./dist/transports/http-transport.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

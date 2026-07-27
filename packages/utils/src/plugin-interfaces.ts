@@ -29,7 +29,13 @@ import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
-import type { LaunchpadState, Section, VersionedLaunchpadState } from "./types.js";
+import type {
+	ControllerMode,
+	LaunchpadState,
+	Section,
+	StatusSnapshot,
+	VersionedLaunchpadState,
+} from "./types.js";
 
 export type DisconnectReason =
 	| { type: "manual" }
@@ -188,6 +194,9 @@ export interface PluginContext<TState = unknown> {
 	readonly logger: Logger;
 	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
+	readonly mode: ControllerMode;
+	/** Build the display-oriented status snapshot. Use sparingly. */
+	readonly getStatusSnapshot: () => StatusSnapshot;
 	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
 	/** Read the full aggregated system state (all plugins + system). Use sparingly — prefer eventBus or dispatchCommand for cross-plugin communication. */
 	readonly getGlobalState: () => VersionedLaunchpadState;

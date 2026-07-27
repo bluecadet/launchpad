@@ -41,11 +41,17 @@ export interface LaunchpadEvents {
 export interface PluginsState {}
 
 /**
+ * The mode the controller is running in: "task" for one-shot runs,
+ * "persistent" for long-lived daemon mode.
+ */
+export type ControllerMode = "task" | "persistent";
+
+/**
  * System-level state (controller-owned)
  */
 export type SystemState = {
 	startTime: Date;
-	mode: "task" | "persistent";
+	mode: ControllerMode;
 	[key: string]: unknown;
 };
 

@@ -2,11 +2,6 @@ import { z } from "zod";
 import { logConfigSchema } from "./core/file-logger.js";
 
 /**
- * Controller mode enum
- */
-export type ControllerMode = "task" | "persistent";
-
-/**
  * Controller configuration schema
  */
 export const controllerConfigSchema = z

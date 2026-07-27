@@ -10,9 +10,13 @@ import type {
 	PluginConfig,
 	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type {
+	ControllerMode,
+	StatusSnapshot,
+	VersionedLaunchpadState,
+} from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
-import type { ControllerMode, ResolvedControllerConfig } from "./controller-config.js";
+import type { ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { CommandRegistry } from "./core/command-registry.js";
 import { WorkflowRunner } from "./core/workflow-runner.js";
@@ -149,8 +153,7 @@ export class LaunchpadController {
 			return this.registerPlugin(
 				createIPCTransport({
 					socketPath,
-					getStatusSnapshot: () =>
-						buildStatusSnapshot(this._stateStore.getState(), this._pluginConfigs.values()),
+					getStatusSnapshot: () => this.buildSnapshot(),
 				}),
 			)
 				.andTee(() => {
@@ -254,6 +257,10 @@ export class LaunchpadController {
 		return this._commandRegistry.getRegisteredCommandIds();
 	}
 
+	private buildSnapshot(): StatusSnapshot {
+		return buildStatusSnapshot(this._stateStore.getState(), this._pluginConfigs.values());
+	}
+
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
@@ -262,6 +269,8 @@ export class LaunchpadController {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),
 			cwd: this._baseDir,
+			mode: this._mode,
+			getStatusSnapshot: () => this.buildSnapshot(),
 			abortSignal: this._abortController.signal,
 			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),
 			getGlobalState: () => this.getState(),

@@ -132,6 +132,10 @@ definePlugin({
 });
 ```
 
+### Transports
+
+Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](./transports) for browsers and Unity/.NET consumers. See [Transports](./transports) for the HTTP/SSE surface.
+
 ### Disconnectable
 
 Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.

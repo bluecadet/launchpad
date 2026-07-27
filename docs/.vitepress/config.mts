@@ -212,7 +212,10 @@ export default defineConfig({
 					{
 						text: "Controller",
 						link: "/reference/controller",
-						items: [{ text: "Events", link: "/reference/controller/events" }],
+						items: [
+							{ text: "Events", link: "/reference/controller/events" },
+							{ text: "Transports", link: "/reference/controller/transports" },
+						],
 					},
 				],
 			},

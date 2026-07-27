@@ -83,6 +83,8 @@ A lease only extends retention; it does not block cleanup forever. An applicatio
 
 Node consumers connected to a running Launchpad daemon can instead renew the same lease through `content.ack`, and can read the active manifest without knowing its on-disk location through [`content.manifest.read`](./refetch-checker#manifest-discovery-content-manifest-read). See the [IPCClient consumer recipe](/recipes/live-content-refresh#node-consumers-with-ipcclient).
 
+Both commands are also reachable over plain HTTP via the [HTTP/SSE transport](/reference/controller/transports), for browser and Unity/.NET consumers that can't open the IPC socket.
+
 ## Platform guidance
 
 ### Unity and .NET

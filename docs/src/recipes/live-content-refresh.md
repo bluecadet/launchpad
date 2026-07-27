@@ -39,3 +39,74 @@ Polling `manifest.json` remains the contract: poll every 5–30 seconds and relo
 <<< ./live-content-refresh-examples/ipc-consumer.ts
 
 `reloadContent()` should read the manifest and switch to its declared paths only when your application is ready. After it has loaded the promoted version, `content.ack` renews that consumer's retention lease over the same socket. The public commitment is the event name and its `{ versionId, versionPath, generatedAt }` payload; the IPC wire protocol is not part of this recipe.
+
+## Browser and Unity consumers over HTTP
+
+Consumers that can't open a Unix socket — browser pages, Unity/.NET clients — can use the [HTTP/SSE transport](/reference/controller/transports) instead. Add it to your plugins next to `content` and `scheduler`:
+
+<<< ./live-content-refresh-examples/http-config.ts
+
+`GET /events` streams the same `content:version:promoted` event as a Server-Sent Event, and `POST /command` dispatches `content.manifest.read` and `content.ack` over plain HTTP:
+
+```bash
+# Read the active manifest
+curl -X POST http://127.0.0.1:8710/command \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"content.manifest.read"}'
+
+# Renew this consumer's retention lease after loading a version
+curl -X POST http://127.0.0.1:8710/command \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"content.ack","consumerId":"unity-kiosk","versionId":"20260714T153045Z"}'
+```
+
+As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh.
+
+### C# (Unity/.NET)
+
+`HttpClient.GetStreamAsync` gives you the raw SSE stream; parse `event:`/`data:` lines yourself and reconnect on drop:
+
+```csharp
+var client = new HttpClient();
+
+while (true)
+{
+    try
+    {
+        using var stream = await client.GetStreamAsync("http://127.0.0.1:8710/events");
+        using var reader = new StreamReader(stream);
+
+        string? eventName = null;
+        string? line;
+        while ((line = await reader.ReadLineAsync()) != null)
+        {
+            if (line.StartsWith("event: "))
+            {
+                eventName = line.Substring("event: ".Length);
+            }
+            else if (line.StartsWith("data: "))
+            {
+                var data = line.Substring("data: ".Length);
+                if (eventName == "content:version:promoted")
+                {
+                    HandlePromoted(data); // reload content, then POST content.ack
+                }
+            }
+            else if (line.Length == 0)
+            {
+                eventName = null; // blank line ends the frame
+            }
+        }
+    }
+    catch (HttpRequestException)
+    {
+        // Connection dropped or the transport isn't up yet; fall through to reconnect.
+    }
+
+    await Task.Delay(TimeSpan.FromSeconds(2));
+}
+```
+
+This is a minimal line loop, not a full SSE client: it doesn't honor the `retry:` line, multi-line `data:` fields, or `id:`-based resumption. It's enough to catch `content:version:promoted` as a low-latency nudge — the manifest poll is still what makes the refresh correct.
+
+See the full [browser `EventSource` example](./live-content-refresh-examples/browser-sse-consumer.ts) for the equivalent consumer in TypeScript, including a poll-fallback interval.

@@ -2,7 +2,10 @@
 	"extends": "@bluecadet/launchpad-tsconfig/base.json",
 	"compilerOptions": {
 		"composite": true,
-		"outDir": "./dist"
+		"outDir": "./dist",
+		// The recipes include browser-side consumers (e.g. EventSource usage),
+		// so these examples typecheck against DOM globals as well as Node's.
+		"lib": ["es2025", "dom"]
 	},
 	"include": ["src/recipes/live-content-refresh-examples/**/*.ts"]
 }

@@ -208,13 +208,28 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("export default defineConfig(");
 	});
 
-	it("hints at the http transport with a matching commented import", () => {
-		const result = generateLaunchpadConfig(baseAnswers);
+	it("hints at the http transport with a matching commented import when content is selected", () => {
+		const result = generateLaunchpadConfig({
+			...baseAnswers,
+			useContent: true,
+			contentSources: ["json"],
+		});
 
 		expect(result).toContain(
 			"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
 		);
 		expect(result).toContain(
+			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
+		);
+	});
+
+	it("omits the http transport hint when content is not selected", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+
+		expect(result).not.toContain(
+			"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
+		);
+		expect(result).not.toContain(
 			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
 		);
 	});

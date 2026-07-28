@@ -7,7 +7,13 @@ export function buildStatusSnapshot(
 ): StatusSnapshot {
 	const sections: Section[] = [];
 	for (const cfg of pluginConfigs) {
-		const section = cfg.summarize?.(state);
+		let section: Section | null | undefined;
+		try {
+			section = cfg.summarize?.(state);
+		} catch (err) {
+			console.error(`Error in summarize() for plugin "${cfg.name}":`, err);
+			continue;
+		}
 		if (section) sections.push(section);
 	}
 	sections.sort((a, b) => (a.order ?? 50) - (b.order ?? 50));

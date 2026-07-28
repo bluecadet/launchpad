@@ -77,16 +77,6 @@ export class CommandExecutionError extends ControllerError {
 }
 
 /**
- * Thrown when state access or aggregation fails.
- */
-export class StateAccessError extends ControllerError {
-	constructor(message = "Failed to access state", options?: { cause?: Error }) {
-		super(message, options);
-		this.name = "StateAccessError";
-	}
-}
-
-/**
  * Thrown when transport initialization or shutdown fails.
  */
 export class TransportError extends ControllerError {

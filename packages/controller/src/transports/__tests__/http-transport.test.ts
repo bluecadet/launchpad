@@ -1,7 +1,7 @@
 import http from "node:http";
 import net from "node:net";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
-import type { BaseCommand } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { BaseCommand, PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatSseEvent, httpTransport } from "../http-transport.js";
@@ -25,19 +25,22 @@ function createDispatchCommand() {
 			case "content.ack":
 				return okAsync({ status: "ok" });
 			default:
-				return errAsync(new Error(`Unknown command: ${command.type}`));
+				return errAsync(
+					new Error(`Unknown command: ${command.type}`, { cause: new Error("no such handler") }),
+				);
 		}
 	});
 }
 
-function createPersistentCtx() {
-	const ctx = createMockPluginCtx();
-	ctx.mode = "persistent";
-	ctx.dispatchCommand = createDispatchCommand();
-	return ctx;
+function createTestCtx(overrides?: Partial<PluginContext>) {
+	return createMockPluginCtx("/", {
+		mode: "persistent",
+		dispatchCommand: createDispatchCommand(),
+		...overrides,
+	});
 }
 
-type TestCtx = ReturnType<typeof createPersistentCtx>;
+type TestCtx = ReturnType<typeof createTestCtx>;
 
 /**
  * Emit an arbitrary event name/payload on the mock bus. `AllEvents` only
@@ -52,22 +55,16 @@ function emitBusEvent(ctx: TestCtx, event: string, data: unknown) {
 /** Boot the transport on an ephemeral port and resolve its base URL. */
 async function startHttpTransport(
 	overrides: Partial<Parameters<typeof httpTransport>[0]> = {},
-	ctx: TestCtx = createPersistentCtx(),
+	ctx: TestCtx = createTestCtx(),
 ) {
-	let address: net.AddressInfo | undefined;
-	const transport = httpTransport({
-		port: 0,
-		onListening: (addr) => {
-			address = addr;
-		},
-		...overrides,
-	});
+	const transport = httpTransport({ port: 0, ...overrides });
 
 	const result = await transport.setup(ctx);
 	if (result.isErr()) {
 		return { ctx, result, baseUrl: undefined };
 	}
-	if (!address) {
+	const { address } = result.value;
+	if (address === null) {
 		throw new Error("HTTP transport reported success but never listened");
 	}
 
@@ -167,17 +164,13 @@ describe("formatSseEvent", () => {
 			"event: content:foo\ndata: line1\ndata: line2\n\n",
 		);
 	});
-
-	it("includes an id field when provided", () => {
-		expect(formatSseEvent("content:foo", "hello", "abc123")).toBe(
-			"event: content:foo\nid: abc123\ndata: hello\n\n",
-		);
-	});
 });
 
 /**
- * Write a raw request line over a plain TCP socket and resolve once the
- * response headers (and, for small bodies, the body) have arrived.
+ * Write a raw HTTP request over a plain TCP socket and resolve with everything
+ * the server sent back. The request must ask for `Connection: close` so the
+ * server ends the socket once the response is flushed — that end is the signal
+ * we wait on, rather than a timer.
  */
 function sendRawRequest(port: number, rawRequest: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -190,26 +183,119 @@ function sendRawRequest(port: number, rawRequest: string): Promise<string> {
 		});
 		socket.on("error", reject);
 		socket.on("close", () => resolve(received));
-		// The server may not close the socket on its own (keep-alive); give it
-		// a moment to flush the response, then tear the socket down ourselves.
-		setTimeout(() => socket.destroy(), 200);
 	});
 }
 
 describe("http-transport", () => {
 	describe("SSE connect", () => {
-		it("sends retry directive then a catch-up promoted event with the manifest versionId", async () => {
-			const { baseUrl } = await trackedStart();
+		it("sends the retry directive first, with nothing to replay on a fresh transport", async () => {
+			const { ctx, baseUrl } = await trackedStart();
 
 			const response = await fetch(`${baseUrl}/events`);
 			expect(response.status).toBe(200);
 
-			const [retryFrame, catchUpFrame] = await readSseFrames(response, 2);
+			const [retryFrame] = await readSseFrames(response, 1);
+			expect(retryFrame).toBe("retry: 2000");
+
+			// The next frame is a live event, so nothing was replayed before it.
+			emitBusEvent(ctx, "content:foo", { live: true });
+			const [nextFrame] = await readSseFrames(response, 1);
+			expect(nextFrame).toContain("event: content:foo");
+		});
+	});
+
+	describe("replay on connect", () => {
+		it("replays an event emitted before the client connected", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+
+			emitBusEvent(ctx, "content:version:promoted", { versionId: MANIFEST_VERSION_ID });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [retryFrame, replayFrame] = await readSseFrames(response, 2);
 
 			expect(retryFrame).toBe("retry: 2000");
-			expect(catchUpFrame).toContain("event: content:version:promoted");
-			expect(catchUpFrame).toContain(`id: ${MANIFEST_VERSION_ID}`);
-			expect(catchUpFrame).toContain(MANIFEST_VERSION_ID);
+			expect(replayFrame).toContain("event: content:version:promoted");
+			expect(replayFrame).toContain(MANIFEST_VERSION_ID);
+		});
+
+		it("replays the last frame of each distinct replayable event once", async () => {
+			const { ctx, baseUrl } = await trackedStart({
+				replayEvents: ["content:foo", "content:bar"],
+			});
+
+			emitBusEvent(ctx, "content:foo", { which: "foo" });
+			emitBusEvent(ctx, "content:bar", { which: "bar" });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [, firstReplay, secondReplay] = await readSseFrames(response, 3);
+
+			expect(firstReplay).toContain("event: content:foo");
+			expect(secondReplay).toContain("event: content:bar");
+		});
+
+		it("replays only the latest frame when an event is emitted twice", async () => {
+			const { ctx, baseUrl } = await trackedStart({ replayEvents: ["content:foo"] });
+
+			emitBusEvent(ctx, "content:foo", { revision: 1 });
+			emitBusEvent(ctx, "content:foo", { revision: 2 });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [, replayFrame] = await readSseFrames(response, 2);
+			expect(replayFrame).toContain('"revision":2');
+
+			// Only one frame was replayed: the next one is the live event.
+			emitBusEvent(ctx, "content:bar", { live: true });
+			const [nextFrame] = await readSseFrames(response, 1);
+			expect(nextFrame).toContain("event: content:bar");
+		});
+
+		it("orders the backlog by last emission, not first", async () => {
+			const { ctx, baseUrl } = await trackedStart({
+				replayEvents: ["content:foo", "content:bar"],
+			});
+
+			emitBusEvent(ctx, "content:foo", { round: 1 });
+			emitBusEvent(ctx, "content:bar", { round: 1 });
+			// Re-emitting foo must move it behind bar, so the backlog stays
+			// chronologically coherent.
+			emitBusEvent(ctx, "content:foo", { round: 2 });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [, firstReplay, secondReplay] = await readSseFrames(response, 3);
+
+			expect(firstReplay).toContain("event: content:bar");
+			expect(secondReplay).toContain("event: content:foo");
+			expect(secondReplay).toContain('"round":2');
+		});
+
+		it("streams an event that is not in replayEvents live but never replays it", async () => {
+			const { ctx, baseUrl } = await trackedStart({ replayEvents: ["content:version:promoted"] });
+
+			emitBusEvent(ctx, "content:foo", { stale: true });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [retryFrame] = await readSseFrames(response, 1);
+			expect(retryFrame).toBe("retry: 2000");
+
+			// Nothing was replayed, but the same event still streams live.
+			emitBusEvent(ctx, "content:foo", { live: true });
+			const [nextFrame] = await readSseFrames(response, 1);
+			expect(nextFrame).toContain("event: content:foo");
+			expect(nextFrame).toContain('"live":true');
+		});
+
+		it("never replays an event that the filter dropped", async () => {
+			const { ctx, baseUrl } = await trackedStart({ replayEvents: ["monitor:bar"] });
+
+			emitBusEvent(ctx, "monitor:bar", { ignored: true });
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [retryFrame] = await readSseFrames(response, 1);
+			expect(retryFrame).toBe("retry: 2000");
+
+			emitBusEvent(ctx, "content:foo", { live: true });
+			const [nextFrame] = await readSseFrames(response, 1);
+			expect(nextFrame).toContain("event: content:foo");
 		});
 	});
 
@@ -218,8 +304,8 @@ describe("http-transport", () => {
 			const { ctx, baseUrl } = await trackedStart();
 
 			const response = await fetch(`${baseUrl}/events`);
-			// Skip retry + catch-up frames.
-			await readSseFrames(response, 2);
+			// Skip the retry frame.
+			await readSseFrames(response, 1);
 
 			emitBusEvent(ctx, "monitor:bar", { ignored: true });
 			emitBusEvent(ctx, "content:foo", { hello: "world" });
@@ -234,7 +320,7 @@ describe("http-transport", () => {
 			const { ctx, baseUrl } = await trackedStart({ events: ["*"] });
 
 			const response = await fetch(`${baseUrl}/events`);
-			await readSseFrames(response, 2);
+			await readSseFrames(response, 1);
 
 			emitBusEvent(ctx, "monitor:bar", { seen: true });
 
@@ -248,7 +334,7 @@ describe("http-transport", () => {
 			const { baseUrl } = await trackedStart({ keepAliveMs: 30 });
 
 			const response = await fetch(`${baseUrl}/events`);
-			await readSseFrames(response, 2); // retry + catch-up
+			await readSseFrames(response, 1); // retry
 
 			const [pingFrame] = await readSseFrames(response, 1);
 			expect(pingFrame).toBe(": ping");
@@ -261,8 +347,8 @@ describe("http-transport", () => {
 
 			const first = await fetch(`${baseUrl}/events`);
 			expect(first.status).toBe(200);
-			// Drain the initial frames so the connection is established server-side.
-			await readSseFrames(first, 2);
+			// Drain the initial frame so the connection is established server-side.
+			await readSseFrames(first, 1);
 
 			const second = await fetch(`${baseUrl}/events`);
 			expect(second.status).toBe(503);
@@ -298,7 +384,7 @@ describe("http-transport", () => {
 			expect(body.error.message).toContain("Command not allowed");
 		});
 
-		it("returns 500 with the error name and message when dispatch fails", async () => {
+		it("returns 500 with the error name, message and cause chain when dispatch fails", async () => {
 			const { baseUrl } = await trackedStart({
 				allowedCommands: ["content.ack", "content.manifest.read", "content.explode"],
 			});
@@ -309,9 +395,12 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(500);
-			const body = (await response.json()) as { error: { name: string; message: string } };
+			const body = (await response.json()) as {
+				error: { name: string; message: string; cause: { message: string } };
+			};
 			expect(body.error.name).toBe("Error");
 			expect(body.error.message).toContain("Unknown command: content.explode");
+			expect(body.error.cause.message).toBe("no such handler");
 		});
 
 		it("returns 400 for a malformed JSON body", async () => {
@@ -332,8 +421,7 @@ describe("http-transport", () => {
 				header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "persistent" as const },
 				sections: [],
 			};
-			const ctx = createPersistentCtx();
-			ctx.getStatusSnapshot = vi.fn().mockReturnValue(snapshot);
+			const ctx = createTestCtx({ getStatusSnapshot: vi.fn().mockReturnValue(snapshot) });
 
 			const { baseUrl } = await trackedStart({}, ctx);
 
@@ -351,8 +439,7 @@ describe("http-transport", () => {
 
 		it("returns the global state at /state when exposeState is set", async () => {
 			const state = { system: { mode: "persistent" }, plugins: {}, _version: 3 };
-			const ctx = createPersistentCtx();
-			ctx.getGlobalState = vi.fn().mockReturnValue(state);
+			const ctx = createTestCtx({ getGlobalState: vi.fn().mockReturnValue(state) });
 
 			const { baseUrl } = await trackedStart({ exposeState: true }, ctx);
 
@@ -390,7 +477,10 @@ describe("http-transport", () => {
 			}
 			const port = Number(new URL(baseUrl).port);
 
-			const rawResponse = await sendRawRequest(port, "GET http://[::1 HTTP/1.1\r\nHost: x\r\n\r\n");
+			const rawResponse = await sendRawRequest(
+				port,
+				"GET http://[::1 HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+			);
 			expect(rawResponse).toContain("400");
 
 			// The daemon must still be alive and answering ordinary requests.
@@ -411,22 +501,19 @@ describe("http-transport", () => {
 	});
 
 	describe("task mode", () => {
-		it("succeeds without binding a port", async () => {
-			const ctx = createPersistentCtx();
-			ctx.mode = "task";
+		it("succeeds without binding a port and exposes no address", async () => {
+			const ctx = createTestCtx({ mode: "task" });
 
-			const onListening = vi.fn();
-			const transport = httpTransport({ port: 0, onListening });
+			const transport = httpTransport({ port: 0 });
 
 			const result = await transport.setup(ctx);
 
 			expect(result.isOk()).toBe(true);
-			expect(onListening).not.toHaveBeenCalled();
+			expect(result._unsafeUnwrap().address).toBeNull();
 		});
 
 		it("still fails setup on invalid options", async () => {
-			const ctx = createPersistentCtx();
-			ctx.mode = "task";
+			const ctx = createTestCtx({ mode: "task" });
 
 			const transport = httpTransport({ port: 999999 });
 
@@ -461,9 +548,9 @@ describe("http-transport", () => {
 			const handle = started.result._unsafeUnwrap();
 
 			const response = await fetch(`${baseUrl}/events`);
-			// Drain the initial retry + catch-up frames before disconnecting, so
-			// the next read reflects the stream closing rather than backlog.
-			await readSseFrames(response, 2);
+			// Drain the initial retry frame before disconnecting, so the next read
+			// reflects the stream closing rather than backlog.
+			await readSseFrames(response, 1);
 
 			const boundPort = Number(new URL(baseUrl).port);
 

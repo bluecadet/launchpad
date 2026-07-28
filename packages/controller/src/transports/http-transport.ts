@@ -17,22 +17,22 @@
 
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import {
 	type BaseCommand,
 	type Disconnectable,
-	type DisconnectReason,
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import type { StatusSnapshot, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import { err, errAsync, ok, okAsync, type Result, type ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { AllEvents } from "../all-events.js";
 import { TransportError } from "../errors.js";
 import { serializeJSON } from "../utils/json-serializer.js";
+import { type ClientHub, createClientHub } from "./client-hub.js";
+import { closeServerAsResult, createShutdownGate, listenAsResult } from "./server-lifecycle.js";
 
 const MAX_COMMAND_BODY_BYTES = 64 * 1024;
-const PROMOTED_EVENT = "content:version:promoted";
 
 const httpTransportOptionsSchema = z.object({
 	/** Port to listen on. `0` picks a random free port (useful for tests). */
@@ -47,31 +47,40 @@ const httpTransportOptionsSchema = z.object({
 	 * any other entry is an exact match.
 	 */
 	events: z.array(z.string()).default(["content:*"]),
+	/**
+	 * Event names cached and replayed to each newly connected SSE client, so it
+	 * learns current state without waiting for the next emission. Exact names
+	 * only, and an event must also pass the `events` filter to be emitted at
+	 * all. Keep this to durable "current state" events: one-shot events (errors,
+	 * progress) replayed hours later are misleading.
+	 */
+	replayEvents: z.array(z.string()).default(["content:version:promoted"]),
 	/** Interval between `: ping` SSE comment lines. */
 	keepAliveMs: z.number().int().positive().default(15000),
 	/** Maximum concurrent SSE clients; further `GET /events` requests get a 503. */
 	maxClients: z.number().int().positive().default(32),
 	/** Expose the full global state at `GET /state`. Off by default. */
 	exposeState: z.boolean().default(false),
-	/** Test hook invoked with the bound address once the server is listening. */
-	onListening: z
-		.custom<(address: AddressInfo) => void>((value) => typeof value === "function")
-		.optional(),
 });
 
 export type HttpTransportOptions = z.input<typeof httpTransportOptionsSchema>;
 
 type ResolvedHttpTransportOptions = z.output<typeof httpTransportOptionsSchema>;
 
+export type HttpTransportInstance = Partial<Disconnectable> & {
+	/**
+	 * Address the server bound to, or `null` when nothing was bound (task mode).
+	 * Set once, before `setup` resolves.
+	 */
+	readonly address: AddressInfo | null;
+};
+
 /**
  * Build a single SSE frame. Multi-line data is framed with one `data:` field
  * per line, per the SSE spec, so payloads survive EventSource reassembly.
  */
-export function formatSseEvent(name: string, data: string, id?: string): string {
+export function formatSseEvent(name: string, data: string): string {
 	const lines = [`event: ${name}`];
-	if (id !== undefined) {
-		lines.push(`id: ${id}`);
-	}
 	for (const dataLine of data.split("\n")) {
 		lines.push(`data: ${dataLine}`);
 	}
@@ -86,7 +95,7 @@ export function formatSseEvent(name: string, data: string, id?: string): string 
 export function httpTransport(options: HttpTransportOptions = {}) {
 	return definePlugin({
 		name: "http-transport",
-		setup(ctx): ResultAsync<Partial<Disconnectable>, TransportError> {
+		setup(ctx): ResultAsync<HttpTransportInstance, TransportError> {
 			const parsedOptions = httpTransportOptionsSchema.safeParse(options);
 			if (!parsedOptions.success) {
 				return errAsync(
@@ -97,83 +106,111 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 
 			if (ctx.mode === "task") {
 				ctx.logger.verbose("HTTP transport inactive in task mode");
-				return okAsync({});
+				return okAsync({ address: null });
 			}
 
-			const sseClients = new Set<http.ServerResponse>();
-			const shutdownState = { isDisconnecting: false };
+			const clients = createSseClientHub(ctx.logger);
+			// Last frame seen per replayable event name, replayed to each new client
+			// so it doesn't have to wait for the next emission to learn current
+			// state. Insertion order is kept as last-emission order (see below), so
+			// the backlog reads as a chronologically coherent history.
+			const replayFrames = new Map<string, string>();
+			const replayableEvents = new Set<string>(resolvedOptions.replayEvents);
+			const passesEventFilter = createEventFilter(resolvedOptions.events);
+
+			const handleBusEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
+				if (!passesEventFilter(event)) {
+					return;
+				}
+				const frame = formatSseEvent(event, serializeJSON(data));
+				if (replayableEvents.has(event)) {
+					// `Map.set` on an existing key keeps its original position, so drop
+					// the old entry first to move the event to the back of the backlog.
+					replayFrames.delete(event);
+					replayFrames.set(event, frame);
+				}
+				clients.broadcast(frame);
+			};
+			let keepAliveTimer: NodeJS.Timeout | undefined;
+
+			const server = http.createServer((req, res) => handleRequest(req, res, deps));
+			const gate = createShutdownGate(() => {
+				ctx.logger.verbose("HTTP transport is shutting down");
+				ctx.eventBus.offAny(handleBusEvent);
+				clearInterval(keepAliveTimer);
+				clients.closeAll();
+				server.closeIdleConnections();
+
+				return closeServerAsResult(server, "Failed to close HTTP server").map(() => {
+					ctx.logger.info("HTTP transport closed");
+				});
+			});
+
 			const deps: RequestDeps = {
 				ctx,
 				options: resolvedOptions,
-				sseClients,
-				passesEventFilter: createEventFilter(resolvedOptions.events),
-				isShuttingDown: () => shutdownState.isDisconnecting,
+				clients,
+				replayFrames,
+				isShuttingDown: gate.isShuttingDown,
 			};
 
-			const server = http.createServer((req, res) => handleRequest(req, res, deps));
+			return listenAsResult(
+				server,
+				{ port: resolvedOptions.port, host: resolvedOptions.host },
+				"Failed to start HTTP transport server",
+			)
+				.andThen(() => requireTcpAddress(server))
+				.map((address) => {
+					ctx.logger.info(`HTTP transport listening on http://${address.address}:${address.port}`);
 
-			return safeListen(server, resolvedOptions).map((address) => {
-				ctx.logger.info(`HTTP transport listening on http://${address.address}:${address.port}`);
+					// Post-listen socket errors must not crash the process.
+					server.on("error", (error) => {
+						ctx.logger.error(`HTTP transport server error: ${error.message}`);
+					});
 
-				// Post-listen socket errors must not crash the process.
-				server.on("error", (error) => {
-					ctx.logger.error(`HTTP transport server error: ${error.message}`);
-				});
+					ctx.eventBus.onAny(handleBusEvent);
 
-				const handleBusEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
-					if (!deps.passesEventFilter(event)) {
-						return;
-					}
-					const frame = formatSseEvent(event, serializeJSON(data));
-					sseClients.forEach((client) => writeToSseClient(client, frame, ctx.logger));
-				};
-				ctx.eventBus.onAny(handleBusEvent);
+					keepAliveTimer = setInterval(() => {
+						clients.broadcast(": ping\n\n");
+					}, resolvedOptions.keepAliveMs);
 
-				const keepAliveTimer = setInterval(() => {
-					sseClients.forEach((client) => writeToSseClient(client, ": ping\n\n", ctx.logger));
-				}, resolvedOptions.keepAliveMs);
-
-				const disconnect = (_reason: DisconnectReason): ResultAsync<void, Error> => {
-					if (shutdownState.isDisconnecting) {
-						return okAsync(undefined);
-					}
-
-					shutdownState.isDisconnecting = true;
-					ctx.logger.verbose("HTTP transport is shutting down");
-					ctx.eventBus.offAny(handleBusEvent);
-					clearInterval(keepAliveTimer);
-					sseClients.forEach((client) => client.end());
-					sseClients.clear();
-					server.closeIdleConnections();
-
-					return ResultAsync.fromPromise(
-						new Promise<void>((resolve) => {
-							server.close(() => {
-								ctx.logger.info("HTTP transport closed");
-								resolve();
-							});
-						}),
-						(error) =>
-							new TransportError("Failed to close HTTP server", { cause: ensureError(error) }),
+					ctx.abortSignal.addEventListener(
+						"abort",
+						() => void gate.disconnect({ type: "manual" }),
+						{
+							once: true,
+						},
 					);
-				};
 
-				ctx.abortSignal.addEventListener("abort", () => void disconnect({ type: "manual" }), {
-					once: true,
+					return { address, disconnect: gate.disconnect };
 				});
-
-				resolvedOptions.onListening?.(address);
-				return { disconnect };
-			});
 		},
+	});
+}
+
+type SseClientHub = ClientHub<http.ServerResponse>;
+
+/**
+ * Fire-and-forget SSE fan-out. No backpressure handling: if a client's buffer
+ * is full the data is queued or dropped by the socket, and slow clients may
+ * miss events. Accepted limitation — the manifest poll contract stays
+ * authoritative.
+ */
+function createSseClientHub(logger: PluginContext["logger"]): SseClientHub {
+	return createClientHub<http.ServerResponse>({
+		logger,
+		label: "SSE client",
+		write: (client, frame) => void client.write(frame),
+		close: (client) => client.end(),
+		isWritable: (client) => !client.writableEnded,
 	});
 }
 
 type RequestDeps = {
 	ctx: PluginContext;
 	options: ResolvedHttpTransportOptions;
-	sseClients: Set<http.ServerResponse>;
-	passesEventFilter: (eventName: string) => boolean;
+	clients: SseClientHub;
+	replayFrames: ReadonlyMap<string, string>;
 	isShuttingDown: () => boolean;
 };
 
@@ -187,40 +224,21 @@ function createEventFilter(patterns: readonly string[]): (eventName: string) => 
 		});
 }
 
-/**
- * listen() wrapped so any bind error (e.g. EADDRINUSE) surfaces as an err
- * Result and fails plugin setup.
- */
-function safeListen(
-	server: http.Server,
-	options: { port: number; host: string },
-): ResultAsync<AddressInfo, TransportError> {
-	return ResultAsync.fromPromise(
-		new Promise<AddressInfo>((resolve, reject) => {
-			const handleError = (error: Error) => {
-				server.removeListener("listening", handleListening);
-				reject(error);
-			};
-			const handleListening = () => {
-				server.removeListener("error", handleError);
-				const address = server.address();
-				if (address === null || typeof address === "string") {
-					reject(new Error("HTTP server reported a non-TCP address"));
-					return;
-				}
-				resolve(address);
-			};
-
-			server.once("error", handleError);
-			server.once("listening", handleListening);
-			server.listen(options.port, options.host);
-		}),
-		(error) =>
-			new TransportError("Failed to start HTTP transport server", { cause: ensureError(error) }),
-	);
+/** A listening `http.Server` always has a TCP address; guard the type anyway. */
+function requireTcpAddress(server: http.Server): Result<AddressInfo, TransportError> {
+	const address = server.address();
+	if (address === null || typeof address === "string") {
+		return err(new TransportError("HTTP server reported a non-TCP address"));
+	}
+	return ok(address);
 }
 
 // ---- Request routing ----
+
+/** Every body the transport writes: a command envelope, an error, or a raw read. */
+type HttpResponseBody = { result: unknown } | { error: Error | { message: string } } | ReadPayload;
+
+type ReadPayload = StatusSnapshot | VersionedLaunchpadState;
 
 function handleRequest(
 	req: http.IncomingMessage,
@@ -254,7 +272,7 @@ function handleRequest(
 			void handleCommandRequest(req, res, deps);
 			return;
 		case "GET /status":
-			sendReadJson(res, () => deps.ctx.getStatusSnapshot(), deps.ctx.logger);
+			sendJson(res, 200, deps.ctx.getStatusSnapshot());
 			return;
 		case "GET /state":
 			handleStateRequest(res, deps);
@@ -274,7 +292,7 @@ function sendCorsPreflight(res: http.ServerResponse): void {
 	res.end();
 }
 
-function sendJson(res: http.ServerResponse, statusCode: number, body: unknown): void {
+function sendJson(res: http.ServerResponse, statusCode: number, body: HttpResponseBody): void {
 	if (res.headersSent) {
 		return;
 	}
@@ -285,26 +303,12 @@ function sendJson(res: http.ServerResponse, statusCode: number, body: unknown): 
 	res.end(serializeJSON(body));
 }
 
-/** Send the result of a synchronous read as JSON, mapping a throw to a 500. */
-function sendReadJson(
-	res: http.ServerResponse,
-	read: () => unknown,
-	logger: PluginContext["logger"],
-): void {
-	try {
-		sendJson(res, 200, read());
-	} catch (e) {
-		logger.error(`Failed to read state for HTTP response: ${ensureError(e).message}`);
-		sendJson(res, 500, { error: { message: "Failed to read state" } });
-	}
-}
-
 function handleStateRequest(res: http.ServerResponse, deps: RequestDeps): void {
 	if (!deps.options.exposeState) {
 		sendJson(res, 404, { error: { message: "Not found: GET /state" } });
 		return;
 	}
-	sendReadJson(res, () => deps.ctx.getGlobalState(), deps.ctx.logger);
+	sendJson(res, 200, deps.ctx.getGlobalState());
 }
 
 // ---- SSE stream ----
@@ -314,12 +318,7 @@ function handleEventStream(
 	res: http.ServerResponse,
 	deps: RequestDeps,
 ): void {
-	if (deps.isShuttingDown()) {
-		sendJson(res, 503, { error: { message: "HTTP transport is shutting down" } });
-		return;
-	}
-
-	if (deps.sseClients.size >= deps.options.maxClients) {
+	if (deps.clients.size >= deps.options.maxClients) {
 		sendJson(res, 503, { error: { message: "Too many SSE clients" } });
 		return;
 	}
@@ -331,70 +330,15 @@ function handleEventStream(
 	});
 	res.write("retry: 2000\n\n");
 
-	deps.sseClients.add(res);
+	deps.clients.add(res);
 	req.on("close", () => {
-		deps.sseClients.delete(res);
+		deps.clients.remove(res);
 	});
 
-	sendCatchUpEvent(res, deps);
-}
-
-/** The slice of a `content.manifest.read` result the catch-up event needs. */
-const promotedManifestResultSchema = z.object({
-	status: z.literal("ok"),
-	manifest: z.object({
-		versionId: z.string(),
-		versionPath: z.string(),
-		generatedAt: z.string(),
-	}),
-});
-
-/**
- * Emit a synthetic `content:version:promoted` event to a newly connected
- * client so it learns the active version without waiting for the next promote.
- * Best-effort: skipped silently when the event is filtered out, the command
- * isn't registered, or the manifest isn't readable.
- */
-function sendCatchUpEvent(res: http.ServerResponse, deps: RequestDeps): void {
-	if (!deps.passesEventFilter(PROMOTED_EVENT)) {
-		return;
-	}
-
-	deps.ctx.dispatchCommand({ type: "content.manifest.read" }).match(
-		(result) => {
-			const parsed = promotedManifestResultSchema.safeParse(result);
-			if (!parsed.success) {
-				return;
-			}
-			const { versionId, versionPath, generatedAt } = parsed.data.manifest;
-			const payload = serializeJSON({ versionId, versionPath, generatedAt });
-			writeToSseClient(res, formatSseEvent(PROMOTED_EVENT, payload, versionId), deps.ctx.logger);
-		},
-		() => {
-			// Catch-up is best-effort; a missing command or manifest is not an error.
-		},
-	);
-}
-
-/**
- * Fire-and-forget SSE write. No backpressure handling: if the client's buffer
- * is full the data is queued or dropped by the socket, and slow clients may
- * miss events. Accepted limitation — the manifest poll contract stays
- * authoritative.
- */
-function writeToSseClient(
-	client: http.ServerResponse,
-	frame: string,
-	logger: PluginContext["logger"],
-): void {
-	if (client.writableEnded) {
-		return;
-	}
-	try {
-		client.write(frame);
-	} catch (e) {
-		logger.verbose(`Failed to write to SSE client: ${ensureError(e).message}`);
-	}
+	// Replay the last frame of every `replayEvents` entry seen so far, oldest
+	// emission first, so a client that connects between emissions still learns
+	// the current state.
+	deps.clients.send(res, ...deps.replayFrames.values());
 }
 
 // ---- POST /command ----
@@ -472,6 +416,6 @@ async function handleCommandRequest(
 
 	await deps.ctx.dispatchCommand(command).match(
 		(result) => sendJson(res, 200, { result }),
-		(error) => sendJson(res, 500, { error: { name: error.name, message: error.message } }),
+		(error) => sendJson(res, 500, { error }),
 	);
 }

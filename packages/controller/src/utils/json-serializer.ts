@@ -1,8 +1,8 @@
 /**
  * The lossy, one-way JSON wire codec for the HTTP/SSE transport.
  *
- * Every HTTP response body, SSE frame, and catch-up payload the controller
- * sends goes through `serializeJSON`. It always returns a string, even for
+ * Every HTTP response body and SSE frame the controller sends — live or
+ * replayed — goes through `serializeJSON`. It always returns a string, even for
  * values `JSON.stringify` can't natively represent (bigint, Error, Map, Set,
  * functions, symbols) or would throw on (circular references). Unlike
  * `IPCSerializer`, the output is plain JSON with no reviver: it is not

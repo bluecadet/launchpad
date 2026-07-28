@@ -9,14 +9,10 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
-import {
-	type DisconnectReason,
-	definePlugin,
-	type PluginContext,
-} from "@bluecadet/launchpad-utils/plugin-interfaces";
+import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import chalk from "chalk";
 import type { Patch } from "immer";
-import { ok, okAsync, ResultAsync } from "neverthrow";
+import { ok, ResultAsync } from "neverthrow";
 import type { AllEvents } from "../all-events.js";
 import {
 	CommandExecutionError,
@@ -27,6 +23,8 @@ import {
 } from "../errors.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
+import { createClientHub } from "./client-hub.js";
+import { closeServerAsResult, createShutdownGate, listenAsync } from "./server-lifecycle.js";
 
 export type IPCTransportOptions = {
 	/** Path to the Unix socket file */
@@ -85,8 +83,12 @@ export function createIPCTransport(options: IPCTransportOptions) {
 			}
 
 			return safeCreateServer(socketPath, ctx.logger).andThen((server) => {
-				const clients = new Set<net.Socket>();
-				let isDisconnected = false;
+				const clients = createClientHub<net.Socket>({
+					logger: ctx.logger,
+					label: "IPC client",
+					write: (client, frame) => void client.write(frame),
+					close: (client) => client.destroy(),
+				});
 
 				// maintain client connections
 				server.on("connection", (socket) => {
@@ -123,13 +125,13 @@ export function createIPCTransport(options: IPCTransportOptions) {
 					});
 
 					socket.on("close", () => {
-						clients.delete(socket);
+						clients.remove(socket);
 						ctx.logger.verbose("IPC client disconnected");
 					});
 
 					socket.on("error", (error) => {
 						ctx.logger.error(`IPC client error: ${error.message}`);
-						clients.delete(socket);
+						clients.remove(socket);
 					});
 				});
 
@@ -140,14 +142,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						method: "event",
 						params: { name: event, data },
 					};
-					const serialized = `${IPCSerializer.serialize(message)}\n`;
-					clients.forEach((client) => {
-						try {
-							client.write(serialized);
-						} catch (e) {
-							ctx.logger.verbose(`Failed to write event to IPC client: ${e}`);
-						}
-					});
+					clients.broadcast(`${IPCSerializer.serialize(message)}\n`);
 				};
 				ctx.eventBus.onAny(handleEvent);
 
@@ -158,54 +153,32 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						method: "statePatch",
 						params: { patches, version },
 					};
-					const serializedPatch = `${IPCSerializer.serialize(patchMessage)}\n`;
-
-					const snapshot = ctx.getStatusSnapshot();
 					const snapshotMessage: IPCNotification = {
 						jsonrpc: "2.0",
 						method: "statusSnapshot",
-						params: snapshot,
+						params: ctx.getStatusSnapshot(),
 					};
-					const serializedSnapshot = `${IPCSerializer.serialize(snapshotMessage)}\n`;
 
-					clients.forEach((client) => {
-						try {
-							client.write(serializedPatch);
-							client.write(serializedSnapshot);
-						} catch (e) {
-							ctx.logger.verbose(`Failed to write state patch to IPC client: ${e}`);
-						}
-					});
+					clients.broadcast(
+						`${IPCSerializer.serialize(patchMessage)}\n`,
+						`${IPCSerializer.serialize(snapshotMessage)}\n`,
+					);
 				};
 				const unsubscribePatch = ctx.onGlobalStatePatch(handlePatch);
 
-				return ok({
-					disconnect(_reason: DisconnectReason) {
-						if (isDisconnected) {
-							return okAsync(undefined);
-						}
+				const gate = createShutdownGate(() => {
+					ctx.logger.verbose("IPC Transport is shutting down");
+					ctx.eventBus.offAny(handleEvent);
+					unsubscribePatch();
+					clients.closeAll();
 
-						isDisconnected = true;
-						ctx.logger.verbose("IPC Transport is shutting down");
-						ctx.eventBus.offAny(handleEvent);
-						unsubscribePatch();
-						clients.forEach((client) => client.destroy());
-
-						return ResultAsync.fromPromise(
-							new Promise<void>((resolve) => {
-								server.close(() => {
-									cleanupUnixSocketPath(socketPath, ctx.logger);
-									ctx.logger.info("IPC transport closed");
-									resolve();
-								});
-							}),
-							(error) =>
-								new TransportError("Failed to close IPC server", {
-									cause: ensureError(error),
-								}),
-						);
-					},
+					return closeServerAsResult(server, "Failed to close IPC server").map(() => {
+						cleanupUnixSocketPath(socketPath, ctx.logger);
+						ctx.logger.info("IPC transport closed");
+					});
 				});
+
+				return ok({ disconnect: gate.disconnect });
 			});
 		},
 	});
@@ -265,22 +238,11 @@ async function shouldRecoverFromListenError(socketPath: string, error: Error): P
 	return !(await canConnectToSocket(socketPath));
 }
 
-function listenOnSocketPath(socketPath: string): Promise<net.Server> {
-	return new Promise<net.Server>((resolve, reject) => {
-		const server = net.createServer();
-		const handleError = (error: Error) => {
-			server.removeListener("listening", handleListening);
-			reject(error);
-		};
-		const handleListening = () => {
-			server.removeListener("error", handleError);
-			resolve(server);
-		};
-
-		server.once("error", handleError);
-		server.once("listening", handleListening);
-		server.listen(socketPath);
-	});
+/** Bind a fresh server to the socket path, rejecting on bind failure. */
+async function listenOnSocketPath(socketPath: string): Promise<net.Server> {
+	const server = net.createServer();
+	await listenAsync(server, { path: socketPath });
+	return server;
 }
 
 function canConnectToSocket(socketPath: string): Promise<boolean> {

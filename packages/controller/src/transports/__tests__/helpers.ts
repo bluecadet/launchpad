@@ -11,7 +11,7 @@ import { createIPCTransport } from "../ipc-transport.js";
 
 type Cb = (...args: unknown[]) => void;
 
-export type MutableContext = {
+type MutableContext = {
 	-readonly [K in keyof PluginContext]: PluginContext[K];
 } & {
 	eventBus: ReturnType<typeof createMockEventBus>;

@@ -62,16 +62,30 @@ describe("serializeJSON", () => {
 			expect(parsed.value).toBe("[unserializable: set]");
 		});
 
-		it("replaces a function with a placeholder", () => {
-			const parsed = JSON.parse(serializeJSON({ value: () => {} }));
+		it("replaces a named function with a placeholder that includes its name", () => {
+			function doThing() {}
+			const parsed = JSON.parse(serializeJSON({ value: doThing }));
 
-			expect(parsed.value).toBe("[unserializable: function]");
+			expect(parsed.value).toBe("[unserializable: function doThing]");
 		});
 
-		it("replaces a symbol with a placeholder", () => {
+		it("replaces an anonymous function with a placeholder", () => {
+			const fns = [() => {}];
+			const parsed = JSON.parse(serializeJSON({ value: fns[0] }));
+
+			expect(parsed.value).toBe("[unserializable: function anonymous]");
+		});
+
+		it("replaces a symbol with a placeholder that includes its description", () => {
 			const parsed = JSON.parse(serializeJSON({ value: Symbol("secret") }));
 
-			expect(parsed.value).toBe("[unserializable: symbol]");
+			expect(parsed.value).toBe("[unserializable: symbol secret]");
+		});
+
+		it("replaces a symbol without a description with a placeholder", () => {
+			const parsed = JSON.parse(serializeJSON({ value: Symbol() }));
+
+			expect(parsed.value).toBe("[unserializable: symbol anonymous]");
 		});
 	});
 
@@ -115,6 +129,34 @@ describe("serializeJSON", () => {
 
 			expect(() => JSON.parse(serialized)).not.toThrow();
 			expect(JSON.parse(serialized)).toBeNull();
+		});
+	});
+
+	describe("values that make JSON.stringify throw", () => {
+		it("does not throw on a throwing getter, and embeds the error message", () => {
+			const payload = {
+				get boom(): string {
+					throw new Error("getter exploded");
+				},
+			};
+
+			expect(() => serializeJSON(payload)).not.toThrow();
+
+			const parsed = JSON.parse(serializeJSON(payload));
+			expect(parsed).toBe("[unserializable JSON payload: getter exploded]");
+		});
+
+		it("does not throw on a throwing toJSON, and embeds the error message", () => {
+			const payload = {
+				toJSON(): string {
+					throw new Error("toJSON exploded");
+				},
+			};
+
+			expect(() => serializeJSON(payload)).not.toThrow();
+
+			const parsed = JSON.parse(serializeJSON(payload));
+			expect(parsed).toBe("[unserializable JSON payload: toJSON exploded]");
 		});
 	});
 });

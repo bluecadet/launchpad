@@ -4,6 +4,7 @@ import { vol } from "memfs";
 import { errAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAckFilePath } from "../acks.js";
+import type { ContentConfig } from "../content-config.js";
 import { ContentError, type ContentTransform } from "../content-transform.js";
 import { content } from "../launchpad-content.js";
 import { defineSource } from "../source.js";
@@ -342,13 +343,21 @@ describe("LaunchpadContent", () => {
 				generatedAt: string;
 			}>("content:version:promoted");
 
-		it("emits content:version:promoted at setup when a version is already active", async () => {
+		const setupAndReady = async (
+			ctx: ReturnType<typeof createMockPluginCtx>,
+			config: ContentConfig,
+		) => {
+			const setupResult = await content(config).setup(ctx);
+			expect(setupResult).toBeOk();
+			return setupResult._unsafeUnwrap().ready();
+		};
+
+		it("emits content:version:promoted at ready when a version is already active", async () => {
 			vol.fromJSON({ "/downloads/manifest.json": JSON.stringify(activeManifest) });
 
 			const ctx = createMockPluginCtx();
-			const factory = content({ ...createBasicConfig(), versioning: true });
 
-			expect(await factory.setup(ctx)).toBeOk();
+			expect(await setupAndReady(ctx, { ...createBasicConfig(), versioning: true })).toBeOk();
 			expect(getPromotedEvents(ctx)).toEqual([
 				{
 					versionId: activeManifest.versionId,
@@ -358,11 +367,20 @@ describe("LaunchpadContent", () => {
 			]);
 		});
 
-		it("emits nothing when no version has been promoted yet", async () => {
+		it("stays silent during setup so late-registered subscribers cannot miss the frame", async () => {
+			vol.fromJSON({ "/downloads/manifest.json": JSON.stringify(activeManifest) });
+
 			const ctx = createMockPluginCtx();
 			const factory = content({ ...createBasicConfig(), versioning: true });
 
 			expect(await factory.setup(ctx)).toBeOk();
+			expect(getPromotedEvents(ctx)).toEqual([]);
+		});
+
+		it("emits nothing when no version has been promoted yet", async () => {
+			const ctx = createMockPluginCtx();
+
+			expect(await setupAndReady(ctx, { ...createBasicConfig(), versioning: true })).toBeOk();
 			expect(getPromotedEvents(ctx)).toEqual([]);
 		});
 
@@ -370,19 +388,17 @@ describe("LaunchpadContent", () => {
 			vol.fromJSON({ "/downloads/manifest.json": JSON.stringify(activeManifest) });
 
 			const ctx = createMockPluginCtx();
-			const factory = content(createBasicConfig());
 
-			expect(await factory.setup(ctx)).toBeOk();
+			expect(await setupAndReady(ctx, createBasicConfig())).toBeOk();
 			expect(getPromotedEvents(ctx)).toEqual([]);
 		});
 
-		it("sets up cleanly and stays silent when the manifest is unreadable", async () => {
+		it("becomes ready cleanly and stays silent when the manifest is unreadable", async () => {
 			vol.fromJSON({ "/downloads/manifest.json": "{ not json" });
 
 			const ctx = createMockPluginCtx();
-			const factory = content({ ...createBasicConfig(), versioning: true });
 
-			expect(await factory.setup(ctx)).toBeOk();
+			expect(await setupAndReady(ctx, { ...createBasicConfig(), versioning: true })).toBeOk();
 			expect(getPromotedEvents(ctx)).toEqual([]);
 		});
 
@@ -398,7 +414,8 @@ describe("LaunchpadContent", () => {
 			// Same on-disk state, fresh process: the startup announcement must be byte-identical
 			// to what a client connected during the original promote would have received.
 			const restartCtx = createMockPluginCtx();
-			expect(await factory.setup(restartCtx)).toBeOk();
+			const restarted = (await factory.setup(restartCtx))._unsafeUnwrap();
+			expect(await restarted.ready()).toBeOk();
 			expect(getPromotedEvents(restartCtx)).toEqual(promoted);
 		});
 	});

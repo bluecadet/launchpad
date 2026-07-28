@@ -1,5 +1,12 @@
 # @bluecadet/launchpad-observability
 
+## 3.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`42a9068`](https://github.com/bluecadet/launchpad/commit/42a9068d3c4a787715153745fecee84873eaedaa)]:
+  - @bluecadet/launchpad-utils@3.2.0
+
 ## 3.0.1
 
 ### Patch Changes

@@ -172,29 +172,32 @@ describe("controller-execution", () => {
 		it.each([
 			["task", true],
 			["persistent", false],
-		] as const)("should use local controller if daemon is not running in %s mode", async (mode, shouldStop) => {
-			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
-			const ifDaemon = vi.fn();
-			const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
+		] as const)(
+			"should use local controller if daemon is not running in %s mode",
+			async (mode, shouldStop) => {
+				vi.mocked(getDaemonPid).mockReturnValue(ok(null));
+				const ifDaemon = vi.fn();
+				const otherwise = vi.fn().mockReturnValue(okAsync("local-result"));
 
-			const result = await withDaemonOrController(baseDir, controllerConfig, {
-				mode,
-				ifDaemon,
-				otherwise,
-			});
-			const controller = vi.mocked(LaunchpadController).mock.instances[0]!;
+				const result = await withDaemonOrController(baseDir, controllerConfig, {
+					mode,
+					ifDaemon,
+					otherwise,
+				});
+				const controller = vi.mocked(LaunchpadController).mock.instances[0]!;
 
-			expect(result.isOk()).toBe(true);
-			expect(result._unsafeUnwrap()).toBe("local-result");
-			expect(ifDaemon).not.toHaveBeenCalled();
-			expect(otherwise).toHaveBeenCalledWith(controller);
-			expect(controller.start).toHaveBeenCalled();
-			if (shouldStop) {
-				expect(controller.stop).toHaveBeenCalled();
-			} else {
-				expect(controller.stop).not.toHaveBeenCalled();
-			}
-		});
+				expect(result.isOk()).toBe(true);
+				expect(result._unsafeUnwrap()).toBe("local-result");
+				expect(ifDaemon).not.toHaveBeenCalled();
+				expect(otherwise).toHaveBeenCalledWith(controller);
+				expect(controller.start).toHaveBeenCalled();
+				if (shouldStop) {
+					expect(controller.stop).toHaveBeenCalled();
+				} else {
+					expect(controller.stop).not.toHaveBeenCalled();
+				}
+			},
+		);
 
 		it("should stop controller in task mode but not in persistent mode", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));

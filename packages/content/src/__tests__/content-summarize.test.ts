@@ -239,7 +239,7 @@ describe("buildContentSection", () => {
 			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
-		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
+		if (sourcesRow?.type !== "list") throw new Error("expected list row");
 		expect(sourcesRow.items[0]).toMatchObject({
 			type: "kv",
 			label: "site",
@@ -255,7 +255,7 @@ describe("buildContentSection", () => {
 			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
-		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
+		if (sourcesRow?.type !== "list") throw new Error("expected list row");
 		expect(sourcesRow.items[0]).toMatchObject({
 			type: "kv",
 			label: "site",
@@ -280,7 +280,7 @@ describe("buildContentSection", () => {
 			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
-		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
+		if (sourcesRow?.type !== "list") throw new Error("expected list row");
 		expect(sourcesRow.items[0]).toMatchObject({
 			type: "kv",
 			label: "site",
@@ -305,7 +305,7 @@ describe("buildContentSection", () => {
 			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
-		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
+		if (sourcesRow?.type !== "list") throw new Error("expected list row");
 		expect(sourcesRow.items[0]).toMatchObject({
 			type: "kv",
 			label: "other",
@@ -328,7 +328,7 @@ describe("buildContentSection", () => {
 			versioning: false,
 		});
 		const sourcesRow = section.rows.find((r) => r.type === "list");
-		if (!sourcesRow || sourcesRow.type !== "list") throw new Error("expected list row");
+		if (sourcesRow?.type !== "list") throw new Error("expected list row");
 		expect(sourcesRow.items[0]).toMatchObject({
 			type: "kv",
 			label: "other",

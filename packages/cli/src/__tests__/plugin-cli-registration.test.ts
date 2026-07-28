@@ -319,28 +319,25 @@ describe("registerPluginCliCommands", () => {
 		exitSpy.mockRestore();
 	});
 
-	it.each([
-		"start",
-		"stop",
-		"status",
-		"help",
-		"version",
-	])('throws when a plugin declares reserved command name "%s"', (reservedName) => {
-		const pluginConfig = makePlugin("my-plugin");
-		const declaration: CliDeclaration = {
-			name: reservedName,
-			commands: [{ type: "my-plugin.action" }],
-		};
+	it.each(["start", "stop", "status", "help", "version"])(
+		'throws when a plugin declares reserved command name "%s"',
+		(reservedName) => {
+			const pluginConfig = makePlugin("my-plugin");
+			const declaration: CliDeclaration = {
+				name: reservedName,
+				commands: [{ type: "my-plugin.action" }],
+			};
 
-		expect(() =>
-			registerPluginCliCommands(
-				makeYargs(),
-				[{ pluginConfig, declaration }],
-				"/project",
-				mockControllerConfig,
-			),
-		).toThrow(new RegExp(`"${reservedName}".*reserved|reserved.*"${reservedName}"`));
-	});
+			expect(() =>
+				registerPluginCliCommands(
+					makeYargs(),
+					[{ pluginConfig, declaration }],
+					"/project",
+					mockControllerConfig,
+				),
+			).toThrow(new RegExp(`"${reservedName}".*reserved|reserved.*"${reservedName}"`));
+		},
+	);
 
 	it("base command type field is not overwritten by a flag named 'type'", async () => {
 		const pluginConfig = makePlugin("my-plugin");

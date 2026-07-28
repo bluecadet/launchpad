@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import { createMockPluginCtx, type MockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { errAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -323,6 +323,83 @@ describe("LaunchpadContent", () => {
 			const value = result._unsafeUnwrap();
 			expect(value).toMatchObject({ status: "invalid" });
 			expect(value).toHaveProperty("message", expect.stringContaining("manifest"));
+		});
+	});
+
+	describe("active version announcement", () => {
+		const activeManifest = {
+			schemaVersion: 1,
+			versionId: "20260714T153045Z",
+			versionPath: "versions/20260714T153045Z",
+			generatedAt: "2026-07-14T15:30:47.112Z",
+			sources: [{ sourceId: "test", path: "test" }],
+		};
+
+		const getPromotedEvents = (ctx: ReturnType<typeof createMockPluginCtx>) =>
+			(ctx.eventBus as MockEventBus).getEventsOfType<{
+				versionId: string;
+				versionPath: string;
+				generatedAt: string;
+			}>("content:version:promoted");
+
+		it("emits content:version:promoted at setup when a version is already active", async () => {
+			vol.fromJSON({ "/downloads/manifest.json": JSON.stringify(activeManifest) });
+
+			const ctx = createMockPluginCtx();
+			const factory = content({ ...createBasicConfig(), versioning: true });
+
+			expect(await factory.setup(ctx)).toBeOk();
+			expect(getPromotedEvents(ctx)).toEqual([
+				{
+					versionId: activeManifest.versionId,
+					versionPath: activeManifest.versionPath,
+					generatedAt: activeManifest.generatedAt,
+				},
+			]);
+		});
+
+		it("emits nothing when no version has been promoted yet", async () => {
+			const ctx = createMockPluginCtx();
+			const factory = content({ ...createBasicConfig(), versioning: true });
+
+			expect(await factory.setup(ctx)).toBeOk();
+			expect(getPromotedEvents(ctx)).toEqual([]);
+		});
+
+		it("emits nothing when versioning is disabled, even with a manifest on disk", async () => {
+			vol.fromJSON({ "/downloads/manifest.json": JSON.stringify(activeManifest) });
+
+			const ctx = createMockPluginCtx();
+			const factory = content(createBasicConfig());
+
+			expect(await factory.setup(ctx)).toBeOk();
+			expect(getPromotedEvents(ctx)).toEqual([]);
+		});
+
+		it("sets up cleanly and stays silent when the manifest is unreadable", async () => {
+			vol.fromJSON({ "/downloads/manifest.json": "{ not json" });
+
+			const ctx = createMockPluginCtx();
+			const factory = content({ ...createBasicConfig(), versioning: true });
+
+			expect(await factory.setup(ctx)).toBeOk();
+			expect(getPromotedEvents(ctx)).toEqual([]);
+		});
+
+		it("announces the exact payload the promote path emitted", async () => {
+			const factory = content({ ...createBasicConfig(), versioning: true });
+
+			const promoteCtx = createMockPluginCtx();
+			const instance = (await factory.setup(promoteCtx))._unsafeUnwrap();
+			expect(await instance.executeCommand({ type: "content.fetch" })).toBeOk();
+			const promoted = getPromotedEvents(promoteCtx);
+			expect(promoted).toHaveLength(1);
+
+			// Same on-disk state, fresh process: the startup announcement must be byte-identical
+			// to what a client connected during the original promote would have received.
+			const restartCtx = createMockPluginCtx();
+			expect(await factory.setup(restartCtx)).toBeOk();
+			expect(getPromotedEvents(restartCtx)).toEqual(promoted);
 		});
 	});
 

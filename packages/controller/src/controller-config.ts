@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { logConfigSchema } from "./core/file-logger.js";
 
+export type { ControllerMode } from "@bluecadet/launchpad-utils/types";
+
 /**
  * Controller configuration schema
  */

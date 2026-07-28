@@ -107,29 +107,34 @@ function startForeground({ dir, config }: LoadedConfig): ResultAsync<void, Error
 
 			const plugins = config.plugins ?? [];
 
-			return plugins
-				.reduce(
-					(chain, plugin) => chain.andThen(() => controller.registerPlugin(plugin)),
-					okAsync<void, Error>(undefined),
-				)
-				.andTee(() => {
-					controller.setWorkflows(config.workflows ?? {});
-				})
-				.andThen(() =>
-					// A failed workflow step is not fatal: log it and keep the
-					// controller running so healthy plugins stay up.
-					controller.runWorkflow("start").orElse((error) => {
-						cliLogger.error(error);
-						cliLogger.warn("Some 'start' workflow steps failed; launchpad will keep running.");
-						return okAsync<void, Error>(undefined);
-					}),
-				)
-				.andTee(() => {
-					if (isDetached) {
-						sendReadyMessage();
-					}
-					cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");
-				});
+			return (
+				plugins
+					.reduce(
+						(chain, plugin) => chain.andThen(() => controller.registerPlugin(plugin)),
+						okAsync<void, Error>(undefined),
+					)
+					.andTee(() => {
+						controller.setWorkflows(config.workflows ?? {});
+					})
+					// Every plugin is registered by now, so plugin startup work that needs the others
+					// present (event bus announcements) can run without a registration-order invariant.
+					.andThen(() => controller.ready())
+					.andThen(() =>
+						// A failed workflow step is not fatal: log it and keep the
+						// controller running so healthy plugins stay up.
+						controller.runWorkflow("start").orElse((error) => {
+							cliLogger.error(error);
+							cliLogger.warn("Some 'start' workflow steps failed; launchpad will keep running.");
+							return okAsync<void, Error>(undefined);
+						}),
+					)
+					.andTee(() => {
+						if (isDetached) {
+							sendReadyMessage();
+						}
+						cliLogger.info("Launchpad started in persistent mode. Press Ctrl+C to stop.");
+					})
+			);
 		},
 	}).orElse((error) => handleFatalError(error));
 }

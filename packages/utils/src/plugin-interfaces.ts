@@ -5,6 +5,7 @@
  *
  * **Plugin properties** = capabilities the plugin OFFERS to the controller.
  *   - `CommandExecutor` — plugin can receive and process commands
+ *   - `Readyable` — plugin can act once every plugin has been set up
  *   - `Disconnectable` — plugin can perform graceful resource cleanup
  *
  * **PluginContext** = infrastructure the controller PROVIDES to the plugin.
@@ -59,6 +60,22 @@ export interface Disconnectable {
 	 * Should clean up resources, close connections, stop processes, etc.
 	 */
 	disconnect(reason: DisconnectReason): ResultAsync<void, Error>;
+}
+
+/**
+ * Optional interface for plugins whose startup work depends on other plugins being present.
+ *
+ * `setup()` runs sequentially in registration order, so anything a plugin emits on the event bus
+ * during its own setup is invisible to plugins registered after it. The controller calls `ready()`
+ * on every registered plugin once the whole set has been set up, in registration order — by then
+ * every subscriber exists, so cross-plugin announcements cannot depend on registration order.
+ *
+ * A `ready()` that fails or throws is logged and contained: it never fails startup and never
+ * prevents another plugin's `ready()` from running.
+ */
+export interface Readyable {
+	/** Run startup work that requires every other plugin to be set up. */
+	ready(): ResultAsync<void, Error>;
 }
 
 /**
@@ -219,7 +236,7 @@ export interface PluginContext<TState = unknown> {
  * @template TCommand - The command type this plugin accepts (must extend BaseCommand)
  */
 export type InstantiatedPlugin<TCommand extends BaseCommand = BaseCommand> = Partial<
-	Disconnectable & CommandExecutor<TCommand>
+	Disconnectable & CommandExecutor<TCommand> & Readyable
 >;
 
 /**

@@ -7,6 +7,7 @@ Plugins integrate with the controller through two complementary contracts:
 ```typescript
 type InstantiatedPlugin<TCommand> = Partial<
   CommandExecutor<TCommand> &  // Execute commands
+  Readyable &                  // Act once every plugin is set up
   Disconnectable               // Clean disconnect
 >;
 ```
@@ -138,6 +139,18 @@ definePlugin({
 
 Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](./transports) for browsers and Unity/.NET consumers. See [Transports](./transports) for the HTTP/SSE surface.
 
+### Readyable
+
+Plugin `setup()` runs sequentially in registration order, so anything a plugin emits during its own setup is invisible to plugins registered after it. Plugins with startup work that depends on the rest of the system — announcing state on the event bus, for example — implement `ready()` instead.
+
+```typescript
+interface Readyable {
+  ready(): ResultAsync<void, Error>;
+}
+```
+
+The host calls `LaunchpadController.ready()` once it has finished registering plugins; the controller then calls `ready()` on every registered plugin in registration order. A `ready()` that fails or throws is logged and contained — it neither fails startup nor blocks another plugin's `ready()`. Repeat calls are no-ops, and a plugin registered after the phase has run is readied right after its `setup()`, so every plugin sees the hook exactly once.
+
 ### Disconnectable
 
 Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.
@@ -155,10 +168,11 @@ interface Disconnectable {
 Ephemeral controller instances for one-off operations:
 
 1. Create controller in task mode
-2. Register subsystems
-3. Start controller
-4. Execute command(s)
-5. Stop controller
+2. Start controller
+3. Register subsystems
+4. Run the ready phase (`ready()`)
+5. Execute command(s)
+6. Stop controller
 
 This mode is used when no persistent controller is running, allowing the CLI to operate independently.
 
@@ -167,6 +181,7 @@ This mode is used when no persistent controller is running, allowing the CLI to 
 Long-running controller that stays active to handle multiple commands:
 
 - Started with `launchpad start` (optionally detached with `-d`)
+- Registers plugins, then runs the ready phase (`ready()`) once all of them are set up — this is where, for example, the content plugin's startup announcement feeds the HTTP/SSE transport's replay backlog
 - Opens IPC socket for inter-process communication
 - Stores PID in a file for tracking
 - Handles multiple CLI commands without reinitializing

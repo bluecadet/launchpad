@@ -8,7 +8,7 @@ import { LaunchpadController } from "@bluecadet/launchpad-controller";
 import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/config";
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
-import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
+import type { ControllerMode, LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type Result, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
 import { cliLogger } from "./cli-logger.js";
@@ -61,7 +61,7 @@ export function withDaemonOrController<T>(
 	baseDir: string,
 	controllerConfig: ResolvedControllerConfig,
 	options: {
-		mode: "task" | "persistent";
+		mode: ControllerMode;
 		ifDaemon: (client: IPCClient, pid: number) => ResultAsync<T, Error>;
 		otherwise: (controller: LaunchpadController) => ResultAsync<T, Error>;
 	},

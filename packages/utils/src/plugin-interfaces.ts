@@ -9,9 +9,11 @@
  *
  * **PluginContext** = infrastructure the controller PROVIDES to the plugin.
  *   - Communication: `eventBus`, `dispatchCommand`
- *   - Environment: `logger`, `cwd`
+ *   - Environment: `logger`, `cwd`, `mode` (task vs. persistent)
  *   - Lifecycle: `abortSignal`
- *   - State: `updateState` (write this plugin's slice), `getGlobalState` (read the whole system)
+ *   - State: `updateState` (write this plugin's slice), `getGlobalState` (read the whole system),
+ *     `getStatusSnapshot` (aggregates every plugin's `summarize()` — the read-side counterpart of
+ *     `PluginConfig.summarize`)
  *
  * State management is controller-owned: plugins call `ctx.updateState()` at the top of `setup()`
  * to establish their initial state, and the controller lazily creates the underlying state store
@@ -131,7 +133,7 @@ export interface CliPositional {
 export interface CliLeafCommand {
 	name: string;
 	description?: string;
-	mode?: "task" | "persistent";
+	mode?: ControllerMode;
 	commands: BaseCommand[];
 	flags?: Record<string, CliFlag>;
 	positionals?: CliPositional[];

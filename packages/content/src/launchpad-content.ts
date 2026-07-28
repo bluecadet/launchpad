@@ -1,7 +1,7 @@
 import { SingleCommandGuard } from "@bluecadet/launchpad-utils/command-guard";
 import { definePlugin, type PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
-import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
 import { writeAckLease } from "./acks.js";
 import {
 	type ContentCommand,
@@ -13,6 +13,7 @@ import {
 	parseContentConfig,
 	type ResolvedContentConfig,
 } from "./content-config.js";
+import { buildVersionPromotedPayload } from "./content-events.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import { buildContentSection } from "./content-summarize.js";
 import { ContentError } from "./content-transform.js";
@@ -300,6 +301,37 @@ function readActiveManifest(
 }
 
 /**
+ * Emits `content:version:promoted` once during setup when a version is already active on disk.
+ *
+ * Promotion only emits the event when a fetch actually promotes, so after a process restart
+ * nothing on the bus says which version is live until the next fetch — and a display app
+ * restarting mid-day is the common case. Announcing the on-disk active version at startup gives
+ * subscribers (and transports that replay the last frame per event) the same payload they would
+ * have seen had they been connected during the original promote.
+ *
+ * Best-effort: only meaningful under versioning, and a missing or unreadable manifest is not a
+ * setup failure — the manifest poll remains the authoritative contract.
+ */
+function announceActiveVersion(ctx: ContentActionContext): ResultAsync<void, never> {
+	if (!ctx.resolvedConfig.versioning) {
+		return okAsync(undefined);
+	}
+
+	return readActiveManifest(ctx)
+		.map((result) => {
+			if (result.status === "invalid") {
+				ctx.logger.warn(`Skipping active version announcement: ${result.message}`);
+				return;
+			}
+			if (result.status === "missing") {
+				return;
+			}
+			ctx.eventBus.emit("content:version:promoted", buildVersionPromotedPayload(result.manifest));
+		})
+		.orElse(() => okAsync(undefined));
+}
+
+/**
  * Creates a LaunchpadContent plugin factory.
  * Use this in your launchpad config's plugins array.
  */
@@ -354,7 +386,7 @@ export function content(config: ContentConfig) {
 					// Check for duplicates
 					for (const source of resolvedConfig.sources) {
 						if (sourceRegistry.has(source.id)) {
-							return err(new ContentError(`Duplicate source ID detected: ${source.id}`));
+							return errAsync(new ContentError(`Duplicate source ID detected: ${source.id}`));
 						}
 						sourceRegistry.set(source.id, source);
 					}
@@ -374,7 +406,7 @@ export function content(config: ContentConfig) {
 
 					const commandGuard = new SingleCommandGuard();
 
-					return ok({
+					const instance = {
 						executeCommand(command: ContentCommand): ResultAsync<unknown, Error> {
 							const parsed = contentCommandSchema.safeParse(command);
 							if (!parsed.success) {
@@ -418,7 +450,12 @@ export function content(config: ContentConfig) {
 								}
 							}
 						},
-					});
+					};
+
+					// The announcement is emitted before setup resolves, i.e. while the controller is
+					// still registering plugins. Transports registered after content therefore miss it;
+					// see `announceActiveVersion` for the ordering contract.
+					return announceActiveVersion(actionContext).map(() => instance);
 				});
 		},
 	});

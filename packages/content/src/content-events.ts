@@ -1,5 +1,6 @@
 // need to import so declaration merging works
 import "@bluecadet/launchpad-utils/types";
+import type { Manifest } from "./manifest.js";
 
 /**
  * Content plugin events.
@@ -85,4 +86,22 @@ export type ContentEvents = {
 
 declare module "@bluecadet/launchpad-utils/types" {
 	interface LaunchpadEvents extends ContentEvents {}
+}
+
+/** Payload of the `content:version:promoted` event. */
+export type VersionPromotedPayload = ContentEvents["content:version:promoted"];
+
+/**
+ * Single source of truth for the `content:version:promoted` payload.
+ *
+ * Two sites emit this event — the promote path right after the manifest swap, and the
+ * plugin's startup announcement for an already-active version — and both derive the
+ * payload from the same manifest fields here so the two can never drift.
+ */
+export function buildVersionPromotedPayload(manifest: Manifest): VersionPromotedPayload {
+	return {
+		versionId: manifest.versionId,
+		versionPath: manifest.versionPath,
+		generatedAt: manifest.generatedAt,
+	};
 }

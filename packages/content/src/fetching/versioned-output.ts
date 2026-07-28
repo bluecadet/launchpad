@@ -23,6 +23,7 @@
 
 import path from "node:path";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { buildVersionPromotedPayload } from "../content-events.js";
 import { ContentError } from "../content-transform.js";
 import type { Manifest } from "../manifest.js";
 import * as ManifestUtils from "../manifest.js";
@@ -177,11 +178,10 @@ export function promoteVersioned(context: FetchStageContext): ResultAsync<void, 
 							// (e.g. cleanupStage) can't cause error recovery to delete the now-active,
 							// manifest-referenced version.
 							context.attemptedVersionPath = undefined;
-							context.eventBus?.emit("content:version:promoted", {
-								versionId,
-								versionPath: versionRelativePath,
-								generatedAt,
-							});
+							context.eventBus?.emit(
+								"content:version:promoted",
+								buildVersionPromotedPayload(manifest),
+							);
 						});
 					});
 				},

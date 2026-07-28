@@ -1,6 +1,6 @@
 import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildStatusSnapshot } from "../build-status-snapshot.js";
 
 function makeState(overrides?: Partial<LaunchpadState["system"]>): LaunchpadState {
@@ -114,6 +114,28 @@ describe("buildStatusSnapshot", () => {
 		expect(snapshot.sections).toHaveLength(3);
 		expect(snapshot.sections.map((s) => s.name)).toEqual(["content", "monitor", "dashboard"]);
 		expect(snapshot.sections[0]?.rows).toHaveLength(1);
+	});
+
+	it("skips a plugin whose summarize throws without losing other sections", () => {
+		const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const state = makeState();
+		const plugins: PluginConfig[] = [
+			makePlugin("before", () => ({ name: "before", order: 10, title: "Before", rows: [] })),
+			makePlugin("broken", () => {
+				throw new Error("summarize blew up");
+			}),
+			makePlugin("after", () => ({ name: "after", order: 30, title: "After", rows: [] })),
+		];
+
+		const snapshot = buildStatusSnapshot(state, plugins);
+
+		expect(snapshot.sections.map((s) => s.name)).toEqual(["before", "after"]);
+		expect(consoleErrorSpy).toHaveBeenCalledWith(
+			expect.stringContaining("broken"),
+			expect.any(Error),
+		);
+
+		consoleErrorSpy.mockRestore();
 	});
 
 	it("defaults order to 50 when not specified, sorting stably among defaults", () => {

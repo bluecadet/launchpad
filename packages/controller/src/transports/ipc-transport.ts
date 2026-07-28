@@ -22,7 +22,6 @@ import {
 	CommandExecutionError,
 	IPCMessageError,
 	JSONRPC_ERROR_CODES,
-	StateAccessError,
 	TransportError,
 	toJSONRPCError,
 } from "../errors.js";
@@ -328,32 +327,14 @@ function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginConte
 
 	switch (message.method) {
 		case "queryState": {
-			try {
-				const state = ctx.getGlobalState();
-				sendResult(socket, message.id, state);
-			} catch (e) {
-				const error = ensureError(e);
-				logger.error(`Failed to get state: ${error.message}`);
-				const rpcError = toJSONRPCError(
-					new StateAccessError("Failed to get controller state", { cause: error }),
-				);
-				sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
-			}
+			const state = ctx.getGlobalState();
+			sendResult(socket, message.id, state);
 			break;
 		}
 
 		case "queryStatusSnapshot": {
-			try {
-				const snapshot = ctx.getStatusSnapshot();
-				sendResult(socket, message.id, snapshot);
-			} catch (e) {
-				const error = ensureError(e);
-				logger.error(`Failed to get status snapshot: ${error.message}`);
-				const rpcError = toJSONRPCError(
-					new StateAccessError("Failed to get status snapshot", { cause: error }),
-				);
-				sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
-			}
+			const snapshot = ctx.getStatusSnapshot();
+			sendResult(socket, message.id, snapshot);
 			break;
 		}
 

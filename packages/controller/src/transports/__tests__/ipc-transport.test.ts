@@ -408,29 +408,6 @@ describe("ipc-transport", () => {
 			expect(response.error.data.message).toContain("IPC command execution failed");
 			expect(response.error.data.cause!.message).toContain("Command failed");
 		});
-
-		it("should send error response when getState throws", async () => {
-			const { transport, context } = createTestIPCTransport();
-			await transport.setup(context);
-
-			context.getGlobalState = vi.fn().mockImplementation(() => {
-				throw new Error("State retrieval failed");
-			});
-
-			// Re-setup with updated context
-			await transport.setup(context);
-
-			const mockSocket = createMockSocket();
-			connectionCallback?.(mockSocket);
-
-			const message = { jsonrpc: "2.0", id: 1, method: "queryState" };
-			const dataHandler = mockSocket.listeners.data![0]!;
-			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
-
-			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
-			expect(response.error).toBeDefined();
-			expect(response.error.data.message).toContain("Failed to get controller state");
-		});
 	});
 
 	describe("state patch handling", () => {

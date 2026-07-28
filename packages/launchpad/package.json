@@ -56,8 +56,8 @@
       "default": "./dist/content/state.js"
     },
     "./content/transforms": {
-      "types": "./dist/content/transforms.d.ts",
-      "default": "./dist/content/transforms.js"
+      "types": "./dist/content/transforms/index.d.ts",
+      "default": "./dist/content/transforms/index.js"
     },
     "./content/transforms/md-to-html": {
       "types": "./dist/content/transforms/md-to-html.d.ts",
@@ -96,8 +96,8 @@
       "default": "./dist/content/source.js"
     },
     "./content/sources": {
-      "types": "./dist/content/sources.d.ts",
-      "default": "./dist/content/sources.js"
+      "types": "./dist/content/sources/index.d.ts",
+      "default": "./dist/content/sources/index.js"
     },
     "./content/sources/airtable": {
       "types": "./dist/content/sources/airtable.d.ts",

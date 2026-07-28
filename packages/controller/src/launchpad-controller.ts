@@ -50,6 +50,7 @@ export class LaunchpadController {
 	private _abortController = new AbortController();
 	private _isStarted = false;
 	private _shutdownInProgress = false;
+	private _readyPhaseRun = false;
 
 	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
 		this._config = config;
@@ -96,6 +97,12 @@ export class LaunchpadController {
 				this._plugins.set(plugin.name, instance);
 				this._pluginConfigs.set(plugin.name, plugin);
 				this._logger.verbose(`Registered plugin '${plugin.name}'`);
+
+				// A plugin registered after the ready phase already ran cannot wait for it, so it
+				// gets its own ready() right after setup — every plugin sees the hook exactly once.
+				if (this._readyPhaseRun) {
+					return this.safeReady(plugin.name, instance);
+				}
 				return okAsync(undefined);
 			})
 			.orElse((error) => {
@@ -114,6 +121,54 @@ export class LaunchpadController {
 			async () => await plugin.setup(this.getPluginCtx(plugin.name, updateState)),
 			ensureError,
 		)().andThen((result) => result);
+	}
+
+	/**
+	 * Run the post-setup lifecycle phase: every registered plugin's optional `ready()`, in
+	 * registration order.
+	 *
+	 * Registration is caller-driven, so only the host knows when the plugin set is complete —
+	 * it calls `ready()` once registration finishes. Plugin work that depends on other plugins
+	 * existing (announcing state on the event bus, for example) belongs here rather than in
+	 * `setup()`, which runs while later plugins have not been set up yet.
+	 *
+	 * Idempotent: repeat calls are no-ops, and plugins registered afterwards are readied on
+	 * registration instead.
+	 */
+	ready(): ResultAsync<void, never> {
+		if (this._readyPhaseRun) {
+			return okAsync(undefined);
+		}
+		this._readyPhaseRun = true;
+
+		// Sequential, not `combine`: mapping to ResultAsyncs first would start every
+		// ready() body eagerly, so only invocation would be ordered. Chaining makes
+		// completion order match registration order too.
+		const readyPhase = Array.from(this._plugins.entries()).reduce<ResultAsync<void, never>>(
+			(previous, [name, plugin]) => previous.andThen(() => this.safeReady(name, plugin)),
+			okAsync(undefined),
+		);
+
+		return readyPhase.map(() => {
+			this._logger.verbose("All plugins ready");
+			return undefined;
+		});
+	}
+
+	/** A plugin `ready()` that fails or throws is logged and contained: startup continues and
+	 * every other plugin still gets its own `ready()`. */
+	private safeReady(name: string, plugin: InstantiatedPlugin): ResultAsync<void, never> {
+		if (!plugin.ready) {
+			return okAsync(undefined);
+		}
+
+		this._logger.verbose(`Readying plugin '${name}'`);
+		return ResultAsync.fromThrowable(async () => await plugin.ready?.(), ensureError)()
+			.andThen((result) => result ?? okAsync(undefined))
+			.orElse((error) => {
+				this._logger.error(`Plugin '${name}' failed to become ready: ${error.message}`);
+				return okAsync(undefined);
+			});
 	}
 
 	getPlugin(name: string): InstantiatedPlugin | undefined {

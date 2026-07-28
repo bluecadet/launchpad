@@ -10,6 +10,7 @@ Plugins in Launchpad:
 - Receive a `PluginContext` during `setup()` with access to logging, events, and state management
 - Can optionally handle commands dispatched to them
 - Can optionally expose state to status output and other plugins
+- Can optionally run startup work once every plugin has been set up
 - Can optionally perform cleanup on shutdown
 
 ## Basic Plugin Structure
@@ -191,6 +192,31 @@ export const listenerPlugin = definePlugin({
 });
 ```
 
+## Startup Work That Needs Other Plugins
+
+`setup()` runs sequentially in registration order, so a plugin that emits an event during its own setup is invisible to every plugin registered after it. Implement `ready()` for startup work that depends on the rest of the system being present — the controller calls it on every registered plugin once all of them have been set up, sequentially in registration order: each plugin's `ready()` completes before the next one's starts.
+
+```typescript
+import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { okAsync } from 'neverthrow';
+
+export const announcerPlugin = definePlugin({
+  name: 'announcer-plugin',
+  setup(ctx) {
+    return okAsync({
+      ready() {
+        // Every plugin — including transports that subscribe during their own setup —
+        // is listening by now.
+        ctx.eventBus.emit('announcer-plugin.ready', { at: Date.now() });
+        return okAsync(undefined);
+      }
+    });
+  }
+});
+```
+
+A `ready()` that fails is logged and contained: it never fails startup, and the remaining plugins still become ready. Plugins registered after the ready phase has run (a host registering a plugin at runtime) get their `ready()` immediately after `setup()`.
+
 ## Cleanup on Shutdown
 
 Implement `disconnect()` to release long-lived resources (connections, child processes, timers) when Launchpad shuts down. The controller calls `disconnect()` after the abort signal fires.
@@ -278,11 +304,12 @@ export const dbPlugin = definePlugin({
 3. **Keep startup behavior in host workflows**: plugins expose commands, and hosts decide when to run them
 4. **Use `summarize()`** for `launchpad status` output instead of mutating controller-owned status registries
 5. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
-6. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
-7. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
-8. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
-9. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
-10. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
+6. **Use `ready()` for cross-plugin startup work** — anything emitted during `setup()` is missed by plugins registered later
+7. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
+8. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
+9. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
+10. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
+11. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
 
 ## Migration Notes
 

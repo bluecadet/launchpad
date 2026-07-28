@@ -120,12 +120,15 @@ function registerLeaf(
 					);
 				},
 				otherwise: (controller) => {
-					return controller.registerPlugin(pluginConfig).andThen(() => {
-						return buildCommands(leaf.commands).reduce(
-							(acc, cmd) => acc.andThen(() => controller.executeCommand(cmd)),
-							okAsync<unknown, Error>(undefined),
-						);
-					});
+					return controller
+						.registerPlugin(pluginConfig)
+						.andThen(() => controller.ready())
+						.andThen(() => {
+							return buildCommands(leaf.commands).reduce(
+								(acc, cmd) => acc.andThen(() => controller.executeCommand(cmd)),
+								okAsync<unknown, Error>(undefined),
+							);
+						});
 				},
 			});
 

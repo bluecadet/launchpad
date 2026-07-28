@@ -253,6 +253,154 @@ describe("LaunchpadController", () => {
 		});
 	});
 
+	describe("ready", () => {
+		function makeLifecyclePlugin(name: string, order: string[], ready?: () => unknown) {
+			return definePlugin({
+				name,
+				setup: () => {
+					order.push(`setup:${name}`);
+					return okAsync({
+						ready: () => {
+							order.push(`ready:${name}`);
+							return ready ? (ready() as ResultAsync<void, Error>) : okAsync(undefined);
+						},
+					});
+				},
+			});
+		}
+
+		type Gate = { passed: Promise<void>; open: () => void };
+
+		function createGate(): Gate {
+			let open: () => void = () => undefined;
+			const passed = new Promise<void>((resolve) => {
+				open = () => resolve();
+			});
+			return { passed, open };
+		}
+
+		/** A plugin whose async ready() body only finishes once its gate opens, so
+		 * the test can tell invocation order apart from completion order. */
+		function makeGatedPlugin(name: string, order: string[], gate: Gate) {
+			return definePlugin({
+				name,
+				setup: () => {
+					order.push(`setup:${name}`);
+					return okAsync({
+						ready: () =>
+							ResultAsync.fromSafePromise(
+								(async () => {
+									order.push(`ready:${name}:start`);
+									await gate.passed;
+									order.push(`ready:${name}:end`);
+								})(),
+							),
+					});
+				},
+			});
+		}
+
+		const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+		it("runs every plugin's ready() after all setups, one at a time in registration order", async () => {
+			const controller = createController();
+			const order: string[] = [];
+			const firstGate = createGate();
+			const secondGate = createGate();
+
+			await controller.registerPlugin(makeGatedPlugin("first", order, firstGate));
+			await controller.registerPlugin(makeGatedPlugin("second", order, secondGate));
+
+			expect(order).toEqual(["setup:first", "setup:second"]);
+
+			const readyPhase = controller.ready();
+			await flushMicrotasks();
+
+			// Sequential, not just ordered invocation: the second ready() has not
+			// started while the first one is still in flight.
+			expect(order).toEqual(["setup:first", "setup:second", "ready:first:start"]);
+
+			firstGate.open();
+			await flushMicrotasks();
+
+			expect(order).toEqual([
+				"setup:first",
+				"setup:second",
+				"ready:first:start",
+				"ready:first:end",
+				"ready:second:start",
+			]);
+
+			secondGate.open();
+			const result = await readyPhase;
+
+			expect(result.isOk()).toBe(true);
+			expect(order).toEqual([
+				"setup:first",
+				"setup:second",
+				"ready:first:start",
+				"ready:first:end",
+				"ready:second:start",
+				"ready:second:end",
+			]);
+		});
+
+		it("tolerates plugins that do not implement ready()", async () => {
+			const controller = createController();
+			const order: string[] = [];
+
+			await controller.registerPlugin(makePlugin("plain"));
+			await controller.registerPlugin(makeLifecyclePlugin("readyable", order));
+
+			const result = await controller.ready();
+
+			expect(result.isOk()).toBe(true);
+			expect(order).toEqual(["setup:readyable", "ready:readyable"]);
+		});
+
+		it("contains a ready() that throws or fails and still readies the rest", async () => {
+			const controller = createController();
+			const order: string[] = [];
+
+			await controller.registerPlugin(
+				makeLifecyclePlugin("explosive", order, () => {
+					throw new Error("ready exploded");
+				}),
+			);
+			await controller.registerPlugin(
+				makeLifecyclePlugin("failing", order, () => errAsync(new Error("ready failed"))),
+			);
+			await controller.registerPlugin(makeLifecyclePlugin("healthy", order));
+
+			const result = await controller.ready();
+
+			expect(result.isOk()).toBe(true);
+			expect(order).toEqual([
+				"setup:explosive",
+				"setup:failing",
+				"setup:healthy",
+				"ready:explosive",
+				"ready:failing",
+				"ready:healthy",
+			]);
+		});
+
+		it("is idempotent and readies plugins registered after the phase has run", async () => {
+			const controller = createController();
+			const order: string[] = [];
+
+			await controller.registerPlugin(makeLifecyclePlugin("early", order));
+			await controller.ready();
+			await controller.ready();
+
+			expect(order).toEqual(["setup:early", "ready:early"]);
+
+			await controller.registerPlugin(makeLifecyclePlugin("late", order));
+
+			expect(order).toEqual(["setup:early", "ready:early", "setup:late", "ready:late"]);
+		});
+	});
+
 	describe("stop", () => {
 		it("should stop the controller and abort its signal", async () => {
 			const controller = createController();

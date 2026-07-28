@@ -30,6 +30,8 @@ interface PluginContext<TState = unknown> {
   logger: Logger;              // Scoped logger
   abortSignal: AbortSignal;    // Cancelled on controller shutdown
   cwd: string;                 // Working directory
+  mode: ControllerMode;        // "task" | "persistent" — which mode the controller is running in
+  getStatusSnapshot: () => StatusSnapshot; // Aggregates every plugin's summarize(); use sparingly
   dispatchCommand: (command) => ResultAsync<unknown, Error>;
   updateState: (producer: (draft: TState) => void) => void;
   getGlobalState: () => VersionedLaunchpadState;

@@ -232,6 +232,8 @@ The `PluginContext` passed to `setup()` provides:
 | `eventBus` | Event bus for cross-plugin communication |
 | `abortSignal` | Fires when Launchpad is shutting down |
 | `cwd` | Working directory |
+| `mode` | Which mode the controller is running in (`"task" \| "persistent"`) |
+| `getStatusSnapshot` | Build the display-oriented status snapshot, aggregating every plugin's `summarize()`. Use sparingly |
 | `dispatchCommand` | Dispatch a registered command to another plugin |
 | `updateState` | Update this plugin's state slice |
 | `getGlobalState` | Read the full aggregated system state |

@@ -10,7 +10,7 @@ import { buildSchedulerSection } from "../scheduler-summarize.js";
 function jobStatusRow(job: ScheduledJob) {
 	const section = buildSchedulerSection({ jobs: { "content.fetch": job.state } });
 	const row = section.rows[0];
-	if (!row || row.type !== "kv") throw new Error("Expected a scheduler kv row");
+	if (row?.type !== "kv") throw new Error("Expected a scheduler kv row");
 	return row;
 }
 

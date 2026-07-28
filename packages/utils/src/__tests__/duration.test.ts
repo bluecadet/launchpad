@@ -31,21 +31,12 @@ describe("parseDuration", () => {
 		expect(parseDuration(42)).toBe(42);
 	});
 
-	it.each([
-		"",
-		"5",
-		"5x",
-		"ms",
-		"-5s",
-		"5 m",
-		"five minutes",
-		"5mm",
-		"Infinity",
-		"5d",
-		"m5",
-	])("rejects garbage input %j", (input) => {
-		expect(parseDuration(input)).toBeNull();
-	});
+	it.each(["", "5", "5x", "ms", "-5s", "5 m", "five minutes", "5mm", "Infinity", "5d", "m5"])(
+		"rejects garbage input %j",
+		(input) => {
+			expect(parseDuration(input)).toBeNull();
+		},
+	);
 
 	it("rejects negative raw ms numbers", () => {
 		expect(parseDuration(-1)).toBeNull();

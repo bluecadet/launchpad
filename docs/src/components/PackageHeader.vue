@@ -3,8 +3,6 @@ import { GitCommitVertical, GitFork, Hexagon, Logs } from "@lucide/vue";
 
 import { data as packageVersions } from "./package-versions.data.js";
 
-console.log(packageVersions);
-
 const props = defineProps<{
 	package: "string";
 }>();

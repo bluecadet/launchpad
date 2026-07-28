@@ -1,7 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type {
-	ControllerMode,
 	LaunchpadState,
 	StatusSnapshot,
 	VersionedLaunchpadState,
@@ -95,12 +94,12 @@ export function createStubStatusSnapshot(): StatusSnapshot {
 	};
 }
 
-export function createMockPluginCtx(cwd = "/") {
-	return {
+export function createMockPluginCtx(cwd = "/", overrides?: Partial<PluginContext>) {
+	const ctx = {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		cwd,
-		mode: "task" as ControllerMode,
+		mode: "task",
 		getStatusSnapshot: vi.fn().mockImplementation(createStubStatusSnapshot),
 		abortSignal: new AbortController().signal as AbortSignal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
@@ -108,25 +107,14 @@ export function createMockPluginCtx(cwd = "/") {
 		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
 		updateState: vi.fn(),
 	} satisfies PluginContext;
-}
-
-/**
- * Create a minimal mock plugin context without host-specific registries.
- * Use this for plugins that only need the base kernel context.
- */
-export function createMockBasePluginCtx(cwd = "/") {
-	return {
-		logger: createMockLogger(),
-		eventBus: createMockEventBus(),
-		cwd,
-		mode: "task" as ControllerMode,
-		getStatusSnapshot: vi.fn().mockImplementation(createStubStatusSnapshot),
-		abortSignal: new AbortController().signal as AbortSignal,
-		dispatchCommand: vi.fn().mockReturnValue(okAsync()),
-		getGlobalState: vi.fn().mockReturnValue({} as VersionedLaunchpadState),
-		onGlobalStatePatch: vi.fn().mockReturnValue(() => {}),
-		updateState: vi.fn(),
-	} satisfies PluginContext;
+	// Merged onto the already-typed `ctx` (rather than spread inline) so overrides -
+	// which are typed against the default `PluginContext<unknown>` - don't widen
+	// property types like `updateState` into a union that fights each call site's
+	// concrete state type (e.g. `PluginContext<ContentState>`).
+	if (overrides) {
+		Object.assign(ctx, overrides);
+	}
+	return ctx;
 }
 
 type TestStateOverrides = Partial<Omit<VersionedLaunchpadState, "plugins">> & {

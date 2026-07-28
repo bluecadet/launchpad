@@ -223,8 +223,8 @@ describe("IPCSerializer", () => {
 
 			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload)) as any;
 
-			expect(deserialized.callback).toBe("[function doThing]");
-			expect(deserialized.token).toBe("Symbol(secret)");
+			expect(deserialized.callback).toBe("[unserializable: function doThing]");
+			expect(deserialized.token).toBe("[unserializable: symbol secret]");
 		});
 
 		it("should replace promises with placeholders", () => {
@@ -232,7 +232,7 @@ describe("IPCSerializer", () => {
 
 			const deserialized = IPCSerializer.deserialize(IPCSerializer.serialize(payload)) as any;
 
-			expect(deserialized.pending).toBe("[promise]");
+			expect(deserialized.pending).toBe("[unserializable: promise]");
 		});
 
 		it("should handle cyclic payloads containing non-POJOs", () => {

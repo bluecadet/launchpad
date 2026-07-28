@@ -9,6 +9,11 @@
  */
 
 import * as devalue from "devalue";
+import {
+	functionPlaceholder,
+	PROMISE_PLACEHOLDER,
+	symbolPlaceholder,
+} from "./serializer-placeholders.js";
 
 type ErrorObj = {
 	name: string;
@@ -81,10 +86,10 @@ function isPlainObject(value: object): boolean {
  */
 function sanitize(value: unknown, seen: Map<unknown, unknown>): unknown {
 	if (typeof value === "function") {
-		return `[function ${value.name || "anonymous"}]`;
+		return functionPlaceholder(value.name);
 	}
 	if (typeof value === "symbol") {
-		return value.toString();
+		return symbolPlaceholder(value);
 	}
 	if (value === null || typeof value !== "object") {
 		return value;
@@ -106,7 +111,7 @@ function sanitize(value: unknown, seen: Map<unknown, unknown>): unknown {
 	}
 
 	if (typeof (value as { then?: unknown }).then === "function") {
-		return "[promise]";
+		return PROMISE_PLACEHOLDER;
 	}
 
 	if (

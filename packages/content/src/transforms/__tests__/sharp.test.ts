@@ -1,6 +1,6 @@
 import path from "node:path";
 import { vol } from "memfs";
-import type Sharp from "sharp";
+import type { Sharp } from "sharp";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import sharp from "../sharp.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
@@ -30,7 +30,7 @@ describe("sharp", () => {
 			);
 
 			const transform = sharp({
-				buildTransform: (t: Sharp.Sharp) => t.resize(100, 100),
+				buildTransform: (t: Sharp) => t.resize(100, 100),
 				updateURLs: true,
 			});
 

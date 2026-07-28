@@ -3,7 +3,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
 import PQueue from "p-queue";
-import type SharpType from "sharp";
+import type { Sharp } from "sharp";
 import { z } from "zod";
 import { type ContentTransformContext, defineContentTransform } from "../content-transform.js";
 import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
@@ -43,8 +43,8 @@ const sharpPluginSchema = z.object({
 	/** The sharp transform to apply to the images. */
 	buildTransform: z
 		.function({
-			input: [z.custom<SharpType.Sharp>()],
-			output: z.custom<SharpType.Sharp>(),
+			input: [z.custom<Sharp>()],
+			output: z.custom<Sharp>(),
 		})
 		.describe("The sharp transform to apply to the images."),
 	/** The number of images to transform concurrently. Defaults to 4. */
@@ -62,7 +62,7 @@ function tryImportSharp() {
 }
 
 async function transformImage(
-	sharpTransform: SharpType.Sharp,
+	sharpTransform: Sharp,
 	sourceImagePath: string,
 	outputImagePath: string,
 	backupImagePath: string,
@@ -238,7 +238,7 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 	});
 }
 
-function getOutputFilename(inputPath: string, sharpTransform: SharpType.Sharp) {
+function getOutputFilename(inputPath: string, sharpTransform: Sharp) {
 	const { dir, name, ext } = path.parse(inputPath);
 
 	// 'options' is a private property, so we need to use Object.getOwnPropertyDescriptor

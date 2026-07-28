@@ -60,6 +60,8 @@ curl -X POST http://127.0.0.1:8710/command \
   -d '{"type":"content.ack","consumerId":"unity-kiosk","versionId":"20260714T153045Z"}'
 ```
 
+On connect, the stream [replays](/reference/controller/transports#replay-on-connect) the last frame of each event it has seen, so a page that opens long after the last promote still gets `content:version:promoted` immediately rather than waiting for the next one.
+
 As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh.
 
 ### C# (Unity/.NET)

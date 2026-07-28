@@ -1,4 +1,8 @@
-import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
+import {
+	createMockEventBus,
+	createMockLogger,
+	createStubStatusSnapshot,
+} from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { fs } from "memfs";
 import { okAsync } from "neverthrow";
@@ -46,10 +50,7 @@ export function createTestIPCTransport() {
 		logger: createMockLogger(),
 		eventBus: createMockEventBus(),
 		mode: "task",
-		getStatusSnapshot: vi.fn().mockReturnValue({
-			header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
-			sections: [],
-		}),
+		getStatusSnapshot: vi.fn().mockImplementation(createStubStatusSnapshot),
 		abortSignal: abortController.signal,
 		dispatchCommand: vi.fn().mockReturnValue(okAsync({ result: "success" })),
 		getGlobalState: vi.fn().mockReturnValue({ system: { mode: "task" }, plugins: {}, _version: 0 }),

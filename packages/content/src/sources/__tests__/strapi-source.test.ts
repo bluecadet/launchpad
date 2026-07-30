@@ -42,7 +42,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 				identifier: "test@example.com",
 				password: "password",
 				// @ts-expect-error - testing invalid version
-				version: "5",
+				version: "6",
 				queries: ["test-content"],
 			}),
 		).rejects.toThrowErrorMatchingInlineSnapshot(`
@@ -51,12 +51,13 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 			    "code": "invalid_value",
 			    "values": [
 			      "3",
-			      "4"
+			      "4",
+			      "5"
 			    ],
 			    "path": [
 			      "version"
 			    ],
-			    "message": "Invalid option: expected one of \\"3\\"|\\"4\\""
+			    "message": "Invalid option: expected one of \\"3\\"|\\"4\\"|\\"5\\""
 			  }
 			]]
 		`);
@@ -66,7 +67,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		it("should authenticate and fetch data successfully", async () => {
 			server.use(
 				// Auth endpoint
-				http.post("http://localhost:1337/auth/local", async ({ request }) => {
+				http.post("http://localhost:1337/api/auth/local", async ({ request }) => {
 					const body = await request.json();
 					expect(body).toEqual({
 						identifier: "test@example.com",
@@ -153,7 +154,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 
 		it("should handle custom query objects", async () => {
 			server.use(
-				http.post("http://localhost:1337/auth/local", () => {
+				http.post("http://localhost:1337/api/auth/local", () => {
 					return HttpResponse.json({ jwt: "test-token" });
 				}),
 				http.get("http://localhost:1337/api/custom-content", ({ request }) => {
@@ -229,6 +230,237 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		});
 	});
 
+	describe("Strapi v5", () => {
+		it("should authenticate and fetch data successfully", async () => {
+			server.use(
+				// Auth endpoint
+				http.post("http://localhost:1337/api/auth/local", async ({ request }) => {
+					const body = await request.json();
+					expect(body).toEqual({
+						identifier: "test@example.com",
+						password: "password",
+					});
+
+					return HttpResponse.json({
+						jwt: "test-token",
+					});
+				}),
+				// Data endpoint
+				http.get("http://localhost:1337/api/test-content", ({ request }) => {
+					const authHeader = request.headers.get("Authorization");
+					expect(authHeader).toBe("Bearer test-token");
+
+					const url = new URL(request.url);
+					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1", 10);
+
+					// Return empty results after first page
+					if (page > 1) {
+						return HttpResponse.json({
+							data: [],
+							meta: {
+								pagination: {
+									page,
+									pageSize: 100,
+									pageCount: 1,
+									total: 1,
+								},
+							},
+						});
+					}
+
+					return HttpResponse.json({
+						data: [
+							{
+								id: 1,
+								documentId: "abc123def456",
+								title: "Test Content",
+								description: "Test Description",
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								pageSize: 100,
+								pageCount: 1,
+								total: 1,
+							},
+						},
+					});
+				}),
+			);
+
+			const source = await strapiSource({
+				id: "test-strapi",
+				version: "5",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "password",
+				queries: ["test-content"],
+			});
+
+			const result = source.fetch(createFetchContext());
+			expect(result).toHaveLength(1);
+
+			const data = (await result[0]!.data.next()).value;
+
+			expect(data).toMatchInlineSnapshot(`
+				[
+				  {
+				    "description": "Test Description",
+				    "documentId": "abc123def456",
+				    "id": 1,
+				    "title": "Test Content",
+				  },
+				]
+			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
+		});
+
+		it("should handle custom query objects", async () => {
+			server.use(
+				http.post("http://localhost:1337/api/auth/local", () => {
+					return HttpResponse.json({ jwt: "test-token" });
+				}),
+				http.get("http://localhost:1337/api/custom-content", ({ request }) => {
+					const url = new URL(request.url);
+					expect(url.searchParams.get("filters[type][$eq]")).toBe("test");
+					expect(url.searchParams.get("sort[0]")).toBe("createdAt:desc");
+
+					if (url.searchParams.get("pagination[page]") === "2") {
+						return HttpResponse.json({
+							data: [],
+							meta: {
+								pagination: { page: 2, pageSize: 100, pageCount: 1, total: 0 },
+							},
+						});
+					}
+
+					return HttpResponse.json({
+						data: [
+							{
+								id: 1,
+								documentId: "xyz789uvw012",
+								title: "Custom Content",
+								type: "test",
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								pageSize: 100,
+								pageCount: 1,
+								total: 1,
+							},
+						},
+					});
+				}),
+			);
+
+			const source = await strapiSource({
+				id: "test-strapi",
+				version: "5",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "password",
+				queries: [
+					{
+						contentType: "custom-content",
+						params: {
+							"filters[type][$eq]": "test",
+							"sort[0]": "createdAt:desc",
+						},
+					},
+				],
+			});
+
+			const result = source.fetch(createFetchContext());
+
+			const data = (await result[0]!.data.next()).value;
+
+			expect(data).toMatchInlineSnapshot(`
+				[
+				  {
+				    "documentId": "xyz789uvw012",
+				    "id": 1,
+				    "title": "Custom Content",
+				    "type": "test",
+				  },
+				]
+			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
+		});
+
+		it("should default to v4/v5-style behavior (not v3) when version is omitted", async () => {
+			server.use(
+				http.post("http://localhost:1337/api/auth/local", async ({ request }) => {
+					const body = await request.json();
+					expect(body).toEqual({
+						identifier: "test@example.com",
+						password: "password",
+					});
+
+					return HttpResponse.json({ jwt: "test-token" });
+				}),
+				http.get("http://localhost:1337/api/test-content", ({ request }) => {
+					const url = new URL(request.url);
+					const page = Number.parseInt(url.searchParams.get("pagination[page]") || "1", 10);
+
+					if (page > 1) {
+						return HttpResponse.json({
+							data: [],
+							meta: {
+								pagination: { page, pageSize: 100, pageCount: 1, total: 1 },
+							},
+						});
+					}
+
+					return HttpResponse.json({
+						data: [
+							{
+								id: 1,
+								documentId: "abc123def456",
+								title: "Test Content",
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								pageSize: 100,
+								pageCount: 1,
+								total: 1,
+							},
+						},
+					});
+				}),
+			);
+
+			const source = await strapiSource({
+				id: "test-strapi",
+				baseUrl: "http://localhost:1337",
+				identifier: "test@example.com",
+				password: "password",
+				queries: ["test-content"],
+			});
+
+			const result = source.fetch(createFetchContext());
+			const data = (await result[0]!.data.next()).value;
+
+			expect(data).toMatchInlineSnapshot(`
+				[
+				  {
+				    "documentId": "abc123def456",
+				    "id": 1,
+				    "title": "Test Content",
+				  },
+				]
+			`);
+
+			expect((await result[0]!.data.next()).done).toBe(true);
+		});
+	});
+
 	describe("Strapi v3", () => {
 		it("should authenticate and fetch data successfully", async () => {
 			server.use(
@@ -294,7 +526,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 
 	it("should handle authentication errors", async () => {
 		server.use(
-			http.post("http://localhost:1337/auth/local", () => {
+			http.post("http://localhost:1337/api/auth/local", () => {
 				return new HttpResponse("Invalid credentials", { status: 401 });
 			}),
 		);
@@ -313,7 +545,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 
 	it("should handle API errors", async () => {
 		server.use(
-			http.post("http://localhost:1337/auth/local", () => {
+			http.post("http://localhost:1337/api/auth/local", () => {
 				return HttpResponse.json({ jwt: "test-token" });
 			}),
 			http.get("http://localhost:1337/api/test-content", () => {
@@ -340,7 +572,7 @@ describe.runIf(majorNodeVersion >= 20)("strapiSource", () => {
 		const ctx = createFetchContext();
 
 		server.use(
-			http.post("http://localhost:1337/auth/local", () => {
+			http.post("http://localhost:1337/api/auth/local", () => {
 				return HttpResponse.json({ jwt: "test-token" });
 			}),
 			http.get("http://localhost:1337/api/custom-content", async ({ request }) => {

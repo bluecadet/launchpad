@@ -34,8 +34,8 @@ const strapiSourceSchema = z
 		id: z
 			.string()
 			.describe("Required field to identify this source. Will be used as download path."),
-		/** Strapi version. Defaults to `3`. */
-		version: z.enum(["3", "4"]).describe("Strapi version").default("3"),
+		/** Strapi version. Defaults to `5`. */
+		version: z.enum(["3", "4", "5"]).describe("Strapi version").default("5"),
 		/** The base url of your Strapi CMS (with or without trailing slash). */
 		baseUrl: z
 			.string()
@@ -186,6 +186,11 @@ class StrapiV4 extends StrapiVersionUtils {
 	}
 }
 
+// Strapi v5's REST API is identical to v4's for the purposes of this source:
+// pagination params/response shape are unchanged, and entries are passed through
+// as opaque `unknown[]` so v5's removal of the `attributes` nesting requires no code change.
+class StrapiV5 extends StrapiV4 {}
+
 class StrapiV3 extends StrapiVersionUtils {
 	override buildUrl(query: StrapiObjectQuery, pagination?: StrapiPagination): string {
 		const url = new URL(`/api/${query.contentType}`, this.config.baseUrl);
@@ -227,7 +232,9 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 		return assembledOptions.token;
 	}
 
-	const url = new URL("/auth/local", assembledOptions.baseUrl);
+	// v3 exposes login at `/auth/local`; v4 and v5 nest it under `/api`.
+	const authPath = assembledOptions.version === "3" ? "/auth/local" : "/api/auth/local";
+	const url = new URL(authPath, assembledOptions.baseUrl);
 	const response = await ky.post<{ jwt: string }>(url.toString(), {
 		json: { identifier: assembledOptions.identifier, password: assembledOptions.password },
 	});
@@ -246,19 +253,17 @@ export default async function strapiSource(options: z.input<typeof strapiSourceS
 
 	const assembledOptions = strapiSourceSchema.parse(options);
 
-	if (assembledOptions.version !== "4" && assembledOptions.version !== "3") {
-		throw new Error(`Unsupported strapi version '${assembledOptions.version}'`);
-	}
-
 	const token = await getToken(assembledOptions);
 
 	return defineSource({
 		id: assembledOptions.id,
 		fetch: (ctx) => {
 			const versionUtils: StrapiVersionUtils =
-				assembledOptions.version === "4"
-					? new StrapiV4(assembledOptions, ctx.logger)
-					: new StrapiV3(assembledOptions, ctx.logger);
+				assembledOptions.version === "5"
+					? new StrapiV5(assembledOptions, ctx.logger)
+					: assembledOptions.version === "4"
+						? new StrapiV4(assembledOptions, ctx.logger)
+						: new StrapiV3(assembledOptions, ctx.logger);
 
 			return assembledOptions.queries.map((query) => {
 				let parsedQuery: StrapiObjectQuery;

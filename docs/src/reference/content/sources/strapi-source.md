@@ -1,6 +1,6 @@
 # Strapi Content Source
 
-The `strapiSource` content source is used to fetch data from Strapi CMS. It supports both Strapi v3 and v4, with automatic pagination and customizable query parameters.
+The `strapiSource` content source is used to fetch data from Strapi CMS. It supports Strapi v3, v4, and v5, with automatic pagination and customizable query parameters.
 
 ## Usage
 
@@ -15,7 +15,6 @@ export default defineConfig({
       sources: [
         strapiSource({
           id: 'myStrapiSource',
-          version: '4',
           baseUrl: 'http://localhost:1337',
           identifier: 'admin@example.com',
           password: 'your-password',
@@ -38,10 +37,10 @@ Specifies the unique identifier for this source. This will be used as the downlo
 
 ### `version`
 
-- **Type:** `"3" | "4"`
-- **Default:** `"3"`
+- **Type:** `"3" | "4" | "5"`
+- **Default:** `"5"`
 
-Specifies the Strapi version. Supports either version 3 or 4.
+Specifies the Strapi version. Supports version 3, 4, or 5. Strapi v5 flattens entry attributes to the top level of each entry (alongside a `documentId`), rather than nesting them under `attributes` as v4 does; this source passes v5 entries through as-is. If you're on an older Strapi instance, set this explicitly to `"3"` or `"4"`.
 
 ### `baseUrl`
 

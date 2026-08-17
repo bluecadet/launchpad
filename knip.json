@@ -9,9 +9,7 @@
     },
     "docs": {
       "entry": [
-        "src/components/*.vue",
-        "src/components/*.data.ts",
-        "src/recipes/*-examples/*.ts"
+        "recipes/*-examples/*.ts"
       ]
     },
     "packages/content": {

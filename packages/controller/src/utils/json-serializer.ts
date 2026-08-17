@@ -7,7 +7,7 @@
  * functions, symbols) or would throw on (circular references). Unlike
  * `IPCSerializer`, the output is plain JSON with no reviver: it is not
  * designed to round-trip back into the original value. See
- * docs/src/reference/controller/transports.md for the documented lossiness
+ * docs/reference/controller/transports.md for the documented lossiness
  * contract.
  */
 

@@ -148,6 +148,6 @@ dist
 # generated .d.ts files
 types
 
-# vitepress
-docs/**/cache
-docs/**/dist
+# docs site build output and tsc output for the recipe examples
+docs/dist
+docs/.tsbuild

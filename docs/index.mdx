@@ -1,0 +1,140 @@
+---
+title: "A toolkit for next generation media experiences."
+description: Launchpad ensures stability, reduces installation time, and allows teams to focus on innovation rather than troubleshooting.
+---
+
+import {
+  Features, Feature,
+  GlyphList, GlyphItem,
+  CtaCards, CtaCard,
+  ClosingCta,
+  Hero, HeroEyebrows, HeroEyebrow, HeroInstall, HeroNotes, HeroNote,
+  GeneralBand,
+  LandingBlockQuote,
+  OtherToolItem,
+  OtherTools
+} from "@bluecadet/docs/components";
+
+<Hero
+  lead="Launchpad ensures stability, reduces installation time, and allows teams to focus on innovation rather than troubleshooting."
+>
+  <Fragment slot="title">A toolkit for <em>next generation</em> media experiences.</Fragment>
+  <HeroEyebrows>
+    <HeroEyebrow tone="state">unattended operation</HeroEyebrow>
+    <HeroEyebrow tone="attention">node 23+</HeroEyebrow>
+    <HeroEyebrow>isc licensed</HeroEyebrow>
+  </HeroEyebrows>
+  <HeroInstall>npm install @bluecadet/launchpad</HeroInstall>
+  <HeroNotes>
+    <HeroNote>↖ one package to install. nothing else to stand up.</HeroNote>
+  </HeroNotes>
+</Hero>
+
+<Features>
+  <Feature title="Content lands before doors open">
+    Sources pull from Airtable, Contentful, Sanity, Strapi, or any JSON endpoint, and
+    transforms download and resize media on the way in. New content stages into its own
+    version and only goes live once the whole fetch succeeds, so the worst case for a
+    failed sync is yesterday's content, not a half-updated screen.
+  </Feature>
+  <Feature title="Apps come back without you">
+    Launchpad launches whatever your installation runs, watches it, and restarts what
+    dies. Window placement and launch order live in the same config, so a machine that
+    reboots comes back arranged the way you left it.
+  </Feature>
+  <Feature title="Every piece is a plugin">
+    Sources, transforms, monitor backends, and observability transports are swappable
+    pieces, not fixed choices. Reach for Sanity or Grafana Loki out of the box, or
+    implement the same interface yourself when they don't fit — no fork required.
+  </Feature>
+</Features>
+
+<GeneralBand eyebrow="why it exists">
+  ## Built to run <em>unattended</em>
+
+  Interactive installations fail in boring ways. The overnight content sync never lands,
+  so a screen shows last month's labels. An app crashes at 6am, and the first person to
+  notice is a visitor. Launchpad exists to make both survivable without a person on site.
+
+  It does three things: pulls content out of the CMS you already run, launches your apps
+  and restarts the ones that die, and forwards a record of all of it somewhere you'll
+  actually see. That's the whole scope. It doesn't author your content and it doesn't
+  build your app; it keeps the thing you built running after everyone goes home.
+</GeneralBand>
+
+
+<GlyphList
+  title="Key features"
+  accent="features"
+  intro="What Launchpad handles out of the box."
+>
+  <Fragment slot="title">
+    Launchpad's <em>Key Features</em>
+  </Fragment>
+  <GlyphItem glyph="✓" lead="Run multiple apps simultaneously.">
+    Control over launch sequence and window order for more complex exhibit setups.
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Graceful handling of app failures.">
+    Apps that exit or crash are restarted automatically.
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Content syncing across platforms.">
+    Pulls from Sanity, Strapi, Contentful, Airtable, and generic JSON endpoints
+    (WordPress, Drupal, REST APIs).
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Local content caching.">
+    Content is stored locally to ride out network outages, with rollback handling so a
+    failed sync doesn't disrupt what's already on screen.
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Content processing support.">
+    Text transformations like markdown to HTML, plus image resizing, filtering, and
+    cropping on the way in.
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Logs forwarded off the machine.">
+    Every restart, failed fetch, and log line can go to Grafana Loki or any transport
+    you implement.
+  </GlyphItem>
+  <GlyphItem glyph="✓" lead="Built on a plugin interface.">
+    Sources, transforms, monitor backends, and observability transports all implement
+    the same interface as the built-ins, so swapping one in touches config, not core.
+  </GlyphItem>
+</GlyphList>
+
+<CtaCards>
+  <CtaCard label="guides" title="Getting started" href="guides/getting-started/">
+    Scaffold a project with `npm create @bluecadet/launchpad`, then install and run it.
+  </CtaCard>
+  <CtaCard label="guides" title="Fetching content" href="guides/fetching-content/">
+    Wire up a source, add transforms, and understand what happens when a fetch fails.
+  </CtaCard>
+  <CtaCard label="reference" title="CLI commands" href="reference/cli/commands/">
+    `start`, `stop`, `status`, and the plugin commands your config adds to them.
+  </CtaCard>
+  <CtaCard label="recipes" title="Live content refresh" href="recipes/live-content-refresh/">
+    Let a running app pick up new content without a restart, over IPC or HTTP.
+  </CtaCard>
+</CtaCards>
+
+<GeneralBand eyebrow="from the team">
+  <LandingBlockQuote name="Adiel Fernandez" title="Tech Director, Bluecadet">
+    We developed Launchpad to address challenges we frequently see in Bluecadet's exhibit projects, which include content-heavy experiences, native apps, and long-term deployments across large fleets of computers.
+  </LandingBlockQuote>
+</GeneralBand>
+
+<OtherTools title="More tools from Bluecadet" subtitle="Other open source tools built for exhibit and installation work.">
+  <OtherToolItem
+    title="Preflight"
+    subtitle="Windows Bootstrapping"
+    url="https://preflight.bluecadet.com"
+    description="Windows-first configuration management CLI for managed endpoints such as kiosks, signage, exhibit PCs, and other dedicated systems."
+  />
+  <OtherToolItem
+    title="Unity Packages"
+    subtitle="Installation Utilities"
+    url="https://unity.bluecadet.com"
+    description="Open source Unity packages for interactive installations: GPU-compressed HAP video, physics-based UI animation, multi-touch input, a client for Launchpad's staged content sync, and more."
+  />
+</OtherTools>
+
+<ClosingCta>
+  <Fragment slot="title">Start with the guides.</Fragment>
+</ClosingCta>

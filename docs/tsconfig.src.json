@@ -2,10 +2,14 @@
 	"extends": "@bluecadet/launchpad-tsconfig/base.json",
 	"compilerOptions": {
 		"composite": true,
-		"outDir": "./dist",
+		// The docs site builds to ./dist, and Astro clears that directory on every build, so
+		// tsc's output has to live somewhere else.
+		"rootDir": ".",
+		"outDir": "./.tsbuild",
+		"tsBuildInfoFile": "./.tsbuild/tsconfig.src.tsbuildinfo",
 		// The recipes include browser-side consumers (e.g. EventSource usage),
 		// so these examples typecheck against DOM globals as well as Node's.
 		"lib": ["es2025", "dom"]
 	},
-	"include": ["src/recipes/live-content-refresh-examples/**/*.ts"]
+	"include": ["recipes/live-content-refresh-examples/**/*.ts"]
 }

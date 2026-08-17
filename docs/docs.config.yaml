@@ -1,0 +1,161 @@
+title: Launchpad
+repoUrl: https://github.com/bluecadet/launchpad
+glyph: "▲"
+
+# Published as a GitHub Pages project site, so every route sits under /launchpad/.
+site: https://launchpad.bluecadet.com
+
+landing: index.mdx
+
+content:
+  - base: "."
+    files: "**/*.{md,mdx}"
+
+header:
+  links:
+    - label: github
+      href: https://github.com/bluecadet/launchpad
+    - label: bluecadet
+      href: https://bluecadet.com
+
+footer:
+  groups:
+    - title: Docs
+      # Footer hrefs are used verbatim — they are not base-prefixed like links inside
+      # markdown, so /launchpad/ is written out here.
+      links:
+        - label: getting started
+          href: /launchpad/guides/getting-started/
+        - label: recipes
+          href: /launchpad/recipes/custom-plugin/
+        - label: reference
+          href: /launchpad/reference/cli/
+    - title: Project
+      links:
+        - label: github
+          href: https://github.com/bluecadet/launchpad
+        - label: releases
+          href: https://github.com/bluecadet/launchpad/releases
+        - label: issues
+          href: https://github.com/bluecadet/launchpad/issues
+        - label: contributing
+          href: https://github.com/bluecadet/launchpad/blob/main/CONTRIBUTING.md
+    - title: Bluecadet
+      links:
+        - label: bluecadet.com
+          href: https://bluecadet.com
+          note: bluecadet.com
+        - label: preflight
+          href: https://preflight.bluecadet.com
+          note: preflight.bluecadet.com
+        - label: unity packages
+          href: https://unity.bluecadet.com
+          note: unity.bluecadet.com
+  meta: ISC licensed · © 2026 Bluecadet
+
+sidebarMeta: |
+  ISC licensed
+  made by Bluecadet
+
+toc:
+  # `{path}` is the page's source path relative to THIS file's directory, so the docs/ segment
+  # is written into the template.
+  editLink: "https://github.com/bluecadet/launchpad/edit/main/docs/{path}"
+
+sidebar:
+  - label: Guides
+    items:
+      - guides/getting-started
+      - guides/creating-a-project
+      - guides/packages
+      - guides/fetching-content
+      - guides/downloading-media
+      - guides/running-applications
+
+  - label: Recipes
+    items:
+      - recipes/custom-content-source
+      - recipes/custom-content-transform
+      - recipes/transforming-sanity-images
+      - recipes/static-web-monitor
+      - recipes/custom-plugin
+      - recipes/live-content-refresh
+
+  - label: Reference
+    items:
+      - label: CLI
+        link: reference/cli
+        items:
+          - reference/cli/env
+          - reference/cli/config-loading
+          - reference/cli/commands
+
+      - label: Content
+        link: reference/content
+        items:
+          - reference/content/content-config
+          - reference/content/versioning
+          - reference/content/version-manifest
+          - reference/content/refetch-checker
+          - reference/content/events
+          - reference/content/data-store
+          - label: Sources
+            link: reference/content/sources
+            items:
+              - label: Airtable
+                link: reference/content/sources/airtable-source
+              - label: Contentful
+                link: reference/content/sources/contentful-source
+              - label: JSON
+                link: reference/content/sources/json-source
+              - label: Sanity
+                link: reference/content/sources/sanity-source
+              - label: Strapi
+                link: reference/content/sources/strapi-source
+          - label: Transforms
+            link: reference/content/transforms
+            items:
+              - label: mdToHtml
+                link: reference/content/transforms/md-to-html
+              - label: sanityToHtml
+                link: reference/content/transforms/sanity-to-html
+              - label: sanityToPlain
+                link: reference/content/transforms/sanity-to-plain
+              - label: sanityToMarkdown
+                link: reference/content/transforms/sanity-to-markdown
+              - label: sanityImageUrlTransform
+                link: reference/content/transforms/sanity-image-url-transform
+              - label: mediaDownloader
+                link: reference/content/transforms/media-downloader
+              - label: Sharp
+                link: reference/content/transforms/sharp
+              - label: symlink
+                link: reference/content/transforms/symlink
+
+      - label: Monitor
+        link: reference/monitor
+        items:
+          - reference/monitor/monitor-config
+          - reference/monitor/events
+          - reference/monitor/plugins
+
+      - label: Observability
+        link: reference/observability
+        items:
+          - reference/observability/observability-config
+          - reference/observability/events
+          - label: Transports
+            items:
+              - reference/observability/transports/loki
+
+      - label: Scheduler
+        link: reference/scheduler
+        items:
+          - reference/scheduler/scheduler-config
+          - reference/scheduler/commands
+
+      - label: Controller
+        link: reference/controller
+        items:
+          - reference/controller/events
+          - reference/controller/transports

@@ -1,6 +1,6 @@
 title: Launchpad
 repoUrl: https://github.com/bluecadet/launchpad
-glyph: "▲"
+favicon: favicon.svg
 
 # Published as a GitHub Pages project site, so every route sits under /launchpad/.
 site: https://launchpad.bluecadet.com
@@ -10,6 +10,8 @@ landing: index.mdx
 content:
   - base: "."
     files: "**/*.{md,mdx}"
+    assets: 
+      - "*.svg"
 
 header:
   links:

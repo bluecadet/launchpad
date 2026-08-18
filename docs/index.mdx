@@ -8,11 +8,12 @@ import {
   GlyphList, GlyphItem,
   CtaCards, CtaCard,
   ClosingCta,
-  Hero, HeroEyebrows, HeroEyebrow, HeroInstall, HeroNotes, HeroNote,
+  Hero, HeroEyebrows, HeroEyebrow, HeroInstall, HeroNotes, HeroNote, HeroActions,
   GeneralBand,
   LandingBlockQuote,
   OtherToolItem,
-  OtherTools
+  OtherTools,
+  Button
 } from "@bluecadet/docs/components";
 
 <Hero
@@ -24,7 +25,10 @@ import {
     <HeroEyebrow tone="attention">node 23+</HeroEyebrow>
     <HeroEyebrow>isc licensed</HeroEyebrow>
   </HeroEyebrows>
-  <HeroInstall>npm install @bluecadet/launchpad</HeroInstall>
+  <HeroActions>
+    <HeroInstall>npm create @bluecadet/launchpad</HeroInstall>
+    <Button href="/guides/getting-started/" variant="ghost">Get Started →</Button>
+  </HeroActions>
   <HeroNotes>
     <HeroNote>↖ one package to install. nothing else to stand up.</HeroNote>
   </HeroNotes>

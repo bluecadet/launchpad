@@ -110,6 +110,8 @@ These events are emitted when a named workflow runs.
 - `workflow:success` - Workflow completes successfully
 - `workflow:error` - Workflow fails
 
+These are live-only: a client that isn't connected when they fire cannot replay them. The durable record of a run — per-step statuses, durations, and the failure message — is in the `plugins.workflows` state slice. See [Workflows](./workflows.md#run-outcomes-in-state).
+
 Common workflow payload fields include:
 
 ```typescript

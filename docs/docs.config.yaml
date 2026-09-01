@@ -160,6 +160,7 @@ sidebar:
         link: reference/controller
         items:
           - reference/controller/controller-config
+          - reference/controller/workflows
           - reference/controller/events
           - reference/controller/transports
           - reference/controller/security

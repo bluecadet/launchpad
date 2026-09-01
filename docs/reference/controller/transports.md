@@ -32,7 +32,7 @@ In task mode (one-shot CLI invocations) the plugin is inert and never binds a po
 | --- | --- | --- | --- |
 | `port` | `number` | `8710` | Port to listen on. `0` picks a random free port (useful in tests). |
 | `host` | `string` | `"127.0.0.1"` | Host/interface to bind. |
-| `allowedCommands` | `string[]` | `["content.ack", "content.manifest.read"]` | Command types accepted by `POST /command`. Anything else is rejected with `403`. Entries are prefix globs, matched like `events`. |
+| `allowedCommands` | `string[]` | `["content.ack", "content.manifest.read"]` | Command types accepted by `POST /command`. Anything else is rejected with `403`. Entries are prefix globs, matched like `events`. A docent tablet that triggers Node-local recipes wants `["workflow.run", "workflow.list"]` here. |
 | `events` | `string[]` | `["content:*"]` | Event names forwarded to SSE clients. An entry ending in `*` prefix-matches everything before it; the single entry `*` matches all events; any other entry is an exact match. |
 | `replayEvents` | `string[]` | `["content:version:promoted"]` | Event names eligible for replay-on-connect. For each listed name, the transport remembers that event's last emitted frame and replays it to newly-connected clients; an event must also pass the `events` filter to be replayed. |
 | `keepAliveMs` | `number` | `15000` | Interval between `: ping` SSE comment lines, keeping idle connections (and intermediate proxies) alive. |
@@ -177,6 +177,17 @@ curl -X POST http://127.0.0.1:8710/command \
   -d '{"type":"content.manifest.read"}'
 ```
 
+With `allowedCommands: ["workflow.run", "workflow.list"]` and a token role of `["workflow.*"]`, the same endpoint runs a config-declared recipe by name and answers with its run record:
+
+```bash
+curl -X POST http://127.0.0.1:8710/command \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $LAUNCHPAD_TOKEN_DOCENT" \
+  -d '{"type":"workflow.run","name":"tour-mode"}'
+```
+
+See [Workflows](./workflows.md#running-a-workflow-remotely).
+
 ### `GET /status`
 
 Returns the same display-oriented status snapshot as `launchpad status`, as JSON. The `header` block identifies the Node that produced it:
@@ -245,7 +256,7 @@ Loopback HTTP is not equivalent to the IPC transport's Unix socket. A Unix socke
 This is why the transport is deliberately conservative:
 
 - **Tokens.** With `auth.tokens` configured, every route needs one, and each token's role narrows which commands it can dispatch. Binding a non-loopback `host` without tokens is a setup error.
-- **Command allowlist.** Only `allowedCommands` can be dispatched; everything else is `403`. There is no way to widen this from the wire — only from config.
+- **Command allowlist.** Only `allowedCommands` can be dispatched; everything else is `403`. There is no way to widen this from the wire — only from config. Allowlisting `workflow.run` grants exactly the recipes declared in this Node's config: it takes a workflow name, never inline steps, so a client cannot compose a command sequence of its own.
 - **No shutdown route.** Unlike the IPC transport, there is no way to stop the controller over HTTP.
 - **`/state` is opt-in.** Full global state can contain more than a browser page should be able to read passively; it is `404` unless `exposeState: true`.
 - **State push inherits that decision.** `pushStatePatches` requires `exposeState` and is off by default. Enabling it puts every plugin's state slice on the wire to every authenticated client, whatever its token role.

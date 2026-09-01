@@ -52,7 +52,7 @@ interface PluginContext<TState = unknown> {
 
 ### Explicit Command Registration
 
-Plugins that handle commands must declare them in `manifest.commands` and implement `executeCommand()`:
+Plugins that handle commands must declare them in `manifest.commands` and implement `executeCommand()`. The controller registers two of its own this way — `workflow.run` and `workflow.list` — so those ids, the plugin name `workflows`, and the state key `plugins.workflows` are reserved.
 
 ```typescript
 interface CommandExecutor<TCommand> {
@@ -92,26 +92,7 @@ export default defineConfig({
 });
 ```
 
-The controller exposes `setWorkflows()` and `runWorkflow()` so every host can run the same named workflow sequence. `LaunchpadController.stop()` automatically runs the `stop` workflow before plugin disconnects.
-
-#### Step failure handling
-
-Workflows run every step **best-effort**. If a step fails, the controller records the error, emits `workflow:step:error`, and continues with the remaining steps. After all steps run, the workflow reports an aggregated failure (`workflow:error`) if any step errored.
-
-This means a failed `content.fetch` no longer prevents `monitor.start` from launching apps — content fetching stages its output before promoting it, so the previously-published content remains on disk and the monitor runs against the last good content.
-
-`launchpad start` treats the aggregated failure the same way: it logs the errors and keeps the controller running, so a failed workflow step never takes down apps that started successfully.
-
-To make a step fatal — halting the workflow and skipping the remaining steps when it fails — wrap it in an object with `stopOnError`:
-
-```typescript
-export default defineConfig({
-  workflows: {
-    // 'publish' is skipped if 'build' fails
-    deploy: [{ step: 'build', stopOnError: true }, 'publish'],
-  },
-});
-```
+The controller exposes `setWorkflows()` and `runWorkflow()` so every host can run the same named workflow sequence. `LaunchpadController.stop()` automatically runs the `stop` workflow before plugin disconnects. Steps run best-effort by default, a remote client can trigger a workflow by name, and each run's outcome is recorded in state — see [Workflows](./workflows.md).
 
 ### State Management
 

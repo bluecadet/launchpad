@@ -1,8 +1,15 @@
-import type { Row, Section, StatusSnapshot, Tone } from "@bluecadet/launchpad-utils/types";
+import type {
+	NodeIdentity,
+	Row,
+	Section,
+	StatusSnapshot,
+	Tone,
+} from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 
 export function formatSnapshot(snapshot: StatusSnapshot): string {
 	let output = `${chalk.bold("Launchpad Status:")}\n`;
+	output += `  Node: ${formatNode(snapshot.header.node)}\n`;
 	output += `  Uptime: ${formatUptime(snapshot.header.uptimeMs)}\n`;
 
 	for (const section of snapshot.sections) {
@@ -11,6 +18,11 @@ export function formatSnapshot(snapshot: StatusSnapshot): string {
 	}
 
 	return output;
+}
+
+function formatNode(node: NodeIdentity): string {
+	const name = node.label === node.id ? node.id : `${node.label} (${node.id})`;
+	return node.role ? `${name} · ${node.role}` : name;
 }
 
 function formatSection(section: Section): string {

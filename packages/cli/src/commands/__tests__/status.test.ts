@@ -29,6 +29,32 @@ describe("formatSnapshot", () => {
 		expect(output).toContain(chalk.bold("Launchpad Status:"));
 	});
 
+	it("header includes the node label and, when different, the id in parentheses", () => {
+		const output = formatSnapshot(makeSnapshot());
+		expect(output).toContain("Node: Test Node (test-node)");
+	});
+
+	it("header prints the id once when the label matches it", () => {
+		const output = formatSnapshot(
+			makeSnapshot({ header: makeHeader({ node: { id: "kiosk-1", label: "kiosk-1" } }) }),
+		);
+		expect(output).toContain("Node: kiosk-1\n");
+	});
+
+	it("header appends the node role when one is set", () => {
+		const output = formatSnapshot(
+			makeSnapshot({
+				header: makeHeader({ node: { id: "kiosk-1", label: "Kiosk 1", role: "exhibit" } }),
+			}),
+		);
+		expect(output).toContain("Node: Kiosk 1 (kiosk-1) · exhibit");
+	});
+
+	it("header omits the role separator when no role is set", () => {
+		const output = formatSnapshot(makeSnapshot());
+		expect(output).not.toContain("·");
+	});
+
 	it("header includes uptime formatted from uptimeMs", () => {
 		const output = formatSnapshot(
 			makeSnapshot({
@@ -71,7 +97,7 @@ describe("formatSnapshot", () => {
 		const output = formatSnapshot(makeSnapshot({ sections: [] }));
 		// Only header lines present
 		const lines = output.split("\n").filter((l) => l.trim().length > 0);
-		expect(lines).toHaveLength(2); // "Launchpad Status:" and "  Uptime: …"
+		expect(lines).toHaveLength(3); // "Launchpad Status:", "  Node: …" and "  Uptime: …"
 	});
 
 	it("sections appear in array order", () => {

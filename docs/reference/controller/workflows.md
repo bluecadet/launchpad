@@ -131,13 +131,13 @@ The contract:
 - **`error` is a message string**, never an error object, a stack, or a `cause` chain.
 - **Steps record command ids only** — never a step's params, never its return value. A step can dispatch a command whose result carries data that has no business in `/state` or on an SSE stream, so none of it is recorded.
 - **A step's `command` is the id as written in config.** If a step names a command alias, the record keeps the alias rather than the canonical id.
-- Every field is a JSON primitive, string, or array of the same, so the slice survives the [JSON projection](./transports.md#limitations) that `GET /state` and pushed state patches both use.
+- Every field is a JSON primitive, string, or array of the same, so the slice survives the [JSON projection](./wire-contract.md#serialization-and-lossiness) that `GET /state` and pushed state patches both use.
 
 ### Why state, not events
 
 Workflow progress is also on the event bus (`workflow:start`, `workflow:step:*`, `workflow:success`, `workflow:error`), but events are only visible to whoever is connected when they fire. A tablet that reconnects mid-tour cannot replay them.
 
-State is the recovery path. A client reads `plugins.workflows.runs['tour-mode']` — from `GET /state`, from `workflow.list`, or from an IPC state read — and learns how the run went regardless of when it connected. With `pushStatePatches` enabled, each step's completion also arrives as a `launchpad:state:patch` frame, so a connected client gets live per-step progress and a reconnecting one refetches. See [Controller Events](./events.md) and [State push](./transports.md#state-push).
+State is the recovery path. A client reads `plugins.workflows.runs['tour-mode']` — from `GET /state`, from `workflow.list`, or from an IPC state read — and learns how the run went regardless of when it connected. With `pushStatePatches` enabled, each step's completion also arrives as a `launchpad:state:patch` frame, so a connected client gets live per-step progress and a reconnecting one refetches. See [Controller Events](./events.md) and [State push frames](./wire-contract.md#state-push-frames).
 
 ## Status section
 

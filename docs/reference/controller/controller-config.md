@@ -44,7 +44,7 @@ File logging configuration for the daemon's own log output.
 
 Identity of this Node. A **Node** is one launchpad daemon and the machine it manages — the unit of addressing and identity in a connected exhibition.
 
-Pid-file liveness (`process.kill(pid, 0)`) only works on the machine itself. A tablet or show-control system talking to eight Nodes over the network has no equivalent, and without an identity it can only tell responses apart by IP address. The Node identity is carried in system state, in `launchpad status`, and in the [`GET /status`](./transports.md#get-status) snapshot header, so every response says which Node produced it.
+Pid-file liveness (`process.kill(pid, 0)`) only works on the machine itself. A tablet or show-control system talking to eight Nodes over the network has no equivalent, and without an identity it can only tell responses apart by IP address. The Node identity is carried in system state, in `launchpad status`, and in the [`GET /status`](./wire-contract.md#get-status) snapshot header, so every response says which Node produced it.
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |

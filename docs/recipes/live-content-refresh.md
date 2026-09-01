@@ -57,9 +57,9 @@ curl -X POST http://127.0.0.1:8710/command \
   -d '{"type":"content.ack","consumerId":"unity-kiosk","versionId":"20260714T153045Z"}'
 ```
 
-On connect, the stream [replays](../reference/controller/transports.md#replay-on-connect) the last frame of each event it has seen, so a page that opens long after the last promote still gets `content:version:promoted` immediately rather than waiting for the next one.
+On connect, the stream [replays](../reference/controller/wire-contract.md#replay-on-connect) the last frame of each event it has seen, so a page that opens long after the last promote still gets `content:version:promoted` immediately rather than waiting for the next one.
 
-As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh. Live frames carry a monotonic `id:`, so a client can also notice a gap the moment it happens and re-read the manifest instead of waiting for the next poll — see [Sequence numbers and gap detection](../reference/controller/transports.md#sequence-numbers-and-gap-detection). That counter runs across every forwarded frame, which is why the config above narrows `events` to the one event these consumers handle. Reconnecting does not resume the stream: `Last-Event-ID` is ignored, and the client rebaselines.
+As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh. Live frames carry a monotonic `id:`, so a client can also notice a gap the moment it happens and re-read the manifest instead of waiting for the next poll — see [Sequence numbers and reconnection](../reference/controller/wire-contract.md#sequence-numbers-and-reconnection). That counter runs across every forwarded frame, which is why the config above narrows `events` to the one event these consumers handle. Reconnecting does not resume the stream: `Last-Event-ID` is ignored, and the client rebaselines.
 
 ### C# (Unity/.NET)
 

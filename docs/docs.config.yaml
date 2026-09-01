@@ -166,4 +166,5 @@ sidebar:
           - reference/controller/workflows
           - reference/controller/events
           - reference/controller/transports
+          - reference/controller/wire-contract
           - reference/controller/security

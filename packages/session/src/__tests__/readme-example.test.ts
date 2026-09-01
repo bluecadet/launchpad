@@ -1,45 +1,36 @@
+import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { describe, expect, it } from "vitest";
-import { fakeVendor, unsealProfile } from "../index.js";
+import { fakeVendor, session } from "../index.js";
+import type { SessionCurrentResult } from "../session-commands.js";
 
 describe("README example", () => {
 	it("runs as written", async () => {
-		const opened: Array<[string, Record<string, unknown>]> = [];
-		const degraded: number[] = [];
-		const app = {
-			open: (language: string, profile: Record<string, unknown>) => {
-				opened.push([language, profile]);
-			},
-			degrade: () => {
-				degraded.push(1);
-			},
-		};
-
-		const vendor = fakeVendor({
-			visitors: {
-				"wristband-1": { visitorId: "v-ada", language: "es", profile: { displayName: "Ada" } },
-			},
+		// The config file's `plugins` entry, lifted out of `defineConfig`.
+		const plugin = session({
+			vendor: fakeVendor({
+				visitors: {
+					"wristband-1": { visitorId: "v-ada", language: "es", profile: { displayName: "Ada" } },
+				},
+			}),
+			idleTimeoutMs: 90_000,
 		});
 
-		async function openSession(credential: string): Promise<void> {
-			const resolved = await vendor.resolveCredential(credential);
-			if (resolved.isErr()) return app.degrade();
-			if (resolved.value === null) return;
+		const setup = await plugin.setup(createMockPluginCtx());
+		expect(setup).toBeOk();
+		if (setup.isErr()) return;
 
-			const profile = await vendor.fetchProfile(resolved.value);
-			if (profile.isErr()) return app.degrade();
-
-			app.open(profile.value.language ?? "en", unsealProfile(profile.value));
-		}
-
-		let pending = Promise.resolve();
-		vendor.subscribeTaps((tap) => {
-			pending = pending.then(() => openSession(tap.credential));
+		const tapped = await setup.value.executeCommand?.({
+			type: "session.tap.simulate",
+			credential: "wristband-1",
 		});
+		expect(tapped).toBeOk();
 
-		vendor.tap("wristband-1");
-		await pending;
+		const queried = await setup.value.executeCommand?.({ type: "session.current" });
+		expect(queried).toBeOk();
+		if (queried === undefined || queried.isErr()) return;
 
-		expect(opened).toEqual([["es", { displayName: "Ada" }]]);
-		expect(degraded).toEqual([]);
+		const result = queried.value as SessionCurrentResult;
+		expect(result.session).toMatchObject({ visitorId: "v-ada", language: "es", degraded: false });
+		expect(result.profile).toEqual({ displayName: "Ada" });
 	});
 });

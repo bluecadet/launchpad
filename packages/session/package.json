@@ -1,7 +1,7 @@
 {
   "name": "@bluecadet/launchpad-session",
   "version": "0.0.0",
-  "description": "Visitor session primitives for @bluecadet/launchpad — the VendorClient adapter contract and its fake",
+  "description": "Visitor sessions for @bluecadet/launchpad — the Station session broker plugin, the VendorClient adapter contract, and its fake",
   "type": "module",
   "files": [
     "dist/**/*.js",
@@ -11,6 +11,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./launchpad-session": {
+      "types": "./dist/launchpad-session.d.ts",
+      "default": "./dist/launchpad-session.js"
+    },
+    "./config": {
+      "types": "./dist/session-config.d.ts",
+      "default": "./dist/session-config.js"
     },
     "./vendors/fake": {
       "types": "./dist/vendors/fake.d.ts",

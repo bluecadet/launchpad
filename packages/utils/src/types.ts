@@ -4,6 +4,24 @@
 
 import type { LogEventPayload } from "./logger.js";
 
+declare const brand: unique symbol;
+
+/**
+ * Nominal ("branded") type. Wraps a structural type `T` with a compile-time-only
+ * tag so two values that are the same underneath cannot be swapped by accident.
+ *
+ * The tag exists only in the type system — a `Brand<string, "Foo">` is a plain
+ * string at runtime, with no wrapper object and no runtime cost.
+ *
+ * @example
+ * ```ts
+ * type SessionId = Brand<string, "SessionId">;
+ * type VisitorId = Brand<string, "VisitorId">;
+ * // a VisitorId no longer type-checks where a SessionId is expected
+ * ```
+ */
+export type Brand<T, K extends string> = T & { readonly [brand]: K };
+
 /**
  * Base event map with core log events.
  * Plugins extend this via declaration merging (deprecated) or by defining

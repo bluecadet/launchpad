@@ -30,7 +30,6 @@ A client pins itself to v1 by implementing exactly what's below. There is no neg
 - Changing a field's type or meaning (e.g. `steps[].error` changing from `string | null` to a structured object).
 - Changing the sequencing rules in [Sequence numbers and reconnection](#sequence-numbers-and-reconnection) or the `_version` rules in [State push frames](#state-push-frames) — a client's recovery logic depends on the exact semantics, not just the field names.
 - Changing the patch format in [`launchpad:state:patch`](#launchpadstatepatch) away from Immer patches, or changing what `path` segments mean.
-- Changing how a command's absent result serializes (see [the `result` omission gotcha](#the-result-omission-gotcha)).
 - Narrowing what a client is currently allowed to assume tolerantly (e.g. if fields were ever guaranteed to appear in a fixed order and that guarantee were revoked with no replacement).
 
 Additive changes ship in a minor release of `@bluecadet/launchpad-controller`; breaking changes ship in a major release and this page's contract version number moves to v2, with the two documented side by side for the deprecation window.
@@ -160,7 +159,7 @@ curl -X POST http://127.0.0.1:8710/command \
 
 | Status | Body | When |
 | --- | --- | --- |
-| `200` | `{"result": <value>}` | Command dispatched and resolved. See [the `result` omission gotcha](#the-result-omission-gotcha) for commands that resolve with nothing. |
+| `200` | `{"result": <value>}` | Command dispatched and resolved. `result` is always present, even for a command that resolves with nothing — see [the `result` presence guarantee](#the-result-presence-guarantee). |
 | `400` | `{"error":{"message":"Request body must be JSON with a string \"type\""}}` | Body isn't valid JSON, or has no string `type` field. |
 | `400` | `{"error":{"message":"Failed to read request body"}}` | The request stream errored while reading. |
 | `401` | `{"error":{"message":"Unauthorized"}}` | No valid token, when tokens are required. |
@@ -187,9 +186,11 @@ There is **no correlation id** anywhere in this protocol. A command's result is 
 
 Commands don't appear on the SSE stream *by default* — the default `events: ["content:*"]` doesn't forward them — but they aren't structurally excluded from it either. The controller emits `command:start` (carrying the full command, params included), `command:success` (carrying the full result), and `command:error` (carrying the full error) on the same event bus the HTTP transport listens to, and none of those three names start with the reserved `launchpad:` prefix. An operator who broadens `events` to `*` (or adds `command:*`) forwards every command's params, result, or error to **every connected client holding any valid token**, regardless of that token's role — a role only ever gates *dispatching* a command over `POST /command`, never *reading* the SSE stream (see [Authentication](#authentication)). Treat a broadened `events` filter as a real information-leak vector, not just a noisier stream.
 
-#### The `result` omission gotcha
+#### The `result` presence guarantee
 
-`JSON.stringify({ result: undefined })` produces `{}` — the `result` key is dropped entirely, not serialized as `"result": null`. Any command whose handler resolves with nothing (`content.ack` is one) returns a `200` response body of literally `{}`. A client model that requires a `result` key to always be present, even as `null`, will fail to deserialize a successful void command. Treat a missing `result` key on a `200` response as success-with-no-payload, not as a malformed response.
+A `200` response always has a `result` key, even when the command's handler resolves with nothing. `content.ack` is one such command: it succeeds by resolving `undefined`, and the transport normalizes that to `"result": null` on the wire, rather than dropping the key the way plain `JSON.stringify({ result: undefined })` would. A client can always deserialize `result` as present on `200` — never write code that treats a missing `result` key as a valid success case.
+
+One consequence worth knowing: this normalization means a command that legitimately resolves `null` and a command that resolves `undefined` (void) are indistinguishable on the wire — both are `"result": null`. That collapse is deliberate; if you need to tell "no result" apart from "resolved with null" for a specific command, that distinction has to live in the command's own result shape (e.g. wrapping it in `{ status: "ok" }` or similar), not in this transport-level guarantee.
 
 ### `GET /events`
 
@@ -273,7 +274,7 @@ Request:
 {"type":"content.ack","consumerId":"unity-player-1","versionId":"20260714T153045Z"}
 ```
 
-Response: `{}` — see [the `result` omission gotcha](#the-result-omission-gotcha). `consumerId` and `versionId` are both required, non-empty strings.
+Response: `{"result": null}` — the handler resolves with nothing; see [the `result` presence guarantee](#the-result-presence-guarantee). `consumerId` and `versionId` are both required, non-empty strings.
 
 ### `content.manifest.read`
 

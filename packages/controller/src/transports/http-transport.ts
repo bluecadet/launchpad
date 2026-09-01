@@ -13,6 +13,16 @@
  *   may silently miss events.
  * - A failed port bind (e.g. EADDRINUSE) is a hard setup failure with no
  *   auto-recovery.
+ * - Tokens are compared by plain map lookup, not a constant-time comparison;
+ *   the v1 posture is a trusted exhibition VLAN, not a hostile network.
+ * - Events are transport-global: every authenticated SSE client sees every
+ *   event that passes the `events` filter, regardless of its token role.
+ *
+ * Nothing here may put a token value into a log line, into state, or onto the
+ * wire. The transport keeps no state slice and has no `summarize()`, so
+ * `/status` and `/state` are structurally token-free; request targets are
+ * echoed only through `redactRequestTarget`, because `GET /events` accepts a
+ * token as a query parameter.
  */
 
 import http from "node:http";
@@ -30,6 +40,15 @@ import type { AllEvents } from "../all-events.js";
 import { TransportError } from "../errors.js";
 import { serializeJSON } from "../utils/json-serializer.js";
 import { type ClientHub, createClientHub } from "./client-hub.js";
+import {
+	type AuthOutcome,
+	type AuthRegistry,
+	httpAuthOptionsSchema,
+	isLoopbackHost,
+	redactRequestTarget,
+	resolveAuthRegistry,
+} from "./http-auth.js";
+import { createPatternMatcher } from "./pattern-matcher.js";
 import { closeServerAsResult, createShutdownGate, listenAsResult } from "./server-lifecycle.js";
 
 const MAX_COMMAND_BODY_BYTES = 64 * 1024;
@@ -39,7 +58,12 @@ const httpTransportOptionsSchema = z.object({
 	port: z.number().int().min(0).max(65535).default(8710),
 	/** Host/interface to bind. */
 	host: z.string().default("127.0.0.1"),
-	/** Command types accepted by `POST /command`. Anything else gets a 403. */
+	/**
+	 * Command types accepted by `POST /command`. Anything else gets a 403.
+	 * Entries are prefix globs, matched like `events`. When `auth.tokens` is
+	 * configured, the effective allowlist is this list intersected with the
+	 * presented token's role globs, so a role can only ever narrow access.
+	 */
 	allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
 	/**
 	 * Event names forwarded to SSE clients. An entry ending in `*` is a prefix
@@ -61,7 +85,31 @@ const httpTransportOptionsSchema = z.object({
 	maxClients: z.number().int().positive().default(32),
 	/** Expose the full global state at `GET /state`. Off by default. */
 	exposeState: z.boolean().default(false),
+	/**
+	 * Token authentication. Empty (the default) leaves the transport
+	 * unauthenticated, which is only defensible on loopback.
+	 */
+	auth: httpAuthOptionsSchema,
+	/**
+	 * Origins allowed to read responses cross-origin. `["*"]` (the default)
+	 * answers with `Access-Control-Allow-Origin: *`. Any other list echoes the
+	 * request's `Origin` when it matches and omits the header when it doesn't.
+	 */
+	allowedOrigins: z.array(z.string()).default(["*"]),
+	/**
+	 * Permit binding a non-loopback host with no tokens configured. Off by
+	 * default: an unauthenticated LAN-reachable command endpoint is a setup
+	 * error, not a warning.
+	 */
+	allowUnauthenticated: z.boolean().default(false),
 });
+
+export type {
+	AuthOutcome,
+	AuthPrincipal,
+	AuthRegistry,
+	HttpAuthOptions,
+} from "./http-auth.js";
 
 export type HttpTransportOptions = z.input<typeof httpTransportOptionsSchema>;
 
@@ -104,9 +152,64 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 			}
 			const resolvedOptions = parsedOptions.data;
 
+			// A role nothing points at is not a no-op: the operator wrote it
+			// believing it did something. Same class of mistake as the non-loopback
+			// guard below, so it gets the same treatment — a hard setup error, in
+			// task mode too, not a warning that is easy to miss.
+			if (
+				Object.keys(resolvedOptions.auth.tokens).length === 0 &&
+				Object.keys(resolvedOptions.auth.roles).length > 0
+			) {
+				return errAsync(
+					new TransportError(
+						"HTTP transport declares `auth.roles` with no `auth.tokens` configured: " +
+							"no token can ever present one of these roles, so the transport starts fully " +
+							"unauthenticated despite the role configuration. Configure `auth.tokens`, " +
+							"or remove `auth.roles`.",
+					),
+				);
+			}
+
+			// Resolved before the task-mode return so a broken auth config (a token
+			// naming an environment variable nobody set) fails a one-shot run too,
+			// rather than waiting for the first daemon start to surface it.
+			const authResult = resolveAuthRegistry(resolvedOptions.auth, process.env);
+			if (authResult.isErr()) {
+				return errAsync(authResult.error);
+			}
+			const auth = authResult.value;
+
+			if (
+				!auth.enabled &&
+				!resolvedOptions.allowUnauthenticated &&
+				!isLoopbackHost(resolvedOptions.host)
+			) {
+				return errAsync(
+					new TransportError(
+						`HTTP transport cannot bind non-loopback host "${resolvedOptions.host}" with no tokens configured: ` +
+							"any host on the network could dispatch allowlisted commands. Configure `auth.tokens`, " +
+							"or set `allowUnauthenticated: true` to accept that.",
+					),
+				);
+			}
+
 			if (ctx.mode === "task") {
 				ctx.logger.verbose("HTTP transport inactive in task mode");
 				return okAsync({ address: null });
+			}
+
+			// Token names are operator-authored labels, not secrets, so they are
+			// safe to log — and they are the only audit trail an operator gets.
+			if (auth.enabled) {
+				ctx.logger.info(
+					`HTTP transport auth enabled for ${auth.tokenNames.length} token(s): ${auth.tokenNames.join(", ")}`,
+				);
+			} else if (!isLoopbackHost(resolvedOptions.host)) {
+				ctx.logger.warn(
+					`HTTP transport is unauthenticated on non-loopback host "${resolvedOptions.host}"; any host that can reach the port can dispatch allowlisted commands`,
+				);
+			} else {
+				ctx.logger.verbose("HTTP transport is unauthenticated (loopback, no tokens configured)");
 			}
 
 			const clients = createSseClientHub(ctx.logger);
@@ -116,7 +219,7 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 			// the backlog reads as a chronologically coherent history.
 			const replayFrames = new Map<string, string>();
 			const replayableEvents = new Set<string>(resolvedOptions.replayEvents);
-			const passesEventFilter = createEventFilter(resolvedOptions.events);
+			const passesEventFilter = createPatternMatcher(resolvedOptions.events);
 
 			const handleBusEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
 				if (!passesEventFilter(event)) {
@@ -152,6 +255,8 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 				clients,
 				replayFrames,
 				isShuttingDown: gate.isShuttingDown,
+				auth,
+				isCommandAllowed: createPatternMatcher(resolvedOptions.allowedCommands),
 			};
 
 			return listenAsResult(
@@ -212,17 +317,10 @@ type RequestDeps = {
 	clients: SseClientHub;
 	replayFrames: ReadonlyMap<string, string>;
 	isShuttingDown: () => boolean;
+	auth: AuthRegistry;
+	/** Transport-wide `allowedCommands` gate, applied before any role gate. */
+	isCommandAllowed: (commandType: string) => boolean;
 };
-
-function createEventFilter(patterns: readonly string[]): (eventName: string) => boolean {
-	return (eventName) =>
-		patterns.some((pattern) => {
-			if (pattern.endsWith("*")) {
-				return eventName.startsWith(pattern.slice(0, -1));
-			}
-			return eventName === pattern;
-		});
-}
 
 /** A listening `http.Server` always has a TCP address; guard the type anyway. */
 function requireTcpAddress(server: http.Server): Result<AddressInfo, TransportError> {
@@ -240,19 +338,35 @@ type HttpResponseBody = { result: unknown } | { error: Error | { message: string
 
 type ReadPayload = StatusSnapshot | VersionedLaunchpadState;
 
+/**
+ * The order here is load-bearing:
+ *
+ * 1. A shutting-down transport answers 503 without doing auth work.
+ * 2. CORS preflights are answered before the auth gate — browsers never send
+ *    `Authorization` on an `OPTIONS`, so a 401 there breaks every browser
+ *    client before the real request is ever made.
+ * 3. The URL is parsed next, since authentication reads the query string.
+ * 4. Authentication gates the whole surface, before routing, so an anonymous
+ *    caller cannot enumerate routes by their status codes.
+ *
+ * Authorization (token role globs) is a separate, later gate: it applies to
+ * `POST /command` only. Any valid token is therefore a full-read credential.
+ */
 function handleRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	deps: RequestDeps,
 ): void {
+	const cors = corsHeaders(req, deps.options);
+
 	if (deps.isShuttingDown()) {
-		sendJson(res, 503, { error: { message: "HTTP transport is shutting down" } });
+		sendJson(res, 503, { error: { message: "HTTP transport is shutting down" } }, cors);
 		return;
 	}
 
 	const method = req.method ?? "GET";
 	if (method === "OPTIONS") {
-		sendCorsPreflight(res);
+		sendCorsPreflight(res, cors);
 		return;
 	}
 
@@ -260,55 +374,139 @@ function handleRequest(
 	try {
 		url = new URL(req.url ?? "/", "http://local");
 	} catch {
-		sendJson(res, 400, { error: { message: `Invalid request target: ${req.url}` } });
+		// Redacted: `GET /events` accepts a token in the query string, and this
+		// is the one branch that echoes a raw request target back to the client.
+		sendJson(
+			res,
+			400,
+			{ error: { message: `Invalid request target: ${redactRequestTarget(req.url)}` } },
+			cors,
+		);
+		return;
+	}
+
+	const isEventStream = method === "GET" && url.pathname === "/events";
+	const outcome = deps.auth.authenticate(req, url, isEventStream);
+	logAuthOutcome(deps.ctx.logger, method, url.pathname, outcome);
+	if (outcome.status === "unauthenticated") {
+		sendUnauthorized(res, cors);
 		return;
 	}
 
 	switch (`${method} ${url.pathname}`) {
 		case "GET /events":
-			handleEventStream(req, res, deps);
+			handleEventStream(req, res, deps, cors);
 			return;
 		case "POST /command":
-			void handleCommandRequest(req, res, deps);
+			void handleCommandRequest(req, res, deps, cors, outcome);
 			return;
 		case "GET /status":
-			sendJson(res, 200, deps.ctx.getStatusSnapshot());
+			sendJson(res, 200, deps.ctx.getStatusSnapshot(), cors);
 			return;
 		case "GET /state":
-			handleStateRequest(res, deps);
+			handleStateRequest(res, deps, cors);
 			return;
 		default:
-			sendJson(res, 404, { error: { message: `Not found: ${method} ${url.pathname}` } });
+			sendJson(res, 404, { error: { message: `Not found: ${method} ${url.pathname}` } }, cors);
 	}
 }
 
-function sendCorsPreflight(res: http.ServerResponse): void {
+/**
+ * Log an authentication outcome — the audit trail the token *name* exists
+ * for. Never fed a token value: `AuthOutcome` structurally cannot carry one.
+ *
+ * An `anonymous` outcome (no tokens configured at all) is not logged: it is
+ * the default, unauthenticated posture, not an event, and logging it would
+ * put a line in the log for every single request to an open transport.
+ *
+ * Level split is deliberate: a success is routine and, on `POST /command`,
+ * can be as hot as the caller wants — `debug` keeps that off `info` output
+ * by default. A rejection is security-relevant regardless of volume, so it
+ * stays at `warn`.
+ */
+function logAuthOutcome(
+	logger: PluginContext["logger"],
+	method: string,
+	pathname: string,
+	outcome: AuthOutcome,
+): void {
+	if (outcome.status === "authenticated") {
+		logger.debug(
+			`HTTP transport authenticated "${outcome.principal.tokenName}" (role "${outcome.principal.role}") for ${method} ${pathname}`,
+		);
+		return;
+	}
+	if (outcome.status === "unauthenticated") {
+		logger.warn(`HTTP transport rejected ${method} ${pathname}: missing or unknown token`);
+	}
+}
+
+type CorsHeaders = Record<string, string>;
+
+/**
+ * CORS is a browser-side control: omitting `Access-Control-Allow-Origin` stops
+ * a page from reading the response, but the request still ran and non-browser
+ * clients (Unity, curl) are unaffected. It is never a substitute for a token.
+ */
+function corsHeaders(
+	req: http.IncomingMessage,
+	options: ResolvedHttpTransportOptions,
+): CorsHeaders {
+	if (options.allowedOrigins.includes("*")) {
+		return { "Access-Control-Allow-Origin": "*" };
+	}
+	const origin = req.headers.origin;
+	if (origin !== undefined && options.allowedOrigins.includes(origin)) {
+		return { "Access-Control-Allow-Origin": origin, Vary: "Origin" };
+	}
+	return { Vary: "Origin" };
+}
+
+function sendCorsPreflight(res: http.ServerResponse, cors: CorsHeaders): void {
 	res.writeHead(204, {
-		"Access-Control-Allow-Origin": "*",
+		...cors,
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type",
+		"Access-Control-Allow-Headers": "Authorization, Content-Type",
 		"Access-Control-Max-Age": "86400",
 	});
 	res.end();
 }
 
-function sendJson(res: http.ServerResponse, statusCode: number, body: HttpResponseBody): void {
+/** 401 carries CORS headers so a browser reads the status instead of an opaque failure. */
+function sendUnauthorized(res: http.ServerResponse, cors: CorsHeaders): void {
+	if (res.headersSent) {
+		return;
+	}
+	res.writeHead(401, {
+		"Content-Type": "application/json",
+		"WWW-Authenticate": "Bearer",
+		...cors,
+	});
+	res.end(serializeJSON({ error: { message: "Unauthorized" } }));
+}
+
+function sendJson(
+	res: http.ServerResponse,
+	statusCode: number,
+	body: HttpResponseBody,
+	cors: CorsHeaders,
+): void {
 	if (res.headersSent) {
 		return;
 	}
 	res.writeHead(statusCode, {
 		"Content-Type": "application/json",
-		"Access-Control-Allow-Origin": "*",
+		...cors,
 	});
 	res.end(serializeJSON(body));
 }
 
-function handleStateRequest(res: http.ServerResponse, deps: RequestDeps): void {
+function handleStateRequest(res: http.ServerResponse, deps: RequestDeps, cors: CorsHeaders): void {
 	if (!deps.options.exposeState) {
-		sendJson(res, 404, { error: { message: "Not found: GET /state" } });
+		sendJson(res, 404, { error: { message: "Not found: GET /state" } }, cors);
 		return;
 	}
-	sendJson(res, 200, deps.ctx.getGlobalState());
+	sendJson(res, 200, deps.ctx.getGlobalState(), cors);
 }
 
 // ---- SSE stream ----
@@ -317,16 +515,17 @@ function handleEventStream(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	deps: RequestDeps,
+	cors: CorsHeaders,
 ): void {
 	if (deps.clients.size >= deps.options.maxClients) {
-		sendJson(res, 503, { error: { message: "Too many SSE clients" } });
+		sendJson(res, 503, { error: { message: "Too many SSE clients" } }, cors);
 		return;
 	}
 
 	res.writeHead(200, {
 		"Content-Type": "text/event-stream",
 		"Cache-Control": "no-store",
-		"Access-Control-Allow-Origin": "*",
+		...cors,
 	});
 	res.write("retry: 2000\n\n");
 
@@ -393,29 +592,55 @@ async function handleCommandRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	deps: RequestDeps,
+	cors: CorsHeaders,
+	outcome: AuthOutcome,
 ): Promise<void> {
 	const bodyRead = await readRequestBody(req, MAX_COMMAND_BODY_BYTES);
 	if (bodyRead.status === "too-large") {
-		sendJson(res, 413, { error: { message: "Request body exceeds 64KB limit" } });
+		sendJson(res, 413, { error: { message: "Request body exceeds 64KB limit" } }, cors);
 		return;
 	}
 	if (bodyRead.status === "error") {
-		sendJson(res, 400, { error: { message: "Failed to read request body" } });
+		sendJson(res, 400, { error: { message: "Failed to read request body" } }, cors);
 		return;
 	}
 
 	const command = parseCommandBody(bodyRead.body);
 	if (command === undefined) {
-		sendJson(res, 400, { error: { message: 'Request body must be JSON with a string "type"' } });
+		sendJson(
+			res,
+			400,
+			{ error: { message: 'Request body must be JSON with a string "type"' } },
+			cors,
+		);
 		return;
 	}
-	if (!deps.options.allowedCommands.includes(command.type)) {
-		sendJson(res, 403, { error: { message: `Command not allowed: ${command.type}` } });
+	// Two gates in order, and the transport-wide one runs first: role globs
+	// intersect with `allowedCommands`, so a misconfigured role can never grant
+	// more than the transport already offers.
+	if (!deps.isCommandAllowed(command.type)) {
+		sendJson(res, 403, { error: { message: `Command not allowed: ${command.type}` } }, cors);
+		return;
+	}
+	if (
+		outcome.status === "authenticated" &&
+		!deps.auth.isCommandAllowed(outcome.principal, command.type)
+	) {
+		sendJson(
+			res,
+			403,
+			{
+				error: {
+					message: `Command not permitted for role "${outcome.principal.role}": ${command.type}`,
+				},
+			},
+			cors,
+		);
 		return;
 	}
 
 	await deps.ctx.dispatchCommand(command).match(
-		(result) => sendJson(res, 200, { result }),
-		(error) => sendJson(res, 500, { error }),
+		(result) => sendJson(res, 200, { result }, cors),
+		(error) => sendJson(res, 500, { error }, cors),
 	);
 }

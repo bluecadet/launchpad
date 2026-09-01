@@ -3,6 +3,11 @@
  * Enables CLI commands to communicate with persistent controller.
  *
  * Wire format: newline-delimited devalue-serialized JSON-RPC 2.0 messages.
+ *
+ * Deliberately exempt from token auth and command allowlisting: the socket's
+ * access control is filesystem permissions on its path, which is the local
+ * trust boundary. Any command reachable over IPC — shutdown included — is
+ * reachable by any local process that can open the socket.
  */
 
 import fs from "node:fs";

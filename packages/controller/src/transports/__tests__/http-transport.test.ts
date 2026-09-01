@@ -153,6 +153,7 @@ afterEach(async () => {
 		await handle?.disconnect({ type: "manual" });
 	}
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("formatSseEvent", () => {
@@ -185,6 +186,53 @@ function sendRawRequest(port: number, rawRequest: string): Promise<string> {
 		socket.on("error", reject);
 		socket.on("close", () => resolve(received));
 	});
+}
+
+const DOCENT_TOKEN = "docent-token-value-0123456789";
+const KIOSK_TOKEN = "kiosk-token-value-0123456789";
+
+const AUTH_OPTIONS = {
+	roles: {
+		docent: ["content.*"],
+		kiosk: ["content.ack"],
+	},
+	tokens: {
+		"docent-tablet": { env: "LAUNCHPAD_TOKEN_DOCENT", role: "docent" },
+		"lobby-kiosk": { env: "LAUNCHPAD_TOKEN_KIOSK", role: "kiosk" },
+	},
+};
+
+/**
+ * `monitor.restart` is allowlisted transport-wide but sits outside both roles,
+ * so it exercises the `allowedCommands` ∩ role-globs intersection.
+ */
+const AUTHED_TRANSPORT = {
+	auth: AUTH_OPTIONS,
+	allowedCommands: ["content.ack", "content.manifest.read", "monitor.restart"],
+};
+
+/** The registry snapshots the environment at setup, so stub before starting. */
+function stubTokenEnv() {
+	vi.stubEnv("LAUNCHPAD_TOKEN_DOCENT", DOCENT_TOKEN);
+	vi.stubEnv("LAUNCHPAD_TOKEN_KIOSK", KIOSK_TOKEN);
+}
+
+function docentHeader() {
+	return { authorization: `Bearer ${DOCENT_TOKEN}` };
+}
+
+function kioskHeader() {
+	return { authorization: `Bearer ${KIOSK_TOKEN}` };
+}
+
+/** Flatten every argument the transport ever logged into one searchable string. */
+function collectLoggedText(logger: TestCtx["logger"]): string {
+	const mocks = [logger.debug, logger.info, logger.warn, logger.error, logger.verbose, logger.log];
+	return mocks
+		.flatMap((mock) => vi.mocked(mock).mock.calls)
+		.flat()
+		.map((argument) => JSON.stringify(argument))
+		.join(" ");
 }
 
 describe("http-transport", () => {
@@ -503,14 +551,62 @@ describe("http-transport", () => {
 
 			expect(response.status).toBe(204);
 			expect(response.headers.get("access-control-allow-methods")).toBe("GET, POST, OPTIONS");
-			expect(response.headers.get("access-control-allow-headers")).toBe("Content-Type");
+			expect(response.headers.get("access-control-allow-headers")).toBe(
+				"Authorization, Content-Type",
+			);
 			expect(response.headers.get("access-control-max-age")).toBe("86400");
 		});
 
-		it("sets Access-Control-Allow-Origin: * on every response", async () => {
+		it("sets Access-Control-Allow-Origin: * on every response by default", async () => {
 			const { baseUrl } = await trackedStart();
 
 			const response = await fetch(`${baseUrl}/status`);
+			expect(response.headers.get("access-control-allow-origin")).toBe("*");
+		});
+
+		it("echoes a listed origin and varies on Origin", async () => {
+			const { baseUrl } = await trackedStart({ allowedOrigins: ["http://tablet.local"] });
+
+			const response = await fetch(`${baseUrl}/status`, {
+				headers: { Origin: "http://tablet.local" },
+			});
+
+			expect(response.headers.get("access-control-allow-origin")).toBe("http://tablet.local");
+			expect(response.headers.get("vary")).toBe("Origin");
+		});
+
+		it("omits the allow-origin header for an unlisted origin but still serves the request", async () => {
+			const { baseUrl } = await trackedStart({ allowedOrigins: ["http://tablet.local"] });
+
+			const response = await fetch(`${baseUrl}/status`, {
+				headers: { Origin: "http://evil.local" },
+			});
+
+			// CORS is enforced by the browser, not by us: the request still ran.
+			expect(response.status).toBe(200);
+			expect(response.headers.get("access-control-allow-origin")).toBeNull();
+			expect(response.headers.get("vary")).toBe("Origin");
+		});
+
+		it("carries the configured origin on the SSE stream", async () => {
+			const { baseUrl } = await trackedStart({ allowedOrigins: ["http://tablet.local"] });
+
+			const response = await fetch(`${baseUrl}/events`, {
+				headers: { Origin: "http://tablet.local" },
+			});
+
+			expect(response.status).toBe(200);
+			expect(response.headers.get("access-control-allow-origin")).toBe("http://tablet.local");
+			await readSseFrames(response, 1);
+		});
+
+		it("carries CORS headers on a 401 so a browser can read the status", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart({ auth: AUTH_OPTIONS });
+
+			const response = await fetch(`${baseUrl}/status`);
+
+			expect(response.status).toBe(401);
 			expect(response.headers.get("access-control-allow-origin")).toBe("*");
 		});
 	});
@@ -581,6 +677,341 @@ describe("http-transport", () => {
 			} finally {
 				await new Promise<void>((resolve) => blocker.close(() => resolve()));
 			}
+		});
+	});
+
+	describe("auth", () => {
+		it("rejects an unauthenticated command without dispatching it", async () => {
+			stubTokenEnv();
+			const { ctx, baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			expect(response.status).toBe(401);
+			expect(response.headers.get("www-authenticate")).toBe("Bearer");
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toBe("Unauthorized");
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
+
+		it.each(["/status", "/state", "/events", "/nope"])(
+			"rejects an unauthenticated GET %s with 401",
+			async (path) => {
+				stubTokenEnv();
+				const { baseUrl } = await trackedStart({ ...AUTHED_TRANSPORT, exposeState: true });
+
+				const response = await fetch(`${baseUrl}${path}`);
+
+				// Auth precedes routing, so an anonymous caller cannot tell a real
+				// route from a missing one.
+				expect(response.status).toBe(401);
+				expect(response.headers.get("content-type")).toBe("application/json");
+			},
+		);
+
+		it.each([
+			["an unknown value", `Bearer ${"wrong-token-value"}`],
+			["a non-Bearer scheme", `Basic ${DOCENT_TOKEN}`],
+			["no scheme at all", DOCENT_TOKEN],
+		])("rejects %s with 401", async (_label, authorization) => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/status`, { headers: { authorization } });
+
+			expect(response.status).toBe(401);
+		});
+
+		it("serves /status to a valid Bearer token", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			expect((await fetch(`${baseUrl}/status`, { headers: docentHeader() })).status).toBe(200);
+		});
+
+		it("opens the SSE stream for a token in the query string", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/events?access_token=${DOCENT_TOKEN}`);
+
+			expect(response.status).toBe(200);
+			expect(await readSseFrames(response, 1)).toEqual(["retry: 2000"]);
+		});
+
+		it("opens the SSE stream for a token in the Authorization header", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/events`, { headers: docentHeader() });
+
+			expect(response.status).toBe(200);
+			expect(await readSseFrames(response, 1)).toEqual(["retry: 2000"]);
+		});
+
+		it("does not accept ?access_token on /command", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command?access_token=${DOCENT_TOKEN}`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			expect(response.status).toBe(401);
+		});
+
+		it("dispatches a command covered by the token role", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "content.manifest.read" }),
+			});
+
+			expect(response.status).toBe(200);
+		});
+
+		it("rejects a command outside the token role with 403 naming the role", async () => {
+			stubTokenEnv();
+			const { ctx, baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: kioskHeader(),
+				body: JSON.stringify({ type: "content.manifest.read" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain('role "kiosk"');
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
+
+		it("rejects a command in allowedCommands that the role's globs miss", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "monitor.restart" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain('role "docent"');
+		});
+
+		it("still applies allowedCommands to an authenticated caller", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "content.explode" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain("Command not allowed");
+		});
+
+		it("answers a preflight without a token", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			const response = await fetch(`${baseUrl}/command`, { method: "OPTIONS" });
+
+			expect(response.status).toBe(204);
+		});
+
+		it("leaves every route open when no tokens are configured", async () => {
+			const { baseUrl } = await trackedStart({ exposeState: true });
+
+			expect((await fetch(`${baseUrl}/status`)).status).toBe(200);
+			expect((await fetch(`${baseUrl}/state`)).status).toBe(200);
+			expect((await fetch(`${baseUrl}/nope`)).status).toBe(404);
+		});
+	});
+
+	describe("non-loopback guard", () => {
+		it("refuses to bind a routable host with no tokens configured", async () => {
+			const { result } = await trackedStart({ host: "0.0.0.0" });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("0.0.0.0");
+		});
+
+		it("binds a routable host once tokens are configured", async () => {
+			stubTokenEnv();
+			const { result } = await trackedStart({ host: "0.0.0.0", auth: AUTH_OPTIONS });
+
+			expect(result.isOk()).toBe(true);
+		});
+
+		it("binds a routable host when the operator opts out explicitly", async () => {
+			const { result } = await trackedStart({ host: "0.0.0.0", allowUnauthenticated: true });
+
+			expect(result.isOk()).toBe(true);
+		});
+
+		it("fails setup in task mode too when a token's environment variable is unset", async () => {
+			const ctx = createTestCtx({ mode: "task" });
+
+			const result = await httpTransport({ port: 0, auth: AUTH_OPTIONS }).setup(ctx);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("LAUNCHPAD_TOKEN_DOCENT");
+		});
+	});
+
+	describe("roles without tokens guard", () => {
+		it("refuses to start when auth.roles is declared with no auth.tokens", async () => {
+			const { result } = await trackedStart({ auth: { roles: { docent: ["content.*"] } } });
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("auth.roles");
+			expect(result._unsafeUnwrapErr().message).toContain("auth.tokens");
+		});
+
+		it("fails setup in task mode too", async () => {
+			const ctx = createTestCtx({ mode: "task" });
+
+			const result = await httpTransport({
+				port: 0,
+				auth: { roles: { docent: ["content.*"] } },
+			}).setup(ctx);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("auth.roles");
+		});
+
+		it("is not suppressed by allowUnauthenticated: true", async () => {
+			const { result } = await trackedStart({
+				allowUnauthenticated: true,
+				auth: { roles: { docent: ["content.*"] } },
+			});
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("auth.roles");
+		});
+
+		it("starts fine with roles declared and at least one token configured", async () => {
+			stubTokenEnv();
+			const { result } = await trackedStart({ auth: AUTH_OPTIONS });
+
+			expect(result.isOk()).toBe(true);
+		});
+	});
+
+	describe("token leakage", () => {
+		it("keeps token values out of logs, state and /status across a full lifecycle", async () => {
+			stubTokenEnv();
+			const started = await trackedStart(AUTHED_TRANSPORT);
+			const { ctx, baseUrl } = started;
+
+			await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+			await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+			await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: kioskHeader(),
+				body: JSON.stringify({ type: "content.manifest.read" }),
+			});
+			const stream = await fetch(`${baseUrl}/events?access_token=${DOCENT_TOKEN}`);
+			await readSseFrames(stream, 1);
+			emitBusEvent(ctx, "content:foo", { hello: "world" });
+			await readSseFrames(stream, 1);
+			const statusBody = JSON.stringify(
+				await (
+					await fetch(`${baseUrl}/status`, {
+						headers: docentHeader(),
+					})
+				).json(),
+			);
+			await started.result._unsafeUnwrap().disconnect?.({ type: "manual" });
+
+			const loggedText = collectLoggedText(ctx.logger);
+			for (const secret of [DOCENT_TOKEN, KIOSK_TOKEN]) {
+				expect(loggedText).not.toContain(secret);
+				expect(statusBody).not.toContain(secret);
+				expect(JSON.stringify(ctx.getGlobalState())).not.toContain(secret);
+			}
+			// The operator still gets an audit trail: names, not values.
+			expect(loggedText).toContain("docent-tablet");
+			expect(ctx.updateState).not.toHaveBeenCalled();
+		});
+
+		it("redacts the query string when echoing a malformed request target", async () => {
+			stubTokenEnv();
+			const { baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+			if (baseUrl === undefined) {
+				throw new Error("HTTP transport started without a base URL");
+			}
+
+			const rawResponse = await sendRawRequest(
+				Number(new URL(baseUrl).port),
+				`GET http://[::1?access_token=${DOCENT_TOKEN} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n`,
+			);
+
+			expect(rawResponse).toContain("400");
+			expect(rawResponse).toContain("<redacted>");
+			expect(rawResponse).not.toContain(DOCENT_TOKEN);
+		});
+	});
+
+	describe("authentication logging", () => {
+		it("logs a successful authentication at debug, naming the token and role but never the value", async () => {
+			stubTokenEnv();
+			const { ctx, baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			const debugCalls = vi.mocked(ctx.logger.debug).mock.calls.flat();
+			expect(debugCalls.some((call) => String(call).includes("docent-tablet"))).toBe(true);
+			expect(debugCalls.some((call) => String(call).includes('role "docent"'))).toBe(true);
+			expect(debugCalls.some((call) => String(call).includes(DOCENT_TOKEN))).toBe(false);
+			expect(vi.mocked(ctx.logger.warn).mock.calls.flat()).toHaveLength(0);
+		});
+
+		it("logs a rejected authentication at warn, without a token identity", async () => {
+			stubTokenEnv();
+			const { ctx, baseUrl } = await trackedStart(AUTHED_TRANSPORT);
+
+			await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			const warnCalls = vi.mocked(ctx.logger.warn).mock.calls.flat();
+			expect(warnCalls.some((call) => String(call).includes("POST /command"))).toBe(true);
+			expect(warnCalls.some((call) => String(call).includes(DOCENT_TOKEN))).toBe(false);
+		});
+
+		it("does not log anything for an anonymous request when no tokens are configured", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+
+			await fetch(`${baseUrl}/status`);
+
+			expect(vi.mocked(ctx.logger.debug).mock.calls).toHaveLength(0);
+			expect(vi.mocked(ctx.logger.warn).mock.calls).toHaveLength(0);
 		});
 	});
 

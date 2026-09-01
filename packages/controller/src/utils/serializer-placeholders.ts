@@ -10,16 +10,28 @@
  * source of truth for those strings.
  */
 
-export const MAP_PLACEHOLDER = "[unserializable: map]";
-export const SET_PLACEHOLDER = "[unserializable: set]";
-export const PROMISE_PLACEHOLDER = "[unserializable: promise]";
+/**
+ * Common leading substring of every placeholder below. Callers that only need
+ * to know *whether* a serialized payload degraded something — rather than
+ * what — can test for this prefix instead of matching each placeholder.
+ *
+ * It detects only values that produce a placeholder. A `Date` has a native
+ * `toJSON` and silently becomes an ISO string, so it is invisible to this
+ * check; see the JSON-projection contract in
+ * docs/reference/controller/transports.md.
+ */
+export const UNSERIALIZABLE_PREFIX = "[unserializable";
+
+export const MAP_PLACEHOLDER = `${UNSERIALIZABLE_PREFIX}: map]`;
+export const SET_PLACEHOLDER = `${UNSERIALIZABLE_PREFIX}: set]`;
+export const PROMISE_PLACEHOLDER = `${UNSERIALIZABLE_PREFIX}: promise]`;
 
 /** `name` is the function's own `.name`, which is `""` for anonymous functions. */
 export function functionPlaceholder(name: string): string {
-	return `[unserializable: function ${name || "anonymous"}]`;
+	return `${UNSERIALIZABLE_PREFIX}: function ${name || "anonymous"}]`;
 }
 
 /** `symbol.description` is `undefined` for a symbol created without one. */
 export function symbolPlaceholder(symbol: symbol): string {
-	return `[unserializable: symbol ${symbol.description ?? "anonymous"}]`;
+	return `${UNSERIALIZABLE_PREFIX}: symbol ${symbol.description ?? "anonymous"}]`;
 }

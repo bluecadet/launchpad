@@ -16,9 +16,10 @@ import {
 	MAP_PLACEHOLDER,
 	SET_PLACEHOLDER,
 	symbolPlaceholder,
+	UNSERIALIZABLE_PREFIX,
 } from "./serializer-placeholders.js";
 
-const CIRCULAR_PLACEHOLDER = "[unserializable: circular]";
+const CIRCULAR_PLACEHOLDER = `${UNSERIALIZABLE_PREFIX}: circular]`;
 
 type SerializedError = {
 	name: string;

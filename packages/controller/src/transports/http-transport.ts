@@ -16,7 +16,12 @@
  * - Tokens are compared by plain map lookup, not a constant-time comparison;
  *   the v1 posture is a trusted exhibition VLAN, not a hostile network.
  * - Events are transport-global: every authenticated SSE client sees every
- *   event that passes the `events` filter, regardless of its token role.
+ *   event that passes the `events` filter, regardless of its token role. That
+ *   includes pushed state patches and status snapshots.
+ * - Every broadcast frame carries a monotonic `id:` sequence number, shared by
+ *   all clients. A gap means re-query the authoritative source; there is no
+ *   ring buffer and `Last-Event-ID` is not honored on reconnect. The `retry:`
+ *   line, `: ping` keep-alives, and replay-backlog frames carry no `id:`.
  *
  * Nothing here may put a token value into a log line, into state, or onto the
  * wire. The transport keeps no state slice and has no `summarize()`, so
@@ -34,11 +39,13 @@ import {
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { StatusSnapshot, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
+import type { Patch } from "immer";
 import { err, errAsync, ok, okAsync, type Result, type ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { AllEvents } from "../all-events.js";
 import { TransportError } from "../errors.js";
 import { serializeJSON } from "../utils/json-serializer.js";
+import { UNSERIALIZABLE_PREFIX } from "../utils/serializer-placeholders.js";
 import { type ClientHub, createClientHub } from "./client-hub.js";
 import {
 	type AuthOutcome,
@@ -53,56 +60,86 @@ import { closeServerAsResult, createShutdownGate, listenAsResult } from "./serve
 
 const MAX_COMMAND_BODY_BYTES = 64 * 1024;
 
-const httpTransportOptionsSchema = z.object({
-	/** Port to listen on. `0` picks a random free port (useful for tests). */
-	port: z.number().int().min(0).max(65535).default(8710),
-	/** Host/interface to bind. */
-	host: z.string().default("127.0.0.1"),
-	/**
-	 * Command types accepted by `POST /command`. Anything else gets a 403.
-	 * Entries are prefix globs, matched like `events`. When `auth.tokens` is
-	 * configured, the effective allowlist is this list intersected with the
-	 * presented token's role globs, so a role can only ever narrow access.
-	 */
-	allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
-	/**
-	 * Event names forwarded to SSE clients. An entry ending in `*` is a prefix
-	 * match on the part before it; the single entry `*` matches all events;
-	 * any other entry is an exact match.
-	 */
-	events: z.array(z.string()).default(["content:*"]),
-	/**
-	 * Event names cached and replayed to each newly connected SSE client, so it
-	 * learns current state without waiting for the next emission. Exact names
-	 * only, and an event must also pass the `events` filter to be emitted at
-	 * all. Keep this to durable "current state" events: one-shot events (errors,
-	 * progress) replayed hours later are misleading.
-	 */
-	replayEvents: z.array(z.string()).default(["content:version:promoted"]),
-	/** Interval between `: ping` SSE comment lines. */
-	keepAliveMs: z.number().int().positive().default(15000),
-	/** Maximum concurrent SSE clients; further `GET /events` requests get a 503. */
-	maxClients: z.number().int().positive().default(32),
-	/** Expose the full global state at `GET /state`. Off by default. */
-	exposeState: z.boolean().default(false),
-	/**
-	 * Token authentication. Empty (the default) leaves the transport
-	 * unauthenticated, which is only defensible on loopback.
-	 */
-	auth: httpAuthOptionsSchema,
-	/**
-	 * Origins allowed to read responses cross-origin. `["*"]` (the default)
-	 * answers with `Access-Control-Allow-Origin: *`. Any other list echoes the
-	 * request's `Origin` when it matches and omits the header when it doesn't.
-	 */
-	allowedOrigins: z.array(z.string()).default(["*"]),
-	/**
-	 * Permit binding a non-loopback host with no tokens configured. Off by
-	 * default: an unauthenticated LAN-reachable command endpoint is a setup
-	 * error, not a warning.
-	 */
-	allowUnauthenticated: z.boolean().default(false),
-});
+/**
+ * Frame names the transport generates itself. Bus events under this prefix are
+ * never forwarded, so a plugin emitting `launchpad:state:patch` on a transport
+ * configured with `events: ["*"]` cannot forge a state frame into every client.
+ */
+const RESERVED_FRAME_PREFIX = "launchpad:";
+
+const STATE_PATCH_FRAME = "launchpad:state:patch";
+const STATUS_SNAPSHOT_FRAME = "launchpad:status:snapshot";
+
+const httpTransportOptionsSchema = z
+	.object({
+		/** Port to listen on. `0` picks a random free port (useful for tests). */
+		port: z.number().int().min(0).max(65535).default(8710),
+		/** Host/interface to bind. */
+		host: z.string().default("127.0.0.1"),
+		/**
+		 * Command types accepted by `POST /command`. Anything else gets a 403.
+		 * Entries are prefix globs, matched like `events`. When `auth.tokens` is
+		 * configured, the effective allowlist is this list intersected with the
+		 * presented token's role globs, so a role can only ever narrow access.
+		 */
+		allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
+		/**
+		 * Event names forwarded to SSE clients. An entry ending in `*` is a prefix
+		 * match on the part before it; the single entry `*` matches all events;
+		 * any other entry is an exact match.
+		 */
+		events: z.array(z.string()).default(["content:*"]),
+		/**
+		 * Event names cached and replayed to each newly connected SSE client, so it
+		 * learns current state without waiting for the next emission. Exact names
+		 * only, and an event must also pass the `events` filter to be emitted at
+		 * all. Keep this to durable "current state" events: one-shot events (errors,
+		 * progress) replayed hours later are misleading.
+		 */
+		replayEvents: z.array(z.string()).default(["content:version:promoted"]),
+		/** Interval between `: ping` SSE comment lines. */
+		keepAliveMs: z.number().int().positive().default(15000),
+		/** Maximum concurrent SSE clients; further `GET /events` requests get a 503. */
+		maxClients: z.number().int().positive().default(32),
+		/** Expose the full global state at `GET /state`. Off by default. */
+		exposeState: z.boolean().default(false),
+		/**
+		 * Push state-store patches to SSE clients as `launchpad:state:patch` frames,
+		 * carrying the store's `_version` so a client can detect a gap in the state
+		 * stream. Requires `exposeState`, which is the only way a client can recover
+		 * from a detected gap.
+		 */
+		pushStatePatches: z.boolean().default(false),
+		/**
+		 * Push the display-oriented status snapshot to SSE clients as a
+		 * `launchpad:status:snapshot` frame on every state change. Off by default: a
+		 * full snapshot per patch batch is heavy, and building one runs every
+		 * plugin's `summarize()`.
+		 */
+		pushStatusSnapshots: z.boolean().default(false),
+		/**
+		 * Token authentication. Empty (the default) leaves the transport
+		 * unauthenticated, which is only defensible on loopback.
+		 */
+		auth: httpAuthOptionsSchema,
+		/**
+		 * Origins allowed to read responses cross-origin. `["*"]` (the default)
+		 * answers with `Access-Control-Allow-Origin: *`. Any other list echoes the
+		 * request's `Origin` when it matches and omits the header when it doesn't.
+		 */
+		allowedOrigins: z.array(z.string()).default(["*"]),
+		/**
+		 * Permit binding a non-loopback host with no tokens configured. Off by
+		 * default: an unauthenticated LAN-reachable command endpoint is a setup
+		 * error, not a warning.
+		 */
+		allowUnauthenticated: z.boolean().default(false),
+	})
+	.refine((parsed) => !parsed.pushStatePatches || parsed.exposeState, {
+		message:
+			"pushStatePatches requires exposeState: a client that detects a _version gap must be able to refetch full state from GET /state",
+		path: ["pushStatePatches"],
+	});
 
 export type {
 	AuthOutcome,
@@ -126,9 +163,13 @@ export type HttpTransportInstance = Partial<Disconnectable> & {
 /**
  * Build a single SSE frame. Multi-line data is framed with one `data:` field
  * per line, per the SSE spec, so payloads survive EventSource reassembly.
+ *
+ * `seq` is written as the native SSE `id:` field, ahead of `event:`, so the
+ * payload stays byte-identical to an unsequenced frame. Omit it for frames
+ * that must not advance a client's baseline (the replay backlog).
  */
-export function formatSseEvent(name: string, data: string): string {
-	const lines = [`event: ${name}`];
+export function formatSseEvent(name: string, data: string, seq?: number): string {
+	const lines = seq === undefined ? [`event: ${name}`] : [`id: ${seq}`, `event: ${name}`];
 	for (const dataLine of data.split("\n")) {
 		lines.push(`data: ${dataLine}`);
 	}
@@ -221,25 +262,79 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 			const replayableEvents = new Set<string>(resolvedOptions.replayEvents);
 			const passesEventFilter = createPatternMatcher(resolvedOptions.events);
 
+			// One counter per transport, shared by every client, incremented only for
+			// frames actually broadcast. A filtered-out event must not burn a seq:
+			// that would look like a permanent gap to every client.
+			let seq = 0;
+			const broadcastFrame = (name: string, json: string) => {
+				if (clients.size === 0) {
+					return;
+				}
+				seq += 1;
+				clients.broadcast(formatSseEvent(name, json, seq));
+			};
+
 			const handleBusEvent = <K extends keyof AllEvents>(event: K, data: AllEvents[K]) => {
+				if (event.startsWith(RESERVED_FRAME_PREFIX)) {
+					ctx.logger.warn(
+						`Refusing to forward bus event "${event}": the "${RESERVED_FRAME_PREFIX}" prefix is reserved for transport-generated SSE frames`,
+					);
+					return;
+				}
 				if (!passesEventFilter(event)) {
 					return;
 				}
-				const frame = formatSseEvent(event, serializeJSON(data));
+				if (!replayableEvents.has(event) && clients.size === 0) {
+					return;
+				}
+				const json = serializeJSON(data);
 				if (replayableEvents.has(event)) {
 					// `Map.set` on an existing key keeps its original position, so drop
 					// the old entry first to move the event to the back of the backlog.
+					// Cached without a seq: a replayed frame belongs to one client's
+					// backlog, so giving it an id would fake a gap for someone.
 					replayFrames.delete(event);
-					replayFrames.set(event, frame);
+					replayFrames.set(event, formatSseEvent(event, json));
 				}
-				clients.broadcast(frame);
+				broadcastFrame(event, json);
 			};
+
+			let warnedAboutLossyState = false;
+			const warnIfLossy = (json: string) => {
+				if (warnedAboutLossyState || !json.includes(UNSERIALIZABLE_PREFIX)) {
+					return;
+				}
+				warnedAboutLossyState = true;
+				ctx.logger.warn(
+					"Pushed state contains values that do not survive JSON serialization (Map/Set/function/symbol/circular) and reach clients as placeholders. Keep pushed state slices JSON-native.",
+				);
+			};
+
+			// Mirrors the IPC transport's statePatch/statusSnapshot pair, in the same
+			// order: patch first, then the snapshot built from it.
+			const handleStatePatch = (patches: Patch[], version: number) => {
+				if (clients.size === 0) {
+					return;
+				}
+				if (resolvedOptions.pushStatePatches) {
+					const json = serializeJSON({ patches, version });
+					warnIfLossy(json);
+					broadcastFrame(STATE_PATCH_FRAME, json);
+				}
+				if (resolvedOptions.pushStatusSnapshots) {
+					broadcastFrame(STATUS_SNAPSHOT_FRAME, serializeJSON(ctx.getStatusSnapshot()));
+				}
+			};
+			const pushesState = resolvedOptions.pushStatePatches || resolvedOptions.pushStatusSnapshots;
+
 			let keepAliveTimer: NodeJS.Timeout | undefined;
+			let unsubscribeStatePatch: (() => void) | undefined;
 
 			const server = http.createServer((req, res) => handleRequest(req, res, deps));
 			const gate = createShutdownGate(() => {
 				ctx.logger.verbose("HTTP transport is shutting down");
 				ctx.eventBus.offAny(handleBusEvent);
+				unsubscribeStatePatch?.();
 				clearInterval(keepAliveTimer);
 				clients.closeAll();
 				server.closeIdleConnections();
@@ -274,6 +369,9 @@ export function httpTransport(options: HttpTransportOptions = {}) {
 					});
 
 					ctx.eventBus.onAny(handleBusEvent);
+					if (pushesState) {
+						unsubscribeStatePatch = ctx.onGlobalStatePatch(handleStatePatch);
+					}
 
 					keepAliveTimer = setInterval(() => {
 						clients.broadcast(": ping\n\n");

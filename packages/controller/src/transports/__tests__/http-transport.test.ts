@@ -1,10 +1,14 @@
 import http from "node:http";
 import net from "node:net";
-import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
+import {
+	createMockPluginCtx,
+	createMockStatePatchSource,
+} from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { BaseCommand, PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { NodeIdentity, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { serializeJSON } from "../../utils/json-serializer.js";
 import { formatSseEvent, httpTransport } from "../http-transport.js";
 
 const MANIFEST_VERSION_ID = "version-42";
@@ -123,6 +127,37 @@ async function readSseFrames(response: Response, frameCount: number, timeoutMs =
 	return frames;
 }
 
+type ParsedFrame = { id?: number; event?: string; data: string };
+
+/** Split one raw SSE frame into its `id:` / `event:` / `data:` parts. */
+function parseFrame(raw: string): ParsedFrame {
+	const dataLines: string[] = [];
+	const parsed: ParsedFrame = { data: "" };
+	for (const line of raw.split("\n")) {
+		if (line.startsWith("id: ")) {
+			parsed.id = Number(line.slice("id: ".length));
+		} else if (line.startsWith("event: ")) {
+			parsed.event = line.slice("event: ".length);
+		} else if (line.startsWith("data: ")) {
+			dataLines.push(line.slice("data: ".length));
+		}
+	}
+	parsed.data = dataLines.join("\n");
+	return parsed;
+}
+
+/** Read `count` frames off a response and parse each one. */
+async function readParsedFrames(response: Response, count: number) {
+	return (await readSseFrames(response, count)).map(parseFrame);
+}
+
+/** Open an SSE stream and drain the `retry:` line so the client is registered. */
+async function openEventStream(baseUrl: string) {
+	const response = await fetch(`${baseUrl}/events`);
+	await readSseFrames(response, 1);
+	return response;
+}
+
 /** Read the raw "done" result off a response's SSE reader (no frame parsing). */
 async function readSseStreamEnd(response: Response) {
 	const state = getSseReaderState(response);
@@ -164,6 +199,12 @@ describe("formatSseEvent", () => {
 	it("frames multi-line data as one data: line per line", () => {
 		expect(formatSseEvent("content:foo", "line1\nline2")).toBe(
 			"event: content:foo\ndata: line1\ndata: line2\n\n",
+		);
+	});
+
+	it("writes a sequence number as an id: field ahead of event:", () => {
+		expect(formatSseEvent("content:foo", "hello", 7)).toBe(
+			"id: 7\nevent: content:foo\ndata: hello\n\n",
 		);
 	});
 });
@@ -233,6 +274,54 @@ function collectLoggedText(logger: TestCtx["logger"]): string {
 		.flat()
 		.map((argument) => JSON.stringify(argument))
 		.join(" ");
+}
+
+/** Read frames until one is an actual SSE event frame, skipping `: ping` comments. */
+async function readNextEventFrame(response: Response, maxFrames = 20) {
+	for (let attempt = 0; attempt < maxFrames; attempt += 1) {
+		const [raw] = await readSseFrames(response, 1);
+		if (raw === undefined) {
+			break;
+		}
+		if (raw.startsWith(":")) {
+			continue;
+		}
+		return parseFrame(raw);
+	}
+	throw new Error("Stream ended before an event frame arrived");
+}
+
+/** Read the next `: ping` comment, skipping any event frames ahead of it. */
+async function readNextPingFrame(response: Response, maxFrames = 20) {
+	for (let attempt = 0; attempt < maxFrames; attempt += 1) {
+		const [raw] = await readSseFrames(response, 1);
+		if (raw === undefined) {
+			break;
+		}
+		if (raw.startsWith(":")) {
+			return raw;
+		}
+	}
+	throw new Error("Stream ended before a keep-alive comment arrived");
+}
+
+/** A ctx whose `onGlobalStatePatch` can be driven from the test. */
+function createPatchCtx() {
+	const patchSource = createMockStatePatchSource();
+	const onGlobalStatePatch = vi.fn(patchSource.onGlobalStatePatch);
+	return { ctx: createTestCtx({ onGlobalStatePatch }), patchSource, onGlobalStatePatch };
+}
+
+const PUSH_STATE = { pushStatePatches: true, exposeState: true } as const;
+
+function samplePatch(value: unknown) {
+	return [{ op: "replace" as const, path: ["plugins", "content", "activeVersion"], value }];
+}
+
+function countWarnings(ctx: TestCtx, needle: string) {
+	return vi
+		.mocked(ctx.logger.warn)
+		.mock.calls.filter(([message]) => String(message).includes(needle)).length;
 }
 
 describe("http-transport", () => {
@@ -1012,6 +1101,264 @@ describe("http-transport", () => {
 
 			expect(vi.mocked(ctx.logger.debug).mock.calls).toHaveLength(0);
 			expect(vi.mocked(ctx.logger.warn).mock.calls).toHaveLength(0);
+		});
+	});
+
+	describe("sequence numbers", () => {
+		it("numbers the first live frame 1", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", { hello: "world" });
+
+			expect((await readNextEventFrame(response)).id).toBe(1);
+		});
+
+		it("increments by one across different event names", async () => {
+			const { ctx, baseUrl } = await trackedStart({ events: ["content:*"] });
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+			emitBusEvent(ctx, "content:bar", {});
+			emitBusEvent(ctx, "content:foo", {});
+
+			const frames = await readParsedFrames(response, 3);
+			expect(frames.map((frame) => frame.id)).toEqual([1, 2, 3]);
+		});
+
+		it("gives two concurrent clients the same id for the same frame", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+			const first = await openEventStream(String(baseUrl));
+			const second = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+
+			expect((await readNextEventFrame(first)).id).toBe(1);
+			expect((await readNextEventFrame(second)).id).toBe(1);
+		});
+
+		it("does not burn a sequence number on a filtered-out event", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+			emitBusEvent(ctx, "monitor:bar", { dropped: true });
+			emitBusEvent(ctx, "content:baz", {});
+
+			const frames = await readParsedFrames(response, 2);
+			expect(frames.map((frame) => frame.id)).toEqual([1, 2]);
+		});
+
+		it("writes no id on keep-alive comments and does not advance the counter", async () => {
+			const { ctx, baseUrl } = await trackedStart({ keepAliveMs: 30 });
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+			expect((await readNextEventFrame(response)).id).toBe(1);
+
+			expect(await readNextPingFrame(response)).toBe(": ping");
+
+			emitBusEvent(ctx, "content:bar", {});
+			expect((await readNextEventFrame(response)).id).toBe(2);
+		});
+
+		it("writes no id on the retry directive", async () => {
+			const { baseUrl } = await trackedStart();
+
+			const response = await fetch(`${baseUrl}/events`);
+			const [retryFrame] = await readSseFrames(response, 1);
+
+			expect(retryFrame).toBe("retry: 2000");
+		});
+
+		it("writes no id on replayed frames and resumes the live counter after them", async () => {
+			const { ctx, baseUrl } = await trackedStart({ replayEvents: ["content:foo"] });
+			const live = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", { round: 1 });
+			expect((await readNextEventFrame(live)).id).toBe(1);
+
+			const late = await fetch(`${baseUrl}/events`);
+			const [, replayFrame] = await readParsedFrames(late, 2);
+			expect(replayFrame?.id).toBeUndefined();
+			expect(replayFrame?.event).toBe("content:foo");
+
+			emitBusEvent(ctx, "content:bar", {});
+			expect((await readNextEventFrame(late)).id).toBe(2);
+		});
+
+		it("lets a late client baseline mid-stream instead of at 1", async () => {
+			const { ctx, baseUrl } = await trackedStart();
+			const early = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+			emitBusEvent(ctx, "content:bar", {});
+			await readParsedFrames(early, 2);
+
+			const late = await openEventStream(String(baseUrl));
+			emitBusEvent(ctx, "content:baz", {});
+
+			expect((await readNextEventFrame(late)).id).toBe(3);
+		});
+
+		it("shares one counter between event frames and state frames", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart(PUSH_STATE, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "content:foo", {});
+			patchSource.emit(samplePatch("v1"), 1);
+			emitBusEvent(ctx, "content:bar", {});
+
+			const frames = await readParsedFrames(response, 3);
+			expect(frames.map((frame) => frame.event)).toEqual([
+				"content:foo",
+				"launchpad:state:patch",
+				"content:bar",
+			]);
+			expect(frames.map((frame) => frame.id)).toEqual([1, 2, 3]);
+		});
+	});
+
+	describe("state push", () => {
+		it("pushes a state patch frame carrying the patches and the store version", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart(PUSH_STATE, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			const patches = samplePatch("20260714T153045Z");
+			patchSource.emit(patches, 12);
+
+			const frame = await readNextEventFrame(response);
+			expect(frame.event).toBe("launchpad:state:patch");
+			expect(JSON.parse(frame.data)).toEqual({ patches, version: 12 });
+		});
+
+		it("forwards a version gap verbatim instead of renumbering", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart(PUSH_STATE, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch("a"), 1);
+			patchSource.emit(samplePatch("b"), 3);
+
+			const frames = await readParsedFrames(response, 2);
+			expect(frames.map((frame) => JSON.parse(frame.data).version)).toEqual([1, 3]);
+		});
+
+		it("pushes nothing by default", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart({}, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch("ignored"), 1);
+			emitBusEvent(ctx, "content:foo", { live: true });
+
+			const frame = await readNextEventFrame(response);
+			expect(frame.event).toBe("content:foo");
+		});
+
+		it("fails setup when pushStatePatches is enabled without exposeState", async () => {
+			const { result } = await startHttpTransport({ pushStatePatches: true });
+
+			expect(result.isErr()).toBe(true);
+			const message = result._unsafeUnwrapErr().message;
+			expect(message).toContain("pushStatePatches");
+			expect(message).toContain("exposeState");
+		});
+
+		it("pushes a status snapshot frame when pushStatusSnapshots is on", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart({ pushStatusSnapshots: true }, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch("a"), 1);
+
+			const frame = await readNextEventFrame(response);
+			expect(frame.event).toBe("launchpad:status:snapshot");
+			expect(JSON.parse(frame.data)).toEqual(JSON.parse(serializeJSON(ctx.getStatusSnapshot())));
+		});
+
+		it("orders the patch frame ahead of the snapshot frame, on consecutive ids", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart({ ...PUSH_STATE, pushStatusSnapshots: true }, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch("a"), 1);
+
+			const frames = await readParsedFrames(response, 2);
+			expect(frames.map((frame) => frame.event)).toEqual([
+				"launchpad:state:patch",
+				"launchpad:status:snapshot",
+			]);
+			expect(frames.map((frame) => frame.id)).toEqual([1, 2]);
+		});
+
+		it("does not build a status snapshot when no client is connected", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			await trackedStart({ pushStatusSnapshots: true }, ctx);
+
+			patchSource.emit(samplePatch("a"), 1);
+
+			expect(ctx.getStatusSnapshot).toHaveBeenCalledTimes(0);
+		});
+
+		it("holds no patch subscription when neither push option is set", async () => {
+			const { ctx, onGlobalStatePatch } = createPatchCtx();
+			await trackedStart({}, ctx);
+
+			expect(onGlobalStatePatch).not.toHaveBeenCalled();
+		});
+
+		it("unsubscribes from state patches on disconnect", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const started = await startHttpTransport(PUSH_STATE, ctx);
+
+			await started.result._unsafeUnwrap().disconnect?.({ type: "manual" });
+
+			expect(patchSource.unsubscribeCalls()).toBe(1);
+		});
+
+		it("warns once when pushed state degrades to a placeholder", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart(PUSH_STATE, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch(new Map([["a", 1]])), 1);
+			const frame = await readNextEventFrame(response);
+			expect(frame.data).toContain("[unserializable: map]");
+			expect(countWarnings(ctx, "JSON serialization")).toBe(1);
+
+			patchSource.emit(samplePatch(new Map([["b", 2]])), 2);
+			await readNextEventFrame(response);
+			expect(countWarnings(ctx, "JSON serialization")).toBe(1);
+		});
+
+		it("does not warn for JSON-native pushed state", async () => {
+			const { ctx, patchSource } = createPatchCtx();
+			const { baseUrl } = await trackedStart(PUSH_STATE, ctx);
+			const response = await openEventStream(String(baseUrl));
+
+			patchSource.emit(samplePatch({ versionId: "abc", count: 2 }), 1);
+			await readNextEventFrame(response);
+
+			expect(countWarnings(ctx, "JSON serialization")).toBe(0);
+		});
+	});
+
+	describe("reserved frame prefix", () => {
+		it("refuses to forward a bus event named like a transport frame", async () => {
+			const { ctx, baseUrl } = await trackedStart({ events: ["*"] });
+			const response = await openEventStream(String(baseUrl));
+
+			emitBusEvent(ctx, "launchpad:state:patch", { forged: true });
+			emitBusEvent(ctx, "content:foo", { real: true });
+
+			const frame = await readNextEventFrame(response);
+			expect(frame.event).toBe("content:foo");
+			// The forged frame consumed no sequence number.
+			expect(frame.id).toBe(1);
+			expect(countWarnings(ctx, "reserved")).toBe(1);
 		});
 	});
 

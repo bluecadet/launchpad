@@ -1,5 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-patcher";
 import type {
 	LaunchpadState,
 	NodeIdentity,
@@ -123,6 +124,41 @@ export function createMockPluginCtx(cwd = "/", overrides?: Partial<PluginContext
 		Object.assign(ctx, overrides);
 	}
 	return ctx;
+}
+
+export type MockStatePatchSource = {
+	/** Drop-in for `PluginContext["onGlobalStatePatch"]`. */
+	onGlobalStatePatch: PluginContext["onGlobalStatePatch"];
+	/** Fan a patch batch out to every handler registered so far. */
+	emit: (...args: Parameters<PatchHandlerWithVersion>) => void;
+	/** How many times a returned unsubscribe function has been called. */
+	unsubscribeCalls: () => number;
+};
+
+/**
+ * A drivable `onGlobalStatePatch`, for transports that push state changes.
+ * `createMockPluginCtx` stubs the subscription with a no-op, which is enough to
+ * assert teardown but gives a test no way to produce a patch.
+ */
+export function createMockStatePatchSource(): MockStatePatchSource {
+	const handlers = new Set<PatchHandlerWithVersion>();
+	let unsubscribeCalls = 0;
+
+	return {
+		onGlobalStatePatch: (handler) => {
+			handlers.add(handler);
+			return () => {
+				unsubscribeCalls += 1;
+				handlers.delete(handler);
+			};
+		},
+		emit: (patches, version) => {
+			for (const handler of handlers) {
+				handler(patches, version);
+			}
+		},
+		unsubscribeCalls: () => unsubscribeCalls,
+	};
 }
 
 type TestStateOverrides = Partial<Omit<VersionedLaunchpadState, "plugins">> & {

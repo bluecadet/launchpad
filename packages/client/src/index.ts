@@ -9,12 +9,12 @@ export type {
 	ClientErrorReason,
 	CommandErrorReason,
 	LaunchpadClientError,
-	SerializedError,
 } from "./errors.js";
 export { ClientError, CommandError } from "./errors.js";
 export type { ConnectionEvent, EventFrame } from "./event-stream.js";
 export { isResyncSignal } from "./event-stream.js";
 export type { FetchLike } from "./http.js";
+export type { SessionView } from "./session-view.js";
 export type {
 	SubscribeOptions,
 	Unsubscribe,

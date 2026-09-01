@@ -16,6 +16,7 @@ import {
 	type HttpConfig,
 	normalizeBaseUrl,
 } from "./http.js";
+import { type SessionView, subscribeSessionView } from "./session-view.js";
 import { subscribeState } from "./state-mirror.js";
 import type { SubscribeOptions, Unsubscribe, VersionedWireState } from "./types.js";
 
@@ -109,6 +110,15 @@ export type LaunchpadClient = {
 		options?: SubscribeOptions,
 	): Unsubscribe;
 
+	/**
+	 * The current Session at this Station, with push/poll reconciliation hidden.
+	 *
+	 * The handler is called with the authoritative answer on subscribe, again whenever the
+	 * canon changes, and again after any reconnect or sequence gap. Requires the Node to
+	 * run the session plugin, with `session.current` in the transport's `allowedCommands`.
+	 */
+	onSession(handler: (view: SessionView) => void, options?: SubscribeOptions): Unsubscribe;
+
 	/** Drop every subscription and close the event stream. */
 	close(): void;
 };
@@ -149,6 +159,17 @@ export function createClient(options: ClientOptions): LaunchpadClient {
 		subscribeStatePatches: (handler, subscribeOptions) =>
 			subscribeState(
 				{ fetchState: () => getState(config), stream, onError: options.onError },
+				handler,
+				subscribeOptions,
+			),
+
+		onSession: (handler, subscribeOptions) =>
+			subscribeSessionView(
+				{
+					runCommand: (type, params) => executeCommand(config, type, params),
+					stream,
+					onError: options.onError,
+				},
 				handler,
 				subscribeOptions,
 			),

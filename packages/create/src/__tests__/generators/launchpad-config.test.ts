@@ -269,6 +269,33 @@ describe("generateLaunchpadConfig", () => {
 		});
 	});
 
+	describe("node hint", () => {
+		const docsLink = "/reference/controller/controller-config#node";
+
+		it("appears with no answers set, since every project is a potential Node", () => {
+			const result = generateLaunchpadConfig(baseAnswers);
+
+			expect(result).toContain("controller:");
+			expect(result).toContain("node:");
+			expect(result).toContain("id:");
+			expect(result).toContain("label:");
+			expect(result).toContain("role:");
+			expect(result).toContain(docsLink);
+		});
+
+		it("leaves every hint line commented out", () => {
+			const result = generateLaunchpadConfig(baseAnswers);
+			const start = result.indexOf("// Set this once you deploy alongside another Node");
+			const end = result.indexOf("// },", start);
+			const hintLines = result.slice(start, end + "// },".length).split("\n");
+
+			expect(hintLines.length).toBeGreaterThan(1);
+			for (const line of hintLines) {
+				expect(line.trimStart()).toMatch(/^\/\//);
+			}
+		});
+	});
+
 	describe("workflow hint", () => {
 		it("points at workflow.run when workflows are emitted", () => {
 			const result = generateLaunchpadConfig({

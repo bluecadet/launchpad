@@ -262,6 +262,20 @@ function buildHttpTransportExample(): string {
 	`;
 }
 
+/**
+ * Commented-out hint for naming this project's Node. Unconditional (not tied
+ * to any Answers flag) because every scaffolded project is a Node that could
+ * eventually be deployed alongside another one.
+ */
+function buildNodeHint(): string {
+	return dedent`
+		// Set this once you deploy alongside another Node: /reference/controller/controller-config#node
+		// controller: {
+		//   node: { id: 'my-node', label: 'My Node', role: 'exhibit' },
+		// },
+	`;
+}
+
 export function generateLaunchpadConfig(answers: Answers): string {
 	const importsBlock = buildImports(answers);
 
@@ -275,11 +289,13 @@ export function generateLaunchpadConfig(answers: Answers): string {
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");
 	const workflowsBlock = buildWorkflows(answers);
+	const nodeHintBlock = addIndent(buildNodeHint(), 1);
 
 	return [
 		importsBlock,
 		"",
 		"export default defineConfig({",
+		nodeHintBlock,
 		"\tplugins: [",
 		pluginsBlock,
 		"\t],",

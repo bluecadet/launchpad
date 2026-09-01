@@ -8,7 +8,7 @@ import type { CommandRegistry } from "./command-registry.js";
 /** Core controller event types for use with generic EventBus. */
 export type CoreEvents = {
 	"command:start": { commandType: string; [key: string]: unknown };
-	"command:success": { commandType: string; result?: unknown };
+	"command:success": { commandType: string; result: unknown };
 	"command:error": { commandType: string; error: Error };
 	"workflow:start": { name: string; stepCount: number };
 	"workflow:step:start": { name: string; stepIndex: number; command: BaseCommand };
@@ -95,7 +95,7 @@ export class CommandDispatcher {
 			.map((value) => {
 				this._eventBus.emit("command:success", {
 					commandType: command.type,
-					result: value,
+					result: value ?? null,
 				});
 				return value;
 			})

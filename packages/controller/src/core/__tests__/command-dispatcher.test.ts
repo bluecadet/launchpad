@@ -100,6 +100,22 @@ describe("CommandDispatcher", () => {
 			});
 		});
 
+		it("should emit command:success with a present, null result for a void command", async () => {
+			const executeCommand = vi.fn().mockReturnValue(okAsync(undefined));
+			const { eventBus, dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.ack" }, executeCommand },
+			]);
+			const emitSpy = vi.spyOn(eventBus, "emit");
+
+			await dispatcher.dispatch({ type: "content.ack" });
+
+			const [, payload] =
+				emitSpy.mock.calls.find(([eventName]) => eventName === "command:success") ?? [];
+			expect(payload).toBeDefined();
+			expect("result" in (payload as Record<string, unknown>)).toBe(true);
+			expect((payload as Record<string, unknown>).result).toBeNull();
+		});
+
 		it("should emit command:error event on failed execution", async () => {
 			const executeCommand = vi.fn().mockReturnValue(errAsync(new Error("Fetch failed")));
 			const { eventBus, dispatcher } = createDispatcher([

@@ -16,6 +16,7 @@ import {
 	type HttpConfig,
 	normalizeBaseUrl,
 } from "./http.js";
+import { subscribeState } from "./state-mirror.js";
 import type { SubscribeOptions, Unsubscribe, VersionedWireState } from "./types.js";
 
 /** Every event name declared on the merged `LaunchpadEvents` map. */
@@ -94,6 +95,20 @@ export type LaunchpadClient = {
 	 */
 	onConnection(handler: (event: ConnectionEvent) => void, options?: SubscribeOptions): Unsubscribe;
 
+	/**
+	 * A live mirror of `GET /state`. The handler is called with a full state tree: once
+	 * with the baseline read, then again on every change, and again from scratch whenever
+	 * the mirror may have gone stale.
+	 *
+	 * Requires the operator to have enabled `exposeState` and `pushStatePatches` on the
+	 * transport. Without the former the baseline read fails through `onError`; without the
+	 * latter the handler is called once and never updates.
+	 */
+	subscribeStatePatches(
+		handler: (state: VersionedWireState) => void,
+		options?: SubscribeOptions,
+	): Unsubscribe;
+
 	/** Drop every subscription and close the event stream. */
 	close(): void;
 };
@@ -130,6 +145,13 @@ export function createClient(options: ClientOptions): LaunchpadClient {
 
 		onConnection: (handler, subscribeOptions) =>
 			stream.subscribe({ onConnection: handler }, subscribeOptions),
+
+		subscribeStatePatches: (handler, subscribeOptions) =>
+			subscribeState(
+				{ fetchState: () => getState(config), stream, onError: options.onError },
+				handler,
+				subscribeOptions,
+			),
 
 		close: () => {
 			stream.close();

@@ -216,7 +216,11 @@ function buildWorkflows(answers: Answers): string[] {
 		return workflows;
 	}
 
-	workflows.push("\tworkflows: {");
+	workflows.push(
+		"\t// Trigger these remotely with the `workflow.run` command —",
+		"\t// see /reference/controller/workflows",
+		"\tworkflows: {",
+	);
 	if (startSteps.length > 0) {
 		workflows.push(`\t\tstart: [${startSteps.join(", ")}],`);
 	}

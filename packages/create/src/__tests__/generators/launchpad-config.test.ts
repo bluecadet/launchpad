@@ -269,6 +269,26 @@ describe("generateLaunchpadConfig", () => {
 		});
 	});
 
+	describe("workflow hint", () => {
+		it("points at workflow.run when workflows are emitted", () => {
+			const result = generateLaunchpadConfig({
+				...baseAnswers,
+				useMonitor: true,
+				monitorApps: [{ name: "app", script: "./app.exe", cwd: "./" }],
+			});
+
+			expect(result).toContain("// Trigger these remotely with the `workflow.run` command");
+			expect(result).toContain("// see /reference/controller/workflows");
+		});
+
+		it("omits the hint when there are no workflows", () => {
+			const result = generateLaunchpadConfig(baseAnswers);
+
+			expect(result).not.toContain("workflow.run");
+			expect(result).not.toContain("workflows: {");
+		});
+	});
+
 	it("includes sanity-specific transform named exports", () => {
 		const result = generateLaunchpadConfig({
 			...baseAnswers,

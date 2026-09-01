@@ -55,6 +55,16 @@ describe("formatSnapshot", () => {
 		expect(output).not.toContain("·");
 	});
 
+	it("header shows an actionable hint instead of throwing when node is missing", () => {
+		const legacyHeader = makeHeader({
+			node: undefined as unknown as NodeIdentity,
+		});
+		const output = formatSnapshot(makeSnapshot({ header: legacyHeader }));
+		expect(output).toContain(
+			"Node: unavailable (daemon predates node identity — run `launchpad stop` then `launchpad start -d` to upgrade)",
+		);
+	});
+
 	it("header includes uptime formatted from uptimeMs", () => {
 		const output = formatSnapshot(
 			makeSnapshot({

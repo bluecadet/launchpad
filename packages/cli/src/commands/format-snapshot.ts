@@ -20,7 +20,15 @@ export function formatSnapshot(snapshot: StatusSnapshot): string {
 	return output;
 }
 
-function formatNode(node: NodeIdentity): string {
+// `StatusSnapshot.header.node` is typed as always present, but the CLI does
+// not validate the daemon's snapshot at this boundary, and a daemon
+// predating Node identity omits the field — so the parameter here is
+// widened to `NodeIdentity | undefined` to match what can actually arrive.
+function formatNode(node: NodeIdentity | undefined): string {
+	if (!node) {
+		return "unavailable (daemon predates node identity — run `launchpad stop` then `launchpad start -d` to upgrade)";
+	}
+
 	const name = node.label === node.id ? node.id : `${node.label} (${node.id})`;
 	return node.role ? `${name} · ${node.role}` : name;
 }

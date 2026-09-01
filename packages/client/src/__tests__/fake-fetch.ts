@@ -52,3 +52,63 @@ export function sseResponse(chunks: string[]): { response: Response; close: () =
 		close: () => controllerRef?.close(),
 	};
 }
+
+export type SseConnection = {
+	write(text: string): void;
+	end(): void;
+};
+
+export type SseServer = {
+	/** Build a response for one `GET /events`, recording the connection. */
+	respond(): Response;
+	/** Every connection handed out, oldest first. */
+	connections: SseConnection[];
+	/** The most recent connection. */
+	current(): SseConnection;
+};
+
+/** An `/events` endpoint whose frames and disconnections the test drives. */
+export function createSseServer(): SseServer {
+	const encoder = new TextEncoder();
+	const connections: SseConnection[] = [];
+
+	return {
+		respond() {
+			let sink: ReadableStreamDefaultController<Uint8Array> | null = null;
+			let closed = false;
+			const stream = new ReadableStream<Uint8Array>({
+				start(controller) {
+					sink = controller;
+				},
+				cancel() {
+					closed = true;
+				},
+			});
+			connections.push({
+				write(text) {
+					if (!closed) {
+						sink?.enqueue(encoder.encode(text));
+					}
+				},
+				end() {
+					if (!closed) {
+						closed = true;
+						sink?.close();
+					}
+				},
+			});
+			return new Response(stream, {
+				status: 200,
+				headers: { "content-type": "text/event-stream" },
+			});
+		},
+		connections,
+		current() {
+			const connection = connections.at(-1);
+			if (!connection) {
+				throw new Error("No SSE connection has been opened yet");
+			}
+			return connection;
+		},
+	};
+}

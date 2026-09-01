@@ -242,8 +242,10 @@ function buildHttpTransportExample(): string {
 		// Push refresh events to browsers/Unity. Read /reference/controller/security
 		// before binding beyond 127.0.0.1.
 		// httpTransport({
-		//   // A token role only ever narrows allowedCommands, so a command has to
-		//   // appear in both lists to be reachable.
+		//   // allowedCommands defaults to empty, so nothing is reachable over
+		//   // POST /command until you list it here. A token role only ever
+		//   // narrows this list further, so a command has to appear in both to
+		//   // be reachable.
 		//   allowedCommands: ['content.ack', 'content.manifest.read'],
 		//   auth: {
 		//     roles: {

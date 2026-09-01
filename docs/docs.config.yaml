@@ -157,7 +157,10 @@ sidebar:
           - reference/scheduler/commands
 
       - label: Session
-        link: reference/session/vendor-client
+        link: reference/session
+        items:
+          - reference/session/session-plugin
+          - reference/session/vendor-client
 
       - label: Controller
         link: reference/controller

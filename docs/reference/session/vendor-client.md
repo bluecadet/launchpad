@@ -5,6 +5,8 @@ A connected exhibition gives each visitor a **Credential** — an RFID wristband
 
 `VendorClient` is the seam between launchpad and that vendor system. Launchpad ships the contract and a fake; the adapter that speaks your vendor's actual protocol lives in your project repo until a second project needs it.
 
+The adapter is consumed by the [session plugin](session-plugin.md), which owns the vendor link for a Node and serves the current Session to Station apps. This page is the contract you write an adapter against; that page is what an app developer and a commissioning engineer read.
+
 ```bash
 npm install @bluecadet/launchpad-session
 ```

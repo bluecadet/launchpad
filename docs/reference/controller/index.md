@@ -149,7 +149,7 @@ definePlugin({
 
 ### Transports
 
-Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](./transports.md) for browsers and Unity/.NET consumers. See [Transports](./transports.md) for the HTTP/SSE surface.
+Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](./transports.md) for browsers and Unity/.NET consumers. See [Transports](./transports.md) for the HTTP/SSE surface, and [Security posture](./security.md) for its tokens, token roles, and CORS.
 
 ### Readyable
 

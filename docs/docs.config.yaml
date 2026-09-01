@@ -162,3 +162,4 @@ sidebar:
           - reference/controller/controller-config
           - reference/controller/events
           - reference/controller/transports
+          - reference/controller/security

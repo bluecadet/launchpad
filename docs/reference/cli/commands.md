@@ -68,6 +68,8 @@ The `status` command queries the persistent controller for its current state via
 - Lists all running apps with their status and PID
 - Shows content fetch status and last fetch time
 
+If the controller was started by a launchpad version older than the release that introduced Node identity, the Node line shows a hint to restart it (`launchpad stop` then `launchpad start -d`) instead of the Node identity.
+
 ### Output Example
 
 ```

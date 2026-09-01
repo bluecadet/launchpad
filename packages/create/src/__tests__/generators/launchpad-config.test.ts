@@ -208,30 +208,65 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("export default defineConfig(");
 	});
 
-	it("hints at the http transport with a matching commented import when content is selected", () => {
-		const result = generateLaunchpadConfig({
-			...baseAnswers,
-			useContent: true,
-			contentSources: ["json"],
+	describe("http transport hint", () => {
+		function generateWithContent() {
+			return generateLaunchpadConfig({
+				...baseAnswers,
+				useContent: true,
+				contentSources: ["json"],
+			});
+		}
+
+		/** Every line the hint contributes, so nothing can slip in uncommented. */
+		function hintLines(result: string) {
+			const start = result.indexOf("// Push refresh events");
+			const end = result.indexOf("// })", start);
+			return result.slice(start, end + "// })".length).split("\n");
+		}
+
+		it("hints at the http transport with a matching commented import", () => {
+			const result = generateWithContent();
+
+			expect(result).toContain(
+				"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
+			);
+			expect(result).toContain("// httpTransport({");
 		});
 
-		expect(result).toContain(
-			"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
-		);
-		expect(result).toContain(
-			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
-		);
-	});
+		it("shows tokens, roles and a matching allowedCommands", () => {
+			const result = generateWithContent();
 
-	it("omits the http transport hint when content is not selected", () => {
-		const result = generateLaunchpadConfig(baseAnswers);
+			expect(result).toContain("auth: {");
+			expect(result).toContain("roles: {");
+			expect(result).toContain("tokens: {");
+			expect(result).toContain(
+				"'docent-tablet': { env: 'LAUNCHPAD_TOKEN_DOCENT', role: 'docent' }",
+			);
+			// A role only narrows allowedCommands, so the example is inert without it.
+			expect(result).toContain("allowedCommands:");
+		});
 
-		expect(result).not.toContain(
-			"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
-		);
-		expect(result).not.toContain(
-			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
-		);
+		it("references an environment variable instead of a token value", () => {
+			const result = generateWithContent();
+
+			expect(result).toContain("LAUNCHPAD_TOKEN_DOCENT");
+			expect(result).not.toMatch(/token['"]?\s*:\s*['"][^'"]+['"]/);
+		});
+
+		it("leaves every hint line commented out", () => {
+			for (const line of hintLines(generateWithContent())) {
+				expect(line.trimStart()).toMatch(/^\/\//);
+			}
+		});
+
+		it("omits the hint when content is not selected", () => {
+			const result = generateLaunchpadConfig(baseAnswers);
+
+			expect(result).not.toContain(
+				"// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';",
+			);
+			expect(result).not.toContain("// httpTransport({");
+		});
 	});
 
 	it("includes sanity-specific transform named exports", () => {

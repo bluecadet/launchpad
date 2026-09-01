@@ -228,6 +228,34 @@ function buildWorkflows(answers: Answers): string[] {
 	return workflows;
 }
 
+/**
+ * Commented-out example: pushing refresh events to browsers and Unity. Left
+ * inert because it opens a port, and because token values have to exist in the
+ * environment before it will start.
+ */
+function buildHttpTransportExample(): string {
+	return dedent`
+		// Push refresh events to browsers/Unity. Read /reference/controller/security
+		// before binding beyond 127.0.0.1.
+		// httpTransport({
+		//   // A token role only ever narrows allowedCommands, so a command has to
+		//   // appear in both lists to be reachable.
+		//   allowedCommands: ['content.ack', 'content.manifest.read'],
+		//   auth: {
+		//     roles: {
+		//       docent: ['content.*'],
+		//     },
+		//     tokens: {
+		//       // Token values live in the environment, never in this file. Put
+		//       // LAUNCHPAD_TOKEN_DOCENT in .env.local and load it with \`launchpad --env\`.
+		//       'docent-tablet': { env: 'LAUNCHPAD_TOKEN_DOCENT', role: 'docent' },
+		//     },
+		//   },
+		//   allowedOrigins: ['http://localhost:3000'],
+		// })
+	`;
+}
+
 export function generateLaunchpadConfig(answers: Answers): string {
 	const importsBlock = buildImports(answers);
 
@@ -236,9 +264,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
 	if (answers.useScheduler) plugins.push(buildSchedulerPlugin());
 	if (answers.useContent) {
-		plugins.push(
-			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
-		);
+		plugins.push(buildHttpTransportExample());
 	}
 
 	const pluginsBlock = plugins.map((p) => `${addIndent(p, 2)},`).join("\n");

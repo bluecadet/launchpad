@@ -509,6 +509,21 @@ describe("http-transport", () => {
 			expect(body.result).toEqual({ status: "ok" });
 		});
 
+		it("returns 200 with a present, null result for a command that resolves nothing", async () => {
+			const ctx = createTestCtx({ dispatchCommand: vi.fn(() => okAsync(undefined)) });
+			const { baseUrl } = await trackedStart({}, ctx);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			expect(response.status).toBe(200);
+			const body = (await response.json()) as { result: unknown };
+			expect("result" in body).toBe(true);
+			expect(body.result).toBeNull();
+		});
+
 		it("returns 403 for a command not in the allowlist", async () => {
 			const { baseUrl } = await trackedStart();
 

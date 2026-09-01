@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import net from "node:net";
+import { okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IPCSerializer } from "../../utils/ipc-serializer.js";
 import { createMockSocket, createTestIPCTransport } from "./helpers.js";
@@ -245,6 +246,32 @@ describe("ipc-transport", () => {
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
 			expect(response.result).toEqual({ result: "success" });
+		});
+
+		it("should send a present, null result for a command that resolves nothing", async () => {
+			const { transport, context } = createTestIPCTransport();
+			context.dispatchCommand = vi.fn(() => okAsync(undefined));
+			await transport.setup(context);
+
+			const mockSocket = createMockSocket();
+			connectionCallback?.(mockSocket);
+
+			const message = {
+				jsonrpc: "2.0",
+				id: 1,
+				method: "executeCommand",
+				params: { type: "content.ack" },
+			};
+			const dataHandler = mockSocket.listeners.data![0]!;
+			dataHandler(Buffer.from(`${IPCSerializer.serialize(message)}\n`));
+
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as {
+				result: unknown;
+			};
+			expect("result" in response).toBe(true);
+			expect(response.result).toBeNull();
 		});
 
 		it("should send ack and emit system:shutdown for shutdown message", async () => {

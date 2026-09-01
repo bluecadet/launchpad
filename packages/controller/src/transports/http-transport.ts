@@ -738,7 +738,7 @@ async function handleCommandRequest(
 	}
 
 	await deps.ctx.dispatchCommand(command).match(
-		(result) => sendJson(res, 200, { result }, cors),
+		(result) => sendJson(res, 200, { result: result ?? null }, cors),
 		(error) => sendJson(res, 500, { error }, cors),
 	);
 }

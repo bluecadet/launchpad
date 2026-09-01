@@ -311,7 +311,7 @@ function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginConte
 
 			resultAsync.match(
 				(value) => {
-					sendResult(socket, message.id, value);
+					sendResult(socket, message.id, value ?? null);
 				},
 				(error) => {
 					logger.error(`Command execution failed: ${error.message}`);

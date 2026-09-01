@@ -59,7 +59,7 @@ curl -X POST http://127.0.0.1:8710/command \
 
 On connect, the stream [replays](../reference/controller/transports.md#replay-on-connect) the last frame of each event it has seen, so a page that opens long after the last promote still gets `content:version:promoted` immediately rather than waiting for the next one.
 
-As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh.
+As with the IPC transport, push is best-effort: keep polling `manifest.json` so a missed SSE event never prevents a refresh. Live frames carry a monotonic `id:`, so a client can also notice a gap the moment it happens and re-read the manifest instead of waiting for the next poll — see [Sequence numbers and gap detection](../reference/controller/transports.md#sequence-numbers-and-gap-detection). That counter runs across every forwarded frame, which is why the config above narrows `events` to the one event these consumers handle. Reconnecting does not resume the stream: `Last-Event-ID` is ignored, and the client rebaselines.
 
 ### C# (Unity/.NET)
 
@@ -106,6 +106,8 @@ while (true)
 }
 ```
 
-This is a minimal line loop, not a full SSE client: it doesn't honor the `retry:` line, multi-line `data:` fields, or `id:`-based resumption. It's enough to catch `content:version:promoted` as a low-latency nudge — the manifest poll is still what makes the refresh correct.
+A hand-rolled reader should also parse the `id:` line — it arrives ahead of `event:` on every live frame — and treat any value other than the previous one plus 1 as a cue to re-read `manifest.json`. Frames without an `id:` are the replay backlog and keep-alives; they never advance the baseline.
+
+This is a minimal line loop, not a full SSE client: it doesn't honor the `retry:` line, multi-line `data:` fields, or the `id:` sequence check above (and the server ignores `Last-Event-ID`, so there is no resumption to implement). It's enough to catch `content:version:promoted` as a low-latency nudge — the manifest poll is still what makes the refresh correct.
 
 See the full [browser `EventSource` example](https://github.com/bluecadet/launchpad/blob/main/docs/recipes/live-content-refresh-examples/browser-sse-consumer.ts) for the equivalent consumer in TypeScript, including a poll-fallback interval.

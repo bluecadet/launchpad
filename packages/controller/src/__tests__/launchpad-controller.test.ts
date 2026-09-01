@@ -691,6 +691,133 @@ describe("LaunchpadController", () => {
 		});
 	});
 
+	describe("core workflow commands", () => {
+		function makeStepPlugin(execute = vi.fn().mockReturnValue(okAsync(undefined))) {
+			return {
+				execute,
+				plugin: definePlugin({
+					name: "steps",
+					manifest: { commands: [{ id: "steps.one" }, { id: "steps.two" }] },
+					setup: () => okAsync({ executeCommand: execute }),
+				}),
+			};
+		}
+
+		it("registers the workflow commands only once started", async () => {
+			const controller = createController();
+
+			expect(controller.hasPlugin("workflows")).toBe(false);
+			expect(controller.getRegisteredCommandIds()).toEqual([]);
+
+			await controller.start();
+
+			expect(controller.hasPlugin("workflows")).toBe(true);
+			expect(controller.getRegisteredCommandIds()).toEqual(["workflow.run", "workflow.list"]);
+		});
+
+		it("runs a config-declared workflow and leaves the outcome in state", async () => {
+			const controller = createController();
+			const { execute, plugin } = makeStepPlugin();
+			await controller.registerPlugin(plugin);
+			await controller.start();
+			controller.setWorkflows({ "tour-mode": ["steps.one", "steps.two"] });
+
+			const result = await controller.executeCommand({
+				type: "workflow.run",
+				name: "tour-mode",
+			});
+
+			expect(result.isOk()).toBe(true);
+			expect(execute).toHaveBeenNthCalledWith(1, { type: "steps.one" });
+			expect(execute).toHaveBeenNthCalledWith(2, { type: "steps.two" });
+
+			const recorded = controller.getState().plugins.workflows?.runs["tour-mode"];
+			expect(recorded).toMatchObject({ name: "tour-mode", status: "success", stepCount: 2 });
+			expect(recorded?.steps.map((step) => step.command)).toEqual(["steps.one", "steps.two"]);
+			expect(result._unsafeUnwrap()).toEqual(recorded);
+		});
+
+		it("lists configured workflows with their latest run", async () => {
+			const controller = createController();
+			const { plugin } = makeStepPlugin();
+			await controller.registerPlugin(plugin);
+			await controller.start();
+			controller.setWorkflows({ "tour-mode": ["steps.one"], reset: ["steps.two"] });
+			await controller.executeCommand({ type: "workflow.run", name: "tour-mode" });
+
+			const result = await controller.executeCommand({ type: "workflow.list" });
+
+			expect(result._unsafeUnwrap()).toMatchObject({
+				workflows: [
+					{ name: "tour-mode", stepCount: 1, lastRun: { status: "success" } },
+					{ name: "reset", stepCount: 1, lastRun: null },
+				],
+			});
+		});
+
+		it("errs on a failing workflow while recording the failed step", async () => {
+			const controller = createController();
+			const execute = vi
+				.fn()
+				.mockImplementation((command: BaseCommand) =>
+					command.type === "steps.two" ? errAsync(new Error("ENOENT")) : okAsync(undefined),
+				);
+			const { plugin } = makeStepPlugin(execute);
+			await controller.registerPlugin(plugin);
+			await controller.start();
+			controller.setWorkflows({ "tour-mode": ["steps.one", "steps.two"] });
+
+			const result = await controller.executeCommand({
+				type: "workflow.run",
+				name: "tour-mode",
+			});
+
+			expect(result.isErr()).toBe(true);
+			const recorded = controller.getState().plugins.workflows?.runs["tour-mode"];
+			expect(recorded?.status).toBe("error");
+			expect(recorded?.steps[1]).toMatchObject({ index: 1, command: "steps.two", status: "error" });
+		});
+
+		it("errs on an unknown workflow without recording a run", async () => {
+			const controller = createController();
+			await controller.start();
+			controller.setWorkflows({ "tour-mode": ["steps.one"] });
+
+			const result = await controller.executeCommand({ type: "workflow.run", name: "nope" });
+
+			expect(result.isErr()).toBe(true);
+			expect(controller.getState().plugins.workflows?.runs.nope).toBeUndefined();
+		});
+
+		it("refuses a host plugin that claims a core workflow command", async () => {
+			const controller = createController();
+			await controller.start();
+
+			const result = await controller.registerPlugin(
+				definePlugin({
+					name: "impostor",
+					manifest: { commands: [{ id: "workflow.run" }] },
+					setup: () => okAsync({ executeCommand: vi.fn().mockReturnValue(okAsync(undefined)) }),
+				}),
+			);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain(
+				"already registered by plugin 'workflows'",
+			);
+		});
+
+		it("refuses a host plugin named workflows", async () => {
+			const controller = createController();
+			await controller.start();
+
+			const result = await controller.registerPlugin(makePlugin("workflows"));
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("already registered");
+		});
+	});
+
 	describe("integration", () => {
 		it("should coordinate multiple plugins through controller", async () => {
 			const controller = createController();

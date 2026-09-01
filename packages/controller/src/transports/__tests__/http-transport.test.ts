@@ -632,6 +632,133 @@ describe("http-transport", () => {
 		});
 	});
 
+	describe("workflow commands", () => {
+		const RUN_RECORD = {
+			runId: 1,
+			name: "tour-mode",
+			status: "success",
+			startedAt: "2026-01-01T00:00:00.000Z",
+			finishedAt: "2026-01-01T00:00:01.000Z",
+			durationMs: 1000,
+			stepCount: 1,
+			steps: [
+				{ index: 0, command: "monitor.start", status: "success", durationMs: 5, error: null },
+			],
+			error: null,
+		};
+
+		function createWorkflowCtx() {
+			return createTestCtx({
+				dispatchCommand: vi.fn((command: BaseCommand) =>
+					command.type === "workflow.run" ? okAsync(RUN_RECORD) : errAsync(new Error("nope")),
+				),
+			});
+		}
+
+		it("dispatches workflow.run with its name when the node allowlists it", async () => {
+			const ctx = createWorkflowCtx();
+			const { baseUrl } = await trackedStart(
+				{ allowedCommands: ["workflow.run", "workflow.list"] },
+				ctx,
+			);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "workflow.run", name: "tour-mode" }),
+			});
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toEqual({ result: RUN_RECORD });
+			expect(ctx.dispatchCommand).toHaveBeenCalledWith({
+				type: "workflow.run",
+				name: "tour-mode",
+			});
+		});
+
+		it("rejects workflow.run under the default allowlist", async () => {
+			const ctx = createWorkflowCtx();
+			const { baseUrl } = await trackedStart({}, ctx);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "workflow.run", name: "tour-mode" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain("Command not allowed");
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
+
+		it("rejects workflow.run for a token whose role misses workflow.*", async () => {
+			stubTokenEnv();
+			const ctx = createWorkflowCtx();
+			const { baseUrl } = await trackedStart(
+				{
+					auth: AUTH_OPTIONS,
+					allowedCommands: ["workflow.run", "workflow.list"],
+				},
+				ctx,
+			);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "workflow.run", name: "tour-mode" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain('role "docent"');
+			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
+		});
+
+		it("dispatches workflow.run for a token role that covers workflow.*", async () => {
+			stubTokenEnv();
+			const ctx = createWorkflowCtx();
+			const { baseUrl } = await trackedStart(
+				{
+					auth: {
+						roles: { docent: ["workflow.*"], kiosk: [] },
+						tokens: AUTH_OPTIONS.tokens,
+					},
+					allowedCommands: ["workflow.run", "workflow.list"],
+				},
+				ctx,
+			);
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				headers: docentHeader(),
+				body: JSON.stringify({ type: "workflow.run", name: "tour-mode" }),
+			});
+
+			expect(response.status).toBe(200);
+		});
+
+		it("serves the workflows slice at /state with nothing lost to placeholders", async () => {
+			const state = {
+				system: { mode: "persistent" },
+				plugins: {
+					workflows: {
+						available: [{ name: "tour-mode", stepCount: 1 }],
+						runs: { "tour-mode": RUN_RECORD },
+					},
+				},
+				_version: 4,
+			};
+			const ctx = createTestCtx({ getGlobalState: vi.fn().mockReturnValue(state) });
+			const { baseUrl } = await trackedStart({ exposeState: true }, ctx);
+
+			const response = await fetch(`${baseUrl}/state`);
+
+			expect(response.status).toBe(200);
+			const body = await response.text();
+			expect(body).not.toContain("[unserializable");
+			expect(JSON.parse(body)).toEqual(state);
+		});
+	});
+
 	describe("CORS", () => {
 		it("responds to OPTIONS with 204 and preflight headers", async () => {
 			const { baseUrl } = await trackedStart();

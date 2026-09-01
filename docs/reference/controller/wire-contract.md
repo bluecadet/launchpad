@@ -21,6 +21,7 @@ A client pins itself to v1 by implementing exactly what's below. There is no neg
 - New event names appearing in an `events: ["*"]` (or otherwise broadened) stream.
 - New fields appended to any existing JSON object — `GET /status`, `GET /state`, command results, SSE frame payloads. Parse leniently; don't reject on unrecognized keys, and don't assume a fixed key order.
 - New commands becoming available (a new `allowedCommands` entry, a new token role).
+- New `error.reason` values on a `POST /command` failure beyond the three catalogued in [Command failures carry a `reason`](#command-failures-carry-a-reason). Fall back to the status code for an unrecognized reason; don't let an exhaustive `switch` throw.
 - New `[unserializable: <kind>]` placeholder strings beyond the ones catalogued in [Serialization and lossiness](#serialization-and-lossiness). The prefix `[unserializable` is the stable part; the kind that follows it is not enumerable and may grow.
 - New optional query parameters or request headers the server accepts but a v1 client doesn't send.
 
@@ -162,25 +163,37 @@ curl -X POST http://127.0.0.1:8710/command \
 | `200` | `{"result": <value>}` | Command dispatched and resolved. `result` is always present, even for a command that resolves with nothing — see [the `result` presence guarantee](#the-result-presence-guarantee). |
 | `400` | `{"error":{"message":"Request body must be JSON with a string \"type\""}}` | Body isn't valid JSON, or has no string `type` field. |
 | `400` | `{"error":{"message":"Failed to read request body"}}` | The request stream errored while reading. |
+| `400` | `{"error":{"name":"CommandExecutionError","reason":"invalid", ...}}` | The command exists, but its own parameters failed its parser. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
 | `401` | `{"error":{"message":"Unauthorized"}}` | No valid token, when tokens are required. |
 | `403` | `{"error":{"message":"Command not allowed: <type>"}}` | `type` isn't in the transport's `allowedCommands`. This gate runs first and applies to every caller, including an anonymous one on an unauthenticated transport. |
 | `403` | `{"error":{"message":"Command not permitted for role \"<role>\": <type>"}}` | The token is valid, but its role's command globs don't cover `type`. |
+| `404` | `{"error":{"name":"CommandExecutionError","reason":"not-registered", ...}}` | `type` cleared both `403` gates, but no plugin on this Node implements it. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
 | `413` | `{"error":{"message":"Request body exceeds 64KB limit"}}` | Body exceeded 64KB. |
-| `500` | `{"error":{"name":"CommandExecutionError","message":"<see below>", ...}}` | Something went wrong past the `allowedCommands`/role gates — an unregistered command, invalid params, or a handler failure. See [the three cases below](#every-command-failure-has-name-commandexecutionerror-at-the-top-level) for exactly which, and where the actionable detail lives. |
+| `500` | `{"error":{"name":"CommandExecutionError","reason":"handler-failed", ...}}` | The command dispatched and its handler failed. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
+
+The two kinds of `400` are told apart by the body, not the code: a malformed request never got as far as a command, so its `error` has only a `message`; a rejected *parameter* got a real command and failed its schema, so its `error` has `name`, `reason`, and usually a `cause`. Test for `error.reason` before assuming which one you have.
 
 A `403` for "not allowed" is checked before role authorization, so it fires even for a caller presenting no token at all (on an unauthenticated transport, `allowedCommands` is still enforced — a role is not the only gate). See [Dispatching a command](#dispatching-a-command) for the full authorization model and [Commands reference](#commands-reference) for the shipped command catalog.
 
-#### Every command failure has `name: "CommandExecutionError"` at the top level
+#### Command failures carry a `reason`
 
-A command's own logic error — a `WorkflowError`, a content-plugin error, whatever the handler throws or resolves as `err(...)` — never reaches the wire as the **top-level** `error` object. The dispatcher always wraps a `500` in a `CommandExecutionError` first, so `error.name` is always `"CommandExecutionError"` and tells you nothing about *why* — you must read further in. There are three distinct cases, distinguishable by `error.message`:
+Every failure past the `allowedCommands` and role gates has `name: "CommandExecutionError"` at the top level. A command's own logic error — a `WorkflowError`, a content-plugin error, whatever the handler throws or resolves as `err(...)` — never reaches the wire as the **top-level** `error` object; the dispatcher always wraps it first. So `error.name` tells you nothing about *why*, and neither does `error.message`. Read `error.reason`, a fixed enum that maps one-to-one onto the status code:
 
-| `error.message` | Meaning | `error.cause` |
-| --- | --- | --- |
-| `Command '<type>' is not registered` | `<type>` passed `allowedCommands` and the token role, but no plugin actually implements it (an operator misconfiguration — `allowedCommands` doesn't guarantee a command exists). | Absent. |
-| `Invalid command: <type>` | The request's `type` and top-level shape were fine, but the command's own parameters failed its schema (e.g. a missing `consumerId` on `content.ack`). | A **`ZodError`**: `{"name":"ZodError","message":"<JSON-formatted array of validation issues>"}`. `cause.message` is itself a pretty-printed JSON string (not a plain sentence) listing every failed field, each with its own `path` (array), `code`, and `message` — parse it as JSON if you want structured detail, or show it as-is for debugging. |
-| `Plugin command execution failed` | The command was well-formed and dispatched, but the handler itself failed (business logic, an I/O error, a workflow step failing, etc.). | The plugin's actual error, e.g. `{"name":"WorkflowError","message":"Workflow 'tour-mode' failed: step 2 (content.fetch): fetch timed out after 30000ms"}`. |
+| `reason` | Status | Meaning | `error.cause` |
+| --- | --- | --- | --- |
+| `not-registered` | `404` | `type` passed `allowedCommands` and the token role, but no plugin on this Node implements it (an operator misconfiguration — `allowedCommands` doesn't guarantee a command exists). Retrying never helps; the command does not exist here. | Absent. |
+| `invalid` | `400` | The request's `type` and top-level shape were fine, but the command's own parameters failed its schema (e.g. a missing `consumerId` on `content.ack`). | A **`ZodError`**: `{"name":"ZodError","message":"<JSON-formatted array of validation issues>"}`. `cause.message` is itself a pretty-printed JSON string (not a plain sentence) listing every failed field, each with its own `path` (array), `code`, and `message` — parse it as JSON if you want structured detail, or show it as-is for debugging. |
+| `handler-failed` | `500` | The command was well-formed and dispatched, but the handler itself failed (business logic, an I/O error, a workflow step failing, etc.). | The plugin's actual error, e.g. `{"name":"WorkflowError","message":"Workflow 'tour-mode' failed: step 2 (content.fetch): fetch timed out after 30000ms"}`. |
 
-**A client that wants the specific, actionable reason for a `500` must read `error.cause`, not `error.message`** — the top-level `message` only tells you which of these three buckets you're in. `cause` (when present) follows the normal `Error` recursion rule from [Serialization and lossiness](#serialization-and-lossiness): it can itself carry one more nested `cause`, if the underlying error chained one.
+The failure body carries `commandType` alongside `reason` — the canonical id of the command that failed, which is not always the `type` you sent, since an alias is resolved to its canonical id before dispatch. `cause` is present only where the table says so.
+
+```json
+{"error":{"name":"CommandExecutionError","message":"Command 'content.manifest.read' is not registered","reason":"not-registered","commandType":"content.manifest.read"}}
+```
+
+**Branch on `reason`, never on `message`.** The three messages (`Command '<type>' is not registered`, `Invalid command: <type>`, `Plugin command execution failed`) are for humans reading logs; they are not part of this contract and may be reworded. `reason` and the status code are. A client that wants the specific, actionable detail behind a `400` or `500` reads `error.cause`, which follows the normal `Error` recursion rule from [Serialization and lossiness](#serialization-and-lossiness): it can itself carry one more nested `cause`, if the underlying error chained one.
+
+Note that `404` on `POST /command` means "this Node has no such command," while `404` on any other path means "no such route" — see [Unknown routes](#unknown-routes). The two are told apart by the response body: a command failure always has `error.name` and `error.reason`; an unknown route has only `error.message`.
 
 There is **no correlation id** anywhere in this protocol. A command's result is correlated to its request purely by the HTTP request/response pair, and there is no async command mode.
 
@@ -262,7 +275,7 @@ A command request is `{"type": "<id>", ...params}` where `id` always has the sha
 Only `workflow.run` and `workflow.list` are genuinely core: the controller registers them itself, before any host plugin, on every deployment regardless of config. `content.ack` and `content.manifest.read` are registered by the **optional** `content` plugin — they only exist on a Node whose config actually includes `content(...)`. A project's own plugins (e.g. `monitor.*`) register still more commands, and are documented by the project, not here.
 
 > [!WARNING]
-> Being in `allowedCommands` only means a command is allowed past that gate, never that it's registered. If an operator allowlists `content.ack` or `content.manifest.read` on a Node that never added the `content` plugin (or any other command belonging to a plugin the Node doesn't run), that command still passes `allowedCommands` and any role check, then fails at dispatch with a `500` and `error.cause` absent: `{"error":{"name":"CommandExecutionError","message":"Command 'content.manifest.read' is not registered"}}` (the "not registered" row of [the table above](#every-command-failure-has-name-commandexecutionerror-at-the-top-level)). A client cannot assume a command exists just because it's allowlisted — the only reliable check is trying it, or something project-specific like a successful `content.manifest.read` earlier in a session.
+> Being in `allowedCommands` only means a command is allowed past that gate, never that it's registered. If an operator allowlists `content.ack` or `content.manifest.read` on a Node that never added the `content` plugin (or any other command belonging to a plugin the Node doesn't run), that command still passes `allowedCommands` and any role check, then fails at dispatch with a `404` and `reason: "not-registered"` (the first row of [the table above](#command-failures-carry-a-reason)). A client cannot assume a command exists just because it's allowlisted — the only reliable check is trying it, or something project-specific like a successful `content.manifest.read` earlier in a session.
 
 ### `content.ack`
 
@@ -354,14 +367,14 @@ type WorkflowRun = {
 };
 ```
 
-Three things can go wrong here, each answering with a `500` under [the "execution failed" case above](#every-command-failure-has-name-commandexecutionerror-at-the-top-level) — the only difference is `error.cause.message`:
+Three things can go wrong here, each answering with a `500` and `reason: "handler-failed"` under [command failures above](#command-failures-carry-a-reason) — the only difference is `error.cause.message`:
 
 - **Unknown workflow name.** `error.cause.message` is exactly `Unknown workflow '<name>'`.
 - **A second `workflow.run` for a name already in flight.** `error.cause.message` is exactly `Workflow '<name>' is already running`. No run record is produced by this call in either of these first two cases.
 - **The run started but a step failed.** `error.cause.message` is `Workflow '<name>' failed: step <n> (<command>): <detail>`, e.g.:
 
   ```json
-  {"error":{"name":"CommandExecutionError","message":"Plugin command execution failed","cause":{"name":"WorkflowError","message":"Workflow 'tour-mode' failed: step 2 (content.fetch): fetch timed out after 30000ms"}}}
+  {"error":{"name":"CommandExecutionError","message":"Plugin command execution failed","reason":"handler-failed","commandType":"workflow.run","cause":{"name":"WorkflowError","message":"Workflow 'tour-mode' failed: step 2 (content.fetch): fetch timed out after 30000ms"}}}
   ```
 
   This is the only one of the three where a run record actually exists — `error.cause.message` carries only that one summary line, not the full per-step detail. To learn which step failed (or a workflow's run history at all), call `workflow.list` (below) or read `plugins.workflows.runs.<name>` from `GET /state` afterward — the run record persists in state regardless of how the triggering request resolved.

@@ -100,6 +100,8 @@ Two habits worth adopting:
 | `403` `Command not allowed: <type>` | The command isn't in `allowedCommands`. This gate runs first, and applies to anonymous callers too. |
 | `403` `Command not permitted for role "<role>": <type>` | The token is valid, but its role's globs don't cover the command. |
 
+These are the codes the auth gates produce. A request that clears both gates and then fails at dispatch answers `404`, `400`, or `500` depending on why — see the [Wire Contract's command failure table](./wire-contract.md#command-failures-carry-a-reason). A `404` there is not an auth outcome: an unauthorized caller never learns whether a command exists, because the `403` fires first.
+
 A client presents a token one of two ways:
 
 - `Authorization: Bearer <token>` on any route.

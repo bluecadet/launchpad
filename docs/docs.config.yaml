@@ -156,6 +156,9 @@ sidebar:
           - reference/scheduler/scheduler-config
           - reference/scheduler/commands
 
+      - label: Session
+        link: reference/session/vendor-client
+
       - label: Controller
         link: reference/controller
         items:

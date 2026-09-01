@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import net from "node:net";
-import { okAsync } from "neverthrow";
+import { errAsync, okAsync } from "neverthrow";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CommandExecutionError, JSONRPC_ERROR_CODES } from "../../errors.js";
 import { IPCSerializer } from "../../utils/ipc-serializer.js";
 import { createMockSocket, createTestIPCTransport } from "./helpers.js";
 
@@ -399,21 +400,13 @@ describe("ipc-transport", () => {
 	});
 
 	describe("error handling", () => {
-		it("should send error response when command execution fails", async () => {
+		/**
+		 * Drives one `executeCommand` request whose dispatch fails, and returns
+		 * the JSON-RPC error the transport wrote back.
+		 */
+		async function dispatchFailure(error: CommandExecutionError) {
 			const { transport, context } = createTestIPCTransport();
-			await transport.setup(context);
-
-			const error = new Error("Command failed");
-			context.dispatchCommand = vi.fn(
-				(_cmd) =>
-					({
-						match: (_onOk: any, onErr: any) => {
-							onErr(error);
-						},
-					}) as any,
-			);
-
-			// Re-setup with updated context so transport picks up new dispatchCommand
+			context.dispatchCommand = vi.fn(() => errAsync(error));
 			await transport.setup(context);
 
 			const mockSocket = createMockSocket();
@@ -432,8 +425,46 @@ describe("ipc-transport", () => {
 
 			const response = IPCSerializer.deserialize(mockSocket.write.mock.calls[0]![0]!) as any;
 			expect(response.error).toBeDefined();
-			expect(response.error.data.message).toContain("IPC command execution failed");
-			expect(response.error.data.cause!.message).toContain("Command failed");
+			return response.error;
+		}
+
+		it("answers METHOD_NOT_FOUND for a command this node does not implement", async () => {
+			const rpcError = await dispatchFailure(
+				new CommandExecutionError("Command 'test.command' is not registered", {
+					reason: "not-registered",
+					commandType: "test.command",
+				}),
+			);
+
+			expect(rpcError.code).toBe(JSONRPC_ERROR_CODES.METHOD_NOT_FOUND);
+			expect(rpcError.data.message).toContain("is not registered");
+		});
+
+		it("answers INVALID_PARAMS when a command's own params fail its parser", async () => {
+			const rpcError = await dispatchFailure(
+				new CommandExecutionError("Invalid command: test.command", {
+					reason: "invalid",
+					commandType: "test.command",
+					cause: new Error("consumerId is required"),
+				}),
+			);
+
+			expect(rpcError.code).toBe(JSONRPC_ERROR_CODES.INVALID_PARAMS);
+			expect(rpcError.data.cause!.message).toContain("consumerId is required");
+		});
+
+		it("answers INTERNAL_ERROR when the handler itself fails", async () => {
+			const rpcError = await dispatchFailure(
+				new CommandExecutionError("Plugin command execution failed", {
+					reason: "handler-failed",
+					commandType: "test.command",
+					cause: new Error("Command failed"),
+				}),
+			);
+
+			expect(rpcError.code).toBe(JSONRPC_ERROR_CODES.INTERNAL_ERROR);
+			expect(rpcError.data.message).toContain("Plugin command execution failed");
+			expect(rpcError.data.cause!.message).toContain("Command failed");
 		});
 	});
 

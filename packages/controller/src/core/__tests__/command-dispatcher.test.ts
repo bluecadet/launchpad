@@ -6,6 +6,7 @@ import type {
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
+import { CommandExecutionError } from "../../errors.js";
 import { CommandDispatcher } from "../command-dispatcher.js";
 import { CommandRegistry } from "../command-registry.js";
 
@@ -141,6 +142,7 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().reason).toBe("not-registered");
 			expect(result._unsafeUnwrapErr().message).toContain("is not registered");
 			expect(emitSpy).toHaveBeenCalledWith(
 				"command:error",
@@ -162,8 +164,25 @@ describe("CommandDispatcher", () => {
 
 			expect(result.isErr()).toBe(true);
 			const error = result._unsafeUnwrapErr();
+			expect(error.reason).toBe("handler-failed");
 			expect(error.message).toContain("Plugin command execution failed");
 			expect(error.cause).toBe(customError);
+		});
+
+		it("should keep a plugin's own failure reason instead of rewrapping it", async () => {
+			const pluginError = new CommandExecutionError("Command 'content.fetch' is not registered", {
+				reason: "not-registered",
+				commandType: "content.fetch",
+			});
+			const executeCommand = vi.fn().mockReturnValue(errAsync(pluginError));
+			const { dispatcher } = createDispatcher([
+				{ pluginName: "content", descriptor: { id: "content.fetch" }, executeCommand },
+			]);
+
+			const result = await dispatcher.dispatch({ type: "content.fetch" });
+
+			expect(result._unsafeUnwrapErr()).toBe(pluginError);
+			expect(result._unsafeUnwrapErr().reason).toBe("not-registered");
 		});
 
 		it("should contain plugins that throw synchronously instead of returning errAsync", async () => {
@@ -179,6 +198,7 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().reason).toBe("handler-failed");
 			expect(result._unsafeUnwrapErr().cause).toBe(thrown);
 			expect(emitSpy).toHaveBeenCalledWith(
 				"command:error",
@@ -198,6 +218,7 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().reason).toBe("handler-failed");
 			expect(result._unsafeUnwrapErr().cause).toBe(rejection);
 		});
 
@@ -263,6 +284,7 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().reason).toBe("invalid");
 			expect(executeCommand).not.toHaveBeenCalled();
 			expect(emitSpy).toHaveBeenCalledWith(
 				"command:error",
@@ -290,6 +312,7 @@ describe("CommandDispatcher", () => {
 			const result = await dispatcher.dispatch({ type: "content.fetch" });
 
 			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().reason).toBe("invalid");
 			expect(result._unsafeUnwrapErr().cause).toBeInstanceOf(Error);
 			expect(executeCommand).not.toHaveBeenCalled();
 		});

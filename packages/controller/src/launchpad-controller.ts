@@ -56,6 +56,7 @@ import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { createFileLogger } from "./core/file-logger.js";
 import { resolveNodeIdentity } from "./core/node-identity.js";
 import { StateStore } from "./core/state-store.js";
+import { CommandExecutionError } from "./errors.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
 
@@ -303,9 +304,16 @@ export class LaunchpadController {
 			);
 	}
 
-	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
+	executeCommand(command: BaseCommand): ResultAsync<unknown, CommandExecutionError> {
 		if (!this._isStarted) {
-			return errAsync(new Error("Controller must be started before executing commands"));
+			// Reported as a handler failure: the command may well be registered,
+			// the controller just isn't in a state to run anything yet.
+			return errAsync(
+				new CommandExecutionError("Controller must be started before executing commands", {
+					reason: "handler-failed",
+					commandType: command.type,
+				}),
+			);
 		}
 
 		return this._commandDispatcher.dispatch(command);

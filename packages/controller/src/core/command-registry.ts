@@ -6,7 +6,7 @@ import type {
 	InstantiatedPlugin,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { err, ok, type Result } from "neverthrow";
-import { CommandExecutionError } from "../errors.js";
+import { CommandExecutionError, CommandRegistrationError } from "../errors.js";
 
 export type RegisteredCommand = {
 	readonly pluginName: string;
@@ -17,16 +17,21 @@ export type RegisteredCommand = {
 };
 
 function createRegistrationConflictError(commandType: string, message: string) {
-	return new CommandExecutionError(message, { commandType });
+	return new CommandRegistrationError(message, { commandType });
+}
+
+function createInvalidCommandError(commandType: string, cause: Error) {
+	return new CommandExecutionError(`Invalid command: ${commandType}`, {
+		reason: "invalid",
+		cause,
+		commandType,
+	});
 }
 
 function normalizeParserError(error: unknown, commandType: string): Error {
 	return error instanceof Error
 		? error
-		: new CommandExecutionError(`Invalid command: ${commandType}`, {
-				cause: new Error(String(error)),
-				commandType,
-			});
+		: createInvalidCommandError(commandType, new Error(String(error)));
 }
 
 export class CommandRegistry {
@@ -37,7 +42,7 @@ export class CommandRegistry {
 		pluginName: string,
 		descriptors: readonly CommandDescriptor[],
 		execute: RegisteredCommand["execute"],
-	): Result<void, CommandExecutionError> {
+	): Result<void, CommandRegistrationError> {
 		const nextCommands = new Map(this._commands);
 		const nextAliases = new Map(this._aliases);
 
@@ -133,20 +138,14 @@ export class CommandRegistry {
 			const parsed = parser.safeParse(command);
 			if (!parsed.success) {
 				return err(
-					new CommandExecutionError(`Invalid command: ${command.type}`, {
-						cause: normalizeParserError(parsed.error, command.type),
-						commandType: command.type,
-					}),
+					createInvalidCommandError(command.type, normalizeParserError(parsed.error, command.type)),
 				);
 			}
 
 			return ok(parsed.data);
 		} catch (error) {
 			return err(
-				new CommandExecutionError(`Invalid command: ${command.type}`, {
-					cause: normalizeParserError(error, command.type),
-					commandType: command.type,
-				}),
+				createInvalidCommandError(command.type, normalizeParserError(error, command.type)),
 			);
 		}
 	}

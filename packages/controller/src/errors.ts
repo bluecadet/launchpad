@@ -3,6 +3,11 @@
  * All errors support the `cause` parameter for error chaining.
  */
 
+import type {
+	CommandDispatchError,
+	CommandFailureReason,
+} from "@bluecadet/launchpad-utils/plugin-interfaces";
+
 /**
  * Base error class for all controller-related errors.
  * Extends Error to support the `cause` parameter for error chaining.
@@ -61,18 +66,40 @@ export class IPCTimeoutError extends IPCError {
 }
 
 /**
- * Thrown when command execution fails.
+ * Thrown when dispatching a command fails.
+ *
+ * `reason` is the discriminant every transport maps to its own vocabulary — an
+ * HTTP status code, a JSON-RPC error code — so nothing downstream has to match
+ * on the message text.
  */
-export class CommandExecutionError extends ControllerError {
+export class CommandExecutionError extends ControllerError implements CommandDispatchError {
+	readonly reason: CommandFailureReason;
 	readonly commandType?: string;
 
 	constructor(
-		message = "Command execution failed",
-		options?: { cause?: Error; commandType?: string },
+		message: string,
+		options: { reason: CommandFailureReason; cause?: Error; commandType?: string },
 	) {
 		super(message, options);
 		this.name = "CommandExecutionError";
-		this.commandType = options?.commandType;
+		this.reason = options.reason;
+		this.commandType = options.commandType;
+	}
+}
+
+/**
+ * Thrown when a plugin's manifest cannot be added to the command registry —
+ * a duplicate command id, or an alias that collides with something already
+ * registered. This is a startup failure, not a dispatch failure: it never
+ * reaches a client, so it carries no `CommandFailureReason`.
+ */
+export class CommandRegistrationError extends ControllerError {
+	readonly commandType: string;
+
+	constructor(message: string, options: { commandType: string; cause?: Error }) {
+		super(message, options);
+		this.name = "CommandRegistrationError";
+		this.commandType = options.commandType;
 	}
 }
 
@@ -104,18 +131,36 @@ export class TransportError extends ControllerError {
 export const JSONRPC_ERROR_CODES = {
 	PARSE_ERROR: -32700,
 	METHOD_NOT_FOUND: -32601,
+	INVALID_PARAMS: -32602,
 	INTERNAL_ERROR: -32603,
 	SERVER_ERROR: -32000,
 } as const;
+
+function commandFailureCode(reason: CommandFailureReason): number {
+	switch (reason) {
+		case "not-registered":
+			return JSONRPC_ERROR_CODES.METHOD_NOT_FOUND;
+		case "invalid":
+			return JSONRPC_ERROR_CODES.INVALID_PARAMS;
+		default:
+			return JSONRPC_ERROR_CODES.INTERNAL_ERROR;
+	}
+}
+
+function jsonrpcCode(err: Error): number {
+	if (err instanceof IPCMessageError) {
+		return JSONRPC_ERROR_CODES.PARSE_ERROR;
+	}
+	if (err instanceof CommandExecutionError) {
+		return commandFailureCode(err.reason);
+	}
+	return JSONRPC_ERROR_CODES.INTERNAL_ERROR;
+}
 
 /**
  * Convert a controller error to a JSON-RPC 2.0 error object.
  * Maps known error types to appropriate standard codes.
  */
 export function toJSONRPCError(err: Error): { code: number; message: string; data: Error } {
-	let code: number = JSONRPC_ERROR_CODES.INTERNAL_ERROR;
-	if (err instanceof IPCMessageError) {
-		code = JSONRPC_ERROR_CODES.PARSE_ERROR;
-	}
-	return { code, message: err.message, data: err };
+	return { code: jsonrpcCode(err), message: err.message, data: err };
 }

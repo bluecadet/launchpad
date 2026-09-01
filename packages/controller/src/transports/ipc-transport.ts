@@ -19,13 +19,7 @@ import chalk from "chalk";
 import type { Patch } from "immer";
 import { ok, ResultAsync } from "neverthrow";
 import type { AllEvents } from "../all-events.js";
-import {
-	CommandExecutionError,
-	IPCMessageError,
-	JSONRPC_ERROR_CODES,
-	TransportError,
-	toJSONRPCError,
-} from "../errors.js";
+import { IPCMessageError, JSONRPC_ERROR_CODES, TransportError, toJSONRPCError } from "../errors.js";
 import { IPCSerializer } from "../utils/ipc-serializer.js";
 import { getOSSocketPath } from "../utils/ipc-utils.js";
 import { createClientHub } from "./client-hub.js";
@@ -315,11 +309,9 @@ function handleMessage(message: IPCRequest, socket: net.Socket, ctx: PluginConte
 				},
 				(error) => {
 					logger.error(`Command execution failed: ${error.message}`);
-					const rpcError = toJSONRPCError(
-						new CommandExecutionError("IPC command execution failed", {
-							cause: ensureError(error),
-						}),
-					);
+					// Forwarded as-is: rewrapping would erase the failure reason the
+					// JSON-RPC error code is derived from.
+					const rpcError = toJSONRPCError(error);
 					sendError(socket, message.id, rpcError.code, rpcError.message, rpcError.data);
 				},
 			);

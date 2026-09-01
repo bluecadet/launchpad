@@ -94,6 +94,29 @@ export type BaseCommand = {
 /** Explicitly registered command ids should use a dotted namespace. */
 export type CommandId = `${string}.${string}`;
 
+/**
+ * Why a dispatched command failed.
+ *
+ * - `not-registered` — no plugin on this node implements the command id.
+ * - `invalid` — the command id resolved, but its params failed the command's parser.
+ * - `handler-failed` — the command dispatched and the handler itself failed.
+ *
+ * Transports map these to their own vocabulary (HTTP status codes, JSON-RPC
+ * error codes), so a caller never has to match on an error message.
+ */
+export type CommandFailureReason = "not-registered" | "invalid" | "handler-failed";
+
+/**
+ * The error channel of `PluginContext.dispatchCommand`. A dispatch failure is
+ * always discriminated by `reason`; `commandType` names the command that
+ * failed, and `cause` carries the underlying error when there is one.
+ */
+export interface CommandDispatchError extends Error {
+	readonly reason: CommandFailureReason;
+	readonly commandType?: string;
+	readonly cause?: Error;
+}
+
 export type CommandParseSuccess<TCommand extends BaseCommand> = {
 	success: true;
 	data: TCommand;
@@ -216,7 +239,7 @@ export interface PluginContext<TState = unknown> {
 	readonly mode: ControllerMode;
 	/** Build the display-oriented status snapshot. Use sparingly. */
 	readonly getStatusSnapshot: () => StatusSnapshot;
-	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, Error>;
+	readonly dispatchCommand: (command: BaseCommand) => ResultAsync<unknown, CommandDispatchError>;
 	/** Read the full aggregated system state (all plugins + system). Use sparingly — prefer eventBus or dispatchCommand for cross-plugin communication. */
 	readonly getGlobalState: () => VersionedLaunchpadState;
 	readonly onGlobalStatePatch: (handler: PatchHandlerWithVersion) => () => void;

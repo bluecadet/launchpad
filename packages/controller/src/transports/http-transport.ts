@@ -34,6 +34,8 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import {
 	type BaseCommand,
+	type CommandDispatchError,
+	type CommandFailureReason,
 	type Disconnectable,
 	definePlugin,
 	type PluginContext,
@@ -688,6 +690,39 @@ function parseCommandBody(body: string): BaseCommand | undefined {
 	}
 }
 
+/**
+ * A dispatch failure's `reason` picks the status code: a command this node
+ * doesn't implement is the client's mistake (`404`), params that failed the
+ * command's own parser are too (`400`), and a handler that blew up is ours
+ * (`500`). A dispatcher that somehow reports no reason falls back to `500`.
+ */
+function commandFailureStatus(reason: CommandFailureReason): number {
+	switch (reason) {
+		case "not-registered":
+			return 404;
+		case "invalid":
+			return 400;
+		default:
+			return 500;
+	}
+}
+
+/**
+ * Flattens a dispatch failure into its wire shape. `reason` and `commandType`
+ * are part of the documented contract, so they are written explicitly rather
+ * than left to the generic error serializer, which only emits `name`,
+ * `message`, and `cause`. Undefined members drop out during serialization.
+ */
+function commandErrorBody(error: CommandDispatchError) {
+	return {
+		name: error.name,
+		message: error.message,
+		reason: error.reason,
+		commandType: error.commandType,
+		cause: error.cause,
+	};
+}
+
 async function handleCommandRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
@@ -741,6 +776,7 @@ async function handleCommandRequest(
 
 	await deps.ctx.dispatchCommand(command).match(
 		(result) => sendJson(res, 200, { result: result ?? null }, cors),
-		(error) => sendJson(res, 500, { error }, cors),
+		(error) =>
+			sendJson(res, commandFailureStatus(error.reason), { error: commandErrorBody(error) }, cors),
 	);
 }

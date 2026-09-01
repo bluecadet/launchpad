@@ -8,6 +8,7 @@ import type { BaseCommand, PluginContext } from "@bluecadet/launchpad-utils/plug
 import type { NodeIdentity, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CommandExecutionError } from "../../errors.js";
 import { serializeJSON } from "../../utils/json-serializer.js";
 import { formatSseEvent, httpTransport } from "../http-transport.js";
 
@@ -21,18 +22,42 @@ const MANIFEST_RESULT = {
 	},
 };
 
-/** dispatchCommand stub: manifest read + ack succeed, anything else fails. */
+/** Every failure the real dispatcher can produce, one per reason. */
+const DISPATCH_FAILURES = {
+	"content.explode": new CommandExecutionError("Plugin command execution failed", {
+		reason: "handler-failed",
+		commandType: "content.explode",
+		cause: new Error("no such handler"),
+	}),
+	"content.ack.bad": new CommandExecutionError("Invalid command: content.ack", {
+		reason: "invalid",
+		commandType: "content.ack",
+		cause: new Error("consumerId is required"),
+	}),
+} as const;
+
+/**
+ * dispatchCommand stub: manifest read + ack succeed, the two commands above
+ * fail their own way, and anything else is unregistered — exactly what the
+ * real dispatcher answers for a command no plugin implements.
+ */
 function createDispatchCommand() {
-	return vi.fn((command: BaseCommand): ResultAsync<unknown, Error> => {
+	return vi.fn((command: BaseCommand): ResultAsync<unknown, CommandExecutionError> => {
 		switch (command.type) {
 			case "content.manifest.read":
 				return okAsync(MANIFEST_RESULT);
 			case "content.ack":
 				return okAsync({ status: "ok" });
-			default:
+			default: {
+				const failure = DISPATCH_FAILURES[command.type as keyof typeof DISPATCH_FAILURES];
 				return errAsync(
-					new Error(`Unknown command: ${command.type}`, { cause: new Error("no such handler") }),
+					failure ??
+						new CommandExecutionError(`Command '${command.type}' is not registered`, {
+							reason: "not-registered",
+							commandType: command.type,
+						}),
 				);
+			}
 		}
 	});
 }
@@ -550,7 +575,48 @@ describe("http-transport", () => {
 			expect(body.error.message).toContain("Command not allowed");
 		});
 
-		it("returns 500 with the error name, message and cause chain when dispatch fails", async () => {
+		it("returns 404 for a command this node does not implement", async () => {
+			const { baseUrl } = await trackedStart({
+				allowedCommands: ["content.ack", "content.manifest.read", "content.nope"],
+			});
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.nope" }),
+			});
+
+			expect(response.status).toBe(404);
+			const body = (await response.json()) as {
+				error: { name: string; message: string; reason: string; commandType: string };
+			};
+			expect(body.error.name).toBe("CommandExecutionError");
+			expect(body.error.reason).toBe("not-registered");
+			expect(body.error.commandType).toBe("content.nope");
+			expect(body.error.message).toContain("is not registered");
+			expect("cause" in body.error).toBe(false);
+		});
+
+		it("returns 400 when a command's own params fail its parser", async () => {
+			const { baseUrl } = await trackedStart({
+				allowedCommands: ["content.ack.bad"],
+			});
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack.bad" }),
+			});
+
+			expect(response.status).toBe(400);
+			const body = (await response.json()) as {
+				error: { name: string; reason: string; commandType: string; cause: { message: string } };
+			};
+			expect(body.error.name).toBe("CommandExecutionError");
+			expect(body.error.reason).toBe("invalid");
+			expect(body.error.commandType).toBe("content.ack");
+			expect(body.error.cause.message).toBe("consumerId is required");
+		});
+
+		it("returns 500 with the error name, message and cause chain when a handler fails", async () => {
 			const { baseUrl } = await trackedStart({
 				allowedCommands: ["content.ack", "content.manifest.read", "content.explode"],
 			});
@@ -562,10 +628,11 @@ describe("http-transport", () => {
 
 			expect(response.status).toBe(500);
 			const body = (await response.json()) as {
-				error: { name: string; message: string; cause: { message: string } };
+				error: { name: string; message: string; reason: string; cause: { message: string } };
 			};
-			expect(body.error.name).toBe("Error");
-			expect(body.error.message).toContain("Unknown command: content.explode");
+			expect(body.error.name).toBe("CommandExecutionError");
+			expect(body.error.reason).toBe("handler-failed");
+			expect(body.error.message).toContain("Plugin command execution failed");
 			expect(body.error.cause.message).toBe("no such handler");
 		});
 
@@ -678,7 +745,14 @@ describe("http-transport", () => {
 		function createWorkflowCtx() {
 			return createTestCtx({
 				dispatchCommand: vi.fn((command: BaseCommand) =>
-					command.type === "workflow.run" ? okAsync(RUN_RECORD) : errAsync(new Error("nope")),
+					command.type === "workflow.run"
+						? okAsync(RUN_RECORD)
+						: errAsync(
+								new CommandExecutionError(`Command '${command.type}' is not registered`, {
+									reason: "not-registered",
+									commandType: command.type,
+								}),
+							),
 				),
 			});
 		}

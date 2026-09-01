@@ -48,6 +48,7 @@ export class CommandDispatcher {
 		const registered = this._commandRegistry.resolve(command.type);
 		if (!registered) {
 			const error = new CommandExecutionError(`Command '${command.type}' is not registered`, {
+				reason: "not-registered",
 				commandType: command.type,
 			});
 			this._eventBus.emit("command:error", { commandType: command.type, error });
@@ -104,6 +105,7 @@ export class CommandDispatcher {
 					error instanceof CommandExecutionError
 						? error
 						: new CommandExecutionError("Plugin command execution failed", {
+								reason: "handler-failed",
 								cause: ensureError(error),
 								commandType: command.type,
 							});

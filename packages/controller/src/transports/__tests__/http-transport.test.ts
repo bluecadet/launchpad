@@ -497,7 +497,7 @@ describe("http-transport", () => {
 
 	describe("POST /command", () => {
 		it("returns 200 with the result for an allowlisted command", async () => {
-			const { baseUrl } = await trackedStart();
+			const { baseUrl } = await trackedStart({ allowedCommands: ["content.ack"] });
 
 			const response = await fetch(`${baseUrl}/command`, {
 				method: "POST",
@@ -511,7 +511,7 @@ describe("http-transport", () => {
 
 		it("returns 200 with a present, null result for a command that resolves nothing", async () => {
 			const ctx = createTestCtx({ dispatchCommand: vi.fn(() => okAsync(undefined)) });
-			const { baseUrl } = await trackedStart({}, ctx);
+			const { baseUrl } = await trackedStart({ allowedCommands: ["content.ack"] }, ctx);
 
 			const response = await fetch(`${baseUrl}/command`, {
 				method: "POST",
@@ -524,8 +524,21 @@ describe("http-transport", () => {
 			expect(body.result).toBeNull();
 		});
 
-		it("returns 403 for a command not in the allowlist", async () => {
+		it("returns 403 for any command when allowedCommands is left at its default", async () => {
 			const { baseUrl } = await trackedStart();
+
+			const response = await fetch(`${baseUrl}/command`, {
+				method: "POST",
+				body: JSON.stringify({ type: "content.ack" }),
+			});
+
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { message: string } };
+			expect(body.error.message).toContain("Command not allowed");
+		});
+
+		it("returns 403 for a command not in the allowlist", async () => {
+			const { baseUrl } = await trackedStart({ allowedCommands: ["content.ack"] });
 
 			const response = await fetch(`${baseUrl}/command`, {
 				method: "POST",

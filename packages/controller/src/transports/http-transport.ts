@@ -81,8 +81,10 @@ const httpTransportOptionsSchema = z
 		 * Entries are prefix globs, matched like `events`. When `auth.tokens` is
 		 * configured, the effective allowlist is this list intersected with the
 		 * presented token's role globs, so a role can only ever narrow access.
+		 *
+		 * Empty by default: no command is reachable until one is listed here.
 		 */
-		allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
+		allowedCommands: z.array(z.string()).default([]),
 		/**
 		 * Event names forwarded to SSE clients. An entry ending in `*` is a prefix
 		 * match on the part before it; the single entry `*` matches all events;

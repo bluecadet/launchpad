@@ -22,8 +22,30 @@ import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { CommandRegistry } from "./core/command-registry.js";
 import { WorkflowRunner } from "./core/workflow-runner.js";
 import type { WorkflowMap } from "./core/workflow-types.js";
+import { createWorkflowsPlugin } from "./core/workflows-plugin.js";
 
 export type { CoreEvents } from "./core/command-dispatcher.js";
+export type {
+	WorkflowCommand,
+	WorkflowListCommand,
+	WorkflowListEntry,
+	WorkflowListResult,
+	WorkflowRunCommand,
+} from "./core/workflow-commands.js";
+export {
+	workflowCommandSchema,
+	workflowListCommandSchema,
+	workflowRunCommandSchema,
+} from "./core/workflow-commands.js";
+export type { WorkflowHost, WorkflowObserver } from "./core/workflow-runner.js";
+export type {
+	WorkflowRun,
+	WorkflowRunStatus,
+	WorkflowStepResult,
+	WorkflowStepStatus,
+	WorkflowSummary,
+	WorkflowsState,
+} from "./core/workflow-state.js";
 export type { WorkflowMap, WorkflowStep, WorkflowStepOptions } from "./core/workflow-types.js";
 export { workflowStepSchema } from "./core/workflow-types.js";
 
@@ -196,6 +218,15 @@ export class LaunchpadController {
 		this._logger.verbose(`Node ${formatNodeIdentity(this._nodeIdentity)}`);
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
 
+		// Registered before any transport (and before the pid file is written) so a
+		// failed registration leaves nothing behind, and so a host plugin that
+		// claims `workflow.run` collides with a command that already exists.
+		return this.registerPlugin(createWorkflowsPlugin(this._workflowRunner)).andThen(() =>
+			this.startTransports(),
+		);
+	}
+
+	private startTransports(): ResultAsync<void, Error> {
 		if (this._mode === "persistent") {
 			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 			const socketPath = path.resolve(this._baseDir, this._config.socketPath);

@@ -77,6 +77,18 @@ export class CommandExecutionError extends ControllerError {
 }
 
 /**
+ * Thrown when a workflow cannot be run: an unknown name, a name already in
+ * flight, or a run that failed. Carries a message only — a workflow step's
+ * params and return values never reach a client.
+ */
+export class WorkflowError extends ControllerError {
+	constructor(message = "Workflow error", options?: { cause?: Error }) {
+		super(message, options);
+		this.name = "WorkflowError";
+	}
+}
+
+/**
  * Thrown when transport initialization or shutdown fails.
  */
 export class TransportError extends ControllerError {

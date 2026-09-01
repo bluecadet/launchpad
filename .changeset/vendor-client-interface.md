@@ -1,0 +1,16 @@
+---
+"@bluecadet/launchpad-session": minor
+"@bluecadet/launchpad-utils": minor
+---
+
+Add `@bluecadet/launchpad-session`, a new package holding the visitor-session primitives connected exhibitions are built on. A visitor carries a Credential — an RFID wristband, typically — and taps it at a Station; a vendor system resolves that tap into a Visitor and a Profile. `VendorClient` is the seam between launchpad and that vendor system, and `fakeVendor()` drives the whole path with no vendor account, no network, and no hardware.
+
+`VendorClient` is a four-member duck-type in the shape of `ObservabilityTransport`: `name`, `resolveCredential`, `fetchProfile`, and `subscribeTaps`, plus an optional `disconnect`. Launchpad ships the contract and the fake; the adapter that speaks a particular vendor's protocol stays in the project repo until a second project needs it. The type carries no configuration surface — endpoints, credentials, retries, and polling cadence belong to the adapter's own factory function. `subscribeTaps` is the only tap-ingest shape, and it makes no claim about how an adapter gets taps: a push-based vendor wires the handler to its subscription, a poll-based one owns a timer and calls the same handler, and neither needs a member the other does not. Both lookups take an options bag with an optional `AbortSignal`, since vendor latency is unknown and callers must be able to give up.
+
+The two return channels mean different things. `resolveCredential` answers `ok(null)` when the vendor recognizes the request but not the Credential — an ordinary outcome that starts no Session — and reserves the error channel for a broken vendor link, which is what puts a Session into degraded mode.
+
+Profiles are sealed rather than plain objects. `sealProfile()` returns an opaque handle whose only readable field is `language`, the one value launchpad canonicalizes; reaching anything else requires an explicit `unsealProfile()` call, so forwarding vendor-owned data to a Station app is always deliberate. The seal holds at runtime too — serializing, interpolating, or inspecting a Profile yields `[Profile redacted]` instead of its contents, and the contents live on no property a spread or a debugger could reach.
+
+`fakeVendor()` is the only implementation of `VendorClient` that ships with launchpad, and it is built to be lived with rather than merely tested against. Give it a Credential directory and it resolves exactly the Visitors and Profiles you declared; leave the directory empty and it hashes each Credential into a stable Visitor, language, and Profile, so a demo works out of the box and reproduces on every run and every machine. `tap()` and `tapSequence()` script visitor traffic, `injectFault()` and `clearFaults()` script degraded mode and recovery, and configured latency is honored for real — an aborted call settles immediately instead of waiting the delay out.
+
+`@bluecadet/launchpad-utils` gains a `Brand<T, K>` type in `@bluecadet/launchpad-utils/types` for building nominal types over structural ones at no runtime cost. The session package uses it for `SessionId` and `VisitorId`, which are both opaque strings and are both a live bug class when swapped: a Visitor identifier landing in a Session slot leaks vendor-resolved identity into state and logs.

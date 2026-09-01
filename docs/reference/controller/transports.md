@@ -93,7 +93,28 @@ curl -X POST http://127.0.0.1:8710/command \
 
 ### `GET /status`
 
-Returns the same display-oriented status snapshot as `launchpad status`, as JSON.
+Returns the same display-oriented status snapshot as `launchpad status`, as JSON. The `header` block identifies the Node that produced it:
+
+```json
+{
+  "header": {
+    "startTime": "2026-07-14T15:30:47.112Z",
+    "uptimeMs": 8100000,
+    "mode": "persistent",
+    "node": { "id": "gallery-kiosk-1", "label": "Gallery Kiosk 1", "role": "exhibit" }
+  },
+  "sections": []
+}
+```
+
+`header.node.label` always has a value — unconfigured, it mirrors `id`. `header.node.role` is absent rather than `null` when no Node role is set. See [Controller Config](./controller-config.md#node) for how the identity is configured and defaulted.
+
+**Liveness.** `GET /status` is the remote liveness check — the remote analogue of the pid-file check the CLI does locally. One round trip answers both "is this Node up?" and "which Node is it?", so a client fanning out across a network identifies each response by `header.node.id`. There is no separate unauthenticated liveness endpoint: a second route would be one more thing to carve out of the auth gate, for no information the snapshot doesn't already carry.
+
+Two things worth knowing before pointing a probe at it:
+
+- Building the snapshot runs every plugin's `summarize()`. Polling a handful of Nodes at 1 Hz is trivial; a 10 Hz probe is not free.
+- The snapshot is a display projection, not a health verdict. It reports what each plugin says about itself; deciding what counts as unhealthy is the client's job.
 
 ### `GET /state`
 

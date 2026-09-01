@@ -159,5 +159,6 @@ sidebar:
       - label: Controller
         link: reference/controller
         items:
+          - reference/controller/controller-config
           - reference/controller/events
           - reference/controller/transports

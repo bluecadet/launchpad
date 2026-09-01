@@ -121,6 +121,8 @@ To read the full aggregated state (all plugins + system), use `ctx.getGlobalStat
 
 ### Status Snapshots
 
+The snapshot header carries this Node's identity — `id`, `label`, and an optional Node role — so a client talking to several daemons can tell their snapshots apart. See [Controller Config](./controller-config.md#node).
+
 Plugins can contribute to `launchpad status` by adding a `summarize(state)` function to their plugin config. The controller calls every registered plugin's `summarize()` hook, drops `null` results, sorts the returned sections by `order`, and sends the resulting status snapshot over IPC.
 
 ```typescript

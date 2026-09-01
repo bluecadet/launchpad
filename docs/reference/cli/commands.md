@@ -62,6 +62,7 @@ launchpad status [options]
 
 The `status` command queries the persistent controller for its current state via IPC:
 
+- Shows this Node's id, label, and Node role (see [Controller Config](../controller/controller-config.md#node))
 - Shows controller uptime
 - Displays monitor connection status
 - Lists all running apps with their status and PID
@@ -71,6 +72,7 @@ The `status` command queries the persistent controller for its current state via
 
 ```
 Launchpad Status:
+  Node: Gallery Kiosk 1 (gallery-kiosk-1) · exhibit
   Uptime: 2h 15m
 
 Monitor:

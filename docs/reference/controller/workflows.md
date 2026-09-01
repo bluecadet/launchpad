@@ -109,7 +109,7 @@ httpTransport({
 });
 ```
 
-Both ids share the `workflow.` prefix so one glob covers them. Neither is in the default `allowedCommands`, so a Node exposes them deliberately or not at all. See [Security posture](./security.md) for the whole model.
+Both ids share the `workflow.` prefix so one glob covers them. Neither is allowed by default, so a Node exposes them deliberately or not at all. See [Security posture](./security.md) for the whole model.
 
 ## Run outcomes in state
 

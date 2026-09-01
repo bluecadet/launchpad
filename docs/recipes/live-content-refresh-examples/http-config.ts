@@ -13,6 +13,9 @@ export default defineConfig({
 			// stream to the one event consumers listen for keeps their gap check
 			// meaningful. Drop this to forward the rest of `content:*`.
 			events: ["content:version:promoted"],
+			// `allowedCommands` defaults to empty; list the commands this recipe's
+			// consumers dispatch over `POST /command`.
+			allowedCommands: ["content.ack", "content.manifest.read"],
 		}),
 	],
 });

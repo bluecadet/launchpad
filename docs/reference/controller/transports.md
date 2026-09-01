@@ -10,14 +10,17 @@ This page covers the HTTP/SSE transport.
 
 ## Adding the transport
 
-`httpTransport` is a plugin like any other; add it to the `plugins` array alongside the plugins whose commands and events you want to expose:
+`httpTransport` is a plugin like any other; add it to the `plugins` array alongside the plugins whose commands and events you want to expose. `allowedCommands` defaults to empty, so list the commands the other plugins register or `POST /command` rejects everything:
 
 ```typescript
 import { content } from "@bluecadet/launchpad/content";
 import { httpTransport } from "@bluecadet/launchpad/controller/transports/http";
 
 export default defineConfig({
-  plugins: [content({ versioning: true }), httpTransport({ port: 8710 })],
+  plugins: [
+    content({ versioning: true }),
+    httpTransport({ port: 8710, allowedCommands: ["content.ack", "content.manifest.read"] }),
+  ],
 });
 ```
 
@@ -32,7 +35,7 @@ In task mode (one-shot CLI invocations) the plugin is inert and never binds a po
 | --- | --- | --- | --- |
 | `port` | `number` | `8710` | Port to listen on. `0` picks a random free port (useful in tests). |
 | `host` | `string` | `"127.0.0.1"` | Host/interface to bind. |
-| `allowedCommands` | `string[]` | `["content.ack", "content.manifest.read"]` | Command types accepted by `POST /command`. Anything else is rejected with `403`. Entries are prefix globs, matched like `events`. A docent tablet that triggers Node-local recipes wants `["workflow.run", "workflow.list"]` here. |
+| `allowedCommands` | `string[]` | `[]` | Command types accepted by `POST /command`. Anything else is rejected with `403`. The default is empty, so `POST /command` rejects everything until you list commands explicitly — there is no set of commands every Node has, since which ones are registered depends on which plugins are configured. Entries are prefix globs, matched like `events`. A docent tablet that triggers Node-local recipes wants `["workflow.run", "workflow.list"]` here; a Node running the [content plugin](../content/index.md) wants `["content.ack", "content.manifest.read"]` for the commands it registers. |
 | `events` | `string[]` | `["content:*"]` | Event names forwarded to SSE clients. An entry ending in `*` prefix-matches everything before it; the single entry `*` matches all events; any other entry is an exact match. |
 | `replayEvents` | `string[]` | `["content:version:promoted"]` | Event names eligible for [replay on connect](./wire-contract.md#replay-on-connect). For each listed name, the transport remembers that event's last emitted frame and replays it to newly-connected clients; an event must also pass the `events` filter to be replayed. |
 | `keepAliveMs` | `number` | `15000` | Interval between `: ping` SSE comment lines, keeping idle connections (and intermediate proxies) alive. |

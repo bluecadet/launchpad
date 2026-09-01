@@ -241,7 +241,7 @@ Every response (including error responses) carries the CORS headers implied by t
 
 Two independent gates apply to every `POST /command`, in this order:
 
-1. **`allowedCommands`.** The transport has a configured allowlist of command types it will dispatch at all (default: `content.ack`, `content.manifest.read`). A `type` outside it is `403 Command not allowed: <type>` for every caller — this gate has nothing to do with tokens and applies even when the transport has no auth configured.
+1. **`allowedCommands`.** The transport has a configured allowlist of command types it will dispatch at all (default: `[]`, so nothing is dispatchable until an operator lists commands explicitly). A `type` outside it is `403 Command not allowed: <type>` for every caller — this gate has nothing to do with tokens and applies even when the transport has no auth configured.
 2. **Token role**, only if a token was presented. Each token has exactly one role, and each role is a list of command-id prefix globs (same syntax as everywhere else on this page — see [Glob syntax](#glob-syntax)). The **effective** permission is `allowedCommands ∩ role globs`: a role can only ever narrow what's already allowed, never widen it. A command outside the role's globs is `403 Command not permitted for role "<role>": <type>`.
 
 An anonymous caller on an unauthenticated transport only faces gate 1. There is no way to reach gate 2 without presenting a valid token.
@@ -262,11 +262,11 @@ A command request is `{"type": "<id>", ...params}` where `id` always has the sha
 Only `workflow.run` and `workflow.list` are genuinely core: the controller registers them itself, before any host plugin, on every deployment regardless of config. `content.ack` and `content.manifest.read` are registered by the **optional** `content` plugin — they only exist on a Node whose config actually includes `content(...)`. A project's own plugins (e.g. `monitor.*`) register still more commands, and are documented by the project, not here.
 
 > [!WARNING]
-> `content.ack` and `content.manifest.read` are also the transport's *default* `allowedCommands` — but being in `allowedCommands` only means a command is allowed past that gate, never that it's registered. On a Node that never added the `content` plugin, both still pass `allowedCommands` and any role check, then fail at dispatch with a `500` and `error.cause` absent: `{"error":{"name":"CommandExecutionError","message":"Command 'content.manifest.read' is not registered"}}` (the "not registered" row of [the table above](#every-command-failure-has-name-commandexecutionerror-at-the-top-level)). A client cannot assume a command exists just because it's allowlisted — the only reliable check is trying it, or something project-specific like a successful `content.manifest.read` earlier in a session.
+> Being in `allowedCommands` only means a command is allowed past that gate, never that it's registered. If an operator allowlists `content.ack` or `content.manifest.read` on a Node that never added the `content` plugin (or any other command belonging to a plugin the Node doesn't run), that command still passes `allowedCommands` and any role check, then fails at dispatch with a `500` and `error.cause` absent: `{"error":{"name":"CommandExecutionError","message":"Command 'content.manifest.read' is not registered"}}` (the "not registered" row of [the table above](#every-command-failure-has-name-commandexecutionerror-at-the-top-level)). A client cannot assume a command exists just because it's allowlisted — the only reliable check is trying it, or something project-specific like a successful `content.manifest.read` earlier in a session.
 
 ### `content.ack`
 
-Default-allowed. Extends a content-retention lease for a consumer on a specific version.
+Extends a content-retention lease for a consumer on a specific version. Not allowed by default — an operator running the `content` plugin must list it in `allowedCommands`.
 
 Request:
 
@@ -278,7 +278,7 @@ Response: `{"result": null}` — the handler resolves with nothing; see [the `re
 
 ### `content.manifest.read`
 
-Default-allowed. Reads the active version manifest.
+Reads the active version manifest. Not allowed by default — an operator running the `content` plugin must list it in `allowedCommands`.
 
 Request:
 
@@ -304,7 +304,7 @@ Response is one of three shapes:
 
 ### `workflow.run`
 
-Not in the default `allowedCommands` — an operator opts in explicitly (commonly paired with a `workflow.*` role glob, since both workflow commands share that prefix deliberately). Runs a config-declared workflow by name and resolves with its full run record. It **never** accepts inline steps — a client cannot compose its own command sequence, only trigger a Node-declared one.
+Not allowed by default — an operator opts in explicitly (commonly paired with a `workflow.*` role glob, since both workflow commands share that prefix deliberately). Runs a config-declared workflow by name and resolves with its full run record. It **never** accepts inline steps — a client cannot compose its own command sequence, only trigger a Node-declared one.
 
 Request:
 

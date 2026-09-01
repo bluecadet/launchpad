@@ -2,6 +2,7 @@ import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-p
 import { PatchedStateManager } from "@bluecadet/launchpad-utils/state-patcher";
 import type {
 	ControllerMode,
+	NodeIdentity,
 	SystemState,
 	VersionedLaunchpadState,
 } from "@bluecadet/launchpad-utils/types";
@@ -30,10 +31,11 @@ export class StateStore {
 	private _stateVersion = 0;
 	private _patchHandlers: PatchHandlerWithVersion[] = [];
 
-	constructor(mode: ControllerMode = "task") {
+	constructor(mode: ControllerMode, node: NodeIdentity) {
 		this._systemState = {
 			startTime: new Date(),
 			mode,
+			node,
 		};
 	}
 

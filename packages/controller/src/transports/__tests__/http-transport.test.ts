@@ -2,6 +2,7 @@ import http from "node:http";
 import net from "node:net";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { BaseCommand, PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { NodeIdentity, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatSseEvent, httpTransport } from "../http-transport.js";
@@ -416,11 +417,20 @@ describe("http-transport", () => {
 	});
 
 	describe("GET /status and /state", () => {
-		it("returns the status snapshot", async () => {
-			const snapshot = {
-				header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "persistent" as const },
+		function makeSnapshot(node: NodeIdentity) {
+			return {
+				header: {
+					startTime: new Date(0).toISOString(),
+					uptimeMs: 0,
+					mode: "persistent" as const,
+					node,
+				},
 				sections: [],
 			};
+		}
+
+		it("returns the status snapshot", async () => {
+			const snapshot = makeSnapshot({ id: "kiosk-1", label: "Kiosk 1", role: "exhibit" });
 			const ctx = createTestCtx({ getStatusSnapshot: vi.fn().mockReturnValue(snapshot) });
 
 			const { baseUrl } = await trackedStart({}, ctx);
@@ -428,6 +438,42 @@ describe("http-transport", () => {
 			const response = await fetch(`${baseUrl}/status`);
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual(snapshot);
+		});
+
+		it("carries the Node identity through JSON serialization", async () => {
+			const node: NodeIdentity = { id: "kiosk-1", label: "Kiosk 1", role: "exhibit" };
+			const ctx = createTestCtx({
+				getStatusSnapshot: vi.fn().mockReturnValue(makeSnapshot(node)),
+			});
+
+			const { baseUrl } = await trackedStart({}, ctx);
+
+			const body = (await (await fetch(`${baseUrl}/status`)).json()) as StatusSnapshot;
+			expect(body.header.node).toEqual(node);
+		});
+
+		it("lets a client tell two Nodes apart from their own responses", async () => {
+			const first = createTestCtx({
+				getStatusSnapshot: vi.fn().mockReturnValue(makeSnapshot({ id: "kiosk-1", label: "1" })),
+			});
+			const second = createTestCtx({
+				getStatusSnapshot: vi.fn().mockReturnValue(makeSnapshot({ id: "kiosk-2", label: "2" })),
+			});
+
+			const firstUrl = (await trackedStart({}, first)).baseUrl;
+			const secondUrl = (await trackedStart({}, second)).baseUrl;
+
+			const firstBody = (await (await fetch(`${firstUrl}/status`)).json()) as StatusSnapshot;
+			const secondBody = (await (await fetch(`${secondUrl}/status`)).json()) as StatusSnapshot;
+
+			expect(firstBody.header.node.id).toBe("kiosk-1");
+			expect(secondBody.header.node.id).toBe("kiosk-2");
+		});
+
+		it("answers the liveness check with 200 when no tokens are configured", async () => {
+			const { baseUrl } = await trackedStart();
+
+			expect((await fetch(`${baseUrl}/status`)).status).toBe(200);
 		});
 
 		it("returns 404 for /state by default", async () => {

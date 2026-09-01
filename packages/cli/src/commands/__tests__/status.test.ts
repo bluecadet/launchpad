@@ -1,11 +1,23 @@
-import type { Section, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
+import type { NodeIdentity, Section, StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import chalk from "chalk";
 import { describe, expect, it } from "vitest";
 import { formatSnapshot } from "../format-snapshot.js";
 
+const TEST_NODE: NodeIdentity = { id: "test-node", label: "Test Node" };
+
+function makeHeader(overrides?: Partial<StatusSnapshot["header"]>): StatusSnapshot["header"] {
+	return {
+		startTime: new Date(0).toISOString(),
+		uptimeMs: 0,
+		mode: "task",
+		node: TEST_NODE,
+		...overrides,
+	};
+}
+
 function makeSnapshot(overrides?: Partial<StatusSnapshot>): StatusSnapshot {
 	return {
-		header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+		header: makeHeader(),
 		sections: [],
 		...overrides,
 	};
@@ -20,7 +32,7 @@ describe("formatSnapshot", () => {
 	it("header includes uptime formatted from uptimeMs", () => {
 		const output = formatSnapshot(
 			makeSnapshot({
-				header: { startTime: new Date(0).toISOString(), uptimeMs: 65_000, mode: "task" },
+				header: makeHeader({ uptimeMs: 65_000 }),
 			}),
 		);
 		expect(output).toContain("Uptime: 1m 5s");
@@ -30,7 +42,7 @@ describe("formatSnapshot", () => {
 		const ms = (1 * 86400 + 2 * 3600 + 3 * 60) * 1000;
 		const output = formatSnapshot(
 			makeSnapshot({
-				header: { startTime: new Date(0).toISOString(), uptimeMs: ms, mode: "task" },
+				header: makeHeader({ uptimeMs: ms }),
 			}),
 		);
 		expect(output).toContain("Uptime: 1d 2h 3m");
@@ -40,7 +52,7 @@ describe("formatSnapshot", () => {
 		const ms = (3 * 3600 + 12 * 60) * 1000;
 		const output = formatSnapshot(
 			makeSnapshot({
-				header: { startTime: new Date(0).toISOString(), uptimeMs: ms, mode: "task" },
+				header: makeHeader({ uptimeMs: ms }),
 			}),
 		);
 		expect(output).toContain("Uptime: 3h 12m");
@@ -49,7 +61,7 @@ describe("formatSnapshot", () => {
 	it("uptime: seconds only when < 1 minute", () => {
 		const output = formatSnapshot(
 			makeSnapshot({
-				header: { startTime: new Date(0).toISOString(), uptimeMs: 42_000, mode: "task" },
+				header: makeHeader({ uptimeMs: 42_000 }),
 			}),
 		);
 		expect(output).toContain("Uptime: 42s");

@@ -2,6 +2,7 @@ import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type {
 	LaunchpadState,
+	NodeIdentity,
 	StatusSnapshot,
 	VersionedLaunchpadState,
 } from "@bluecadet/launchpad-utils/types";
@@ -87,9 +88,16 @@ export function createMockEventBus(): MockEventBus {
 	return mockEventBus;
 }
 
+export const STUB_NODE_IDENTITY: NodeIdentity = { id: "test-node", label: "Test Node" };
+
 export function createStubStatusSnapshot(): StatusSnapshot {
 	return {
-		header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+		header: {
+			startTime: new Date(0).toISOString(),
+			uptimeMs: 0,
+			mode: "task",
+			node: STUB_NODE_IDENTITY,
+		},
 		sections: [],
 	};
 }
@@ -123,7 +131,7 @@ type TestStateOverrides = Partial<Omit<VersionedLaunchpadState, "plugins">> & {
 
 export function createEmptyState(overrides?: TestStateOverrides): VersionedLaunchpadState {
 	return {
-		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
+		system: { mode: "task", startTime: new Date(0), version: "0.0.0", node: STUB_NODE_IDENTITY },
 		plugins: {},
 		_version: 0,
 		...overrides,
@@ -148,11 +156,16 @@ export type MockIPCClient = {
 
 export function createMockIPCClient(overrides?: Partial<MockIPCClient>): MockIPCClient {
 	const emptyState: LaunchpadState = {
-		system: { mode: "task", startTime: new Date(0), version: "0.0.0" },
+		system: { mode: "task", startTime: new Date(0), version: "0.0.0", node: STUB_NODE_IDENTITY },
 		plugins: {},
 	};
 	const emptySnapshot: StatusSnapshot = {
-		header: { startTime: new Date(0).toISOString(), uptimeMs: 0, mode: "task" },
+		header: {
+			startTime: new Date(0).toISOString(),
+			uptimeMs: 0,
+			mode: "task",
+			node: STUB_NODE_IDENTITY,
+		},
 		sections: [],
 	};
 	return {

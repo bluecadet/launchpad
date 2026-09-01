@@ -24,6 +24,7 @@ export function buildStatusSnapshot(
 			startTime: startTime.toISOString(),
 			uptimeMs: Math.max(0, Date.now() - startTime.getTime()),
 			mode: state.system.mode,
+			node: state.system.node,
 		},
 		sections,
 	};

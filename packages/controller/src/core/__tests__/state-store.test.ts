@@ -1,9 +1,12 @@
 import type { PatchHandlerWithVersion } from "@bluecadet/launchpad-utils/state-patcher";
+import type { NodeIdentity } from "@bluecadet/launchpad-utils/types";
 import { describe, expect, it, vi } from "vitest";
 import { StateStore } from "../state-store.js";
 
+const TEST_NODE: NodeIdentity = { id: "test-node", label: "Test Node" };
+
 function createEmptyStore() {
-	return new StateStore();
+	return new StateStore("task", TEST_NODE);
 }
 
 describe("StateStore", () => {
@@ -17,7 +20,7 @@ describe("StateStore", () => {
 		});
 
 		it("should accept a mode option", () => {
-			const store = new StateStore("persistent");
+			const store = new StateStore("persistent", TEST_NODE);
 			expect(store.getSystemState().mode).toBe("persistent");
 		});
 	});

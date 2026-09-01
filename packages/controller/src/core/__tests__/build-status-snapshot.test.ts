@@ -1,13 +1,16 @@
 import type { PluginConfig } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
+import type { LaunchpadState, NodeIdentity, Section } from "@bluecadet/launchpad-utils/types";
 import { describe, expect, it, vi } from "vitest";
 import { buildStatusSnapshot } from "../build-status-snapshot.js";
+
+const TEST_NODE: NodeIdentity = { id: "kiosk-1", label: "Kiosk 1", role: "exhibit" };
 
 function makeState(overrides?: Partial<LaunchpadState["system"]>): LaunchpadState {
 	return {
 		system: {
 			startTime: new Date("2024-01-01T00:00:00.000Z"),
 			mode: "task",
+			node: TEST_NODE,
 			...overrides,
 		},
 		plugins: {},
@@ -28,6 +31,12 @@ function makePlugin(
 }
 
 describe("buildStatusSnapshot", () => {
+	it("carries the Node identity through to the header", () => {
+		const snapshot = buildStatusSnapshot(makeState(), []);
+
+		expect(snapshot.header.node).toEqual(TEST_NODE);
+	});
+
 	it("returns sections sorted by order (lower first)", () => {
 		const state = makeState();
 		const plugins: PluginConfig[] = [

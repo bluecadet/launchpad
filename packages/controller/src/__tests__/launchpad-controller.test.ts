@@ -37,6 +37,39 @@ describe("LaunchpadController", () => {
 			const controller = createController("task");
 			expect(controller.isStarted()).toBe(false);
 		});
+
+		it("should expose the configured Node identity in state and from getNodeIdentity()", () => {
+			const nodeConfig = controllerConfigSchema.parse({
+				node: { id: "kiosk-1", label: "Kiosk 1", role: "exhibit" },
+			});
+			const controller = new LaunchpadController(nodeConfig, "/test");
+
+			const expected = { id: "kiosk-1", label: "Kiosk 1", role: "exhibit" };
+			expect(controller.getNodeIdentity()).toEqual(expected);
+			expect(controller.getState().system.node).toEqual(expected);
+		});
+
+		it("should fall back to a hostname-derived Node id when unconfigured", () => {
+			const controller = new LaunchpadController(controllerConfigSchema.parse({}), "/test");
+
+			const node = controller.getState().system.node;
+			expect(node.id.length).toBeGreaterThan(0);
+			expect(node.label).toBe(node.id);
+		});
+
+		it("should let two Nodes be told apart by their own state", () => {
+			const first = new LaunchpadController(
+				controllerConfigSchema.parse({ node: { id: "kiosk-1" } }),
+				"/test",
+			);
+			const second = new LaunchpadController(
+				controllerConfigSchema.parse({ node: { id: "kiosk-2" } }),
+				"/test",
+			);
+
+			expect(first.getState().system.node.id).toBe("kiosk-1");
+			expect(second.getState().system.node.id).toBe("kiosk-2");
+		});
 	});
 
 	describe("registerPlugin", () => {

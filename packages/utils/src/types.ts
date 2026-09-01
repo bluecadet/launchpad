@@ -47,11 +47,28 @@ export interface PluginsState {}
 export type ControllerMode = "task" | "persistent";
 
 /**
+ * Identity of a Node — one launchpad daemon and the machine it manages.
+ *
+ * Lets a remote client fanning out to several Nodes on one network tell their
+ * responses apart. Every field is operator-authored config.
+ */
+export type NodeIdentity = {
+	/** Stable identifier for this Node. Derived from the short hostname when unconfigured. */
+	id: string;
+	/** Human-readable name. Falls back to `id`. */
+	label: string;
+	/** Free-form Node role (deployment tag), e.g. "exhibit" or "projection". Absent when unconfigured. */
+	role?: string;
+};
+
+/**
  * System-level state (controller-owned)
  */
 export type SystemState = {
 	startTime: Date;
 	mode: ControllerMode;
+	/** Identity of the Node this controller runs on. Immutable for the daemon's lifetime. */
+	node: NodeIdentity;
 	[key: string]: unknown;
 };
 
@@ -97,6 +114,8 @@ export type StatusSnapshot = {
 		startTime: string;
 		uptimeMs: number;
 		mode: SystemState["mode"];
+		/** Identity of the Node that produced this snapshot. */
+		node: NodeIdentity;
 	};
 	/** Already sorted and non-null. */
 	sections: Section[];

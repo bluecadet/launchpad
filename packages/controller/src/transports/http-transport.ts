@@ -4,7 +4,7 @@
  * Exposes a small HTTP surface on localhost:
  * - `GET /events`  — Server-Sent Events stream of bus events (filtered)
  * - `POST /command` — dispatch an allowlisted command
- * - `GET /status`  — display-oriented status snapshot
+ * - `GET /status`  — display-oriented status snapshot, including this Node's identity
  * - `GET /state`   — full global state (opt-in via `exposeState`)
  *
  * Push is best-effort sugar on top of the authoritative `manifest.json` poll

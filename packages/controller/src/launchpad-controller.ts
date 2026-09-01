@@ -12,6 +12,7 @@ import type {
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type {
 	ControllerMode,
+	NodeIdentity,
 	StatusSnapshot,
 	VersionedLaunchpadState,
 } from "@bluecadet/launchpad-utils/types";
@@ -31,6 +32,7 @@ import type { AllPluginsState } from "./all-plugin-state.js";
 
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { createFileLogger } from "./core/file-logger.js";
+import { resolveNodeIdentity } from "./core/node-identity.js";
 import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
@@ -42,6 +44,7 @@ export class LaunchpadController {
 	private _logger: Logger;
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
+	private _nodeIdentity: NodeIdentity;
 	private _commandDispatcher!: CommandDispatcher;
 	private _workflowRunner: WorkflowRunner;
 	private _plugins = new Map<string, InstantiatedPlugin>();
@@ -58,7 +61,8 @@ export class LaunchpadController {
 		this._baseDir = baseDir;
 		this._eventBus = new EventBus<AllEvents>();
 		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
-		this._stateStore = new StateStore(this._mode);
+		this._nodeIdentity = resolveNodeIdentity(this._config.node);
+		this._stateStore = new StateStore(this._mode, this._nodeIdentity);
 		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
 			this.executeCommand(command),
 		);
@@ -189,6 +193,7 @@ export class LaunchpadController {
 		}
 
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
+		this._logger.verbose(`Node ${formatNodeIdentity(this._nodeIdentity)}`);
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
 
 		if (this._mode === "persistent") {
@@ -279,6 +284,10 @@ export class LaunchpadController {
 		return this._mode;
 	}
 
+	getNodeIdentity(): NodeIdentity {
+		return this._nodeIdentity;
+	}
+
 	getState(): VersionedLaunchpadState<AllPluginsState> {
 		return this._stateStore.getState();
 	}
@@ -328,4 +337,9 @@ export class LaunchpadController {
 			updateState,
 		};
 	}
+}
+
+function formatNodeIdentity(node: NodeIdentity): string {
+	const role = node.role ? `, role ${node.role}` : "";
+	return `${node.id} (${node.label}${role})`;
 }

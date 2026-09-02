@@ -87,7 +87,7 @@ httpTransport({
 });
 ```
 
-`allowedCommands` is the one that fails loudly: without `session.current` on it, every query fails with `reason: "forbidden"` and the view never leaves idle. Without `events: ['session:*']` nothing fails — the view is simply only ever as current as its last query, which after subscribe means it never updates again.
+`allowedCommands` is the one that fails loudly: without `session.current` on it, every query fails with `reason: "not-allowed"` and the view never leaves idle. Without `events: ['session:*']` nothing fails — the view is simply only ever as current as its last query, which after subscribe means it never updates again.
 
 `replayEvents` is optional for this SDK, since it queries on connect rather than waiting for a frame. Add it anyway if anything else on the Node subscribes to `session:current` directly.
 

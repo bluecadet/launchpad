@@ -85,16 +85,18 @@ Two classes, both extending `Error`, both discriminated by `reason` — never by
 import { ClientError, CommandError } from '@bluecadet/launchpad-client';
 ```
 
-`CommandError` is what `executeCommand` fails with; `ClientError` is what everything else fails with. `CommandError.reason` is the union of the three command-failure reasons below and every `ClientError` reason, because a dispatch can also fail before it reaches a handler.
+`CommandError` is what `executeCommand` fails with; `ClientError` is what everything else fails with. `CommandError.reason` is the union of the three command-failure reasons below, the two pre-dispatch rejection reasons, and every `ClientError` reason, because a dispatch can also fail before it reaches a handler.
 
 | `reason` | Status | Meaning |
 |---|---|---|
 | `not-registered` | `404` | The command cleared the allowlist but no plugin on this Node implements it. Retrying never helps. |
 | `invalid` | `400` | The command exists; its own parameters failed its schema. `cause` is the serialized `ZodError`. |
 | `handler-failed` | `500` | The handler ran and failed. `cause` is the plugin's own error. |
+| `not-allowed` | `403` | The command is outside the transport's `allowedCommands`. Checked before the token's role, so it applies even to an anonymous caller. |
+| `role-denied` | `403` | The token is valid, but its role's command globs don't cover this command. |
 | `bad-request` | `400` | The request itself was malformed — no string `type`, or an unreadable body. |
 | `unauthorized` | `401` | No token, or one this Node does not recognize. |
-| `forbidden` | `403` | The command is outside the transport's `allowedCommands`, or outside the token role's globs. |
+| `forbidden` | `403` | A `403` whose body carried no recognized `reason`. |
 | `not-found` | `404` | No such route. Usually a wrong `baseUrl`. |
 | `state-not-exposed` | `404` | `GET /state` only: the operator did not set `exposeState`. |
 | `too-large` | `413` | The request body exceeded the transport's 64KB limit. |
@@ -104,13 +106,15 @@ import { ClientError, CommandError } from '@bluecadet/launchpad-client';
 | `malformed-response` | any | The Node answered, but not with something this SDK could read: a 2xx whose body is not the shape the contract promises, an SSE frame whose payload is not JSON, a `200` on `/events` with no body to stream, a state patch frame missing its `patches` or `version`, or a patch that would not apply to the mirror. |
 | `unknown` | any | A status code this SDK has no mapping for. |
 
-The two `400`s and the two `404`s are told apart by the body, not the code: a command failure carries `error.reason`, a transport-level failure carries only `error.message`. The SDK does that disambiguation for you — it is listed here so a `reason` you see in a log makes sense.
+The `400`s, `404`s, and `403`s are each told apart by the body, not the code: a failure this Node classified carries `error.reason`; one it didn't carries only `error.message`. The SDK does that disambiguation for you — it is listed here so a `reason` you see in a log makes sense.
 
 ```typescript
 switch (error.reason) {
-  case 'not-registered': return showOperatorMisconfiguration();
+  case 'not-registered':
+  case 'not-allowed': return showOperatorMisconfiguration();
   case 'unauthorized':
-  case 'forbidden': return showTokenProblem();
+  case 'forbidden':
+  case 'role-denied': return showTokenProblem();
   case 'network':
   case 'unavailable': return retryLater();
   default: return showGenericFailure(error.message);

@@ -165,8 +165,8 @@ curl -X POST http://127.0.0.1:8710/command \
 | `400` | `{"error":{"message":"Failed to read request body"}}` | The request stream errored while reading. |
 | `400` | `{"error":{"name":"CommandExecutionError","reason":"invalid", ...}}` | The command exists, but its own parameters failed its parser. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
 | `401` | `{"error":{"message":"Unauthorized"}}` | No valid token, when tokens are required. |
-| `403` | `{"error":{"message":"Command not allowed: <type>"}}` | `type` isn't in the transport's `allowedCommands`. This gate runs first and applies to every caller, including an anonymous one on an unauthenticated transport. |
-| `403` | `{"error":{"message":"Command not permitted for role \"<role>\": <type>"}}` | The token is valid, but its role's command globs don't cover `type`. |
+| `403` | `{"error":{"message":"Command not allowed: <type>","reason":"not-allowed"}}` | `type` isn't in the transport's `allowedCommands`. This gate runs first and applies to every caller, including an anonymous one on an unauthenticated transport. |
+| `403` | `{"error":{"message":"Command not permitted for role \"<role>\": <type>","reason":"role-denied"}}` | The token is valid, but its role's command globs don't cover `type`. |
 | `404` | `{"error":{"name":"CommandExecutionError","reason":"not-registered", ...}}` | `type` cleared both `403` gates, but no plugin on this Node implements it. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
 | `413` | `{"error":{"message":"Request body exceeds 64KB limit"}}` | Body exceeded 64KB. |
 | `500` | `{"error":{"name":"CommandExecutionError","reason":"handler-failed", ...}}` | The command dispatched and its handler failed. See [Command failures carry a `reason`](#command-failures-carry-a-reason). |
@@ -198,6 +198,17 @@ Note that `404` on `POST /command` means "this Node has no such command," while 
 There is **no correlation id** anywhere in this protocol. A command's result is correlated to its request purely by the HTTP request/response pair, and there is no async command mode.
 
 Commands don't appear on the SSE stream *by default* — the default `events: ["content:*"]` doesn't forward them — but they aren't structurally excluded from it either. The controller emits `command:start` (carrying the full command, params included), `command:success` (carrying the full result), and `command:error` (carrying the full error) on the same event bus the HTTP transport listens to, and none of those three names start with the reserved `launchpad:` prefix. An operator who broadens `events` to `*` (or adds `command:*`) forwards every command's params, result, or error to **every connected client holding any valid token**, regardless of that token's role — a role only ever gates *dispatching* a command over `POST /command`, never *reading* the SSE stream (see [Authentication](#authentication)). Treat a broadened `events` filter as a real information-leak vector, not just a noisier stream.
+
+#### The two `403` rejection reasons
+
+The `allowedCommands` and role gates run *before* `type` ever reaches the dispatcher, so a `403` body carries only `message` and `reason` — never `name` or `commandType`, since there is no `CommandExecutionError` to report. The two reasons:
+
+| `reason` | Meaning |
+| --- | --- |
+| `not-allowed` | `type` isn't in the transport's `allowedCommands`. Checked first, for every caller. |
+| `role-denied` | The token is valid, but its role's command globs don't cover `type`. |
+
+Both are additive `error.reason` values under [Contract version and compatibility](#contract-version-and-compatibility): a client that already falls back to the status code for an unrecognized reason needs no change to keep working, and gains the ability to tell the two `403` causes apart by switching on `reason`.
 
 #### The `result` presence guarantee
 

@@ -48,6 +48,7 @@ export type {
 } from "./core/workflow-state.js";
 export type { WorkflowMap, WorkflowStep, WorkflowStepOptions } from "./core/workflow-types.js";
 export { workflowStepSchema } from "./core/workflow-types.js";
+export { CommandExecutionError } from "./errors.js";
 
 import type { AllEvents } from "./all-events.js";
 import type { AllPluginsState } from "./all-plugin-state.js";

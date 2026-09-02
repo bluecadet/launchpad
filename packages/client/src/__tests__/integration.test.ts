@@ -9,6 +9,7 @@
  * names — a daemon that dies mid-subscription and comes back on the same port.
  */
 
+import { CommandExecutionError } from "@bluecadet/launchpad-controller";
 import { httpTransport } from "@bluecadet/launchpad-controller/transports/http";
 import { type Session, toSessionId, toVisitorId } from "@bluecadet/launchpad-session";
 import {
@@ -19,7 +20,6 @@ import {
 import type {
 	BaseCommand,
 	CommandDispatchError,
-	CommandFailureReason,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents, VersionedLaunchpadState } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, type ResultAsync } from "neverthrow";
@@ -55,24 +55,6 @@ const KIOSK_AUTH = {
 	tokens: { "lobby-kiosk": { env: "LAUNCHPAD_TOKEN_KIOSK", role: "kiosk" } },
 };
 
-/** What the real dispatcher hands the transport when a command fails. */
-class DispatchFailure extends Error implements CommandDispatchError {
-	override readonly name = "CommandExecutionError";
-	readonly reason: CommandFailureReason;
-	readonly commandType: string;
-	override readonly cause?: Error;
-
-	constructor(
-		message: string,
-		options: { reason: CommandFailureReason; commandType: string; cause?: Error },
-	) {
-		super(message);
-		this.reason = options.reason;
-		this.commandType = options.commandType;
-		this.cause = options.cause;
-	}
-}
-
 /**
  * One command per outcome the wire contract catalogues: a result, a void result, and the
  * three `reason` values, with anything unknown falling through to `not-registered` exactly
@@ -88,7 +70,7 @@ function dispatchCommand(command: BaseCommand): ResultAsync<unknown, CommandDisp
 			return okAsync(sessionCurrentResult);
 		case "content.ack.bad":
 			return errAsync(
-				new DispatchFailure("Invalid command: content.ack", {
+				new CommandExecutionError("Invalid command: content.ack", {
 					reason: "invalid",
 					commandType: "content.ack",
 					cause: new Error("consumerId is required"),
@@ -96,7 +78,7 @@ function dispatchCommand(command: BaseCommand): ResultAsync<unknown, CommandDisp
 			);
 		case "content.explode":
 			return errAsync(
-				new DispatchFailure("Plugin command execution failed", {
+				new CommandExecutionError("Plugin command execution failed", {
 					reason: "handler-failed",
 					commandType: "content.explode",
 					cause: new Error("disk full"),
@@ -104,7 +86,7 @@ function dispatchCommand(command: BaseCommand): ResultAsync<unknown, CommandDisp
 			);
 		default:
 			return errAsync(
-				new DispatchFailure(`Command '${command.type}' is not registered`, {
+				new CommandExecutionError(`Command '${command.type}' is not registered`, {
 					reason: "not-registered",
 					commandType: command.type,
 				}),

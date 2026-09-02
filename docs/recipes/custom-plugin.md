@@ -87,6 +87,8 @@ export const greetPlugin = definePlugin({
 });
 ```
 
+Whatever `Error` a command handler returns this way, the controller wraps it before it reaches a caller: it becomes a `CommandExecutionError` carrying a `reason` (`"invalid"`, `"not-registered"`, or `"handler-failed"`) that the dispatcher — not the plugin — assigns. A handler's own `errAsync()` always lands as `"handler-failed"`; plugins never construct `CommandExecutionError` or pick a `reason` themselves. Code that *consumes* a dispatch failure (a transport, a workflow step, a test) reads `error.reason` rather than matching on the message — see [Command failures carry a `reason`](../reference/controller/wire-contract.md#command-failures-carry-a-reason).
+
 ### Declaring Startup and Shutdown Workflows
 
 Plugins should declare commands, while hosts decide when those commands run:

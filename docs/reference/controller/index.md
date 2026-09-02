@@ -79,6 +79,8 @@ definePlugin({
 
 The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
 
+A handler's rejected `ResultAsync` is wrapped before it reaches a caller as a `CommandExecutionError` (exported from the package's `.` entry) carrying a `reason` — see [Command failures carry a `reason`](./wire-contract.md#command-failures-carry-a-reason).
+
 ### Host-Owned Workflows
 
 Hosts declare startup and shutdown orchestration in config and hand it to the controller:

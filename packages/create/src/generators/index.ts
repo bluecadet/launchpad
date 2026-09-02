@@ -5,4 +5,5 @@ export {
 	getRequiredPackages,
 	mergePackageJson,
 } from "./package-json.js";
+export { generateReadme } from "./readme.js";
 export { generateTsconfig, validateAndPatchTsconfig } from "./tsconfig.js";

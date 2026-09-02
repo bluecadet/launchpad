@@ -5,6 +5,7 @@ import {
 	generateGitignore,
 	generateLaunchpadConfig,
 	generatePackageJson,
+	generateReadme,
 	generateTsconfig,
 	getRequiredPackages,
 	mergeGitignore,
@@ -262,6 +263,16 @@ export async function applyGenerators(
 			await fs.writeFile(gitignorePath, generateGitignore(), "utf-8");
 			result.created.push(".gitignore");
 		}
+	}
+
+	// README.md
+	const readmePath = path.join(targetDir, "README.md");
+	const existingReadme = await readFile(readmePath);
+	if (existingReadme) {
+		result.skipped.push("README.md (already exists — not overwritten)");
+	} else {
+		await fs.writeFile(readmePath, generateReadme(answers), "utf-8");
+		result.created.push("README.md");
 	}
 
 	return result;

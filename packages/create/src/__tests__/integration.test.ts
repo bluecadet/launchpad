@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe("applyGenerators", () => {
-	it("creates all four files in a new directory", async () => {
+	it("creates all five files in a new directory", async () => {
 		vol.mkdirSync("/project", { recursive: true });
 
 		const result = await applyGenerators(baseAnswers, mockDeps(baseAnswers));
@@ -37,7 +37,29 @@ describe("applyGenerators", () => {
 		expect(result.created).toContain("tsconfig.json");
 		expect(result.created).toContain("launchpad.config.ts");
 		expect(result.created).toContain(".gitignore");
+		expect(result.created).toContain("README.md");
 		expect(result.updated).toHaveLength(0);
+	});
+
+	it("creates a README naming the package and the client SDK", async () => {
+		vol.mkdirSync("/project", { recursive: true });
+
+		await applyGenerators(baseAnswers, mockDeps(baseAnswers));
+
+		const readme = vol.readFileSync("/project/README.md", "utf-8") as string;
+		expect(readme).toContain(`# ${baseAnswers.packageName}`);
+		expect(readme).toContain("@bluecadet/launchpad-client");
+	});
+
+	it("skips an existing README.md without overwriting it", async () => {
+		vol.mkdirSync("/project", { recursive: true });
+		vol.writeFileSync("/project/README.md", "# my custom readme\n");
+
+		const result = await applyGenerators(baseAnswers, mockDeps(baseAnswers));
+
+		expect(result.skipped.some((s) => s.includes("README.md"))).toBe(true);
+		const content = vol.readFileSync("/project/README.md", "utf-8") as string;
+		expect(content).toBe("# my custom readme\n");
 	});
 
 	it("creates a valid launchpad.config.ts", async () => {

@@ -58,6 +58,10 @@ If one already exists, the tool validates it for ESM compatibility and patches a
 
 With your confirmation, the tool adds Launchpad-specific entries (`node_modules/`, `dist/`, `.launchpad/`, `.downloads/`) to your `.gitignore`. If entries are already present, they are not duplicated.
 
+### `README.md`
+
+A short README with a getting-started section built from the scripts actually added to `package.json`, plus a pointer to `@bluecadet/launchpad-client` for apps that need to talk to the controller. If a `README.md` already exists it is left alone. Known limitation: the scaffolder only checks for a file named exactly `README.md`, so a `readme.md` or `Readme.md` is not detected, and on a case-sensitive filesystem a second file is written alongside it.
+
 ## Re-running
 
 You can run `npm create @bluecadet/launchpad` again in the same directory to add more plugins. `package.json` and `tsconfig.json` will be merged as described above. The existing `launchpad.config.ts` will be left untouched — add the new plugins manually.

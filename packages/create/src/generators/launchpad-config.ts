@@ -240,7 +240,8 @@ function buildWorkflows(answers: Answers): string[] {
 function buildHttpTransportExample(): string {
 	return dedent`
 		// Push refresh events to browsers/Unity. Read /reference/controller/security
-		// before binding beyond 127.0.0.1.
+		// before binding beyond 127.0.0.1. An app reads this transport through
+		// @bluecadet/launchpad-client: /reference/client
 		// httpTransport({
 		//   // allowedCommands defaults to empty, so nothing is reachable over
 		//   // POST /command until you list it here. A token role only ever

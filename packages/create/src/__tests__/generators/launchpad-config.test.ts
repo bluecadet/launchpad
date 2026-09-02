@@ -246,6 +246,13 @@ describe("generateLaunchpadConfig", () => {
 			expect(result).toContain("allowedCommands:");
 		});
 
+		it("points an app at the client SDK", () => {
+			const result = generateWithContent();
+
+			expect(result).toContain("@bluecadet/launchpad-client");
+			expect(result).toContain("/reference/client");
+		});
+
 		it("references an environment variable instead of a token value", () => {
 			const result = generateWithContent();
 

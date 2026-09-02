@@ -558,8 +558,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain("Command not allowed");
+			expect(body.error.reason).toBe("not-allowed");
 		});
 
 		it("returns 403 for a command not in the allowlist", async () => {
@@ -571,8 +572,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain("Command not allowed");
+			expect(body.error.reason).toBe("not-allowed");
 		});
 
 		it("returns 404 for a command this node does not implement", async () => {
@@ -787,8 +789,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain("Command not allowed");
+			expect(body.error.reason).toBe("not-allowed");
 			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
 		});
 
@@ -810,8 +813,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain('role "docent"');
+			expect(body.error.reason).toBe("role-denied");
 			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
 		});
 
@@ -1106,8 +1110,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain('role "kiosk"');
+			expect(body.error.reason).toBe("role-denied");
 			expect(ctx.dispatchCommand).not.toHaveBeenCalled();
 		});
 
@@ -1122,8 +1127,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain('role "docent"');
+			expect(body.error.reason).toBe("role-denied");
 		});
 
 		it("still applies allowedCommands to an authenticated caller", async () => {
@@ -1137,8 +1143,9 @@ describe("http-transport", () => {
 			});
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { message: string } };
+			const body = (await response.json()) as { error: { message: string; reason: string } };
 			expect(body.error.message).toContain("Command not allowed");
+			expect(body.error.reason).toBe("not-allowed");
 		});
 
 		it("answers a preflight without a token", async () => {

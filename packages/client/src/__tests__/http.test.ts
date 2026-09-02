@@ -160,6 +160,43 @@ describe("executeCommand", () => {
 		expect(result._unsafeUnwrapErr().reason).toBe(reason);
 	});
 
+	it("reports not-allowed for a 403 rejected before allowedCommands", async () => {
+		const { client } = clientFor(() =>
+			jsonResponse(403, {
+				error: { message: "Command not allowed: content.ack", reason: "not-allowed" },
+			}),
+		);
+
+		const result = await client.executeCommand("content.ack");
+
+		expect(result._unsafeUnwrapErr().reason).toBe("not-allowed");
+	});
+
+	it("reports role-denied for a 403 rejected by the token role", async () => {
+		const { client } = clientFor(() =>
+			jsonResponse(403, {
+				error: {
+					message: 'Command not permitted for role "kiosk": content.ack',
+					reason: "role-denied",
+				},
+			}),
+		);
+
+		const result = await client.executeCommand("content.ack");
+
+		expect(result._unsafeUnwrapErr().reason).toBe("role-denied");
+	});
+
+	it("falls back to forbidden for an unrecognised 403 reason", async () => {
+		const { client } = clientFor(() =>
+			jsonResponse(403, { error: { message: "nope", reason: "some-future-403-reason" } }),
+		);
+
+		const result = await client.executeCommand("content.ack");
+
+		expect(result._unsafeUnwrapErr().reason).toBe("forbidden");
+	});
+
 	it("falls back to the status code for an unrecognized reason", async () => {
 		const { client } = clientFor(() =>
 			jsonResponse(400, { error: { message: "slow down", reason: "rate-limited" } }),

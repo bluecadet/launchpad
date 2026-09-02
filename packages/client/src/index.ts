@@ -8,6 +8,7 @@ export { createClient } from "./client.js";
 export type {
 	ClientErrorReason,
 	CommandErrorReason,
+	CommandRejectionReason,
 	LaunchpadClientError,
 } from "./errors.js";
 export { ClientError, CommandError } from "./errors.js";

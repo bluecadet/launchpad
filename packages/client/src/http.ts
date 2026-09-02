@@ -8,13 +8,14 @@
  * apart by whether the body carries `error.reason`, never by the status code alone.
  */
 
-import type { CommandId } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { CommandFailureReason, CommandId } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { StatusSnapshot } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import {
 	ClientError,
 	type ClientErrorReason,
 	CommandError,
+	type CommandRejectionReason,
 	type SerializedError,
 } from "./errors.js";
 import type { VersionedWireState } from "./types.js";
@@ -30,8 +31,25 @@ export type HttpConfig = {
 	readonly fetchFn: FetchLike;
 };
 
-/** The three `reason` values a Node puts on a command failure body. */
-const COMMAND_FAILURE_REASONS = new Set(["not-registered", "invalid", "handler-failed"]);
+/**
+ * The `reason` values a Node puts on a `POST /command` failure body: the three
+ * dispatch-failure reasons, plus the two pre-dispatch rejection reasons. Anything else
+ * on the wire is untrusted and must fall back to the status code.
+ */
+const TRUSTED_WIRE_REASONS = [
+	"not-registered",
+	"invalid",
+	"handler-failed",
+	"not-allowed",
+	"role-denied",
+] as const satisfies readonly (CommandFailureReason | CommandRejectionReason)[];
+
+const TRUSTED_WIRE_REASON_SET: ReadonlySet<string> = new Set(TRUSTED_WIRE_REASONS);
+
+/** Narrows a wire `reason` string to the reasons a Node is known to send. */
+function isWireReason(value: string): value is CommandFailureReason | CommandRejectionReason {
+	return TRUSTED_WIRE_REASON_SET.has(value);
+}
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -248,9 +266,7 @@ function toCommandError(error: ClientError, type: CommandId): CommandError {
 function commandFailure(raw: RawResponse, type: CommandId): CommandError {
 	const body = readErrorBody(safeParse(raw.body));
 	const reason =
-		body.reason !== undefined && COMMAND_FAILURE_REASONS.has(body.reason)
-			? (body.reason as "not-registered" | "invalid" | "handler-failed")
-			: statusReason(raw.status);
+		body.reason !== undefined && isWireReason(body.reason) ? body.reason : statusReason(raw.status);
 
 	return new CommandError(reason, failureMessage(raw.status, body, raw.body), {
 		status: raw.status,

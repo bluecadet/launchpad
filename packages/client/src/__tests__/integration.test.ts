@@ -239,7 +239,7 @@ describe("client against the HTTP transport", () => {
 			expect(error.cause).toMatchObject({ message: "disk full" });
 		});
 
-		it("maps a command outside the allowlist onto forbidden", async () => {
+		it("maps a command outside the allowlist onto not-allowed", async () => {
 			const node = await startNode();
 
 			const result = await connect(node.baseUrl).executeCommand("workflow.run", {
@@ -247,7 +247,18 @@ describe("client against the HTTP transport", () => {
 			});
 
 			const error = result._unsafeUnwrapErr();
-			expect(error.reason).toBe("forbidden");
+			expect(error.reason).toBe("not-allowed");
+			expect(error.status).toBe(403);
+		});
+
+		it("maps a command outside the token's role onto role-denied", async () => {
+			vi.stubEnv("LAUNCHPAD_TOKEN_KIOSK", KIOSK_TOKEN);
+			const node = await startNode({ auth: KIOSK_AUTH });
+
+			const result = await connect(node.baseUrl, KIOSK_TOKEN).executeCommand("session.current");
+
+			const error = result._unsafeUnwrapErr();
+			expect(error.reason).toBe("role-denied");
 			expect(error.status).toBe(403);
 		});
 	});

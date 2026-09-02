@@ -47,11 +47,23 @@ export type ClientErrorReason =
 	| "unknown";
 
 /**
- * Why a `POST /command` failed. The first three come from the Node's own
- * `error.reason` field; the rest are transport-level failures that never reached a
- * command handler.
+ * Why `POST /command` was rejected before dispatch: the command isn't in the
+ * transport's `allowedCommands`, or the token's role doesn't permit it. Distinct from
+ * `CommandFailureReason`, which covers failures the dispatcher itself produced.
  */
-export type CommandErrorReason = CommandFailureReason | ClientErrorReason;
+export type CommandRejectionReason =
+	/** The command isn't in the transport's `allowedCommands`. HTTP 403. */
+	| "not-allowed"
+	/** The token is valid, but its role's command globs don't cover this command. HTTP 403. */
+	| "role-denied";
+
+/**
+ * Why a `POST /command` failed. The first three come from the Node's own
+ * `error.reason` field on a dispatch failure; `not-allowed` and `role-denied` come
+ * from a pre-dispatch rejection; the rest are transport-level failures that never
+ * reached a command handler.
+ */
+export type CommandErrorReason = CommandFailureReason | CommandRejectionReason | ClientErrorReason;
 
 type ClientErrorOptions = {
 	readonly status?: number;

@@ -436,7 +436,10 @@ function requireTcpAddress(server: http.Server): Result<AddressInfo, TransportEr
 // ---- Request routing ----
 
 /** Every body the transport writes: a command envelope, an error, or a raw read. */
-type HttpResponseBody = { result: unknown } | { error: Error | { message: string } } | ReadPayload;
+type HttpResponseBody =
+	| { result: unknown }
+	| { error: Error | { message: string } | { message: string; reason: CommandRejectionReason } }
+	| ReadPayload;
 
 type ReadPayload = StatusSnapshot | VersionedLaunchpadState;
 
@@ -723,6 +726,13 @@ function commandErrorBody(error: CommandDispatchError) {
 	};
 }
 
+/**
+ * Why `POST /command` was rejected before it ever reached `dispatchCommand`.
+ * Distinct from `CommandFailureReason`: these two gates run pre-dispatch, so a
+ * rejection body carries `reason` alone, never `name` or `commandType`.
+ */
+type CommandRejectionReason = "not-allowed" | "role-denied";
+
 async function handleCommandRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
@@ -754,7 +764,12 @@ async function handleCommandRequest(
 	// intersect with `allowedCommands`, so a misconfigured role can never grant
 	// more than the transport already offers.
 	if (!deps.isCommandAllowed(command.type)) {
-		sendJson(res, 403, { error: { message: `Command not allowed: ${command.type}` } }, cors);
+		sendJson(
+			res,
+			403,
+			{ error: { message: `Command not allowed: ${command.type}`, reason: "not-allowed" } },
+			cors,
+		);
 		return;
 	}
 	if (
@@ -767,6 +782,7 @@ async function handleCommandRequest(
 			{
 				error: {
 					message: `Command not permitted for role "${outcome.principal.role}": ${command.type}`,
+					reason: "role-denied",
 				},
 			},
 			cors,

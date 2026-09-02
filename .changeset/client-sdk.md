@@ -1,0 +1,15 @@
+---
+"@bluecadet/launchpad-client": minor
+"@bluecadet/create-launchpad": patch
+"@bluecadet/launchpad-docs": patch
+---
+
+Add `@bluecadet/launchpad-client`, the typed client SDK for a Node's HTTP/SSE surface. `createClient({ baseUrl, token, fetch, onError })` returns `executeCommand`, `getStatus`, `getState`, `subscribeEvents`, `on`, `onConnection`, `subscribeStatePatches`, and `onSession`, so a kiosk app, a docent tablet, or another Node process stops hand-rolling the same reconnect loop and gap-detection logic each time. Every fallible call returns a neverthrow `Result`; the only thing the package throws is a `TypeError` when no `fetch` exists to use.
+
+The SDK owns the parts of the wire contract that are easy to get subtly wrong. One SSE connection is shared by every subscription on a client, with exponential backoff and the contract's sequencing rules implemented verbatim — baseline on whatever the first `id` happens to be, treat every reconnect as a gap unconditionally, and never let an untagged replay frame seed a baseline. Backoff knows when to stop: a `/events` rejection a retry can never clear, meaning a revoked token, a role that does not reach the stream, or a wrong `baseUrl`, ends the loop and arrives as a `disconnected` connection event marked `terminal`, so an unattended Station surfaces an operator problem instead of hammering the Node about it forever. `subscribeStatePatches` keeps a local mirror of `GET /state` current from Immer patch frames and rebuilds it from scratch on any version gap, sequence gap, or reconnect, which is why it wants both `exposeState` and `pushStatePatches` on the transport. Failures are discriminated by a `reason` field rather than by message, and a `reason` or status code the SDK does not recognize degrades rather than throwing, so a Node that grows a new failure mode does not break an already-deployed app.
+
+`onSession` collapses the session broker's push/poll split into one callback carrying the Session, its Profile, and the vendor link's health. Because the Profile crosses the wire only in a `session.current` result, the SDK re-queries that command on subscribe, on every reconnect or gap, and whenever a frame moves the canon to a Session it holds no Profile for. The canon-only events are applied locally in between, with a frame that carries a revision the view has already moved past discarded, and a `session:degraded` transition outranking the older snapshot of that flag on the canon. A failed query leaves the last view standing, which is what gives an app the documented restart behavior: after a daemon restart it keeps rendering the visitor it has until `session.current` answers that the Station is idle.
+
+Events stream over `fetch` rather than `EventSource`, so the bearer token travels in an `Authorization` header instead of a query string, replayed frames stay distinguishable from live ones, and reconnection stays under the SDK's control. Browsers and Node 23+ run the same build.
+
+Documentation lives at `/reference/client`, and the scaffolded config's `httpTransport` hint now names the package an app connects with.

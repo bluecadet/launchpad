@@ -92,6 +92,12 @@ sidebar:
           - reference/cli/config-loading
           - reference/cli/commands
 
+      - label: Client
+        link: reference/client
+        items:
+          - reference/client/api
+          - reference/client/session
+
       - label: Content
         link: reference/content
         items:

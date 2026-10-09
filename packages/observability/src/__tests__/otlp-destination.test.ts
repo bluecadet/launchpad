@@ -1,8 +1,16 @@
+import { once } from "node:events";
+import { createServer } from "node:http";
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
+import { parse } from "protobufjs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DestinationExporters, ResourceAttributes } from "../core/destination.js";
 import type { LogEntry } from "../core/log-entry.js";
-import { createOtlpDestination, type OtlpDestinationConfig } from "../destinations/otlp.js";
+import { encodeOtlpProtobufRequest } from "../core/otlp-protobuf.js";
+import {
+	createOtlpDestination,
+	type OtlpDestinationConfig,
+	type OtlpSignal,
+} from "../destinations/otlp.js";
 
 const RESOURCE: ResourceAttributes = {
 	"service.name": "content-api",
@@ -49,23 +57,63 @@ function okResponse(body = "{}", headers?: Readonly<Record<string, string>>): Re
 }
 
 function fetchOk(body = "{}"): ReturnType<typeof vi.fn> {
-	return vi.fn().mockResolvedValue(okResponse(body));
+	return vi.fn().mockImplementation(async () => okResponse(body));
+}
+
+function fetchProtobufOk(
+	body: Uint8Array<ArrayBuffer> = new Uint8Array(),
+): ReturnType<typeof vi.fn> {
+	return vi.fn().mockImplementation(async () => new Response(body, { status: 200 }));
+}
+
+type CapturedRequest = {
+	readonly url: string;
+	readonly init: RequestInit;
+};
+
+function rawRequestFrom(fetchMock: ReturnType<typeof vi.fn>, call = 0): CapturedRequest {
+	const [url, init] = fetchMock.mock.calls[call] as [string, RequestInit];
+	return { url, init };
 }
 
 function requestFrom(
 	fetchMock: ReturnType<typeof vi.fn>,
 	call = 0,
-): {
-	url: string;
-	init: RequestInit;
-	body: Record<string, unknown>;
-} {
-	const [url, init] = fetchMock.mock.calls[call] as [string, RequestInit];
+): CapturedRequest & { body: Record<string, unknown> } {
+	const request = rawRequestFrom(fetchMock, call);
 	return {
-		url,
-		init,
-		body: JSON.parse(String(init.body)),
+		...request,
+		body: JSON.parse(String(request.init.body)),
 	};
+}
+
+function protobufResponse(
+	signal: OtlpSignal,
+	partialSuccess?: Readonly<Record<string, unknown>>,
+): Uint8Array<ArrayBuffer> {
+	const names =
+		signal === "logs"
+			? {
+					response: "ExportLogsServiceResponse",
+					partial: "ExportLogsPartialSuccess",
+					rejected: "rejected_log_records",
+				}
+			: {
+					response: "ExportMetricsServiceResponse",
+					partial: "ExportMetricsPartialSuccess",
+					rejected: "rejected_data_points",
+				};
+	const schema = `
+		syntax = "proto3";
+		message ${names.response} { ${names.partial} partial_success = 1; }
+		message ${names.partial} {
+			int64 ${names.rejected} = 1;
+			string error_message = 2;
+		}
+	`;
+	const responseType = parse(schema).root.lookupType(names.response);
+	const message = responseType.fromObject(partialSuccess === undefined ? {} : { partialSuccess });
+	return Uint8Array.from(responseType.encode(message).finish());
 }
 
 function activeContext(): { signal: AbortSignal } {
@@ -168,23 +216,60 @@ describe("createOtlpDestination", () => {
 	] satisfies Array<[OtlpDestinationConfig, string]>)(
 		"rejects invalid configuration %#",
 		(config, message) => {
-			expect(() => createOtlpDestination(config)).toThrow(message);
+			const fetchMock = vi.fn();
+			vi.stubGlobal("fetch", fetchMock);
+			const destination = createOtlpDestination(config);
+			const result = destination.create({ resourceAttributes: RESOURCE });
+			expect(result._unsafeUnwrapErr()).toMatchObject({ retryable: false });
+			expect(result._unsafeUnwrapErr().message).toContain(message);
+			expect(fetchMock).not.toHaveBeenCalled();
 		},
 	);
 
+	it("rejects an unknown encoding without exposing its value", () => {
+		const secretEncoding = "private-binary-encoding";
+		const invalidConfig: OtlpDestinationConfig = {
+			endpoint: "https://collector.example",
+			encoding: secretEncoding as never,
+		};
+		const destination = createOtlpDestination(invalidConfig);
+		const failure = destination.create({ resourceAttributes: RESOURCE })._unsafeUnwrapErr();
+
+		expect(failure.message).toContain("encoding");
+		expect(failure.message).not.toContain(secretEncoding);
+	});
+
 	it("sanitizes invalid token header errors without exposing the token", () => {
 		const token = "secret-value\nleak";
-		let thrown: unknown;
+		const destination = createOtlpDestination({ endpoint: "https://collector.example", token });
+		const failure = destination.create({ resourceAttributes: RESOURCE })._unsafeUnwrapErr();
 
-		try {
-			createOtlpDestination({ endpoint: "https://collector.example", token });
-		} catch (error) {
-			thrown = error;
-		}
+		expect(failure.message).toContain("headers");
+		expect(failure.message).not.toContain("secret-value");
+	});
 
-		expect(thrown).toBeInstanceOf(Error);
-		const message = thrown instanceof Error ? thrown.message : String(thrown);
-		expect(message).not.toContain("secret-value");
+	it.each([
+		null,
+		undefined,
+		"invalid",
+		[],
+		{ endpoint: "https://collector.example", headers: [] },
+		{ endpoint: "https://collector.example", headers: [["x-tenant", "junk"]] },
+		{ endpoint: "https://collector.example", headers: "junk" },
+		{ endpoint: "https://collector.example", headers: { "invalid header": "value" } },
+		{ endpoint: "https://collector.example", signals: "logs" },
+		{ endpoint: "https://collector.example", signals: ["unknown"] },
+		{ endpoint: "https://collector.example", name: 42 },
+	])("defers malformed runtime configuration %# to create without fetching", (config) => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+		const destination = createOtlpDestination(config as OtlpDestinationConfig);
+
+		expect(typeof destination.name).toBe("string");
+		expect(destination.create({ resourceAttributes: RESOURCE })._unsafeUnwrapErr().retryable).toBe(
+			false,
+		);
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it("returns an error from create for invalid runtime resource attributes", () => {
@@ -253,6 +338,107 @@ describe("OTLP resource attributes", () => {
 		expect(exportedResourceAttributes(requestFrom(fetchMock, 0).body)).toEqual(expected);
 		expect(exportedResourceAttributes(requestFrom(fetchMock, 1).body)).toEqual(expected);
 	});
+});
+
+describe("OTLP encoding", () => {
+	it("keeps JSON as the default encoding", async () => {
+		const fetchMock = fetchOk();
+		vi.stubGlobal("fetch", fetchMock);
+
+		const result = await exporters().logs!.export([logEntry()], activeContext());
+		const request = rawRequestFrom(fetchMock);
+
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		expect(typeof request.init.body).toBe("string");
+		expect(new Headers(request.init.headers).get("content-type")).toBe("application/json");
+	});
+
+	it("supports explicit JSON encoding", async () => {
+		const fetchMock = fetchOk('{"partialSuccess":{"rejectedLogRecords":"1"}}');
+		vi.stubGlobal("fetch", fetchMock);
+
+		const result = await exporters({ encoding: "json" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+		const request = rawRequestFrom(fetchMock);
+
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
+		expect(typeof request.init.body).toBe("string");
+		expect(new Headers(request.init.headers).get("content-type")).toBe("application/json");
+	});
+
+	it("encodes log and gauge request payloads as protobuf", async () => {
+		const jsonFetch = fetchOk();
+		vi.stubGlobal("fetch", jsonFetch);
+		const jsonExporters = exporters();
+		await jsonExporters.logs!.export([logEntry()], activeContext());
+		await jsonExporters.metrics!.export(
+			{
+				timestamp: new Date("2024-06-15T12:00:00.123Z"),
+				observations: [{ name: "temperature", value: 21.5, unit: "Cel" }],
+			},
+			activeContext(),
+		);
+
+		const protobufFetch = fetchProtobufOk();
+		vi.stubGlobal("fetch", protobufFetch);
+		const protobufExporters = exporters({ encoding: "protobuf" });
+		const logResult = await protobufExporters.logs!.export([logEntry()], activeContext());
+		const metricResult = await protobufExporters.metrics!.export(
+			{
+				timestamp: new Date("2024-06-15T12:00:00.123Z"),
+				observations: [{ name: "temperature", value: 21.5, unit: "Cel" }],
+			},
+			activeContext(),
+		);
+
+		const logRequest = rawRequestFrom(protobufFetch, 0);
+		const metricRequest = rawRequestFrom(protobufFetch, 1);
+		const expectedLogs = encodeOtlpProtobufRequest("logs", requestFrom(jsonFetch, 0).body);
+		const expectedMetrics = encodeOtlpProtobufRequest("metrics", requestFrom(jsonFetch, 1).body);
+
+		expect(logResult._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		expect(metricResult._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		expect(logRequest.init.body).toBeInstanceOf(Uint8Array);
+		expect(logRequest.init.body).toEqual(expectedLogs);
+		expect(metricRequest.init.body).toBeInstanceOf(Uint8Array);
+		expect(metricRequest.init.body).toEqual(expectedMetrics);
+		expect(new Headers(logRequest.init.headers).get("content-type")).toBe("application/x-protobuf");
+		expect(new Headers(metricRequest.init.headers).get("content-type")).toBe(
+			"application/x-protobuf",
+		);
+	});
+
+	it.each([
+		["json", "application/json"],
+		["protobuf", "application/x-protobuf"],
+	] as const)(
+		"does not let custom headers override the %s Content-Type",
+		async (encoding, expectedContentType) => {
+			const fetchMock = encoding === "json" ? fetchOk() : fetchProtobufOk();
+			vi.stubGlobal("fetch", fetchMock);
+			const controller = new AbortController();
+			const logs = exporters({
+				encoding,
+				token: "collector-token",
+				headers: {
+					"cOnTeNt-TyPe": "text/private",
+					authorization: "custom credentials",
+					"X-Tenant": "museum",
+				},
+			}).logs!;
+
+			await logs.export([logEntry()], { signal: controller.signal });
+			const request = rawRequestFrom(fetchMock);
+			const headers = new Headers(request.init.headers);
+
+			expect(headers.get("content-type")).toBe(expectedContentType);
+			expect(headers.get("authorization")).toBe("Bearer collector-token");
+			expect(headers.get("x-tenant")).toBe("museum");
+			expect(request.init.signal).toBe(controller.signal);
+		},
+	);
 });
 
 describe("OTLP log export", () => {
@@ -521,6 +707,196 @@ describe("OTLP metric export", () => {
 });
 
 describe("OTLP responses and failures", () => {
+	it("decodes responses by configured encoding instead of response Content-Type", async () => {
+		const jsonFetch = vi.fn().mockResolvedValue(
+			new Response('{"partialSuccess":{"rejectedLogRecords":"1"}}', {
+				status: 200,
+				headers: { "Content-Type": "application/x-protobuf" },
+			}),
+		);
+		vi.stubGlobal("fetch", jsonFetch);
+		const jsonResult = await exporters({ encoding: "json" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+
+		const protobufFetch = vi.fn().mockResolvedValue(
+			new Response(protobufResponse("logs", { rejectedLogRecords: "1" }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			}),
+		);
+		vi.stubGlobal("fetch", protobufFetch);
+		const protobufResult = await exporters({ encoding: "protobuf" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+
+		expect(jsonResult._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
+		expect(protobufResult._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
+	});
+
+	it("combines local and protobuf server rejections for logs and data points", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockImplementationOnce(
+				async () =>
+					new Response(protobufResponse("logs", { rejectedLogRecords: "1" }), { status: 200 }),
+			)
+			.mockImplementationOnce(
+				async () =>
+					new Response(protobufResponse("metrics", { rejectedDataPoints: "1" }), { status: 200 }),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+		const destinationExporters = exporters({ encoding: "protobuf" });
+
+		const logResult = await destinationExporters.logs!.export(
+			[logEntry({ timestamp: new Date(-1) }), logEntry()],
+			activeContext(),
+		);
+		const metricResult = await destinationExporters.metrics!.export(
+			{
+				timestamp: new Date("2024-01-01T00:00:00Z"),
+				observations: [
+					{ name: "up", value: Number.NaN },
+					{ name: "up", value: 1 },
+				],
+			},
+			activeContext(),
+		);
+
+		expect(logResult._unsafeUnwrap()).toEqual({ rejectedRecords: 2 });
+		expect(metricResult._unsafeUnwrap()).toEqual({ rejectedRecords: 2 });
+	});
+
+	it.each([
+		[{}, 0],
+		[{ rejectedLogRecords: "0" }, 0],
+		[{ errorMessage: "warning only; do not retry" }, 0],
+		[{ rejectedLogRecords: "1", errorMessage: "private server detail" }, 1],
+	] as const)("accepts bounded protobuf partial success %#", async (partialSuccess, rejected) => {
+		vi.stubGlobal("fetch", fetchProtobufOk(protobufResponse("logs", partialSuccess)));
+
+		const result = await exporters({ encoding: "protobuf" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: rejected });
+	});
+
+	it.each([
+		["oversized", { rejectedLogRecords: "2" }],
+		["negative", { rejectedLogRecords: "-1" }],
+	] as const)("rejects %s protobuf rejection counts", async (_description, partialSuccess) => {
+		vi.stubGlobal("fetch", fetchProtobufOk(protobufResponse("logs", partialSuccess)));
+
+		const result = await exporters({ encoding: "protobuf" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+
+		expect(result.isErr()).toBe(true);
+		expect(result._unsafeUnwrapErr().retryable).toBe(false);
+		expect(result._unsafeUnwrapErr().message).toBe("OTLP response was malformed");
+	});
+
+	it("safely rejects an oversized protobuf metric data point count", async () => {
+		vi.stubGlobal(
+			"fetch",
+			fetchProtobufOk(protobufResponse("metrics", { rejectedDataPoints: "9007199254740993" })),
+		);
+
+		const result = await exporters({ encoding: "protobuf" }).metrics!.export(
+			{
+				timestamp: new Date("2024-01-01T00:00:00Z"),
+				observations: [{ name: "up", value: 1 }],
+			},
+			activeContext(),
+		);
+
+		expect(result.isErr()).toBe(true);
+		expect(result._unsafeUnwrapErr().retryable).toBe(false);
+		expect(result._unsafeUnwrapErr().message).toBe("OTLP response was malformed");
+	});
+
+	it.each(["logs", "metrics"] as const)(
+		"treats an unterminated protobuf int64 in a %s response as a permanent failure",
+		async (signal) => {
+			const malformedInt64 = Uint8Array.from([0x0a, 0x05, 0x08, 0x80, 0x80, 0x80, 0x80]);
+			vi.stubGlobal("fetch", fetchProtobufOk(malformedInt64));
+			const destinationExporters = exporters({ encoding: "protobuf", signals: [signal] });
+
+			const result =
+				signal === "logs"
+					? await destinationExporters.logs!.export([logEntry()], activeContext())
+					: await destinationExporters.metrics!.export(
+							{
+								timestamp: new Date("2024-01-01T00:00:00Z"),
+								observations: [{ name: "up", value: 1 }],
+							},
+							activeContext(),
+						);
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().retryable).toBe(false);
+			expect(result._unsafeUnwrapErr().message).toBe("OTLP response was malformed");
+		},
+	);
+
+	it("accepts empty protobuf responses and ignores unknown fields", async () => {
+		const withUnknownField = Uint8Array.from([0x98, 0x06, 0x01]);
+		const fetchMock = vi
+			.fn()
+			.mockImplementationOnce(async () => new Response(new Uint8Array(), { status: 200 }))
+			.mockImplementationOnce(async () => new Response(withUnknownField, { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+		const logs = exporters({ encoding: "protobuf" }).logs!;
+
+		const emptyResult = await logs.export([logEntry()], activeContext());
+		const unknownResult = await logs.export([logEntry()], activeContext());
+
+		expect(emptyResult._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		expect(unknownResult._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+	});
+
+	it("rejects a protobuf response when JSON encoding was selected", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi
+				.fn()
+				.mockResolvedValue(new Response(protobufResponse("logs", { rejectedLogRecords: "1" }))),
+		);
+
+		const result = await exporters({ encoding: "json" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+
+		expect(result.isErr()).toBe(true);
+		expect(result._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP response was malformed",
+			retryable: false,
+		});
+	});
+
+	it.each([
+		["truncated protobuf", Uint8Array.from([0x0a, 0x02, 0x08])],
+		["JSON in protobuf mode", new TextEncoder().encode('{"private":"response-secret"}')],
+	] as const)("treats a malformed %s response as permanent", async (_description, body) => {
+		vi.stubGlobal("fetch", fetchProtobufOk(Uint8Array.from(body)));
+
+		const result = await exporters({ encoding: "protobuf" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+		const failure = result._unsafeUnwrapErr();
+
+		expect(failure.retryable).toBe(false);
+		expect(failure.message).toBe("OTLP response was malformed");
+		expect(failure.message).not.toContain("response-secret");
+	});
+
 	it.each([
 		"",
 		"{}",
@@ -603,6 +979,89 @@ describe("OTLP responses and failures", () => {
 		expect(failure.message).not.toContain("unsafe status text");
 	});
 
+	it.each([
+		[503, true],
+		[400, false],
+	] as const)(
+		"cancels a native streaming HTTP %i body before returning failure",
+		async (status, retryable) => {
+			const cancel = vi.fn();
+			const stream = new ReadableStream<Uint8Array>({ cancel });
+			const response = new Response(stream, { status });
+			vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+
+			const result = await exporters().logs!.export([logEntry()], activeContext());
+
+			expect(cancel).toHaveBeenCalledOnce();
+			expect(response.bodyUsed).toBe(true);
+			expect(result._unsafeUnwrapErr()).toMatchObject({
+				message: `OTLP request failed with HTTP status ${status}`,
+				retryable,
+			});
+		},
+	);
+
+	it.each(["rejects", "never settles", "locked"])(
+		"preserves HTTP failure when body cancellation %s",
+		async (behavior) => {
+			const stream = new ReadableStream<Uint8Array>({
+				cancel() {
+					return behavior === "rejects"
+						? Promise.reject(new Error("private cancellation detail"))
+						: new Promise<void>(() => undefined);
+				},
+			});
+			const response = new Response(stream, { status: 503, headers: { "Retry-After": "2" } });
+			const reader = behavior === "locked" ? stream.getReader() : undefined;
+			vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+
+			try {
+				const result = await exporters().logs!.export([logEntry()], activeContext());
+				expect(result._unsafeUnwrapErr()).toMatchObject({
+					message: "OTLP request failed with HTTP status 503",
+					retryable: true,
+					retryAfterMs: 2_000,
+				});
+			} finally {
+				reader?.releaseLock();
+			}
+		},
+	);
+
+	it.each([503, 400])(
+		"closes a real HTTP %i response that never finishes streaming",
+		async (status) => {
+			let responseClosed = false;
+			const server = createServer((request, response) => {
+				request.resume();
+				response.on("close", () => {
+					responseClosed = true;
+				});
+				response.writeHead(status);
+				response.write("never-ending backend body");
+			});
+			server.listen(0, "127.0.0.1");
+			await once(server, "listening");
+			try {
+				const address = server.address();
+				if (!address || typeof address === "string") throw new Error("Expected TCP server address");
+				const result = await exporters({
+					endpoint: `http://127.0.0.1:${address.port}`,
+				}).logs!.export([logEntry()], { signal: AbortSignal.timeout(2_000) });
+				expect(result._unsafeUnwrapErr()).toMatchObject({
+					message: `OTLP request failed with HTTP status ${status}`,
+					retryable: status === 503,
+				});
+				await vi.waitFor(() => expect(responseClosed).toBe(true), { timeout: 500 });
+			} finally {
+				server.closeAllConnections();
+				await new Promise<void>((resolve, reject) =>
+					server.close((error) => (error ? reject(error) : resolve())),
+				);
+			}
+		},
+	);
+
 	it("honors Retry-After for retryable HTTP responses", async () => {
 		vi.stubGlobal(
 			"fetch",
@@ -626,6 +1085,35 @@ describe("OTLP responses and failures", () => {
 		expect(failure.message).toBe("OTLP request failed");
 	});
 
+	it("retains network and Retry-After behavior in protobuf mode", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("private network detail"))
+			.mockResolvedValueOnce(
+				new Response("private response body", {
+					status: 503,
+					headers: { "Retry-After": "4" },
+				}),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+		const logs = exporters({ encoding: "protobuf" }).logs!;
+
+		const networkResult = await logs.export([logEntry()], activeContext());
+		const retryResult = await logs.export([logEntry()], activeContext());
+
+		expect(networkResult._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP request failed",
+			retryable: true,
+		});
+		expect(retryResult._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP request failed with HTTP status 503",
+			retryable: true,
+			retryAfterMs: 4_000,
+		});
+		expect(networkResult._unsafeUnwrapErr().message).not.toContain("private");
+		expect(retryResult._unsafeUnwrapErr().message).not.toContain("private");
+	});
+
 	it("does not send an already-aborted export", async () => {
 		const fetchMock = fetchOk();
 		vi.stubGlobal("fetch", fetchMock);
@@ -637,6 +1125,51 @@ describe("OTLP responses and failures", () => {
 		expect(result.isErr()).toBe(true);
 		expect(result._unsafeUnwrapErr().retryable).toBe(false);
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("treats protobuf arrayBuffer read failures as permanent and sanitized", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				status: 200,
+				arrayBuffer: async () => {
+					throw new Error("private response body detail");
+				},
+			}),
+		);
+
+		const result = await exporters({ encoding: "protobuf" }).logs!.export(
+			[logEntry()],
+			activeContext(),
+		);
+		const failure = result._unsafeUnwrapErr();
+
+		expect(failure.retryable).toBe(false);
+		expect(failure.message).toBe("OTLP response body could not be read");
+		expect(failure.message).not.toContain("private");
+	});
+
+	it("treats an abort while reading a protobuf body as permanent cancellation", async () => {
+		const controller = new AbortController();
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue({
+				status: 200,
+				arrayBuffer: async () => {
+					controller.abort();
+					throw new DOMException("private abort detail", "AbortError");
+				},
+			}),
+		);
+
+		const result = await exporters({ encoding: "protobuf" }).logs!.export([logEntry()], {
+			signal: controller.signal,
+		});
+		const failure = result._unsafeUnwrapErr();
+
+		expect(failure.retryable).toBe(false);
+		expect(failure.message).toBe("OTLP export was aborted");
+		expect(failure.message).not.toContain("private");
 	});
 
 	it("treats an abort while reading a 200 body as permanent", async () => {

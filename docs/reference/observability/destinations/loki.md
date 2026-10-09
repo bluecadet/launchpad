@@ -19,6 +19,8 @@ const destination = createLokiDestination({
 });
 ```
 
+The factory returns an inert destination definition. Configuration is validated when the observability plugin calls `destination.create()` during setup. Invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result` rather than catching factory exceptions.
+
 ## Options
 
 | Option | Type | Default | Meaning |
@@ -28,6 +30,8 @@ const destination = createLokiDestination({
 | `auth` | `{ type: 'bearer'; token: string } \| { type: 'basic'; username: string; password: string }` | — | Request authentication |
 | `headers` | `Record<string, string>` | — | Additional proxy, gateway, or tenant headers |
 | `resourceLabels` | `Record<string, string>` | `{ 'service.name': 'service_name' }` | Map resource attribute keys to Loki stream label names |
+
+Request header names are case-insensitive. The destination always sets `Content-Type: application/json`; when `auth` is supplied, its credentials override any custom `Authorization` header. Without `auth`, a custom `Authorization` header is preserved. Other custom headers, including tenant headers, are retained. Invalid HTTP header names or values return a configuration `Err` during setup.
 
 The omitted `resourceLabels` option promotes only `service.name` to `service_name`. Supplying a map replaces that default rather than extending it, so `resourceLabels: {}` disables all resource-derived labels.
 

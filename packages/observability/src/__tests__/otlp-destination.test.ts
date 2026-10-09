@@ -5,11 +5,20 @@ import type { LogEntry } from "../core/log-entry.js";
 import { createOtlpDestination, type OtlpDestinationConfig } from "../destinations/otlp.js";
 
 const RESOURCE: ResourceAttributes = {
-	"service.name": "launchpad",
+	"service.name": "content-api",
 	"service.instance.id": "instance-1",
-	"launchpad.client": "bluecadet",
+	team: "content",
+	region: "us-east-1",
 	workers: 4,
 	production: true,
+};
+
+const BLUECADET_COMPATIBILITY_RESOURCE: ResourceAttributes = {
+	"service.name": "launchpad",
+	"launchpad.client": "museum",
+	"launchpad.project": "gallery",
+	"launchpad.installation": "lobby",
+	"deployment.environment.name": "production",
 };
 
 function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
@@ -24,12 +33,15 @@ function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
 	};
 }
 
-function exporters(config: Partial<OtlpDestinationConfig> = {}): DestinationExporters {
+function exporters(
+	config: Partial<OtlpDestinationConfig> = {},
+	resourceAttributes: ResourceAttributes = RESOURCE,
+): DestinationExporters {
 	const destination = createOtlpDestination({
 		endpoint: "https://collector.example/proxy/otlp/",
 		...config,
 	});
-	return destination.create({ resourceAttributes: RESOURCE })._unsafeUnwrap();
+	return destination.create({ resourceAttributes })._unsafeUnwrap();
 }
 
 function okResponse(body = "{}", headers?: Readonly<Record<string, string>>): Response {
@@ -72,6 +84,27 @@ function exportedLogRecords(body: Record<string, unknown>): Array<{
 		}>;
 	};
 	return payload.resourceLogs[0]!.scopeLogs[0]!.logRecords;
+}
+
+function exportedResourceAttributes(body: Record<string, unknown>): Array<{
+	key: string;
+	value: Record<string, unknown>;
+}> {
+	if ("resourceLogs" in body) {
+		const payload = body as {
+			resourceLogs: Array<{
+				resource: { attributes: Array<{ key: string; value: Record<string, unknown> }> };
+			}>;
+		};
+		return payload.resourceLogs[0]!.resource.attributes;
+	}
+
+	const payload = body as {
+		resourceMetrics: Array<{
+			resource: { attributes: Array<{ key: string; value: Record<string, unknown> }> };
+		}>;
+	};
+	return payload.resourceMetrics[0]!.resource.attributes;
 }
 
 function exportedMetrics(body: Record<string, unknown>): Array<{
@@ -165,6 +198,63 @@ describe("createOtlpDestination", () => {
 	});
 });
 
+describe("OTLP resource attributes", () => {
+	it("preserves generic service, team, and region attributes in logs and gauges", async () => {
+		const fetchMock = fetchOk();
+		vi.stubGlobal("fetch", fetchMock);
+		const destinationExporters = exporters();
+
+		await destinationExporters.logs!.export([logEntry()], activeContext());
+		await destinationExporters.metrics!.export(
+			{
+				timestamp: new Date("2024-06-15T12:00:00.123Z"),
+				observations: [{ name: "up", value: 1 }],
+			},
+			activeContext(),
+		);
+
+		const expected = [
+			{ key: "service.name", value: { stringValue: "content-api" } },
+			{ key: "service.instance.id", value: { stringValue: "instance-1" } },
+			{ key: "team", value: { stringValue: "content" } },
+			{ key: "region", value: { stringValue: "us-east-1" } },
+			{ key: "workers", value: { intValue: "4" } },
+			{ key: "production", value: { boolValue: true } },
+		];
+		expect(exportedResourceAttributes(requestFrom(fetchMock, 0).body)).toEqual(expected);
+		expect(exportedResourceAttributes(requestFrom(fetchMock, 1).body)).toEqual(expected);
+		expect(expected.map(({ key }) => key)).not.toContain("launchpad.client");
+	});
+
+	it("preserves the optional Bluecadet compatibility recipe in both signals", async () => {
+		const fetchMock = fetchOk();
+		vi.stubGlobal("fetch", fetchMock);
+		const destinationExporters = exporters({}, BLUECADET_COMPATIBILITY_RESOURCE);
+
+		await destinationExporters.logs!.export([logEntry()], activeContext());
+		await destinationExporters.metrics!.export(
+			{
+				timestamp: new Date("2024-06-15T12:00:00.123Z"),
+				observations: [{ name: "up", value: 1 }],
+			},
+			activeContext(),
+		);
+
+		const expected = [
+			{ key: "service.name", value: { stringValue: "launchpad" } },
+			{ key: "launchpad.client", value: { stringValue: "museum" } },
+			{ key: "launchpad.project", value: { stringValue: "gallery" } },
+			{ key: "launchpad.installation", value: { stringValue: "lobby" } },
+			{
+				key: "deployment.environment.name",
+				value: { stringValue: "production" },
+			},
+		];
+		expect(exportedResourceAttributes(requestFrom(fetchMock, 0).body)).toEqual(expected);
+		expect(exportedResourceAttributes(requestFrom(fetchMock, 1).body)).toEqual(expected);
+	});
+});
+
 describe("OTLP log export", () => {
 	it("posts the exact OTLP JSON fixture with resource and structured log fields", async () => {
 		const fetchMock = fetchOk();
@@ -183,9 +273,10 @@ describe("OTLP log export", () => {
 				{
 					resource: {
 						attributes: [
-							{ key: "service.name", value: { stringValue: "launchpad" } },
+							{ key: "service.name", value: { stringValue: "content-api" } },
 							{ key: "service.instance.id", value: { stringValue: "instance-1" } },
-							{ key: "launchpad.client", value: { stringValue: "bluecadet" } },
+							{ key: "team", value: { stringValue: "content" } },
+							{ key: "region", value: { stringValue: "us-east-1" } },
 							{ key: "workers", value: { intValue: "4" } },
 							{ key: "production", value: { boolValue: true } },
 						],

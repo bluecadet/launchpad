@@ -8,6 +8,9 @@
 	"references": [
 		{
 			"path": "./tsconfig.src.json"
+		},
+		{
+			"path": "../observability/tsconfig.src.json"
 		}
 	]
 }

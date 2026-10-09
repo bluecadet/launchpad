@@ -18,6 +18,7 @@ import type {
 	ObservabilityDestination,
 } from "../core/destination.js";
 import { observability } from "../index.js";
+import type { LogStorageConfig } from "../observability-config.js";
 import type { ObservabilityState } from "../observability-state.js";
 
 function abortError(): Error {
@@ -207,12 +208,13 @@ async function setupFileRuntime(
 		exclude?: string[];
 		deliveryTimeoutMs?: number;
 		intervalMs?: number;
+		logStorage?: LogStorageConfig;
 	} = {},
 ) {
 	const { context, state, snapshots } = createContext(source);
 	const result = await observability({
 		destinations,
-		logStorage: { type: "file" },
+		...(overrides.logStorage === undefined ? {} : { logStorage: overrides.logStorage }),
 		...(overrides.include === undefined ? {} : { include: overrides.include }),
 		...(overrides.exclude === undefined ? {} : { exclude: overrides.exclude }),
 		batch: { maxEntries: 100, intervalMs: overrides.intervalMs ?? 60_000 },
@@ -448,32 +450,104 @@ describe("file-backed destination log replay", () => {
 		expect(source.closedReaders).toHaveLength(1);
 	});
 
-	it("requires durable identity and historical resource support only from log destinations", async () => {
-		const source = new FakeLogSource();
-		const { context } = createContext(source);
-		const missingCapability = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
-		const invalid = await observability({
-			logStorage: { type: "file" },
-			destinations: [
-				{
-					name: "custom",
-					create: () => ok({ logs: { export: missingCapability } }),
-				},
-			],
-		}).setup(context);
-		expect(invalid.isErr()).toBe(true);
+	it.each([
+		{ label: "default", logStorage: undefined },
+		{ label: "explicit file", logStorage: { type: "file" } },
+	] as const)(
+		"$label requires both replay capabilities for custom log exporters",
+		async ({ logStorage }) => {
+			for (const capabilities of [
+				{},
+				{ checkpointKey: "custom-route" },
+				{ supportsResourceContext: true },
+				{ supportsResourceContext: true, checkpointKey: " " },
+			] as const) {
+				const { context } = createContext(new FakeLogSource());
+				const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+				const shutdown = vi.fn(() => okAsync(undefined));
+				const invalid = await observability({
+					...(logStorage === undefined ? {} : { logStorage }),
+					destinations: [
+						{
+							name: "custom",
+							...("checkpointKey" in capabilities
+								? { checkpointKey: capabilities.checkpointKey }
+								: {}),
+							create: () =>
+								ok({
+									logs: {
+										...("supportsResourceContext" in capabilities
+											? { supportsResourceContext: capabilities.supportsResourceContext }
+											: {}),
+										export: exportLogs,
+									},
+									shutdown,
+								}),
+						},
+					],
+				}).setup(context);
+				expect(invalid.isErr()).toBe(true);
+				if (invalid.isErr())
+					expect(invalid.error.message).toContain(
+						"requires supportsResourceContext and checkpointKey",
+					);
+				expect(exportLogs).not.toHaveBeenCalled();
+				expect(context.eventBus.onAny).not.toHaveBeenCalled();
+				expect(shutdown).toHaveBeenCalledOnce();
+			}
+		},
+	);
 
-		const metricsOnly = await observability({
-			logStorage: { type: "file" },
-			destinations: [
+	it.each([
+		{ label: "default", logStorage: undefined },
+		{ label: "explicit file", logStorage: { type: "file" } },
+	] as const)(
+		"$label allows metrics-only destinations without a source or replay capabilities",
+		async ({ logStorage }) => {
+			const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const { instance, context, state } = await setupFileRuntime(
+				undefined,
+				[
+					{
+						name: "metrics",
+						create: () => ok({ metrics: { export: exportMetrics } }),
+					},
+				],
+				{ logStorage },
+			);
+			await instance.ready?.();
+			await instance.executeCommand?.({ type: "observability.flush" });
+			expect(exportMetrics).toHaveBeenCalledOnce();
+			expect(state.destinations?.metrics?.logs).toBeUndefined();
+			expect(context.logger.warn).not.toHaveBeenCalled();
+			await instance.disconnect?.({ type: "manual" });
+		},
+	);
+
+	it("explicit memory captures only live events even when a canonical source is available", async () => {
+		const source = new FakeLogSource([record("stored-only")]);
+		const configureResource = vi.spyOn(source, "configureResourceAttributes");
+		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		const { instance, context, state } = await setupFileRuntime(
+			source,
+			[
 				{
-					name: "metrics",
-					create: () => ok({ metrics: { export: () => okAsync({ rejectedRecords: 0 }) } }),
+					name: "memory",
+					create: () => ok({ logs: { export: exportLogs } }),
 				},
 			],
-		}).setup(context);
-		expect(metricsOnly.isOk()).toBe(true);
-		if (metricsOnly.isOk()) await metricsOnly.value.disconnect?.({ type: "manual" });
+			{ logStorage: { type: "memory" } },
+		);
+		context.eventBus.emit("log:info", { message: "live-only", args: [], module: "app" });
+		await instance.executeCommand?.({ type: "observability.flush" });
+		expect(exportLogs).toHaveBeenCalledOnce();
+		expect(exportLogs.mock.calls[0]?.[0].map((entry) => entry.message)).toEqual(["live-only"]);
+		expect(exportLogs.mock.calls[0]?.[1].recordFormat).toBeUndefined();
+		expect(state.destinations?.memory?.logs?.sourceStatus).toBeUndefined();
+		expect(source.readers).toHaveLength(0);
+		expect(source.acknowledgements).toHaveLength(0);
+		expect(configureResource).not.toHaveBeenCalled();
+		await instance.disconnect?.({ type: "manual" });
 	});
 
 	it("keeps a checkpoint stable across restart and exporter credential changes", async () => {
@@ -497,35 +571,44 @@ describe("file-backed destination log replay", () => {
 		await second.instance.disconnect?.({ type: "manual" });
 	});
 
-	it("replays canonical records with their historical resource and does not also capture live events", async () => {
-		const source = new FakeLogSource([record("stored")]);
-		const destinationContexts: DestinationContext[] = [];
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
-		const configured = fileDestination("archive", exportLogs);
-		const destination: ObservabilityDestination = {
-			...configured,
-			create: (context) => {
-				destinationContexts.push(context);
-				return configured.create(context);
-			},
-		};
-		const { instance, context } = await setupFileRuntime(source, [destination]);
+	it.each([
+		{ label: "default", logStorage: undefined },
+		{ label: "explicit file", logStorage: { type: "file" } },
+	] as const)(
+		"$label replays oldest retained canonical records with historical resources, not live events",
+		async ({ logStorage }) => {
+			const source = new FakeLogSource([record("stored")]);
+			const destinationContexts: DestinationContext[] = [];
+			const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const configured = fileDestination("archive", exportLogs);
+			const destination: ObservabilityDestination = {
+				...configured,
+				create: (context) => {
+					destinationContexts.push(context);
+					return configured.create(context);
+				},
+			};
+			const { instance, context } = await setupFileRuntime(source, [destination], { logStorage });
 
-		await vi.waitFor(() => expect(source.acknowledgements).toHaveLength(1));
-		expect(destinationContexts[0]?.resourceAttributes["service.instance.id"]).toBe("runtime-123");
-		expect(source.resourceAttributes["service.instance.id"]).toBe("runtime-123");
-		expect(exportLogs.mock.calls[0]?.[0].map((entry) => entry.message)).toEqual(["stored"]);
-		expect(exportLogs.mock.calls[0]?.[1].recordFormat).toBe("canonical");
-		expect(exportLogs.mock.calls[0]?.[1].resourceAttributes).toEqual({
-			"service.name": "historical",
-			"service.instance.id": "old",
-		});
+			await vi.waitFor(() => expect(source.acknowledgements).toHaveLength(1));
+			expect(destinationContexts[0]?.resourceAttributes["service.instance.id"]).toBe("runtime-123");
+			expect(source.resourceAttributes["service.instance.id"]).toBe("runtime-123");
+			expect(exportLogs.mock.calls[0]?.[0].map((entry) => entry.message)).toEqual(["stored"]);
+			expect(exportLogs.mock.calls[0]?.[0][0]?.timestamp).toEqual(
+				new Date("2025-01-01T00:00:00.000Z"),
+			);
+			expect(exportLogs.mock.calls[0]?.[1].recordFormat).toBe("canonical");
+			expect(exportLogs.mock.calls[0]?.[1].resourceAttributes).toEqual({
+				"service.name": "historical",
+				"service.instance.id": "old",
+			});
 
-		context.eventBus.emit("log:info", { message: "live-only", args: [], module: "app" });
-		await instance.executeCommand?.({ type: "observability.flush" });
-		expect(exportLogs).toHaveBeenCalledTimes(1);
-		await instance.disconnect?.({ type: "manual" });
-	});
+			context.eventBus.emit("log:info", { message: "live-only", args: [], module: "app" });
+			await instance.executeCommand?.({ type: "observability.flush" });
+			expect(exportLogs).toHaveBeenCalledTimes(1);
+			await instance.disconnect?.({ type: "manual" });
+		},
+	);
 
 	it("does not advance the source receipt on retryable failure and acknowledges after retry succeeds", async () => {
 		const source = new FakeLogSource([record("retry")]);
@@ -625,21 +708,29 @@ describe("file-backed destination log replay", () => {
 		await instance.disconnect?.({ type: "manual" });
 	});
 
-	it("keeps logs disabled without a source instead of falling back to event-bus capture", async () => {
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
-		const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
-		const { instance, context, state } = await setupFileRuntime(undefined, [
-			fileDestination("offline", exportLogs, { metrics: { export: exportMetrics } }),
-		]);
+	it.each([
+		{ label: "default", logStorage: undefined },
+		{ label: "explicit file", logStorage: { type: "file" } },
+	] as const)(
+		"$label keeps logs unavailable without a source while metrics continue, without fallback",
+		async ({ logStorage }) => {
+			const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const { instance, context, state } = await setupFileRuntime(
+				undefined,
+				[fileDestination("offline", exportLogs, { metrics: { export: exportMetrics } })],
+				{ logStorage },
+			);
 
-		context.eventBus.emit("log:info", { message: "must-not-fallback", args: [], module: "app" });
-		await instance.ready?.();
-		await instance.executeCommand?.({ type: "observability.flush" });
-		expect(exportLogs).not.toHaveBeenCalled();
-		expect(exportMetrics).toHaveBeenCalledOnce();
-		expect(state.destinations?.offline?.logs?.sourceStatus).toBe("unavailable");
-		await instance.disconnect?.({ type: "manual" });
-	});
+			context.eventBus.emit("log:info", { message: "must-not-fallback", args: [], module: "app" });
+			await instance.ready?.();
+			await instance.executeCommand?.({ type: "observability.flush" });
+			expect(exportLogs).not.toHaveBeenCalled();
+			expect(exportMetrics).toHaveBeenCalledOnce();
+			expect(state.destinations?.offline?.logs?.sourceStatus).toBe("unavailable");
+			await instance.disconnect?.({ type: "manual" });
+		},
+	);
 
 	it("captures a finite barrier before draining a flush", async () => {
 		const source = new FakeLogSource([record("before-barrier")]);

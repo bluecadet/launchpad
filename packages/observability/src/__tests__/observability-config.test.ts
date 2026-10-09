@@ -90,9 +90,13 @@ describe("destination-mode configuration schemas", () => {
 		});
 	});
 
-	it("accepts only the controller-owned file log storage mode", () => {
+	it("accepts file-backed delivery and the explicit memory opt-out", () => {
 		expect(logStorageConfigSchema.parse({ type: "file" })).toEqual({ type: "file" });
-		expect(logStorageConfigSchema.safeParse({ type: "memory" }).success).toBe(false);
+		expect(logStorageConfigSchema.parse({ type: "memory" })).toEqual({ type: "memory" });
+		expect(logStorageConfigSchema.safeParse({ type: "other" }).success).toBe(false);
+		expect(logStorageConfigSchema.safeParse({ type: "memory", maxEntries: 100 }).success).toBe(
+			false,
+		);
 		expect(logStorageConfigSchema.safeParse({ type: "file", directory: "/tmp/logs" }).success).toBe(
 			false,
 		);
@@ -129,7 +133,7 @@ describe("observabilityConfigSchema", () => {
 			include: ["log:*"],
 			exclude: [],
 			resource: {},
-			logStorage: false,
+			logStorage: { type: "file" },
 			metrics: { intervalMs: 30_000 },
 			delivery: {
 				deliveryTimeoutMs: 5_000,

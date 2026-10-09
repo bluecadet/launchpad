@@ -55,6 +55,13 @@ function buildImports(answers: Answers): string {
 		lines.push(`import { scheduler } from '@bluecadet/launchpad/scheduler';`);
 	}
 
+	if (answers.useObservability) {
+		lines.push(`import { observability } from '@bluecadet/launchpad/observability';`);
+		lines.push(
+			`import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';`,
+		);
+	}
+
 	if (answers.useContent) {
 		lines.push(
 			`// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';`,
@@ -198,6 +205,40 @@ function buildSchedulerPlugin(): string {
 	`;
 }
 
+function buildObservabilitySetup(): string {
+	return dedent`
+		// Observability stays disabled until every required variable below is set.
+		// It sends logs and metrics only to the OTLP endpoint you configure.
+		const observabilityEndpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
+		const observabilityClient = process.env.LAUNCHPAD_OBSERVABILITY_CLIENT;
+		const observabilityProject = process.env.LAUNCHPAD_OBSERVABILITY_PROJECT;
+		const observabilityInstallation = process.env.LAUNCHPAD_OBSERVABILITY_INSTALLATION;
+		const observabilityEnvironment = process.env.LAUNCHPAD_OBSERVABILITY_ENVIRONMENT;
+
+		const observabilityPlugin =
+			observabilityEndpoint &&
+			observabilityClient &&
+			observabilityProject &&
+			observabilityInstallation &&
+			observabilityEnvironment
+				? observability({
+						deployment: {
+							client: observabilityClient,
+							project: observabilityProject,
+							installation: observabilityInstallation,
+							environment: observabilityEnvironment,
+						},
+						destinations: [
+							createOtlpDestination({
+								endpoint: observabilityEndpoint,
+								token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
+							}),
+						],
+					})
+				: undefined;
+	`;
+}
+
 function buildWorkflows(answers: Answers): string[] {
 	const workflows: string[] = [];
 	const startSteps: string[] = [];
@@ -230,11 +271,15 @@ function buildWorkflows(answers: Answers): string[] {
 
 export function generateLaunchpadConfig(answers: Answers): string {
 	const importsBlock = buildImports(answers);
+	const setupBlock = answers.useObservability ? buildObservabilitySetup() : undefined;
 
 	const plugins: string[] = [];
 	if (answers.useContent) plugins.push(buildContentPlugin(answers));
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
 	if (answers.useScheduler) plugins.push(buildSchedulerPlugin());
+	if (answers.useObservability) {
+		plugins.push("...(observabilityPlugin ? [observabilityPlugin] : [])");
+	}
 	if (answers.useContent) {
 		plugins.push(
 			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
@@ -247,6 +292,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	return [
 		importsBlock,
 		"",
+		...(setupBlock ? [setupBlock, ""] : []),
 		"export default defineConfig({",
 		"\tplugins: [",
 		pluginsBlock,

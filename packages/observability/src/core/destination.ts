@@ -21,6 +21,14 @@ export interface ExportContext {
 /** Per-call log context, optionally restoring a record's original resource. */
 export interface LogExportContext extends ExportContext {
 	readonly resourceAttributes?: ResourceAttributes;
+	/**
+	 * Trusted canonical-source records only: fields and metadata have already
+	 * been normalized, redacted, byte-bounded, and validated as JSON-safe values.
+	 * The resource snapshot must also be normalized. Exporters may serialize
+	 * these values without repeating normalization; callers must not mutate them
+	 * during export. Omit for raw entries, even with a resource override.
+	 */
+	readonly recordFormat?: "canonical";
 }
 
 /**

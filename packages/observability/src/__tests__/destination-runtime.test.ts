@@ -181,6 +181,19 @@ describe("destination observability runtime", () => {
 		await second.instance.disconnect?.({ type: "manual" });
 	});
 
+	it("rejects file log storage in legacy transport mode before starting capture", async () => {
+		const { context } = createContext();
+		const push = vi.fn(() => okAsync(undefined));
+		const result = await observability({
+			transports: [{ name: "legacy", push }],
+			logStorage: { type: "file" },
+		} as never).setup(context);
+
+		expect(result.isErr()).toBe(true);
+		expect(context.eventBus.onAny).not.toHaveBeenCalled();
+		expect(push).not.toHaveBeenCalled();
+	});
+
 	it("keeps the legacy transport configuration unchanged", async () => {
 		const push = vi.fn(() => okAsync(undefined));
 		const { context } = createContext();

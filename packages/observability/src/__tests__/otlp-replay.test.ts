@@ -1,3 +1,8 @@
+import {
+	normalizeLogRecord,
+	parseLogRecord,
+	serializeLogRecord,
+} from "@bluecadet/launchpad-utils/logging";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResourceAttributes } from "../core/destination.js";
 import { encodeOtlpProtobufRequest } from "../core/otlp-protobuf.js";
@@ -24,6 +29,129 @@ afterEach(() => {
 });
 
 describe("OTLP replay resources", () => {
+	it("preserves canonical metadata and resources through the JSON and protobuf pipelines", async () => {
+		const canonical = parseLogRecord(
+			serializeLogRecord(
+				normalizeLogRecord(
+					logEntry({
+						metadata: {
+							deep: { a: { b: { c: { d: { e: { f: { leaf: "depth-eight" } } } } } } },
+							...Object.fromEntries(
+								Array.from({ length: 105 }, (_, index) => [`field${index}`, index]),
+							),
+						},
+					}),
+					{
+						...HISTORICAL_RESOURCE,
+						"service.name": "archived-service-".repeat(1200),
+						"service.instance.id": "old-instance-".repeat(1500),
+					},
+				),
+			),
+		);
+		const jsonFetch = fetchOk();
+		vi.stubGlobal("fetch", jsonFetch);
+		const destinationExporters = exporters();
+		const context = {
+			...activeContext(),
+			resourceAttributes: canonical.resource,
+			recordFormat: "canonical" as const,
+		};
+		expect((await destinationExporters.logs!.export([canonical], context))._unsafeUnwrap()).toEqual(
+			{ rejectedRecords: 0 },
+		);
+		const payload = requestFrom(jsonFetch).body;
+		const deepValue = {
+			kvlistValue: { values: [{ key: "leaf", value: { stringValue: "depth-eight" } }] },
+		};
+		const nestedValue = ["f", "e", "d", "c", "b", "a"].reduce<object>(
+			(value, key) => ({ kvlistValue: { values: [{ key, value }] } }),
+			deepValue,
+		);
+		expect(payload).toMatchObject({
+			resourceLogs: [
+				{
+					scopeLogs: [
+						{
+							logRecords: [
+								{
+									timeUnixNano: "1718452800123000000",
+									attributes: [
+										{ key: "event", value: { stringValue: canonical.event } },
+										{ key: "module", value: { stringValue: canonical.module } },
+										{
+											key: "metadata",
+											value: {
+												kvlistValue: {
+													values: [
+														{ key: "deep", value: nestedValue },
+														...Object.entries(canonical.metadata)
+															.filter(([key]) => key !== "deep")
+															.map(([key, value]) => ({
+																key,
+																value:
+																	typeof value === "number"
+																		? { intValue: String(value) }
+																		: { stringValue: value },
+															})),
+													],
+												},
+											},
+										},
+									],
+								},
+							],
+						},
+					],
+				},
+			],
+		});
+		expect(exportedResourceAttributes(payload)).toEqual(
+			Object.entries(canonical.resource).map(([key, value]) => ({
+				key,
+				value: { stringValue: value },
+			})),
+		);
+		await destinationExporters.metrics!.export(
+			{ timestamp: canonical.timestamp, observations: [{ name: "up", value: 1 }] },
+			activeContext(),
+		);
+		expect(exportedResourceAttributes(requestFrom(jsonFetch, 1).body)).toContainEqual({
+			key: "service.instance.id",
+			value: { stringValue: "instance-1" },
+		});
+
+		const protobufFetch = fetchProtobufOk();
+		vi.stubGlobal("fetch", protobufFetch);
+		expect(
+			(
+				await exporters({ encoding: "protobuf" }).logs!.export([canonical], context)
+			)._unsafeUnwrap(),
+		).toEqual({ rejectedRecords: 0 });
+		expect(rawRequestFrom(protobufFetch).init.body).toEqual(
+			encodeOtlpProtobufRequest("logs", payload)._unsafeUnwrap(),
+		);
+	});
+
+	it.each([false, true])(
+		"still redacts raw metadata with resource override=%s",
+		async (override) => {
+			const fetchMock = fetchOk();
+			vi.stubGlobal("fetch", fetchMock);
+			await exporters().logs!.export(
+				[logEntry({ metadata: { password: "raw-secret", nested: { token: "raw-token" } } })],
+				{
+					...activeContext(),
+					...(override ? { resourceAttributes: HISTORICAL_RESOURCE } : {}),
+				},
+			);
+			const body = String(rawRequestFrom(fetchMock).init.body);
+			expect(body).not.toContain("raw-secret");
+			expect(body).not.toContain("raw-token");
+			expect(body).toContain("[REDACTED]");
+		},
+	);
+
 	it("uses a credential-free checkpoint key that is stable across auth and encoding changes", () => {
 		const original = createOtlpDestination({
 			endpoint: "https://collector.example/proxy/otlp/",

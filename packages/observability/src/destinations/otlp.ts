@@ -301,7 +301,7 @@ const severityByLevel: Readonly<
 	error: { severityNumber: 17, severityText: "ERROR" },
 };
 
-function createLogRecord(entry: LogEntry) {
+function createLogRecord(entry: LogEntry, recordFormat: LogExportContext["recordFormat"]) {
 	const timeUnixNano = toUnixNano(entry.timestamp);
 	if (!timeUnixNano) return null;
 
@@ -316,7 +316,12 @@ function createLogRecord(entry: LogEntry) {
 	}
 	attributes.push({
 		key: "metadata",
-		value: structuredValue(normalizeStructuredValue(entry.metadata)),
+		// Only the explicit canonical-source contract permits skipping redaction.
+		value: structuredValue(
+			recordFormat === "canonical"
+				? (entry.metadata as Readonly<Record<string, StructuredValue>>)
+				: normalizeStructuredValue(entry.metadata),
+		),
 	});
 
 	return {
@@ -344,7 +349,7 @@ function exportLogs(
 	const logRecords = [];
 	let locallyRejected = 0;
 	for (const entry of records) {
-		const record = createLogRecord(entry);
+		const record = createLogRecord(entry, context.recordFormat);
 		if (record) logRecords.push(record);
 		else locallyRejected += 1;
 	}

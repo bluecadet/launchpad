@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DestinationFailure } from "../core/export-failure.js";
 import { type ObservabilityState, ObservabilityStateManager } from "../observability-state.js";
 
 function createStateHarness() {
@@ -46,6 +47,35 @@ describe("ObservabilityStateManager", () => {
 			expect(Object.keys(getState().transports)).toHaveLength(2);
 			expect(getState().transports.loki).toBeDefined();
 			expect(getState().transports.datadog).toBeDefined();
+		});
+	});
+
+	describe("durable destination source state", () => {
+		it("tracks known record loss separately from gaps with unknown loss", () => {
+			const { getState, updateState } = createStateHarness();
+			const manager = new ObservabilityStateManager(updateState);
+			manager.initDestination("archive", ["logs"], { durableLogs: true });
+
+			manager.applyDestinationTransition("archive", "logs", {
+				type: "source-batch",
+				queuedBatches: 1,
+				lostRecords: 3,
+				unknownGaps: 1,
+			});
+			manager.applyDestinationTransition("archive", "logs", {
+				type: "source",
+				status: "parked",
+				queuedBatches: 0,
+				error: new DestinationFailure("delivery parked"),
+			});
+
+			expect(getState().destinations?.archive?.logs).toMatchObject({
+				sourceStatus: "parked",
+				totalSourceRecordsLost: 3,
+				totalUnknownSourceGaps: 1,
+				status: "failing",
+				lastError: "delivery parked",
+			});
 		});
 	});
 

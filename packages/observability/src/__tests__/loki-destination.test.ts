@@ -1,3 +1,8 @@
+import {
+	normalizeLogRecord,
+	parseLogRecord,
+	serializeLogRecord,
+} from "@bluecadet/launchpad-utils/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResourceAttributes } from "../core/destination.js";
 import type { LogEntry } from "../core/log-entry.js";
@@ -145,6 +150,81 @@ describe("createLokiDestination", () => {
 		expect(JSON.parse(currentPayload.streams[0]?.values[0]?.[1] ?? "null")).toMatchObject({
 			resource: resourceAttributes,
 		});
+	});
+
+	it("replays canonical depth, independent budgets, and long historical identity unchanged", async () => {
+		const historicalResource = {
+			"service.name": "archived-service-".repeat(1200),
+			"service.instance.id": "old-instance-".repeat(1500),
+			...Object.fromEntries(
+				Array.from({ length: 7 }, (_, index) => [`attribute${index}`, "r".repeat(14000)]),
+			),
+		};
+		const canonical = parseLogRecord(
+			serializeLogRecord(
+				normalizeLogRecord(
+					logEntry({
+						metadata: {
+							deep: { a: { b: { c: { d: { e: { f: { leaf: "depth-eight" } } } } } } },
+							...Object.fromEntries(
+								Array.from({ length: 8 }, (_, index) => [`field${index}`, "m".repeat(14000)]),
+							),
+						},
+					}),
+					historicalResource,
+				),
+			),
+		);
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					"service.name": "service_name",
+					"service.instance.id": "service_instance_id",
+				},
+			}),
+		);
+		const result = await exporter.export([canonical], {
+			signal: new AbortController().signal,
+			resourceAttributes: canonical.resource,
+			recordFormat: "canonical",
+		});
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		expect(payload.streams[0]?.stream).toMatchObject({
+			service_name: historicalResource["service.name"],
+			service_instance_id: historicalResource["service.instance.id"],
+		});
+		const line = payload.streams[0]?.values[0]?.[1] ?? "null";
+		expect(JSON.parse(line)).toEqual(JSON.parse(serializeLogRecord(canonical)));
+		expect(line).toContain("depth-eight");
+		expect(Buffer.byteLength(line)).toBeLessThanOrEqual(262144);
+	});
+
+	it("locally rejects an unrepresentable canonical resource instead of replacing identity", async () => {
+		const result = await logExporter().export([logEntry()], {
+			signal: new AbortController().signal,
+			recordFormat: "canonical",
+			resourceAttributes: { "service.name": "x".repeat(262144) },
+		});
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it.each([false, true])("redacts raw metadata with resource override=%s", async (override) => {
+		await logExporter().export(
+			[logEntry({ metadata: { password: "raw-secret", nested: { token: "raw-token" } } })],
+			{
+				signal: new AbortController().signal,
+				...(override ? { resourceAttributes: { "service.name": "old-instance" } } : {}),
+			},
+		);
+		const body = requestBody(fetchMock);
+		expect(body).not.toContain("raw-secret");
+		expect(body).not.toContain("raw-token");
+		expect(body).toContain("[REDACTED]");
 	});
 
 	it("indexes only service.name by default while retaining all resource metadata", async () => {

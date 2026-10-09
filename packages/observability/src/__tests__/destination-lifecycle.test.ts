@@ -13,6 +13,49 @@ function config(destinations: readonly ObservabilityDestination[]) {
 afterEach(() => vi.useRealTimers());
 
 describe("destination lifecycle results", () => {
+	it("rolls back every created bundle when a file log exporter lacks replay capabilities", async () => {
+		const firstShutdown = vi.fn(() => okAsync());
+		const invalidShutdown = vi.fn(() => okAsync());
+		const result = await createExporters(
+			destinationObservabilityConfigSchema.parse({
+				logStorage: { type: "file" },
+				destinations: [
+					{
+						name: "first",
+						checkpointKey: "first-route",
+						create: () =>
+							ok({ logs: { ...logs, supportsResourceContext: true }, shutdown: firstShutdown }),
+					},
+					{
+						name: "invalid",
+						checkpointKey: "invalid-route",
+						create: () => ok({ logs, shutdown: invalidShutdown }),
+					},
+				],
+			}),
+		);
+		expect(result.isErr()).toBe(true);
+		if (result.isErr())
+			expect(result.error.message).toContain("supportsResourceContext and checkpointKey");
+		expect(firstShutdown).toHaveBeenCalledOnce();
+		expect(invalidShutdown).toHaveBeenCalledOnce();
+	});
+
+	it("passes the exact source resource snapshot through setup and retains checkpoint identity", async () => {
+		const resourceAttributes = Object.freeze({ "service.instance.id": "source-runtime" });
+		const create = vi.fn(() => ok({ logs: { ...logs, supportsResourceContext: true as const } }));
+		const result = await createExporters(
+			destinationObservabilityConfigSchema.parse({
+				logStorage: { type: "file" },
+				destinations: [{ name: "archive", checkpointKey: "route", create }],
+			}),
+			resourceAttributes,
+		);
+		expect(result.isOk()).toBe(true);
+		if (result.isOk()) expect(result.value[0]?.checkpointKey).toBe("route");
+		expect(create.mock.calls).toEqual([[{ resourceAttributes }]]);
+	});
+
 	it("rolls back created exporters and retains the factory failure even if cleanup fails", async () => {
 		const failure = new Error("factory failed");
 		const shutdown = vi.fn(() => errAsync(new Error("cleanup failed")));

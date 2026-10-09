@@ -1,4 +1,4 @@
-import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type {
 	DestinationContext,
@@ -11,7 +11,11 @@ import type {
 } from "../core/destination.js";
 import { DestinationFailure } from "../core/export-failure.js";
 import type { LogEntry } from "../core/log-entry.js";
-import { createStructuredLog, serializeStructuredLog } from "../core/structured-log.js";
+import {
+	createStructuredLog,
+	DEFAULT_MAX_STRUCTURED_LOG_LENGTH,
+	serializeStructuredLog,
+} from "../core/structured-log.js";
 
 const lokiAuthSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -190,14 +194,46 @@ function labelsKey(labels: Readonly<Record<string, string>>): string {
 	);
 }
 
+/** Preserve the canonical schema without spending its normalization budget twice. */
+function canonicalLine(record: LogEntry, resource: ResourceAttributes): string | null {
+	try {
+		const line = JSON.stringify({
+			schemaVersion: 1,
+			timestamp: record.timestamp.toISOString(),
+			event: record.event,
+			level: record.level,
+			message: record.message,
+			...(record.module === undefined ? {} : { module: record.module }),
+			metadata: record.metadata,
+			resource,
+		});
+		return Buffer.byteLength(line, "utf8") <= DEFAULT_MAX_STRUCTURED_LOG_LENGTH ? line : null;
+	} catch {
+		return null;
+	}
+}
+
 function buildLokiPayload(
 	records: readonly LogEntry[],
 	resourceAttributes: ResourceAttributes,
 	resourceLabels: Readonly<Record<string, string>>,
-): Result<LokiPushPayload, ExportFailure> {
+	recordFormat: LogExportContext["recordFormat"],
+): Result<{ payload: LokiPushPayload; rejectedRecords: number }, ExportFailure> {
 	const streams = new Map<string, LokiStream>();
+	let rejectedRecords = 0;
 
 	for (const record of records) {
+		const line =
+			recordFormat === "canonical"
+				? ok(canonicalLine(record, resourceAttributes))
+				: createStructuredLog(record, resourceAttributes).andThen((log) =>
+						serializeStructuredLog(log),
+					);
+		if (line.isErr()) return err(line.error);
+		if (line.value === null) {
+			rejectedRecords += 1;
+			continue;
+		}
 		const labels = streamLabels(record, resourceAttributes, resourceLabels);
 		const key = labelsKey(labels);
 		let stream = streams.get(key);
@@ -205,10 +241,6 @@ function buildLokiPayload(
 			stream = { stream: labels, values: [] };
 			streams.set(key, stream);
 		}
-		const line = createStructuredLog(record, resourceAttributes).andThen((log) =>
-			serializeStructuredLog(log),
-		);
-		if (line.isErr()) return err(line.error);
 		stream.values.push([toNanosecondTimestamp(record.timestamp), line.value]);
 	}
 
@@ -219,7 +251,7 @@ function buildLokiPayload(
 			return firstTimestamp < secondTimestamp ? -1 : firstTimestamp > secondTimestamp ? 1 : 0;
 		});
 	}
-	return ok({ streams: [...streams.values()] });
+	return ok({ payload: { streams: [...streams.values()] }, rejectedRecords });
 }
 
 function authorizationHeader(auth: LokiDestinationAuth): string {
@@ -292,13 +324,20 @@ function exportRecords(
 		return errAsync(new DestinationFailure("Loki export was aborted", { retryable: false }));
 
 	const resourceAttributes = context.resourceAttributes ?? factoryResourceAttributes;
-	const body = buildLokiPayload(records, resourceAttributes, resolved.resourceLabels).andThen(
-		(payload) =>
-			Result.fromThrowable(
-				() => JSON.stringify(payload),
-				() => new DestinationFailure("Loki payload serialization failed", { retryable: false }),
-			)(),
+	const built = buildLokiPayload(
+		records,
+		resourceAttributes,
+		resolved.resourceLabels,
+		context.recordFormat,
 	);
+	if (built.isErr()) return errAsync(built.error);
+	const { payload, rejectedRecords } = built.value;
+	if (records.length > 0 && rejectedRecords === records.length) return okAsync({ rejectedRecords });
+
+	const body = Result.fromThrowable(
+		() => JSON.stringify(payload),
+		() => new DestinationFailure("Loki payload serialization failed", { retryable: false }),
+	)();
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 		...resolved.headers,
@@ -320,7 +359,7 @@ function exportRecords(
 			cancelResponseBody(response).andThen(() =>
 				!response.ok || response.status === 260
 					? err(httpFailure(response))
-					: ok({ rejectedRecords: 0 }),
+					: ok({ rejectedRecords }),
 			),
 		),
 	);

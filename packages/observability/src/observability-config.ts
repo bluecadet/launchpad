@@ -123,6 +123,12 @@ export const deliveryConfigSchema = z.object({
 export type DeliveryConfig = z.input<typeof deliveryConfigSchema>;
 export type ResolvedDeliveryConfig = z.output<typeof deliveryConfigSchema>;
 
+/** Selects the controller-owned canonical log as the durable delivery source. */
+export const logStorageConfigSchema = z.object({ type: z.literal("file") }).strict();
+
+export type LogStorageConfig = z.input<typeof logStorageConfigSchema>;
+export type ResolvedLogStorageConfig = z.output<typeof logStorageConfigSchema>;
+
 const destinationSchema = z.custom<ObservabilityDestination>(
 	(value) =>
 		typeof value === "object" &&
@@ -227,6 +233,9 @@ export const legacyObservabilityConfigSchema = removedDeploymentGuardSchema.and(
 		delivery: forbiddenConfigField(
 			"Observability delivery requires destination-based configuration",
 		),
+		logStorage: forbiddenConfigField(
+			"Observability file log storage is only supported with destinations",
+		),
 	}),
 );
 
@@ -237,6 +246,7 @@ export const destinationObservabilityConfigSchema = removedDeploymentGuardSchema
 		destinations: observabilityDestinationsSchema,
 		metrics: z.union([z.literal(false), observationConfigSchema]).prefault({}),
 		delivery: deliveryConfigSchema.prefault({}),
+		logStorage: logStorageConfigSchema.optional().transform((storage) => storage ?? false),
 		transports: forbiddenConfigField(
 			"Observability destinations and transports cannot be combined",
 		),

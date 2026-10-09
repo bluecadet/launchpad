@@ -38,6 +38,10 @@ describe("createResourceAttributes", () => {
 		expect(first["service.instance.id"]).not.toBe(second["service.instance.id"]);
 	});
 
+	it("uses the controller runtime id when a canonical log source provides one", () => {
+		expect(createResourceAttributes({}, "runtime-123")["service.instance.id"]).toBe("runtime-123");
+	});
+
 	it("rejects a caller-owned service instance id instead of overwriting it", () => {
 		expect(() => createResourceAttributes({ "service.instance.id": "caller-owned" })).toThrow(
 			/service\.instance\.id/,

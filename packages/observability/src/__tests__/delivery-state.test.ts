@@ -33,6 +33,71 @@ function harness(deliver: DeliveryQueueOptions<readonly number[]>["deliver"], ma
 afterEach(() => vi.useRealTimers());
 
 describe("atomic destination delivery state", () => {
+	it("publishes durable gaps with batch depth and projects source counters from that state", () => {
+		const store = new PatchedStateManager<ObservabilityState>();
+		const manager = new ObservabilityStateManager((producer) => store.updateState(producer));
+		manager.initDestination("archive", ["logs", "metrics"], { durableLogs: true });
+		const snapshots: ObservabilityState[] = [];
+		store.onPatch(() => snapshots.push(structuredClone(store.state)));
+		manager.applyDestinationTransition("archive", "logs", {
+			type: "source-batch",
+			queuedBatches: 1,
+			lostRecords: 4,
+			unknownGaps: 2,
+		});
+		expect(snapshots).toHaveLength(1);
+		expect(snapshots[0]?.destinations?.archive?.logs).toMatchObject({
+			queueSize: 1,
+			totalSourceRecordsLost: 4,
+			totalUnknownSourceGaps: 2,
+			totalDropped: 0,
+		});
+		expect(
+			projectObservabilityMetrics(store.state).filter((metric) =>
+				metric.name.startsWith("launchpad.observability.source."),
+			),
+		).toEqual([
+			{
+				name: "launchpad.observability.source.records_lost_total",
+				value: 4,
+				attributes: { destination: "archive", signal: "logs" },
+			},
+			{
+				name: "launchpad.observability.source.unknown_gaps_total",
+				value: 2,
+				attributes: { destination: "archive", signal: "logs" },
+			},
+		]);
+	});
+
+	it("parks durable receipts atomically without recording a delivery loss", () => {
+		const store = new PatchedStateManager<ObservabilityState>();
+		const manager = new ObservabilityStateManager((producer) => store.updateState(producer));
+		manager.initDestination("archive", ["logs"], { durableLogs: true });
+		manager.applyDestinationTransition("archive", "logs", {
+			type: "source-batch",
+			queuedBatches: 1,
+			lostRecords: 0,
+			unknownGaps: 0,
+		});
+		const snapshots: ObservabilityState[] = [];
+		store.onPatch(() => snapshots.push(structuredClone(store.state)));
+		manager.applyDestinationTransition("archive", "logs", {
+			type: "source",
+			status: "parked",
+			queuedBatches: 0,
+			error: new Error("Destination delivery timed out: private-token"),
+		});
+		expect(snapshots).toHaveLength(1);
+		expect(snapshots[0]?.destinations?.archive?.logs).toMatchObject({
+			queueSize: 0,
+			sourceStatus: "parked",
+			status: "failing",
+			totalDropped: 0,
+			lastError: "Destination exporter failed (Error)",
+		});
+	});
+
 	it("publishes retry depth and degraded status together, then a terminal drop together", async () => {
 		vi.useFakeTimers();
 		const { queue, signal, snapshots } = harness(() => errAsync(new Error("network failed")));

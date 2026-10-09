@@ -32,6 +32,7 @@ import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
+import type { MetricObservation } from "./telemetry.js";
 import type {
 	ControllerMode,
 	LaunchpadState,
@@ -220,6 +221,8 @@ export interface PluginContext<TState = unknown> {
 	/** Read the full aggregated system state (all plugins + system). Use sparingly — prefer eventBus or dispatchCommand for cross-plugin communication. */
 	readonly getGlobalState: () => VersionedLaunchpadState;
 	readonly onGlobalStatePatch: (handler: PatchHandlerWithVersion) => () => void;
+	/** Collect gauge observations supplied by registered plugins. */
+	readonly collectMetrics?: () => readonly MetricObservation[];
 	/**
 	 * Update this plugin's state slice.
 	 *
@@ -280,6 +283,11 @@ export interface PluginConfig<
 	 * Pure function over state — no side effects, no async, no I/O.
 	 */
 	summarize?(state: LaunchpadState): Section | null;
+	/**
+	 * Observe safe, bounded gauge values derived from the current state.
+	 * Avoid copying arbitrary state into metric names or attributes.
+	 */
+	observe?(state: LaunchpadState): readonly MetricObservation[];
 }
 
 // Helper that validates conformance while preserving concrete type

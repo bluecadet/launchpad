@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { runInNewContext } from "node:vm";
+import { ModuleKind, transpileModule } from "typescript";
+import { describe, expect, it, vi } from "vitest";
 import { generateLaunchpadConfig } from "../../generators/launchpad-config.js";
 import type { Answers } from "../../types.js";
 
@@ -13,6 +15,29 @@ const baseAnswers: Answers = {
 	monitorApps: [],
 	addGitignore: false,
 };
+
+function evaluateObservabilityConfig(environment: NodeJS.ProcessEnv) {
+	const createOtlpDestination = vi.fn(() => ({ id: "otlp" }));
+	const observability = vi.fn(() => ({ id: "observability" }));
+	const defineConfig = vi.fn((config: { plugins: unknown[] }) => config);
+	const modules: Record<string, unknown> = {
+		"@bluecadet/launchpad/cli": { defineConfig },
+		"@bluecadet/launchpad/observability": { observability },
+		"@bluecadet/launchpad/observability/destinations/otlp": { createOtlpDestination },
+	};
+	const generatedConfig = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+	const { outputText } = transpileModule(generatedConfig, {
+		compilerOptions: { module: ModuleKind.CommonJS },
+	});
+
+	runInNewContext(outputText, {
+		exports: {},
+		require: (moduleName: string) => modules[moduleName],
+		process: { env: environment },
+	});
+
+	return { createOtlpDestination, observability, defineConfig };
+}
 
 describe("generateLaunchpadConfig", () => {
 	it("does not link to the live content refresh recipe when scheduler and content are unused", () => {
@@ -136,7 +161,8 @@ describe("generateLaunchpadConfig", () => {
 			"import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';",
 		);
 		expect(result).toContain("endpoint: observabilityEndpoint");
-		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN");
+		expect(result).toContain("// encoding: 'protobuf', // Optional; defaults to JSON.");
+		expect(result).toContain("token: observabilityToken?.trim() ? observabilityToken : undefined");
 		expect(result).toContain("// Optional: resource: { 'service.name': 'my-launchpad-service' },");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_CLIENT");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_PROJECT");
@@ -153,6 +179,49 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("? observability({");
 		expect(result).toContain("...(observabilityPlugin ? [observabilityPlugin] : [])");
 	});
+
+	it.each([
+		{ name: "missing", token: undefined },
+		{ name: "empty", token: "" },
+		{ name: "whitespace-only", token: " \t\n " },
+	])("loads generated observability config unauthenticated with a $name token", ({ token }) => {
+		const endpoint = "https://telemetry.example.com";
+		const { createOtlpDestination, observability, defineConfig } = evaluateObservabilityConfig({
+			LAUNCHPAD_OBSERVABILITY_ENDPOINT: endpoint,
+			LAUNCHPAD_OBSERVABILITY_TOKEN: token,
+		});
+
+		expect(createOtlpDestination).toHaveBeenCalledExactlyOnceWith({ endpoint, token: undefined });
+		expect(observability).toHaveBeenCalledExactlyOnceWith({ destinations: [{ id: "otlp" }] });
+		expect(defineConfig).toHaveBeenCalledExactlyOnceWith({ plugins: [{ id: "observability" }] });
+	});
+
+	it.each(["configured-token", " configured-token \t"])(
+		"preserves configured token bytes when loading generated config: %j",
+		(token) => {
+			const endpoint = "https://telemetry.example.com";
+			const { createOtlpDestination } = evaluateObservabilityConfig({
+				LAUNCHPAD_OBSERVABILITY_ENDPOINT: endpoint,
+				LAUNCHPAD_OBSERVABILITY_TOKEN: token,
+			});
+
+			expect(createOtlpDestination).toHaveBeenCalledExactlyOnceWith({ endpoint, token });
+		},
+	);
+
+	it.each([undefined, ""])(
+		"omits observability without an endpoint even with a configured token: %j",
+		(endpoint) => {
+			const { createOtlpDestination, observability, defineConfig } = evaluateObservabilityConfig({
+				LAUNCHPAD_OBSERVABILITY_ENDPOINT: endpoint,
+				LAUNCHPAD_OBSERVABILITY_TOKEN: "configured-token",
+			});
+
+			expect(createOtlpDestination).not.toHaveBeenCalled();
+			expect(observability).not.toHaveBeenCalled();
+			expect(defineConfig).toHaveBeenCalledExactlyOnceWith({ plugins: [] });
+		},
+	);
 
 	it("includes a commented-out versioning hint with the guide link when content is selected alone", () => {
 		const result = generateLaunchpadConfig({

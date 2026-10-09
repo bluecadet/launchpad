@@ -23,7 +23,7 @@ npm install
 
 If you scaffold the monitor plugin, the generated config includes both `workflows.start` and `workflows.stop` so PM2 apps connect, start, stop, and disconnect in the expected order.
 
-If you select observability, the generated plugin remains disabled until `LAUNCHPAD_OBSERVABILITY_ENDPOINT` is present. `LAUNCHPAD_OBSERVABILITY_TOKEN` is optional. No client, project, installation, environment, organization, or other resource field is required.
+If you select observability, the generated plugin remains disabled until `LAUNCHPAD_OBSERVABILITY_ENDPOINT` is present. `LAUNCHPAD_OBSERVABILITY_TOKEN` is optional: missing, empty, or whitespace-only values send requests without authentication. Nonblank tokens are passed through unchanged. No client, project, installation, environment, organization, or other resource field is required.
 
 The scaffolder does not generate an endpoint, token, or other credential. Enabling the plugin sends Launchpad logs and metrics only to the OTLP endpoint you configure. To identify the generated service, uncomment and edit the optional resource example in `launchpad.config.ts`:
 

@@ -48,7 +48,11 @@ export {
 	createLokiDestination,
 	lokiDestinationConfigSchema,
 } from "./destinations/loki.js";
-export type { OtlpDestinationConfig, OtlpSignal } from "./destinations/otlp.js";
+export type {
+	OtlpDestinationConfig,
+	OtlpEncoding,
+	OtlpSignal,
+} from "./destinations/otlp.js";
 export { createOtlpDestination } from "./destinations/otlp.js";
 export type { ObservabilityCommand, ObservabilityFlushCommand } from "./observability-commands.js";
 export type {

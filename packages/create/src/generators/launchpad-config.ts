@@ -210,6 +210,7 @@ function buildObservabilitySetup(): string {
 		// Observability stays disabled until the endpoint is set.
 		// It sends logs and metrics only to the OTLP endpoint you configure.
 		const observabilityEndpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
+		const observabilityToken = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN;
 
 		const observabilityPlugin = observabilityEndpoint
 			? observability({
@@ -217,7 +218,9 @@ function buildObservabilitySetup(): string {
 					destinations: [
 						createOtlpDestination({
 							endpoint: observabilityEndpoint,
-							token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
+							// encoding: 'protobuf', // Optional; defaults to JSON.
+							// Missing or blank tokens send requests without authentication.
+							token: observabilityToken?.trim() ? observabilityToken : undefined,
 						}),
 					],
 				})

@@ -1,3 +1,5 @@
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResourceAttributes } from "../core/destination.js";
 import type { LogEntry } from "../core/log-entry.js";
@@ -98,12 +100,13 @@ describe("createLokiDestination", () => {
 			expect.objectContaining({
 				method: "POST",
 				signal,
-				headers: expect.objectContaining({
-					"Content-Type": "application/json",
-					"X-Scope-OrgID": "tenant-1",
-				}),
+				headers: expect.any(Headers),
 			}),
 		);
+
+		const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+		expect(headers.get("content-type")).toBe("application/json");
+		expect(headers.get("x-scope-orgid")).toBe("tenant-1");
 
 		const payload = JSON.parse(requestBody(fetchMock)) as {
 			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
@@ -272,9 +275,10 @@ describe("createLokiDestination", () => {
 			'{"__proto__":"prototype_label"}',
 		);
 
-		expect(() =>
-			createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
-		).toThrowError("Invalid Loki destination configuration");
+		const destination = createLokiDestination({ url: "http://localhost:3100", resourceLabels });
+		expect(destination.create({ resourceAttributes })._unsafeUnwrapErr().message).toContain(
+			"Invalid Loki destination configuration",
+		);
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -315,9 +319,10 @@ describe("createLokiDestination", () => {
 	] satisfies Array<[Readonly<Record<string, string>>, string]>)(
 		"rejects an invalid resource label mapping: %s",
 		(resourceLabels, _description) => {
-			expect(() =>
-				createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
-			).toThrowError("Invalid Loki destination configuration");
+			const destination = createLokiDestination({ url: "http://localhost:3100", resourceLabels });
+			expect(destination.create({ resourceAttributes })._unsafeUnwrapErr()).toMatchObject({
+				retryable: false,
+			});
 			expect(fetchMock).not.toHaveBeenCalled();
 		},
 	);
@@ -360,9 +365,9 @@ describe("createLokiDestination", () => {
 			}),
 		);
 		await bearer.export([logEntry()], { signal: new AbortController().signal });
-		expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-			Authorization: "Bearer super-secret-token",
-		});
+		expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+			"Bearer super-secret-token",
+		);
 
 		fetchMock.mockClear();
 		const basic = logExporter(
@@ -372,24 +377,101 @@ describe("createLokiDestination", () => {
 			}),
 		);
 		await basic.export([logEntry()], { signal: new AbortController().signal });
-		expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-			Authorization: `Basic ${Buffer.from("user:password").toString("base64")}`,
-		});
+		expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+			`Basic ${Buffer.from("user:password").toString("base64")}`,
+		);
 
-		expect(() =>
-			createLokiDestination({
-				url: "",
-				auth: { type: "bearer", token: "must-not-appear" },
-			}),
-		).toThrowError("Invalid Loki destination configuration");
-		try {
-			createLokiDestination({
-				url: "",
-				auth: { type: "bearer", token: "must-not-appear" },
+		const destination = createLokiDestination({
+			url: "",
+			auth: { type: "bearer", token: "must-not-appear" },
+		});
+		const failure = destination.create({ resourceAttributes })._unsafeUnwrapErr();
+		expect(failure.message).toContain("Invalid Loki destination configuration");
+		expect(failure.message).not.toContain("must-not-appear");
+	});
+
+	it.each([
+		null,
+		undefined,
+		"invalid",
+		[],
+		{ url: "http://localhost:3100", name: 42 },
+		{ url: "http://localhost:3100", headers: [] },
+		{ url: "http://localhost:3100", headers: "junk" },
+		{ url: "http://localhost:3100", headers: { "invalid header": "junk" } },
+		{ url: "http://localhost:3100", auth: { type: "bearer", token: "secret\nvalue" } },
+		{ url: "http://localhost:3100", auth: { type: "invalid" } },
+	])("defers malformed runtime configuration %# to create without fetching", (config) => {
+		const destination = createLokiDestination(config as LokiDestinationConfig);
+
+		expect(typeof destination.name).toBe("string");
+		expect(destination.create({ resourceAttributes })._unsafeUnwrapErr().retryable).toBe(false);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it.each(["lowercase", "mixed case"])(
+		"normalizes %s managed headers on the HTTP wire",
+		async (casing) => {
+			vi.unstubAllGlobals();
+			const receivedHeaders: Array<readonly [string, string]> = [];
+			const server = createServer((request, response) => {
+				request.resume();
+				for (let index = 0; index < request.rawHeaders.length; index += 2) {
+					receivedHeaders.push([
+						request.rawHeaders[index]!.toLowerCase(),
+						request.rawHeaders[index + 1]!,
+					]);
+				}
+				response.writeHead(204);
+				response.end();
 			});
-		} catch (error) {
-			expect(String(error)).not.toContain("must-not-appear");
-		}
+			server.listen(0, "127.0.0.1");
+			await once(server, "listening");
+			try {
+				const address = server.address();
+				if (!address || typeof address === "string") throw new Error("Expected TCP server address");
+				const contentTypeKey = casing === "lowercase" ? "content-type" : "cOnTeNt-TyPe";
+				const authorizationKey = casing === "lowercase" ? "authorization" : "aUtHoRiZaTiOn";
+				const exporter = logExporter(
+					createLokiDestination({
+						url: `http://127.0.0.1:${address.port}`,
+						headers: {
+							[contentTypeKey]: "text/plain",
+							[authorizationKey]: "custom credentials",
+							"X-Scope-OrgID": "tenant-1",
+						},
+						auth: { type: "bearer", token: "managed-token" },
+					}),
+				);
+				const result = await exporter.export([logEntry()], { signal: AbortSignal.timeout(2_000) });
+				expect(result.isOk()).toBe(true);
+				expect(receivedHeaders.filter(([key]) => key === "content-type")).toEqual([
+					["content-type", "application/json"],
+				]);
+				expect(receivedHeaders.filter(([key]) => key === "authorization")).toEqual([
+					["authorization", "Bearer managed-token"],
+				]);
+				expect(receivedHeaders).toContainEqual(["x-scope-orgid", "tenant-1"]);
+			} finally {
+				server.closeAllConnections();
+				await new Promise<void>((resolve, reject) =>
+					server.close((error) => (error ? reject(error) : resolve())),
+				);
+			}
+		},
+	);
+
+	it("preserves custom Authorization when no auth option is supplied", async () => {
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				headers: { authorization: "Custom credentials" },
+			}),
+		);
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+		expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+			"Custom credentials",
+		);
 	});
 
 	it("contains serialization errors in ResultAsync rather than throwing synchronously", async () => {

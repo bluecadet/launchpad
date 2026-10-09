@@ -33,11 +33,15 @@ Observability is not selected by default. If you opt in, the generated config se
 
 ```dotenv
 LAUNCHPAD_OBSERVABILITY_ENDPOINT=https://telemetry.example.com
-# Optional:
+# Optional: leave blank for unauthenticated requests.
 LAUNCHPAD_OBSERVABILITY_TOKEN=
 ```
 
+The token is optional: if it is missing, empty, or contains only whitespace, requests are sent without authentication. A nonblank token is passed through unchanged.
+
 The generator does not create an environment file, secrets, or a Bluecadet endpoint. Treat the endpoint and token as deployment secrets. If the endpoint is absent, the generated config omits the observability plugin rather than sending data to a default service.
+
+The generated destination uses OTLP/HTTP JSON by default. It includes a commented `encoding: 'protobuf'` option for selecting binary OTLP/HTTP protobuf when your recipient supports it; this is not gRPC. Enabling protobuf does not require another environment variable or generator prompt.
 
 No client, project, installation, environment, or organization value is required. The generated config includes a commented example that you can edit when you want a custom service name:
 

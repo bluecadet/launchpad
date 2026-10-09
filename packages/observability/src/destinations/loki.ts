@@ -1,4 +1,4 @@
-import { err, ok, ResultAsync } from "neverthrow";
+import { err, ok, type Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type {
 	DestinationContext,
@@ -95,18 +95,30 @@ const resourceLabelsInputSchema = z
 	})
 	.pipe(resourceLabelsSchema);
 
-export const lokiDestinationConfigSchema = z.object({
-	/** Destination name used by delivery state and diagnostics. */
-	name: z.string().trim().min(1).default("loki"),
-	/** Base Loki URL. `/loki/api/v1/push` is appended automatically. */
-	url: z.string().trim().min(1),
-	/** Optional authentication configuration. */
-	auth: lokiAuthSchema.optional(),
-	/** Optional proxy, gateway, or tenant headers. */
-	headers: z.record(z.string(), z.string()).optional(),
-	/** Resource attribute key to Loki label name mappings. Replaces the default when supplied. */
-	resourceLabels: resourceLabelsInputSchema.default(DEFAULT_RESOURCE_LABELS),
-});
+export const lokiDestinationConfigSchema = z
+	.object({
+		/** Destination name used by delivery state and diagnostics. */
+		name: z.string().trim().min(1).default("loki"),
+		/** Base Loki URL. `/loki/api/v1/push` is appended automatically. */
+		url: z.string().trim().min(1),
+		/** Optional authentication configuration. */
+		auth: lokiAuthSchema.optional(),
+		/** Optional proxy, gateway, or tenant headers. */
+		headers: z.record(z.string(), z.string()).optional(),
+		/** Resource attribute key to Loki label name mappings. Replaces the default when supplied. */
+		resourceLabels: resourceLabelsInputSchema.default(DEFAULT_RESOURCE_LABELS),
+	})
+	.superRefine((config, context) => {
+		try {
+			requestHeaders(config);
+		} catch {
+			context.addIssue({
+				code: "custom",
+				path: ["headers"],
+				message: "Headers and authentication must contain valid HTTP header values",
+			});
+		}
+	});
 
 type LokiDestinationConfigInput = z.input<typeof lokiDestinationConfigSchema>;
 export type LokiDestinationConfig = Omit<LokiDestinationConfigInput, "resourceLabels"> & {
@@ -289,11 +301,7 @@ async function exportRecords(
 		throw Object.assign(new Error("Loki payload serialization failed"), { retryable: false });
 	}
 
-	const headers: Record<string, string> = {
-		"Content-Type": "application/json",
-		...resolved.headers,
-	};
-	if (resolved.auth) headers.Authorization = authorizationHeader(resolved.auth);
+	const headers = requestHeaders(resolved);
 
 	let response: Response;
 	try {
@@ -315,26 +323,61 @@ async function exportRecords(
 	return { rejectedRecords: 0 };
 }
 
-function parseConfig(config: LokiDestinationConfig): ResolvedLokiDestinationConfig {
-	const result = lokiDestinationConfigSchema.safeParse(config);
-	if (result.success) return result.data;
-	// Zod issues report field paths and constraints without echoing credential values.
-	throw new Error("Invalid Loki destination configuration", { cause: result.error });
+function requestHeaders(config: {
+	readonly headers?: Readonly<Record<string, string>>;
+	readonly auth?: LokiDestinationAuth;
+}): Headers {
+	const headers = new Headers(config.headers);
+	headers.set("Content-Type", "application/json");
+	if (config.auth) headers.set("Authorization", authorizationHeader(config.auth));
+	return headers;
+}
+
+function parseConfig(
+	config: LokiDestinationConfig,
+): Result<ResolvedLokiDestinationConfig, ExportFailure> {
+	try {
+		const result = lokiDestinationConfigSchema.safeParse(config);
+		if (result.success) return ok(result.data);
+		const details = result.error.issues
+			.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+			.join("; ");
+		return err(
+			Object.assign(new Error(`Invalid Loki destination configuration: ${details}`), {
+				retryable: false,
+			}),
+		);
+	} catch {
+		return err(
+			Object.assign(new Error("Invalid Loki destination configuration"), { retryable: false }),
+		);
+	}
+}
+
+function destinationName(config: unknown): string {
+	try {
+		const result = z.object({ name: z.string().trim().min(1).default("loki") }).safeParse(config);
+		return result.success ? result.data.name : "loki";
+	} catch {
+		return "loki";
+	}
 }
 
 /**
  * Configure structured log export through Loki's HTTP push API.
  *
+ * Configuration is validated by create(), which returns an Err for invalid options.
  * Creating the destination and its exporter is network-inert. Each export is a
  * single HTTP request; retry policy belongs to the observability delivery loop.
  */
 export function createLokiDestination(config: LokiDestinationConfig): ObservabilityDestination {
-	const resolved = parseConfig(config);
-	const pushUrl = `${resolved.url.replace(/\/$/, "")}/loki/api/v1/push`;
-
 	return {
-		name: resolved.name,
+		name: destinationName(config),
 		create(context: DestinationContext) {
+			const result = parseConfig(config);
+			if (result.isErr()) return err(result.error);
+			const resolved = result.value;
+			const pushUrl = `${resolved.url.replace(/\/$/, "")}/loki/api/v1/push`;
 			if (!context.resourceAttributes) {
 				return err(
 					Object.assign(new Error("Loki destination requires resource attributes"), {

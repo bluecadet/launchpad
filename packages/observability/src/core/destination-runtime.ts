@@ -3,7 +3,6 @@ import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type {
 	ResolvedDeliveryConfig,
-	ResolvedDeploymentConfig,
 	ResolvedObservabilityCoreConfig,
 	ResolvedObservationConfig,
 } from "../observability-config.js";
@@ -20,13 +19,14 @@ import type {
 	ExportResult,
 	MetricBatch,
 	ObservabilityDestination,
+	ResourceAttributes,
 } from "./destination.js";
 import { makeEventFilter } from "./event-filter.js";
 import { eventToLogEntry, type LogEntry } from "./log-entry.js";
-import { createResourceAttributes, RESERVED_RESOURCE_ATTRIBUTE_KEYS } from "./resource.js";
+import { createResourceAttributes } from "./resource.js";
 
 export interface ResolvedDestinationRuntimeConfig extends ResolvedObservabilityCoreConfig {
-	readonly deployment: ResolvedDeploymentConfig;
+	readonly resource: ResourceAttributes;
 	readonly destinations: readonly ObservabilityDestination[];
 	readonly metrics: false | ResolvedObservationConfig;
 	readonly delivery: ResolvedDeliveryConfig;
@@ -50,7 +50,7 @@ const MAX_METRIC_ATTRIBUTE_KEY_LENGTH = 128;
 const MAX_METRIC_ATTRIBUTE_STRING_LENGTH = 256;
 const MAX_METRIC_DESCRIPTION_LENGTH = 1_024;
 const METRIC_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/;
-const reservedResourceAttributeKeys = new Set<string>(RESERVED_RESOURCE_ATTRIBUTE_KEYS);
+const reservedMetricAttributeKeys = new Set<string>(["service.name", "service.instance.id"]);
 
 function errorFromUnknown(value: unknown, message: string): Error {
 	if (value instanceof Error) return value;
@@ -116,7 +116,7 @@ function validateMetricObservation(observation: unknown): MetricObservation | nu
 				if (
 					key.length === 0 ||
 					key.length > MAX_METRIC_ATTRIBUTE_KEY_LENGTH ||
-					reservedResourceAttributeKeys.has(key) ||
+					reservedMetricAttributeKeys.has(key) ||
 					!METRIC_NAME_PATTERN.test(key)
 				) {
 					return null;
@@ -213,7 +213,7 @@ async function shutdownDestinations(
 async function createExporters(
 	config: ResolvedDestinationRuntimeConfig,
 ): Promise<CreatedDestination[]> {
-	const resourceAttributes = createResourceAttributes(config.deployment);
+	const resourceAttributes = createResourceAttributes(config.resource);
 	const created: CreatedDestination[] = [];
 
 	for (const destination of config.destinations) {

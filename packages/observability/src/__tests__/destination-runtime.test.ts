@@ -5,6 +5,7 @@ import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DeliveryQueue } from "../core/delivery-queue.js";
 import type {
+	DestinationContext,
 	DestinationExporters,
 	LogExporter,
 	MetricBatch,
@@ -14,13 +15,6 @@ import type {
 import { observability } from "../index.js";
 import type { DestinationObservabilityConfig } from "../observability-config.js";
 import type { ObservabilityState } from "../observability-state.js";
-
-const deployment = {
-	client: "client",
-	project: "project",
-	installation: "installation",
-	environment: "test",
-};
 
 function createContext(
 	options: {
@@ -63,7 +57,7 @@ async function setupRuntime(
 	contextOptions: Parameters<typeof createContext>[0] = {},
 ) {
 	const { context, state } = createContext(contextOptions);
-	const plugin = observability({ deployment, destinations, ...overrides });
+	const plugin = observability({ destinations, ...overrides });
 	const result = await plugin.setup(context);
 	if (result.isErr()) throw result.error;
 	return { instance: result.value, context, state };
@@ -74,43 +68,135 @@ afterEach(() => {
 });
 
 describe("destination observability runtime", () => {
-	it("rejects mixed modes, invalid deployment, and duplicate names before factories run", async () => {
+	it("rejects mixed modes, invalid resources, and duplicate names before factories run", async () => {
 		const create = vi.fn(() => ok({ logs: { export: () => okAsync({ rejectedRecords: 0 }) } }));
 		const configuredDestination: ObservabilityDestination = { name: "same", create };
 		const { context } = createContext();
 
 		const mixed = observability({
-			deployment,
+			resource: {},
 			destinations: [configuredDestination],
 			transports: [],
 		} as never);
 		expect((await mixed.setup(context)).isErr()).toBe(true);
 
-		const invalidDeployment = observability({
-			deployment: { ...deployment, client: "" },
+		const mixedResource = observability({ transports: [], resource: {} } as never);
+		expect((await mixedResource.setup(context)).isErr()).toBe(true);
+
+		const invalidResource = observability({
+			resource: { "service.instance.id": "caller-owned" },
 			destinations: [configuredDestination],
 		});
-		expect((await invalidDeployment.setup(context)).isErr()).toBe(true);
+		expect((await invalidResource.setup(context)).isErr()).toBe(true);
+
+		const nullResource = observability({
+			resource: null,
+			destinations: [configuredDestination],
+		} as never);
+		expect((await nullResource.setup(context)).isErr()).toBe(true);
 
 		const duplicates = observability({
-			deployment,
 			destinations: [configuredDestination, configuredDestination],
 		});
 		expect((await duplicates.setup(context)).isErr()).toBe(true);
 		expect(create).not.toHaveBeenCalled();
 	});
 
+	it("rejects removed deployment configuration before destination factories run", async () => {
+		const create = vi.fn(() => ok({ logs: { export: () => okAsync({ rejectedRecords: 0 }) } }));
+		const configuredDestination: ObservabilityDestination = { name: "old-config", create };
+		const deployment = {
+			client: "bluecadet",
+			project: "museum",
+			installation: "lobby",
+			environment: "production",
+		};
+		const variableConfig = { deployment, destinations: [configuredDestination] };
+		const spreadConfig = { ...variableConfig };
+
+		for (const config of [variableConfig, spreadConfig]) {
+			const { context } = createContext();
+			const result = await observability(config).setup(context);
+			expect(result.isErr()).toBe(true);
+			if (result.isOk()) continue;
+			expect(result.error.message).toContain("use resource attributes");
+		}
+		expect(create).not.toHaveBeenCalled();
+	});
+
+	it("shares one resource per setup and creates a new instance id for the next setup", async () => {
+		const firstSetupContexts: DestinationContext[] = [];
+		const secondSetupContexts: DestinationContext[] = [];
+		const createDestination = (
+			name: string,
+			contexts: DestinationContext[],
+		): ObservabilityDestination => ({
+			name,
+			create: (destinationContext) => {
+				contexts.push(destinationContext);
+				return ok({ logs: { export: () => okAsync({ rejectedRecords: 0 }) } });
+			},
+		});
+		const resource = {
+			"service.name": "museum-controller",
+			"deployment.environment.name": "production",
+			"launchpad.client": "bluecadet",
+			"launchpad.project": "museum",
+			"launchpad.installation": "lobby",
+		};
+
+		const first = await setupRuntime(
+			[
+				createDestination("first", firstSetupContexts),
+				createDestination("second", firstSetupContexts),
+			],
+			{ resource },
+		);
+		const second = await setupRuntime([createDestination("third", secondSetupContexts)]);
+
+		expect(firstSetupContexts).toHaveLength(2);
+		expect(firstSetupContexts[0]?.resourceAttributes).toBe(
+			firstSetupContexts[1]?.resourceAttributes,
+		);
+		expect(firstSetupContexts[0]?.resourceAttributes).toMatchObject(resource);
+		expect(Object.keys(secondSetupContexts[0]?.resourceAttributes ?? {}).sort()).toEqual([
+			"service.instance.id",
+			"service.name",
+		]);
+		expect(firstSetupContexts[0]?.resourceAttributes["service.instance.id"]).not.toBe(
+			secondSetupContexts[0]?.resourceAttributes["service.instance.id"],
+		);
+
+		await first.instance.disconnect?.({ type: "manual" });
+		await second.instance.disconnect?.({ type: "manual" });
+	});
+
+	it("keeps the legacy transport configuration unchanged", async () => {
+		const push = vi.fn(() => okAsync(undefined));
+		const { context } = createContext();
+		const plugin = observability({
+			transports: [{ name: "legacy", push }],
+			batch: { maxEntries: 1, intervalMs: 60_000 },
+		});
+
+		const result = await plugin.setup(context);
+		expect(result.isOk()).toBe(true);
+		if (result.isErr()) return;
+		context.eventBus.emit("log:info", { message: "legacy", args: [], module: "app" });
+		await result.value.executeCommand?.({ type: "observability.flush" });
+		expect(push).toHaveBeenCalledOnce();
+		await result.value.disconnect?.({ type: "manual" });
+	});
+
 	it("rejects empty names and destinations without capabilities and cleans created bundles", async () => {
 		const shutdown = vi.fn(() => okAsync(undefined));
 		const { context } = createContext();
 		const emptyName = observability({
-			deployment,
 			destinations: [{ name: "  ", create: () => ok({}) }],
 		});
 		expect((await emptyName.setup(context)).isErr()).toBe(true);
 
 		const noCapabilities = observability({
-			deployment,
 			destinations: [destination("empty", { shutdown })],
 		});
 		expect((await noCapabilities.setup(context)).isErr()).toBe(true);
@@ -149,8 +235,15 @@ describe("destination observability runtime", () => {
 				throw new Error("hostile getter");
 			},
 		});
+		const formerlyReservedAttributes = {
+			"deployment.environment.name": "production",
+			"launchpad.client": "bluecadet",
+			"launchpad.project": "museum",
+			"launchpad.installation": "lobby",
+		};
 		const malformed = [
 			{ name: "valid.gauge", value: 4, attributes: { room: "gallery" } },
+			{ name: "valid.identity_dimensions", value: 1, attributes: formerlyReservedAttributes },
 			null,
 			{ name: "bad gauge", value: 1 },
 			{ name: "not.finite", value: Number.NaN },
@@ -169,6 +262,11 @@ describe("destination observability runtime", () => {
 		const batch = exportMetrics.mock.calls[0]?.[0] as MetricBatch;
 		const names = batch.observations.map((observation) => observation.name);
 		expect(names).toContain("valid.gauge");
+		expect(batch.observations).toContainEqual({
+			name: "valid.identity_dimensions",
+			value: 1,
+			attributes: formerlyReservedAttributes,
+		});
 		expect(names).not.toContain("bad gauge");
 		expect(names).not.toContain("not.finite");
 		expect(names).not.toContain("reserved");
@@ -176,6 +274,26 @@ describe("destination observability runtime", () => {
 		expect(names).toContain("valid.after_bad");
 		expect(names).toContain("launchpad.runtime.start_time");
 		expect(names).toContain("launchpad.runtime.uptime");
+		await instance.disconnect?.({ type: "manual" });
+	});
+
+	it("keeps delivery metric dimensions when resource attributes use the same keys", async () => {
+		const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		const { instance } = await setupRuntime(
+			[destination("metrics", { metrics: { export: exportMetrics } })],
+			{ resource: { destination: "resource-destination", signal: "resource-signal" } },
+		);
+
+		await instance.ready?.();
+		const observations = exportMetrics.mock.calls[0]?.[0].observations;
+		expect(observations).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: "launchpad.observability.delivery.pushed_total",
+					attributes: { destination: "metrics", signal: "metrics" },
+				}),
+			]),
+		);
 		await instance.disconnect?.({ type: "manual" });
 	});
 

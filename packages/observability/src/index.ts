@@ -5,6 +5,7 @@ import {
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { z } from "zod";
 import { Batcher } from "./core/batcher.js";
 import { createDestinationRuntime } from "./core/destination-runtime.js";
 import { makeEventFilter } from "./core/event-filter.js";
@@ -13,10 +14,10 @@ import { RetryBuffer } from "./core/retry-buffer.js";
 import {
 	type DestinationObservabilityConfig,
 	deliveryConfigSchema,
-	deploymentConfigSchema,
 	type ObservabilityCoreConfig,
 	observabilityCoreConfigSchema,
 	observationConfigSchema,
+	resourceAttributesSchema,
 } from "./observability-config.js";
 import "./observability-events.js";
 import { type ObservabilityCommand, observabilityCommandSchema } from "./observability-commands.js";
@@ -52,16 +53,15 @@ export { createOtlpDestination } from "./destinations/otlp.js";
 export type { ObservabilityCommand, ObservabilityFlushCommand } from "./observability-commands.js";
 export type {
 	DeliveryConfig,
-	DeploymentConfig,
 	DestinationObservabilityConfig,
 	ObservabilityCoreConfig,
 	ObservationConfig,
 } from "./observability-config.js";
 export {
 	deliveryConfigSchema,
-	deploymentConfigSchema,
 	observabilityCoreConfigSchema,
 	observationConfigSchema,
+	resourceAttributesSchema,
 } from "./observability-config.js";
 export type { ObservabilityEvents } from "./observability-events.js";
 export type {
@@ -79,13 +79,22 @@ import type { ObservabilityTransport } from "./core/transport.js";
 
 export type LegacyObservabilityConfig = ObservabilityCoreConfig & {
 	readonly transports: ObservabilityTransport[];
-	readonly deployment?: never;
+	readonly resource?: never;
 	readonly destinations?: never;
 	readonly metrics?: never;
 	readonly delivery?: never;
 };
 
 export type ObservabilityConfig = LegacyObservabilityConfig | DestinationObservabilityConfig;
+
+const destinationNameSchema = z
+	.string({ error: "Observability destination names must not be empty" })
+	.refine((name) => name.trim().length > 0, "Observability destination names must not be empty")
+	// State uses ordinary objects; this key invokes their prototype setter and breaks Immer.
+	.refine(
+		(name) => name.trim() !== "__proto__",
+		'Observability destination name "__proto__" is reserved',
+	);
 
 export function observability(config: ObservabilityConfig) {
 	return definePlugin({
@@ -116,11 +125,25 @@ export function observability(config: ObservabilityConfig) {
 		},
 
 		setup(ctx: PluginContext<ObservabilityState>) {
+			if (Object.hasOwn(config, "deployment")) {
+				return errAsync(
+					new Error(
+						"Observability deployment configuration was removed; use resource attributes instead",
+					),
+				);
+			}
+
 			const configuredTransports = config.transports;
 			const configuredDestinations = config.destinations;
-			if (configuredTransports !== undefined && configuredDestinations !== undefined) {
+			if (
+				configuredTransports !== undefined &&
+				(configuredDestinations !== undefined ||
+					config.resource !== undefined ||
+					config.metrics !== undefined ||
+					config.delivery !== undefined)
+			) {
 				return errAsync(
-					new Error("Observability transports and destinations modes cannot be combined"),
+					new Error("Observability transports and destination-only options cannot be combined"),
 				);
 			}
 
@@ -130,10 +153,13 @@ export function observability(config: ObservabilityConfig) {
 				}
 				const names = new Set<string>();
 				for (const destination of configuredDestinations) {
-					if (typeof destination?.name !== "string" || destination.name.trim().length === 0) {
-						return errAsync(new Error("Observability destination names must not be empty"));
+					const nameResult = destinationNameSchema.safeParse(destination?.name);
+					if (!nameResult.success) {
+						return errAsync(
+							new Error(`Invalid observability destination name: ${nameResult.error.message}`),
+						);
 					}
-					const normalizedName = destination.name.trim();
+					const normalizedName = nameResult.data.trim();
 					if (names.has(normalizedName)) {
 						return errAsync(
 							new Error(`Duplicate observability destination name: "${normalizedName}"`),
@@ -143,7 +169,9 @@ export function observability(config: ObservabilityConfig) {
 				}
 
 				const coreConfigResult = observabilityCoreConfigSchema.safeParse(config);
-				const deploymentResult = deploymentConfigSchema.safeParse(config.deployment);
+				const resourceResult = resourceAttributesSchema.safeParse(
+					config.resource === undefined ? {} : config.resource,
+				);
 				const metricsResult =
 					config.metrics === false
 						? { success: true as const, data: false as const }
@@ -151,7 +179,7 @@ export function observability(config: ObservabilityConfig) {
 				const deliveryResult = deliveryConfigSchema.safeParse(config.delivery ?? {});
 				if (
 					!coreConfigResult.success ||
-					!deploymentResult.success ||
+					!resourceResult.success ||
 					!metricsResult.success ||
 					!deliveryResult.success
 				) {
@@ -161,7 +189,7 @@ export function observability(config: ObservabilityConfig) {
 				return createDestinationRuntime(
 					{
 						...coreConfigResult.data,
-						deployment: deploymentResult.data,
+						resource: resourceResult.data,
 						destinations: configuredDestinations,
 						metrics: metricsResult.data,
 						delivery: deliveryResult.data,

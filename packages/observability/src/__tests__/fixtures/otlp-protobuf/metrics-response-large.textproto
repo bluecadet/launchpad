@@ -1,0 +1,4 @@
+partial_success {
+  rejected_data_points: 9007199254740993
+  error_message: "partial"
+}

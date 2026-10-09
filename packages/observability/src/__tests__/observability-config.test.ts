@@ -1,54 +1,64 @@
 import { describe, expect, it } from "vitest";
 import {
 	deliveryConfigSchema,
-	deploymentConfigSchema,
 	observationConfigSchema,
+	resourceAttributesSchema,
 } from "../observability-config.js";
 
-const deployment = {
-	client: "bluecadet",
-	project: "museum",
-	installation: "lobby",
-	environment: "production",
-};
+describe("resourceAttributesSchema", () => {
+	it("accepts a flat primitive attribute bag and a custom service name", () => {
+		const resource = {
+			"service.name": "gallery-controller",
+			"deployment.environment.name": "production",
+			"launchpad.client": "bluecadet",
+			"launchpad.project": "museum",
+			"launchpad.installation": "lobby",
+			region: "us-east",
+			floor: 2,
+			public: true,
+		};
 
-describe("deploymentConfigSchema", () => {
-	it("accepts a complete deployment identity and bounded static attributes", () => {
-		expect(
-			deploymentConfigSchema.parse({
-				...deployment,
-				attributes: { region: "us-east", floor: 2, public: true },
-			}),
-		).toEqual({
-			...deployment,
-			attributes: { region: "us-east", floor: 2, public: true },
-		});
+		expect(resourceAttributesSchema.parse(resource)).toEqual(resource);
 	});
 
-	it.each(["client", "project", "installation", "environment"] as const)(
-		"requires a nonempty %s",
-		(field) => {
-			expect(deploymentConfigSchema.safeParse({ ...deployment, [field]: "  " }).success).toBe(
-				false,
-			);
+	it.each([
+		{ "": "value" },
+		{ "   ": "value" },
+		{ ["x".repeat(129)]: "value" },
+		{ value: "x".repeat(1_025) },
+		{ value: Number.POSITIVE_INFINITY },
+		{ value: Number.NaN },
+		{ value: null },
+		{ "service.name": true },
+		{ "service.name": "  " },
+		{ "service.instance.id": "caller-owned" },
+	])("rejects invalid resource attributes %#", (resource) => {
+		expect(resourceAttributesSchema.safeParse(resource).success).toBe(false);
+	});
+
+	it.each([JSON.parse('{"__proto__":"museum"}'), JSON.parse('{"__proto__":{"nested":"invalid"}}')])(
+		"rejects an own __proto__ attribute before record parsing",
+		(resource) => {
+			expect(Object.hasOwn(resource, "__proto__")).toBe(true);
+			expect(resourceAttributesSchema.safeParse(resource).success).toBe(false);
 		},
 	);
 
-	it("rejects reserved resource attributes", () => {
-		const result = deploymentConfigSchema.safeParse({
-			...deployment,
-			attributes: { "service.name": "replacement" },
-		});
+	it("preserves ordinary own constructor and toString attributes", () => {
+		const resource = { constructor: "museum", toString: "display" };
+		const parsed = resourceAttributesSchema.parse(resource);
 
-		expect(result.success).toBe(false);
+		expect(parsed).toEqual(resource);
+		expect(Object.hasOwn(parsed, "constructor")).toBe(true);
+		expect(Object.hasOwn(parsed, "toString")).toBe(true);
 	});
 
-	it("bounds the number of resource attributes", () => {
-		const attributes = Object.fromEntries(
+	it("bounds the number of caller-provided resource attributes", () => {
+		const resource = Object.fromEntries(
 			Array.from({ length: 65 }, (_, index) => [`attribute.${index}`, index]),
 		);
 
-		expect(deploymentConfigSchema.safeParse({ ...deployment, attributes }).success).toBe(false);
+		expect(resourceAttributesSchema.safeParse(resource).success).toBe(false);
 	});
 });
 

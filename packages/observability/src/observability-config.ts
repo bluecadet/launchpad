@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { ObservabilityDestination } from "./core/destination.js";
-import { RESERVED_RESOURCE_ATTRIBUTE_KEYS } from "./core/resource.js";
+import type { ObservabilityDestination, ResourceAttributes } from "./core/destination.js";
 
 export const observabilityCoreConfigSchema = z.object({
 	/**
@@ -46,50 +45,64 @@ export type ObservabilityCoreConfig = z.input<typeof observabilityCoreConfigSche
 export type ResolvedObservabilityCoreConfig = z.output<typeof observabilityCoreConfigSchema>;
 
 const MAX_TIMER_MS = 2_147_483_647;
-const MAX_DEPLOYMENT_IDENTITY_LENGTH = 256;
 const MAX_RESOURCE_ATTRIBUTES = 64;
 const MAX_RESOURCE_ATTRIBUTE_KEY_LENGTH = 128;
 const MAX_RESOURCE_ATTRIBUTE_STRING_LENGTH = 1_024;
 
-const deploymentIdentitySchema = z.string().trim().min(1).max(MAX_DEPLOYMENT_IDENTITY_LENGTH);
+const resourceAttributeKeySchema = z
+	.string()
+	.max(MAX_RESOURCE_ATTRIBUTE_KEY_LENGTH)
+	.refine((key) => key.trim().length > 0, "Resource attribute keys must not be blank");
 const resourceAttributeValueSchema = z.union([
 	z.string().max(MAX_RESOURCE_ATTRIBUTE_STRING_LENGTH),
 	z.number().finite(),
 	z.boolean(),
 ]);
-const reservedResourceAttributeKeys = new Set<string>(RESERVED_RESOURCE_ATTRIBUTE_KEYS);
 
-const staticResourceAttributesSchema = z
-	.record(z.string().min(1).max(MAX_RESOURCE_ATTRIBUTE_KEY_LENGTH), resourceAttributeValueSchema)
+const resourceAttributesRecordSchema = z
+	.record(resourceAttributeKeySchema, resourceAttributeValueSchema)
 	.superRefine((attributes, context) => {
 		if (Object.keys(attributes).length > MAX_RESOURCE_ATTRIBUTES) {
 			context.addIssue({
 				code: "custom",
-				message: `Deployment attributes cannot contain more than ${MAX_RESOURCE_ATTRIBUTES} entries`,
+				message: `Resource attributes cannot contain more than ${MAX_RESOURCE_ATTRIBUTES} entries`,
 			});
 		}
 
-		for (const key of Object.keys(attributes)) {
-			if (!reservedResourceAttributeKeys.has(key)) continue;
+		if (Object.hasOwn(attributes, "service.instance.id")) {
 			context.addIssue({
 				code: "custom",
-				message: `Deployment attribute "${key}" is reserved`,
-				path: [key],
+				message: 'Resource attribute "service.instance.id" is managed by the runtime',
+				path: ["service.instance.id"],
+			});
+		}
+
+		const serviceName = attributes["service.name"];
+		if (
+			serviceName !== undefined &&
+			(typeof serviceName !== "string" || serviceName.trim() === "")
+		) {
+			context.addIssue({
+				code: "custom",
+				message: 'Resource attribute "service.name" must be a nonblank string',
+				path: ["service.name"],
 			});
 		}
 	});
 
-/** Stable deployment identity attached to every exported signal. */
-export const deploymentConfigSchema = z.object({
-	client: deploymentIdentitySchema,
-	project: deploymentIdentitySchema,
-	installation: deploymentIdentitySchema,
-	environment: deploymentIdentitySchema,
-	attributes: staticResourceAttributesSchema.optional(),
-});
-
-export type DeploymentConfig = z.input<typeof deploymentConfigSchema>;
-export type ResolvedDeploymentConfig = z.output<typeof deploymentConfigSchema>;
+/** Bounded primitive attributes attached to every signal from one setup. */
+export const resourceAttributesSchema: z.ZodType<ResourceAttributes> = z
+	.unknown()
+	.superRefine((resource, context) => {
+		if (typeof resource === "object" && resource !== null && Object.hasOwn(resource, "__proto__")) {
+			context.addIssue({
+				code: "custom",
+				message: 'Resource attribute "__proto__" is not supported',
+				path: ["__proto__"],
+			});
+		}
+	})
+	.pipe(resourceAttributesRecordSchema);
 
 /** Gauge observation cadence. */
 export const observationConfigSchema = z.object({
@@ -111,7 +124,7 @@ export type ResolvedDeliveryConfig = z.output<typeof deliveryConfigSchema>;
 
 /** Configuration shape for the destination-based observability mode. */
 export interface DestinationObservabilityConfig extends ObservabilityCoreConfig {
-	readonly deployment: DeploymentConfig;
+	readonly resource?: ResourceAttributes;
 	readonly destinations: readonly ObservabilityDestination[];
 	readonly metrics?: false | ObservationConfig;
 	readonly delivery?: DeliveryConfig;

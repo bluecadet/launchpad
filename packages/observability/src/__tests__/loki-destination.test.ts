@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResourceAttributes } from "../core/destination.js";
 import type { LogEntry } from "../core/log-entry.js";
-import { createLokiDestination } from "../destinations/loki.js";
+import { createLokiDestination, type LokiDestinationConfig } from "../destinations/loki.js";
 import { createLokiTransport } from "../transports/loki.js";
 
 const resourceAttributes: ResourceAttributes = {
@@ -46,8 +46,11 @@ function requestBody(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): string 
 	return body;
 }
 
-function logExporter(destination = createLokiDestination({ url: "http://localhost:3100" })) {
-	const result = destination.create({ resourceAttributes });
+function logExporter(
+	destination = createLokiDestination({ url: "http://localhost:3100" }),
+	resource: ResourceAttributes = resourceAttributes,
+) {
+	const result = destination.create({ resourceAttributes: resource });
 	if (result.isErr()) throw result.error;
 	const exporter = result.value.logs;
 	if (!exporter) throw new Error("Expected Loki log exporter");
@@ -77,7 +80,7 @@ describe("createLokiDestination", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it("posts structured JSON lines and canonical identity labels to the legacy root endpoint", async () => {
+	it("indexes only service.name by default while retaining all resource metadata", async () => {
 		const exporter = logExporter(
 			createLokiDestination({
 				url: "http://localhost:3100/",
@@ -111,21 +114,17 @@ describe("createLokiDestination", () => {
 		expect(logStream?.stream).toEqual({
 			level: "info",
 			service_name: "launchpad",
-			client: "natural-history",
-			project: "fossils",
-			installation: "gallery-2",
-			environment: "production",
 			module: "content",
 		});
 		expect(logStream?.stream).not.toHaveProperty("service.instance.id");
 		expect(logStream?.stream).not.toHaveProperty("host.id");
+		expect(logStream?.stream).not.toHaveProperty("client");
+		expect(logStream?.stream).not.toHaveProperty("project");
+		expect(logStream?.stream).not.toHaveProperty("installation");
+		expect(logStream?.stream).not.toHaveProperty("environment");
 		expect(eventStream?.stream).toEqual({
 			level: "event",
 			service_name: "launchpad",
-			client: "natural-history",
-			project: "fossils",
-			installation: "gallery-2",
-			environment: "production",
 			event: "content:fetch:success",
 		});
 
@@ -142,6 +141,186 @@ describe("createLokiDestination", () => {
 			resource: resourceAttributes,
 		});
 	});
+
+	it("preserves the previous Bluecadet labels through an explicit compatibility mapping", async () => {
+		const compatibilityResource: ResourceAttributes = {
+			"service.name": "launchpad",
+			"launchpad.client": "museum",
+			"launchpad.project": "gallery",
+			"launchpad.installation": "lobby",
+			"deployment.environment.name": "production",
+		};
+		const config = {
+			url: "http://localhost:3100",
+			resourceLabels: {
+				"service.name": "service_name",
+				"launchpad.client": "client",
+				"launchpad.project": "project",
+				"launchpad.installation": "installation",
+				"deployment.environment.name": "environment",
+			},
+		} satisfies LokiDestinationConfig;
+		const exporter = logExporter(createLokiDestination(config), compatibilityResource);
+
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		expect(payload.streams[0]?.stream).toEqual({
+			level: "info",
+			service_name: "launchpad",
+			client: "museum",
+			project: "gallery",
+			installation: "lobby",
+			environment: "production",
+			module: "content",
+		});
+		expect(JSON.parse(payload.streams[0]?.values[0]?.[1] ?? "null")).toEqual({
+			schemaVersion: 1,
+			timestamp: "2026-03-01T12:34:56.789Z",
+			event: "log:info",
+			level: "info",
+			message: "content refreshed",
+			module: "content",
+			metadata: { documents: 12 },
+			resource: compatibilityResource,
+		});
+	});
+
+	it("uses a supplied mapping instead of the default and stringifies false and zero", async () => {
+		const customResource: ResourceAttributes = {
+			"service.name": "custom-service",
+			"service.instance.id": "runtime-high-cardinality",
+			region: "east",
+			team: "content",
+			enabled: false,
+			replicas: 0,
+			nonfinite: Number.POSITIVE_INFINITY,
+		};
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					region: "region",
+					team: "team",
+					enabled: "enabled",
+					replicas: "replicas",
+					"service.instance.id": "runtime_instance",
+					missing: "missing",
+					toString: "stringifier",
+					constructor: "resource_constructor",
+					nonfinite: "nonfinite",
+				},
+			}),
+			customResource,
+		);
+
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string> }>;
+		};
+		expect(payload.streams[0]?.stream).toEqual({
+			level: "info",
+			region: "east",
+			team: "content",
+			enabled: "false",
+			replicas: "0",
+			runtime_instance: "runtime-high-cardinality",
+			module: "content",
+		});
+		expect(payload.streams[0]?.stream).not.toHaveProperty("service_name");
+		expect(payload.streams[0]?.stream).not.toHaveProperty("service_instance_id");
+		expect(payload.streams[0]?.stream).not.toHaveProperty("missing");
+		expect(payload.streams[0]?.stream).not.toHaveProperty("stringifier");
+		expect(payload.streams[0]?.stream).not.toHaveProperty("resource_constructor");
+		expect(payload.streams[0]?.stream).not.toHaveProperty("nonfinite");
+	});
+
+	it("labels explicitly supplied own toString and constructor attributes", async () => {
+		const specialResource: ResourceAttributes = {
+			toString: "custom-stringifier",
+			constructor: 7,
+		};
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					toString: "stringifier",
+					constructor: "resource_constructor",
+				},
+			}),
+			specialResource,
+		);
+
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string> }>;
+		};
+		expect(payload.streams[0]?.stream).toEqual({
+			level: "info",
+			stringifier: "custom-stringifier",
+			resource_constructor: "7",
+			module: "content",
+		});
+	});
+
+	it("rejects an own __proto__ resource mapping before record parsing", () => {
+		const resourceLabels: Readonly<Record<string, string>> = JSON.parse(
+			'{"__proto__":"prototype_label"}',
+		);
+
+		expect(() =>
+			createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
+		).toThrowError("Invalid Loki destination configuration");
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("allows an empty mapping while retaining log-derived labels", async () => {
+		const exporter = logExporter(
+			createLokiDestination({ url: "http://localhost:3100", resourceLabels: {} }),
+		);
+
+		await exporter.export([logEntry(), eventEntry()], {
+			signal: new AbortController().signal,
+		});
+
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string> }>;
+		};
+		expect(payload.streams.map(({ stream }) => stream)).toEqual([
+			{ level: "info", module: "content" },
+			{ level: "event", event: "content:fetch:success" },
+		]);
+	});
+
+	it.each([
+		[{ " ": "valid" }, "blank attribute key"],
+		[{ ["a".repeat(129)]: "valid" }, "overlong attribute key"],
+		[{ region: "invalid-label" }, "invalid label name"],
+		[{ region: `a${"b".repeat(128)}` }, "overlong label name"],
+		[{ region: "__internal" }, "internal label name"],
+		[{ region: "level" }, "level collision"],
+		[{ region: "module" }, "module collision"],
+		[{ region: "event" }, "event collision"],
+		[{ region: "location", zone: "location" }, "duplicate target name"],
+		[
+			Object.fromEntries(
+				Array.from({ length: 65 }, (_, index) => [`key-${index}`, `label_${index}`]),
+			),
+			"too many mappings",
+		],
+	] satisfies Array<[Readonly<Record<string, string>>, string]>)(
+		"rejects an invalid resource label mapping: %s",
+		(resourceLabels, _description) => {
+			expect(() =>
+				createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
+			).toThrowError("Invalid Loki destination configuration");
+			expect(fetchMock).not.toHaveBeenCalled();
+		},
+	);
 
 	it("uses collision-free stream grouping and sorts values by timestamp", async () => {
 		const firstCollision = eventEntry({

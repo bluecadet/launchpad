@@ -24,6 +24,77 @@ const lokiAuthSchema = z.discriminatedUnion("type", [
 	}),
 ]);
 
+const DEFAULT_RESOURCE_LABELS: Readonly<Record<string, string>> = {
+	"service.name": "service_name",
+};
+const MAX_RESOURCE_LABELS = 64;
+const MAX_RESOURCE_LABEL_LENGTH = 128;
+const LOKI_LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/u;
+const RESERVED_LOG_LABELS = new Set(["level", "module", "event"]);
+
+const resourceLabelsSchema = z.record(z.string(), z.string()).superRefine((mapping, context) => {
+	const entries = Object.entries(mapping);
+	if (entries.length > MAX_RESOURCE_LABELS) {
+		context.addIssue({
+			code: "custom",
+			message: `Resource label mappings must contain at most ${MAX_RESOURCE_LABELS} entries`,
+		});
+	}
+
+	const targets = new Set<string>();
+	for (const [attribute, label] of entries) {
+		if (attribute.trim().length === 0 || attribute.length > MAX_RESOURCE_LABEL_LENGTH) {
+			context.addIssue({
+				code: "custom",
+				path: [attribute],
+				message: `Resource attribute keys must be nonblank and at most ${MAX_RESOURCE_LABEL_LENGTH} characters`,
+			});
+		}
+		if (label.length > MAX_RESOURCE_LABEL_LENGTH || !LOKI_LABEL_NAME.test(label)) {
+			context.addIssue({
+				code: "custom",
+				path: [attribute],
+				message: `Loki label names must match ${LOKI_LABEL_NAME} and be at most ${MAX_RESOURCE_LABEL_LENGTH} characters`,
+			});
+		}
+		if (label.startsWith("__")) {
+			context.addIssue({
+				code: "custom",
+				path: [attribute],
+				message: "Loki label names beginning with '__' are reserved for internal use",
+			});
+		}
+		if (RESERVED_LOG_LABELS.has(label)) {
+			context.addIssue({
+				code: "custom",
+				path: [attribute],
+				message: "Resource labels must not target level, module, or event",
+			});
+		}
+		if (targets.has(label)) {
+			context.addIssue({
+				code: "custom",
+				path: [attribute],
+				message: "Resource label mappings must not contain duplicate target names",
+			});
+		}
+		targets.add(label);
+	}
+});
+
+const resourceLabelsInputSchema = z
+	.unknown()
+	.superRefine((mapping, context) => {
+		if (typeof mapping === "object" && mapping !== null && Object.hasOwn(mapping, "__proto__")) {
+			context.addIssue({
+				code: "custom",
+				path: ["__proto__"],
+				message: "Resource attribute key '__proto__' is not supported",
+			});
+		}
+	})
+	.pipe(resourceLabelsSchema);
+
 export const lokiDestinationConfigSchema = z.object({
 	/** Destination name used by delivery state and diagnostics. */
 	name: z.string().trim().min(1).default("loki"),
@@ -33,9 +104,14 @@ export const lokiDestinationConfigSchema = z.object({
 	auth: lokiAuthSchema.optional(),
 	/** Optional proxy, gateway, or tenant headers. */
 	headers: z.record(z.string(), z.string()).optional(),
+	/** Resource attribute key to Loki label name mappings. Replaces the default when supplied. */
+	resourceLabels: resourceLabelsInputSchema.default(DEFAULT_RESOURCE_LABELS),
 });
 
-export type LokiDestinationConfig = z.input<typeof lokiDestinationConfigSchema>;
+type LokiDestinationConfigInput = z.input<typeof lokiDestinationConfigSchema>;
+export type LokiDestinationConfig = Omit<LokiDestinationConfigInput, "resourceLabels"> & {
+	readonly resourceLabels?: Readonly<Record<string, string>>;
+};
 export type ResolvedLokiDestinationConfig = z.output<typeof lokiDestinationConfigSchema>;
 export type LokiDestinationAuth = z.infer<typeof lokiAuthSchema>;
 
@@ -56,24 +132,22 @@ function stringResourceAttribute(
 	resourceAttributes: ResourceAttributes,
 	key: string,
 ): string | undefined {
-	const value = resourceAttributes[key];
-	return value === undefined ? undefined : String(value);
+	if (!Object.hasOwn(resourceAttributes, key)) return undefined;
+
+	const value: unknown = resourceAttributes[key];
+	if (typeof value === "string" || typeof value === "boolean") return String(value);
+	if (typeof value === "number" && Number.isFinite(value)) return String(value);
+	return undefined;
 }
 
 function streamLabels(
 	entry: LogEntry,
 	resourceAttributes: ResourceAttributes,
+	resourceLabels: Readonly<Record<string, string>>,
 ): Record<string, string> {
 	const labels: Record<string, string> = { level: entry.level };
-	const resourceLabelKeys = [
-		["service_name", "service.name"],
-		["client", "launchpad.client"],
-		["project", "launchpad.project"],
-		["installation", "launchpad.installation"],
-		["environment", "deployment.environment.name"],
-	] as const;
 
-	for (const [label, attribute] of resourceLabelKeys) {
+	for (const [attribute, label] of Object.entries(resourceLabels)) {
 		const value = stringResourceAttribute(resourceAttributes, attribute);
 		if (value !== undefined) labels[label] = value;
 	}
@@ -92,11 +166,12 @@ function labelsKey(labels: Readonly<Record<string, string>>): string {
 function buildLokiPayload(
 	records: readonly LogEntry[],
 	resourceAttributes: ResourceAttributes,
+	resourceLabels: Readonly<Record<string, string>>,
 ): LokiPushPayload {
 	const streams = new Map<string, LokiStream>();
 
 	for (const record of records) {
-		const labels = streamLabels(record, resourceAttributes);
+		const labels = streamLabels(record, resourceAttributes, resourceLabels);
 		const key = labelsKey(labels);
 		let stream = streams.get(key);
 		if (!stream) {
@@ -209,7 +284,7 @@ async function exportRecords(
 
 	let body: string;
 	try {
-		body = JSON.stringify(buildLokiPayload(records, resourceAttributes));
+		body = JSON.stringify(buildLokiPayload(records, resourceAttributes, resolved.resourceLabels));
 	} catch {
 		throw Object.assign(new Error("Loki payload serialization failed"), { retryable: false });
 	}

@@ -1,45 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { createResourceAttributes } from "../core/resource.js";
 
-const deployment = {
-	client: "bluecadet",
-	project: "museum",
-	installation: "lobby",
-	environment: "production",
-	attributes: { region: "us-east", floor: 2, public: true },
+const bluecadetResource = {
+	"service.name": "museum-controller",
+	"deployment.environment.name": "production",
+	"launchpad.client": "bluecadet",
+	"launchpad.project": "museum",
+	"launchpad.installation": "lobby",
+	region: "us-east",
+	floor: 2,
+	public: true,
 };
 
 describe("createResourceAttributes", () => {
-	it("creates immutable canonical resource attributes", () => {
-		const attributes = createResourceAttributes(deployment);
+	it("creates only the generic defaults when resource is omitted", () => {
+		const attributes = createResourceAttributes();
 
-		expect(attributes).toMatchObject({
+		expect(attributes).toEqual({
 			"service.name": "launchpad",
-			"deployment.environment.name": "production",
-			"launchpad.client": "bluecadet",
-			"launchpad.project": "museum",
-			"launchpad.installation": "lobby",
-			region: "us-east",
-			floor: 2,
-			public: true,
+			"service.instance.id": expect.any(String),
 		});
-		expect(attributes["service.instance.id"]).toEqual(expect.any(String));
 		expect(Object.isFrozen(attributes)).toBe(true);
 	});
 
+	it("preserves flat caller attributes and a service name override", () => {
+		const attributes = createResourceAttributes(bluecadetResource);
+		const { "service.instance.id": instanceId, ...stableAttributes } = attributes;
+
+		expect(instanceId).toEqual(expect.any(String));
+		expect(stableAttributes).toEqual(bluecadetResource);
+	});
+
 	it("generates a new service instance id for each setup", () => {
-		const first = createResourceAttributes(deployment);
-		const second = createResourceAttributes(deployment);
+		const first = createResourceAttributes();
+		const second = createResourceAttributes();
 
 		expect(first["service.instance.id"]).not.toBe(second["service.instance.id"]);
 	});
 
-	it("does not allow extra attributes to replace canonical values", () => {
-		const attributes = createResourceAttributes({
-			...deployment,
-			attributes: { "service.name": "other-service" },
-		});
-
-		expect(attributes["service.name"]).toBe("launchpad");
+	it("rejects a caller-owned service instance id instead of overwriting it", () => {
+		expect(() => createResourceAttributes({ "service.instance.id": "caller-owned" })).toThrow(
+			/service\.instance\.id/,
+		);
 	});
 });

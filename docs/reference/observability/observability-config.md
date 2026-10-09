@@ -8,12 +8,13 @@ title: "Observability Config"
 
 ```typescript
 observability({
-  deployment: {
-    client: 'museum',
-    project: 'west-wing',
-    installation: 'lobby-kiosk',
-    environment: 'production',
-    attributes: { region: 'us-east' },
+  resource: {
+    'service.name': 'museum-kiosk',
+    'launchpad.client': 'museum',
+    'launchpad.project': 'west-wing',
+    'launchpad.installation': 'lobby-kiosk',
+    'deployment.environment.name': 'production',
+    region: 'us-east',
   },
   destinations: [destination],
   include: ['log:*'],
@@ -27,30 +28,26 @@ observability({
 });
 ```
 
-### `deployment`
+### `resource`
 
-Required stable identity attached to every exported signal.
+**Type:** `Readonly<Record<string, string | number | boolean>>`
 
-| Field | Type | Required |
+**Required:** No
+
+A flat set of resource attributes attached to every exported log and metric. Attribute names and meanings are caller-defined; Launchpad does not give special meaning to client, project, installation, organization, or environment attributes.
+
+Launchpad supplies only these defaults:
+
+| Resource attribute | Default | Configuration behavior |
 |---|---|---|
-| `client` | `string` | Yes |
-| `project` | `string` | Yes |
-| `installation` | `string` | Yes |
-| `environment` | `string` | Yes |
-| `attributes` | `Record<string, string \| number \| boolean>` | No |
+| `service.name` | `'launchpad'` | May be replaced with a nonblank string |
+| `service.instance.id` | A runtime-generated UUID | Runtime-owned; configuring it is rejected |
 
-Blank identity values fail validation. Custom attributes are limited to 64 entries. Keys are limited to 128 characters and string values to 1,024 characters. Numbers must be finite.
+The runtime generates a new `service.instance.id` during each plugin setup. No other resource attributes are added automatically. The own key `__proto__` is rejected to prevent prototype-key data loss.
 
-Launchpad maps deployment fields to resource attributes as follows:
+A resource can contain at most 64 configured attributes. Keys must be nonempty and at most 128 characters. String values are limited to 1,024 characters, and number values must be finite. Nested objects, arrays, `null`, and `undefined` are not supported.
 
-| Configuration | Resource attribute |
-|---|---|
-| `client` | `launchpad.client` |
-| `project` | `launchpad.project` |
-| `installation` | `launchpad.installation` |
-| `environment` | `deployment.environment.name` |
-
-It also sets `service.name` to `launchpad` and generates a `service.instance.id` for each process setup. These keys are reserved and cannot be overridden through `attributes`.
+Resource attributes and metric-point attributes are separate scopes. Resource attributes are attached to every signal but are not copied into each metric point. Metric points retain their own bounded `attributes`; only `service.name` and `service.instance.id` are reserved there.
 
 ### `destinations`
 
@@ -120,4 +117,4 @@ observability({
 });
 ```
 
-Legacy mode is logs-only and preserves the existing batching, retry buffer, events, and plain-text Loki lines. See [Migrate from transports](./migration.md) before switching an existing deployment.
+Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, and `delivery` options belong to destination mode. See [Migrate from transports](./migration.md) before switching an existing deployment.

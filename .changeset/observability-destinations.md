@@ -9,4 +9,4 @@
 "@bluecadet/create-launchpad": minor
 ---
 
-Add endpoint-neutral observability destinations, periodic gauge observation hooks, umbrella exports, opt-in scaffolding, and setup documentation while preserving the legacy log transport API.
+Add endpoint-neutral observability destinations with optional resource attributes, periodic gauge observation hooks, umbrella exports, opt-in endpoint-only scaffolding, and setup documentation while preserving the legacy log transport API.

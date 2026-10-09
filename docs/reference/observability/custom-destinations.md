@@ -13,7 +13,7 @@ interface ObservabilityDestination {
 }
 ```
 
-A destination is inert configuration. `create()` receives immutable `context.resourceAttributes` and builds local exporter state. It must not make network requests. Network work belongs in an export call or `shutdown()`.
+A destination is inert configuration. `create()` receives immutable `context.resourceAttributes` and builds local exporter state. The context contains the caller's optional flat `resource` record plus the runtime defaults for `service.name` and `service.instance.id`. It must not make network requests. Network work belongs in an export call or `shutdown()`.
 
 ## Exporters
 
@@ -64,6 +64,8 @@ Set `retryable: false` for a permanent failure. A retryable backend can provide 
 ## Design limits
 
 - Keep names, metric attributes, and resource attributes bounded.
+- Treat resource attributes and metric-point attributes as separate scopes. Do not copy resource values into every point unless your destination protocol explicitly requires that representation.
+- Preserve all resource attributes in destination formats that have a resource scope.
 - Export only finite gauge values.
 - Do not retain unbounded batches in destination state; Launchpad's own queue is bounded, but it cannot bound a destination's private memory.
 - Treat shutdown as best effort and honor its abort signal.

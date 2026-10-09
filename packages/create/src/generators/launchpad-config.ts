@@ -207,35 +207,21 @@ function buildSchedulerPlugin(): string {
 
 function buildObservabilitySetup(): string {
 	return dedent`
-		// Observability stays disabled until every required variable below is set.
+		// Observability stays disabled until the endpoint is set.
 		// It sends logs and metrics only to the OTLP endpoint you configure.
 		const observabilityEndpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
-		const observabilityClient = process.env.LAUNCHPAD_OBSERVABILITY_CLIENT;
-		const observabilityProject = process.env.LAUNCHPAD_OBSERVABILITY_PROJECT;
-		const observabilityInstallation = process.env.LAUNCHPAD_OBSERVABILITY_INSTALLATION;
-		const observabilityEnvironment = process.env.LAUNCHPAD_OBSERVABILITY_ENVIRONMENT;
 
-		const observabilityPlugin =
-			observabilityEndpoint &&
-			observabilityClient &&
-			observabilityProject &&
-			observabilityInstallation &&
-			observabilityEnvironment
-				? observability({
-						deployment: {
-							client: observabilityClient,
-							project: observabilityProject,
-							installation: observabilityInstallation,
-							environment: observabilityEnvironment,
-						},
-						destinations: [
-							createOtlpDestination({
-								endpoint: observabilityEndpoint,
-								token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
-							}),
-						],
-					})
-				: undefined;
+		const observabilityPlugin = observabilityEndpoint
+			? observability({
+					// Optional: resource: { 'service.name': 'my-launchpad-service' },
+					destinations: [
+						createOtlpDestination({
+							endpoint: observabilityEndpoint,
+							token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
+						}),
+					],
+				})
+			: undefined;
 	`;
 }
 

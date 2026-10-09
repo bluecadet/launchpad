@@ -30,6 +30,8 @@ At least one signal is required and duplicates are rejected. The endpoint cannot
 
 The destination accepts HTTP 200 as OTLP success and reads OTLP partial-success rejection counts. It marks HTTP 429, 502, 503, and 504 as retryable and honors `Retry-After`; other non-200 statuses are permanent failures. Requests still remain bounded by `delivery.deliveryTimeoutMs` and queue limits.
 
-Logs use the `@bluecadet/launchpad-observability` instrumentation scope. Metadata is bounded, normalized, and key-redacted before encoding. Metrics are OTLP gauges. Invalid or non-finite records are rejected rather than sent.
+Logs use the `@bluecadet/launchpad-observability` instrumentation scope. Metadata is bounded, normalized, and key-redacted before encoding. Every configured resource attribute is encoded in the OTLP resource for both logs and metrics. Metric-point attributes remain a separate scope and are not populated from the resource. Metrics are OTLP gauges. Invalid or non-finite records are rejected rather than sent.
+
+Backends differ in how they expose OTLP resource attributes as queryable labels. Configure resource-to-label mapping in your collector when dashboards or alerts depend on those labels.
 
 This implementation is covered by HTTP payload and response fixture tests. It has not been validated against a live OpenTelemetry Collector in this release environment.

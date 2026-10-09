@@ -2,6 +2,7 @@ import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { isSelectedOperationalLogEvent } from "@bluecadet/launchpad-utils/logging";
 import type {
 	BaseCommand,
 	CommandDescriptor,
@@ -32,7 +33,11 @@ import type { AllPluginsState } from "./all-plugin-state.js";
 
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { collectPluginMetrics } from "./core/collect-plugin-metrics.js";
-import { createFileLogger } from "./core/file-logger.js";
+import {
+	type ControllerFileLogger,
+	createFileLogger,
+	type FileLoggerDependencies,
+} from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
@@ -42,6 +47,7 @@ export class LaunchpadController {
 	private _mode: ControllerMode;
 	private _baseDir: string;
 	private _logger: Logger;
+	private _fileLogger: ControllerFileLogger;
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
@@ -54,12 +60,24 @@ export class LaunchpadController {
 	private _shutdownInProgress = false;
 	private _readyPhaseRun = false;
 
-	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
+	constructor(
+		config: ResolvedControllerConfig,
+		baseDir: string,
+		mode: ControllerMode = "task",
+		fileLoggerDependencies: FileLoggerDependencies = {},
+	) {
 		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
 		this._eventBus = new EventBus<AllEvents>();
-		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
+		this._fileLogger = createFileLogger(
+			this._config.logging,
+			baseDir,
+			this._eventBus,
+			fileLoggerDependencies,
+		);
+		this._logger = this._fileLogger.logger;
+		this._eventBus.onAny(this.recordOperationalEvent);
 		this._stateStore = new StateStore(this._mode);
 		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
 			this.executeCommand(command),
@@ -224,6 +242,11 @@ export class LaunchpadController {
 		return okAsync(undefined);
 	}
 
+	private readonly recordOperationalEvent = (event: string, payload: unknown): void => {
+		if (!isSelectedOperationalLogEvent(event)) return;
+		this._fileLogger.recordEvent(event, payload);
+	};
+
 	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
 		this._isStarted = false;
 
@@ -246,10 +269,18 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		});
 
-		return ResultAsync.combine(disconnectResults).map(() => {
-			this._logger.verbose("All plugins disconnected");
-			return undefined;
-		});
+		return ResultAsync.combine(disconnectResults)
+			.map(() => null)
+			.orElse((error) => okAsync(error))
+			.andThen((disconnectError) => {
+				if (disconnectError === null) {
+					this._logger.verbose("All plugins disconnected");
+				}
+				this._eventBus.offAny(this.recordOperationalEvent);
+				return ResultAsync.fromSafePromise(this._fileLogger.close()).andThen(() =>
+					disconnectError === null ? okAsync(undefined) : errAsync(disconnectError),
+				);
+			});
 	}
 
 	stop(): ResultAsync<void, Error> {
@@ -330,6 +361,7 @@ export class LaunchpadController {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),
+			...(this._fileLogger.source === undefined ? {} : { logSource: this._fileLogger.source }),
 			cwd: this._baseDir,
 			mode: this._mode,
 			getStatusSnapshot: () => this.buildSnapshot(),

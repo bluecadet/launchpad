@@ -144,18 +144,38 @@ describe("observability setup validation", () => {
 			const manager = new ObservabilityStateManager(context.updateState);
 			manager.initDestination(name, ["logs", "metrics"]);
 			for (const signal of ["logs", "metrics"] as const) {
-				manager.recordDestinationError(name, signal, "failed", 2);
-				manager.recordDestinationDropped(name, signal, 3);
-				manager.updateDestinationQueue(name, signal, 0);
-				manager.recordDestinationSuccess(name, signal, 4, 1);
-				manager.recordDestinationSuccess(name, signal, 5, 0);
+				manager.applyDestinationTransition(name, signal, {
+					type: "failure",
+					error: new Error("failed"),
+					droppedRecords: 0,
+					queuedBatches: 2,
+				});
+				manager.applyDestinationTransition(name, signal, {
+					type: "drop",
+					reason: "queue-full",
+					droppedRecords: 3,
+					queuedBatches: 2,
+				});
+				manager.applyDestinationTransition(name, signal, { type: "queue", queuedBatches: 0 });
+				manager.applyDestinationTransition(name, signal, {
+					type: "export",
+					acceptedRecords: 4,
+					rejectedRecords: 1,
+					queuedBatches: 0,
+				});
+				manager.applyDestinationTransition(name, signal, {
+					type: "export",
+					acceptedRecords: 5,
+					rejectedRecords: 0,
+					queuedBatches: 0,
+				});
 				expect(getState().destinations?.[name]?.[signal]).toEqual({
 					status: "ok",
 					queueSize: 0,
 					lastSuccessAt: expect.any(Date),
 					lastError: null,
 					totalPushed: 9,
-					totalDropped: 3,
+					totalDropped: 4,
 				});
 			}
 		},

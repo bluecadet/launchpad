@@ -140,7 +140,6 @@ export function observability(config: ObservabilityConfig) {
 			const configuredTransports = config.transports;
 			const configuredDestinations = config.destinations;
 			if (
-				configuredTransports !== undefined &&
 				(configuredDestinations !== undefined ||
 					config.resource !== undefined ||
 					config.metrics !== undefined ||

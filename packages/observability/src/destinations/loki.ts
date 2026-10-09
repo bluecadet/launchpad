@@ -119,7 +119,6 @@ export const lokiDestinationConfigSchema = z
 			});
 		}
 	});
-
 type LokiDestinationConfigInput = z.input<typeof lokiDestinationConfigSchema>;
 export type LokiDestinationConfig = Omit<LokiDestinationConfigInput, "resourceLabels"> & {
 	readonly resourceLabels?: Readonly<Record<string, string>>;

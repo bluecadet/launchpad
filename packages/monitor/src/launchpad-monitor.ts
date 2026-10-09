@@ -20,6 +20,7 @@ import {
 	monitorConfigSchema,
 	type ResolvedMonitorConfig,
 } from "./monitor-config.js";
+import { projectMonitorMetrics } from "./monitor-metrics.js";
 import { type MonitorState, MonitorStateManager } from "./monitor-state.js";
 import { buildMonitorSection } from "./monitor-summarize.js";
 
@@ -252,6 +253,8 @@ function shutdown(
  * Use this in your launchpad config's plugins array.
  */
 export function monitor(config: MonitorConfig) {
+	const configuredAppNames = new Set<string>();
+
 	return definePlugin({
 		name: "monitor",
 		manifest: {
@@ -295,6 +298,9 @@ export function monitor(config: MonitorConfig) {
 			if (!monitorState) return null;
 			return buildMonitorSection(monitorState);
 		},
+		observe(state: LaunchpadState) {
+			return projectMonitorMetrics(state.plugins.monitor, configuredAppNames);
+		},
 		setup(ctx: PluginContext<MonitorState>) {
 			const configResult = monitorConfigSchema.safeParse(config);
 			if (!configResult.success) {
@@ -309,8 +315,12 @@ export function monitor(config: MonitorConfig) {
 			const stateManager = new MonitorStateManager(ctx.updateState);
 
 			// Initialize app states
+			configuredAppNames.clear();
 			for (const appConf of resolvedConfig.apps) {
-				if (appConf.pm2.name) stateManager.initializeApp(appConf.pm2.name);
+				if (appConf.pm2.name) {
+					configuredAppNames.add(appConf.pm2.name);
+					stateManager.initializeApp(appConf.pm2.name);
+				}
 				busManager.initAppLogging(appConf);
 			}
 

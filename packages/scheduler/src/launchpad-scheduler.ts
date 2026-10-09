@@ -9,6 +9,7 @@ import { SchedulerError } from "./errors.js";
 import { type SchedulerCommand, schedulerCommandSchema } from "./scheduler-commands.js";
 import { type SchedulerConfig, schedulerConfigSchema } from "./scheduler-config.js";
 import { SchedulerEngine } from "./scheduler-engine.js";
+import { projectSchedulerMetrics } from "./scheduler-metrics.js";
 import { type SchedulerState, SchedulerStateManager } from "./scheduler-state.js";
 import { buildSchedulerSection } from "./scheduler-summarize.js";
 
@@ -17,6 +18,8 @@ import { buildSchedulerSection } from "./scheduler-summarize.js";
  * Use this in your launchpad config's plugins array.
  */
 export function scheduler(config: SchedulerConfig) {
+	const configuredJobIds = new Set<string>();
+
 	return definePlugin({
 		name: "scheduler",
 		manifest: {
@@ -32,6 +35,9 @@ export function scheduler(config: SchedulerConfig) {
 			const section = buildSchedulerSection(schedulerState);
 			return section.rows.length > 0 ? section : null;
 		},
+		observe(state: LaunchpadState) {
+			return projectSchedulerMetrics(state.plugins.scheduler, configuredJobIds);
+		},
 		setup(ctx: PluginContext<SchedulerState>) {
 			const configResult = schedulerConfigSchema.safeParse(config);
 			if (!configResult.success) {
@@ -39,6 +45,9 @@ export function scheduler(config: SchedulerConfig) {
 					new SchedulerError("Invalid scheduler configuration", { cause: configResult.error }),
 				);
 			}
+
+			configuredJobIds.clear();
+			for (const jobId of Object.keys(configResult.data)) configuredJobIds.add(jobId);
 
 			const stateManager = new SchedulerStateManager(ctx.updateState);
 			const engine = new SchedulerEngine(

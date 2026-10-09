@@ -96,6 +96,8 @@ export type VersioningSnapshot = { keepVersions: number } | false;
 
 export type ContentState = ContentPhase & {
 	sources: Record<string, SourceFetchState>;
+	/** Latest successful fetch completion retained across later fetching and error states. */
+	sourceLastSuccessAt?: Record<string, Date>;
 	retention?: RetentionState;
 	versioning: VersioningSnapshot;
 };
@@ -155,6 +157,8 @@ export class ContentStateManager {
 					duration: finishedAt.getTime() - source.startTime.getTime(),
 				};
 				draft.sources[sourceId] = newState;
+				draft.sourceLastSuccessAt ??= {};
+				draft.sourceLastSuccessAt[sourceId] = finishedAt;
 			}
 		});
 	}

@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as fsPromises from "node:fs/promises";
 import {
 	mkdir,
@@ -20,7 +21,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.unmock("fs");
 vi.unmock("fs/promises");
-vi.unmock("node:fs");
+vi.mock("node:fs", async (importOriginal) => ({
+	...(await importOriginal<typeof import("node:fs")>()),
+}));
 vi.mock("node:fs/promises", async (importOriginal) => ({
 	...(await importOriginal<typeof import("node:fs/promises")>()),
 }));
@@ -66,6 +69,56 @@ afterEach(async () => {
 });
 
 describe("log file source", () => {
+	it("synchronizes metadata, checkpoints, and both log files with writable handles", async () => {
+		const originalOpenSync = fs.openSync;
+		const originalFsyncSync = fs.fsyncSync;
+		const originalOpen = fsPromises.open;
+		const descriptorFlags = new Map<number, Parameters<typeof fs.openSync>[1]>();
+		const synchronizedFlags: Parameters<typeof fs.openSync>[1][] = [];
+		const synchronizedPaths: string[] = [];
+		vi.spyOn(fs, "openSync").mockImplementation((filePath, flags, mode) => {
+			const descriptor = originalOpenSync(filePath, flags, mode);
+			descriptorFlags.set(descriptor, flags);
+			return descriptor;
+		});
+		vi.spyOn(fs, "fsyncSync").mockImplementation((descriptor) => {
+			synchronizedFlags.push(descriptorFlags.get(descriptor) ?? "unknown");
+			originalFsyncSync(descriptor);
+		});
+		vi.spyOn(fsPromises, "open").mockImplementation(async (filePath, flags, mode) => {
+			const handle = await originalOpen(filePath, flags, mode);
+			const originalSync = handle.sync.bind(handle);
+			vi.spyOn(handle, "sync").mockImplementation(async () => {
+				synchronizedFlags.push(flags ?? "r");
+				synchronizedPaths.push(String(filePath));
+				await originalSync();
+			});
+			return handle;
+		});
+
+		const owner = createLogFileSource({ directory: await temporaryDirectory() });
+		try {
+			expect(fs.fsyncSync).toHaveBeenCalled();
+			expect(owner.append(record("writable flush"), "human line")).toBe(true);
+			const through = await owner.source.flush(activeSignal());
+			const reader = await owner.source.createReader({ checkpointId: "writable" }, activeSignal());
+			const batch = await reader.read({
+				maxEntries: 10,
+				maxBytes: 1_000_000,
+				through,
+				signal: activeSignal(),
+			});
+			await reader.ack(batch.receipt, activeSignal());
+			await reader.close(activeSignal());
+		} finally {
+			await owner.close(activeSignal());
+		}
+		expect(synchronizedPaths.some((filePath) => filePath.includes(".tmp-"))).toBe(true);
+		expect(synchronizedPaths.some((filePath) => filePath.endsWith(".jsonl"))).toBe(true);
+		expect(synchronizedPaths.some((filePath) => filePath.endsWith(".log"))).toBe(true);
+		expect(new Set(synchronizedFlags)).toEqual(new Set(["r+"]));
+	});
+
 	it("appends complete canonical JSONL, reads it through a checkpointed reader, and reopens", async () => {
 		const directory = await temporaryDirectory();
 		const source = createLogFileSource({

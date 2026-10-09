@@ -145,8 +145,16 @@ sidebar:
         link: reference/observability
         items:
           - reference/observability/observability-config
+          - reference/observability/signals
+          - label: Destinations
+            items:
+              - reference/observability/destinations/otlp
+              - reference/observability/destinations/loki
+              - reference/observability/custom-destinations
+          - reference/observability/privacy
+          - reference/observability/migration
           - reference/observability/events
-          - label: Transports
+          - label: Legacy transports
             items:
               - reference/observability/transports/loki
 

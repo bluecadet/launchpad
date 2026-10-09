@@ -120,6 +120,39 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).not.toContain("scheduler(");
 	});
 
+	it("does not scaffold remote observability by default", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+
+		expect(result).not.toContain("@bluecadet/launchpad/observability");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_ENDPOINT");
+		expect(result).not.toContain("observability(");
+	});
+
+	it("generates env-backed OTLP observability when selected", () => {
+		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+
+		expect(result).toContain("import { observability } from '@bluecadet/launchpad/observability';");
+		expect(result).toContain(
+			"import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';",
+		);
+		expect(result).toContain("endpoint: observabilityEndpoint");
+		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN");
+		expect(result).toContain("client: observabilityClient");
+		expect(result).toContain("project: observabilityProject");
+		expect(result).toContain("installation: observabilityInstallation");
+		expect(result).toContain("environment: observabilityEnvironment");
+		expect(result).not.toContain("your-token");
+		expect(result).not.toContain("production'");
+	});
+
+	it("conditionally omits the observability plugin until required variables are set", () => {
+		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+
+		expect(result).toContain("observabilityEndpoint &&");
+		expect(result).toContain("observabilityEnvironment");
+		expect(result).toContain("...(observabilityPlugin ? [observabilityPlugin] : [])");
+	});
+
 	it("includes a commented-out versioning hint with the guide link when content is selected alone", () => {
 		const result = generateLaunchpadConfig({
 			...baseAnswers,

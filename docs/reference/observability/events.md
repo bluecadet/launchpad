@@ -1,7 +1,7 @@
 ---
 title: "Observability Events"
 ---
-The observability plugin emits events on the controller event bus to report the health of its transports. Subscribe to these events to build alerting, dashboards, or custom failure handling.
+These events report delivery by the legacy `{ transports }` mode. Destination mode exposes per-signal delivery state instead and does not emit the transport events below.
 
 All events are fully type-safe through TypeScript declaration merging.
 
@@ -102,4 +102,4 @@ eventBus.on('observability:buffer:full', (data) => {
 
 - [Observability Config](./observability-config.md) — configure retry limits and buffer size
 - [Controller Events](../controller/events.md) — core system events also forwarded by default
-- [Monitor Events](../monitor/events.md) — monitor events forwarded by default
+- [Monitor Events](../monitor/events.md) — add `monitor:*` to `include` to forward monitor events

@@ -175,6 +175,14 @@
       "types": "./dist/observability/transports/loki.d.ts",
       "default": "./dist/observability/transports/loki.js"
     },
+    "./observability/destinations/loki": {
+      "types": "./dist/observability/destinations/loki.d.ts",
+      "default": "./dist/observability/destinations/loki.js"
+    },
+    "./observability/destinations/otlp": {
+      "types": "./dist/observability/destinations/otlp.d.ts",
+      "default": "./dist/observability/destinations/otlp.js"
+    },
     "./observability/config": {
       "types": "./dist/observability/config.d.ts",
       "default": "./dist/observability/config.js"

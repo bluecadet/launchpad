@@ -1,7 +1,7 @@
 ---
 title: "Loki Transport"
 ---
-The built-in Loki transport delivers log batches to [Grafana Loki](https://grafana.com/oss/loki/) via its HTTP push API (`/loki/api/v1/push`).
+The built-in Loki transport delivers legacy plain-text log batches to [Grafana Loki](https://grafana.com/oss/loki/) via its HTTP push API (`/loki/api/v1/push`). It remains available for compatibility. New deployments should use the [structured Loki destination](../destinations/loki.md); review the [migration guide](../migration.md) before switching an existing stream.
 
 ## Usage
 

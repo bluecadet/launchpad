@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts"
+    "dist/**/*.d.ts",
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "exports": {
     ".": {
@@ -59,6 +60,7 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~3.2.0",
     "neverthrow": "^8.2.0",
+    "protobufjs": "^8.8.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

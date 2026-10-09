@@ -6,16 +6,30 @@ title: "Observability Config"
 
 ## Destination mode
 
+File policy belongs to the controller; observability only chooses whether a destination reads the canonical file:
+
+```typescript
+export default defineConfig({
+  controller: {
+    logging: {
+      dirname: '.logs',
+      text: { enabled: true, level: 'info' },
+    },
+  },
+  plugins: [
+    observability({
+      destinations: [destination],
+      logStorage: { type: 'file' },
+    }),
+  ],
+});
+```
+
+Omit `logStorage` to keep the existing in-memory path. The remaining destination options are independent of the controller's file policy:
+
 ```typescript
 observability({
-  resource: {
-    'service.name': 'museum-kiosk',
-    'launchpad.client': 'museum',
-    'launchpad.project': 'west-wing',
-    'launchpad.installation': 'lobby-kiosk',
-    'deployment.environment.name': 'production',
-    region: 'us-east',
-  },
+  resource: { 'service.name': 'museum-kiosk' },
   destinations: [destination],
   include: ['log:*'],
   exclude: [],
@@ -55,7 +69,23 @@ Resource attributes and metric-point attributes are separate scopes. Resource at
 
 **Required:** Yes
 
-At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics. The name `__proto__` is rejected.
+At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics and file-delivery checkpoints. The name `__proto__` is rejected.
+
+### `logStorage`
+
+**Type:** `{ type: 'file' }`
+
+**Required:** No
+
+Selects checkpointed delivery from the controller-owned canonical JSONL log. When omitted, logs use the existing bounded in-memory batching path.
+
+File delivery is available only in destination mode and only for destinations with a log exporter. Legacy `transports` reject this option. The logging owner controls the directory, format, rotation, and retention; `logStorage` does not accept directory, size, or age settings.
+
+Each destination reads independently. A newly enrolled destination starts at the oldest canonical record still retained. After an acknowledged export, an atomic checkpoint records its progress. Restarting with the same destination `name`, credential-free `checkpointKey`, and controller log source resumes from that checkpoint. Built-in Loki and OTLP destinations derive the key from their normalized endpoint. Changing the name or endpoint enrolls a new reader at the oldest retained record. Rotating a token or headers keeps the existing checkpoint.
+
+For endpoints shared by multiple accounts, such as a common Grafana gateway, credentials are deliberately excluded from checkpoint identity. Change the destination name when switching accounts so the new account does not inherit the old account's delivery position.
+
+File delivery preserves each record's original timestamp and resource snapshot. Metrics remain current in-memory snapshots and are not reconstructed from the log.
 
 ### `include`
 
@@ -86,9 +116,9 @@ Event-name patterns to suppress. Exclusions take precedence over inclusions.
 | Field | Type | Default | Meaning |
 |---|---|---:|---|
 | `maxBatches` | `number` | `50` | Failed-log batch limit in legacy transport mode |
-| `maxRetries` | `number` | `3` | Log retry limit in either mode |
+| `maxRetries` | `number` | `3` | Log retry limit in memory delivery and the retry attempt limit for a file-backed batch |
 
-In destination mode, `delivery.maxQueuedBatches` bounds each signal queue. Metric batches coalesce to the latest queued observation and are not retried.
+In destination mode, `delivery.maxQueuedBatches` bounds each in-memory signal queue. Metric batches coalesce to the latest queued observation and are not retried. File-backed logs remain available from the canonical log until their checkpoint advances or controller retention removes them. Queue limits do not create a second sidecar or spool.
 
 ### `metrics`
 
@@ -117,4 +147,4 @@ observability({
 });
 ```
 
-Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, and `delivery` options belong to destination mode and are rejected in legacy mode. See [Migrate from transports](./migration.md) before switching an existing deployment.
+Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, `delivery`, and `logStorage` options belong to destination mode and are rejected in legacy mode. See [Migrate from transports](./migration.md) before switching an existing deployment.

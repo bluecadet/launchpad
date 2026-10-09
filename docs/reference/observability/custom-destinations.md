@@ -7,6 +7,7 @@ Implement `ObservabilityDestination` when a backend is not covered by Loki or OT
 ```typescript
 interface ObservabilityDestination {
   readonly name: string;
+  readonly checkpointKey?: string;
   readonly create: (
     context: DestinationContext,
   ) => Result<DestinationExporters, ExportFailure>;
@@ -29,10 +30,16 @@ interface DestinationExporters {
 }
 
 interface LogExporter {
+  readonly supportsResourceContext?: true;
   export(
     records: readonly LogEntry[],
-    context: ExportContext,
+    context: LogExportContext,
   ): ResultAsync<ExportResult, ExportFailure>;
+}
+
+interface LogExportContext extends ExportContext {
+  readonly resourceAttributes?: ResourceAttributes;
+  readonly recordFormat?: 'canonical';
 }
 
 interface MetricExporter {
@@ -48,7 +55,7 @@ interface MetricExporter {
 
 The `AbortSignal` in each `ExportContext` is cancelled when the configured delivery deadline expires. Pass it to `fetch` and any other cancellable I/O.
 
-Return `{ rejectedRecords: 0 }` after accepting an entire batch. A nonzero count is a terminal rejection of that many records; accepted records must not be retried.
+Return `{ rejectedRecords: 0 }` after accepting an entire batch. A nonzero count is a terminal result for the whole batch: Launchpad counts accepted and rejected records, then acknowledges the batch. The protocol does not identify individual rejected records, so Launchpad does not retry them separately.
 
 Map failures to `ExportFailure`:
 
@@ -60,6 +67,21 @@ type ExportFailure = Error & {
 ```
 
 Set `retryable: false` for a permanent failure. A retryable backend can provide `retryAfterMs` as a hint. Do not throw from `create()`, `export()`, or `shutdown()`; return `Result` or `ResultAsync`.
+
+## File-delivery support
+
+A custom destination used with `logStorage: { type: 'file' }` must provide both:
+
+- a stable, credential-free `checkpointKey` on the destination; and
+- `supportsResourceContext: true` on its log exporter.
+
+The checkpoint identity combines the destination name, checkpoint key, and controller log source. Base the key on the logical target, such as a normalized endpoint. Do not include tokens, passwords, authorization headers, or the destination's complete configuration. Keep it stable across ordinary credential rotation. Change the destination name when two accounts share one endpoint but require separate delivery histories.
+
+During replay, `LogExportContext.resourceAttributes` contains the resource snapshot stored with that batch. A compatible exporter must use it instead of only the setup-time resource from `DestinationContext`. This prevents a restarted process from relabeling historical logs with its new runtime identity. Built-in Loki and OTLP destinations implement both requirements.
+
+The file-delivery runtime also sets `recordFormat: 'canonical'` for trusted, validated central-source records alongside their historical resource snapshot. These records have already been normalized and redacted; exporters may preserve their resource and nested metadata without normalizing them again. This is an exporter context flag, not a user configuration option. Omit it for raw entries: a resource override alone does not make records canonical, and the default export path still normalizes and redacts them.
+
+Without file delivery, `checkpointKey`, `supportsResourceContext`, and the per-call resource are optional for backward compatibility.
 
 ## Design limits
 

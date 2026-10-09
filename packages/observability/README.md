@@ -34,6 +34,8 @@ export default defineConfig({
           token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined,
         }),
       ],
+      // Optional: use the controller's retained canonical log and checkpoints.
+      logStorage: { type: 'file' },
     }),
   ],
 });
@@ -45,7 +47,7 @@ The OTLP destination uses native `fetch` and sends logs and metrics to `/v1/logs
 
 The destination defaults to both signals. Metrics default to a 30-second observation interval and are independent of log event filters.
 
-No telemetry is sent to Bluecadet automatically. Delivery is bounded and best effort: queues are in memory, requests and shutdown have deadlines, and records can be dropped. Review application logs and destination retention before enabling export; key-based redaction cannot detect every secret.
+No telemetry is sent to Bluecadet automatically. When `logStorage` is omitted, logs use bounded in-memory queues. `{ type: 'file' }` opts destinations into the controller's retained canonical JSONL and atomic checkpoints, preserving original timestamps and resource snapshots across replay. It is not exactly once or lossless: ambiguous acknowledgements can duplicate records, and retention, disk failures, or backend rejection can lose them. Metrics remain latest-state in-memory snapshots. Review application logs and destination retention before enabling export; key-based redaction cannot detect every secret.
 
 ## Loki
 

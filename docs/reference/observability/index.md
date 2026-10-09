@@ -28,6 +28,8 @@ export default defineConfig({
       // Optional. Omit resource to use service.name = 'launchpad'.
       resource: { 'service.name': 'museum-kiosk' },
       destinations: [createOtlpDestination({ endpoint, encoding: 'protobuf', token })],
+      // Optional: resume retained logs after restart.
+      logStorage: { type: 'file' },
     }),
   ],
 });
@@ -51,7 +53,7 @@ Log selection uses `include` and `exclude`; the default is `include: ['log:*']`.
 
 Gauges describe the state observed at collection time. They are not health checks, desired state, or evidence that every expected machine or app exists. In particular, Launchpad does not export an overall content-freshness or generated-at guarantee.
 
-Delivery is best effort. Queues are bounded in memory, requests have deadlines, and shutdown has a separate deadline. A process exit, full queue, expired deadline, or permanently rejected record can lose telemetry. Configure durable buffering in the collector when delivery guarantees matter.
+By default, delivery uses bounded in-memory queues. Add `logStorage: { type: 'file' }` to deliver logs from the controller-owned canonical JSONL with a durable checkpoint per destination. File delivery can replay retained logs after restart, but retention, disk failures, backend rejection, and ambiguous acknowledgements still prevent exactly-once or lossless guarantees. Metrics remain latest-state in-memory snapshots.
 
 ## Next steps
 

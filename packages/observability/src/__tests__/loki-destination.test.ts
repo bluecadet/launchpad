@@ -559,6 +559,60 @@ describe("createLokiDestination", () => {
 		expect(result._unsafeUnwrapErr()).toMatchObject({ retryable: false });
 	});
 
+	it.each([200, 503])(
+		"initiates streamed HTTP %i response cancellation without waiting",
+		async (status) => {
+			const cancelStarted = Promise.withResolvers<void>();
+			const cancelFinished = Promise.withResolvers<void>();
+			const streamedResponse = new Response(
+				new ReadableStream({
+					cancel() {
+						cancelStarted.resolve();
+						return cancelFinished.promise;
+					},
+				}),
+				{ status },
+			);
+			fetchMock.mockResolvedValue(streamedResponse);
+			let settled = false;
+			const resultPromise = Promise.resolve(
+				logExporter().export([logEntry()], {
+					signal: new AbortController().signal,
+				}),
+			).then((result) => {
+				settled = true;
+				return result;
+			});
+			await cancelStarted.promise;
+			try {
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				expect(settled).toBe(true);
+			} finally {
+				cancelFinished.resolve();
+			}
+			const result = await resultPromise;
+			expect(result.isOk()).toBe(status === 200);
+			expect(streamedResponse.bodyUsed).toBe(true);
+		},
+	);
+
+	it.each([
+		{ url: "not-a-url" },
+		{ url: "ftp://private.example" },
+		{ url: "https://user:secret@private.example" },
+		{ url: "https://private.example?token=secret" },
+		{ url: "https://private.example", headers: { "bad header": "secret" } },
+		{ url: "https://private.example", auth: { type: "bearer", token: "secret\nvalue" } },
+	] satisfies LokiDestinationConfig[])("reports invalid config only from create", (config) => {
+		const destination = createLokiDestination(config);
+		const failure = destination.create({ resourceAttributes })._unsafeUnwrapErr();
+		expect(failure).toMatchObject({
+			message: "Invalid Loki destination configuration",
+			retryable: false,
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it("preserves the legacy transport wire body byte-for-byte", async () => {
 		const transport = createLokiTransport({
 			url: "http://localhost:3100",

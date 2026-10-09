@@ -15,6 +15,8 @@ const destination = createOtlpDestination({ endpoint, encoding: 'protobuf' });
 
 The factory returns an inert destination definition. Configuration is validated when the observability plugin calls `destination.create()` during setup. Invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result` rather than catching factory exceptions.
 
+An explicitly supplied `token` must be nonblank. For an optional environment variable, normalize missing or whitespace-only values to `undefined` while preserving configured token bytes: `token: token?.trim() ? token : undefined`. The generated Launchpad config does this automatically.
+
 ## Options
 
 | Option | Type | Default | Meaning |

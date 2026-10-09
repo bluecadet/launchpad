@@ -1,8 +1,17 @@
 import { err, type Result, type ResultAsync } from "neverthrow";
 import type { ExportFailure, ExportResult } from "./destination.js";
+import { DestinationFailure } from "./export-failure.js";
 
 type DeliveryQueueMode = "retry" | "coalesce";
-type DeliveryDropReason = "queue-full" | "max-retries" | "rejected" | "invalid-ack" | "shutdown";
+type DeliveryDropReason = "queue-full" | "shutdown";
+
+/** One completed queue mutation, published after retry and eviction decisions. */
+export type DeliveryTransition = { readonly queuedBatches: number } & (
+	| { readonly type: "queue" }
+	| { readonly type: "drop"; readonly droppedRecords: number; readonly reason: DeliveryDropReason }
+	| { readonly type: "export"; readonly acceptedRecords: number; readonly rejectedRecords: number }
+	| { readonly type: "failure"; readonly error: ExportFailure; readonly droppedRecords: number }
+);
 
 export interface DeliveryQueueOptions<T> {
 	readonly mode: DeliveryQueueMode;
@@ -11,10 +20,7 @@ export interface DeliveryQueueOptions<T> {
 	readonly deliveryTimeoutMs: number;
 	readonly countRecords: (batch: T) => number;
 	readonly deliver: (batch: T, signal: AbortSignal) => ResultAsync<ExportResult, ExportFailure>;
-	readonly onSuccess?: (acceptedRecords: number, rejectedRecords: number) => void;
-	readonly onError?: (error: ExportFailure, queuedBatches: number) => void;
-	readonly onDrop?: (records: number, reason: DeliveryDropReason) => void;
-	readonly onQueueSize?: (queuedBatches: number) => void;
+	readonly onTransition?: (transition: DeliveryTransition) => void;
 }
 
 type PendingBatch<T> = {
@@ -45,7 +51,7 @@ function toExportFailure(value: unknown, fallbackMessage: string): ExportFailure
 }
 
 function timeoutFailure(timeoutMs: number): ExportFailure {
-	return Object.assign(new Error(`Destination delivery timed out after ${timeoutMs}ms`), {
+	return new DestinationFailure(`Destination delivery timed out after ${timeoutMs}ms`, {
 		retryable: true,
 	});
 }
@@ -59,19 +65,6 @@ function hasValidRejectedRecords(
 		result.rejectedRecords >= 0 &&
 		result.rejectedRecords <= totalRecords
 	);
-}
-
-function invalidAcknowledgementFailure(): ExportFailure {
-	return Object.assign(
-		new Error("Destination exporter returned an invalid rejectedRecords count"),
-		{
-			retryable: false,
-		},
-	);
-}
-
-function totalRejectionFailure(): ExportFailure {
-	return Object.assign(new Error("Destination rejected all records"), { retryable: false });
 }
 
 /**
@@ -90,7 +83,12 @@ export class DeliveryQueue<T> {
 
 	enqueue(batch: T): boolean {
 		if (this.closed) {
-			this.options.onDrop?.(this.options.countRecords(batch), "shutdown");
+			this.options.onTransition?.({
+				type: "drop",
+				queuedBatches: this.pending.length,
+				droppedRecords: this.options.countRecords(batch),
+				reason: "shutdown",
+			});
 			return false;
 		}
 
@@ -104,15 +102,21 @@ export class DeliveryQueue<T> {
 			readyAt: Date.now(),
 		};
 
+		let droppedRecords = 0;
 		if (this.options.mode === "coalesce" && this.pending.length > 0) {
 			const replaced = this.pending.splice(0);
 			for (const stale of replaced) stale.completion.resolve();
 			this.pending.push(pendingBatch);
 		} else {
-			this.makeRoomFor(pendingBatch);
+			droppedRecords = this.evictOldestIfFull();
+			this.pending.push(pendingBatch);
 		}
 
-		this.notifyQueueSize();
+		this.options.onTransition?.(
+			droppedRecords > 0
+				? { type: "drop", queuedBatches: this.pending.length, droppedRecords, reason: "queue-full" }
+				: { type: "queue", queuedBatches: this.pending.length },
+		);
 		this.pump();
 		return true;
 	}
@@ -142,26 +146,29 @@ export class DeliveryQueue<T> {
 			this.wakeTimer = null;
 		}
 		this.attemptController?.abort();
+		let droppedRecords = 0;
 		for (const pending of this.pending.splice(0)) {
-			this.options.onDrop?.(this.options.countRecords(pending.batch), "shutdown");
+			droppedRecords += this.options.countRecords(pending.batch);
 			pending.completion.resolve();
 		}
-		this.notifyQueueSize();
+		this.options.onTransition?.({
+			type: "drop",
+			queuedBatches: 0,
+			droppedRecords,
+			reason: "shutdown",
+		});
 	}
 
 	get queuedBatches(): number {
 		return this.pending.length;
 	}
 
-	private makeRoomFor(incoming: PendingBatch<T>): void {
-		if (this.pending.length >= this.options.maxQueuedBatches) {
-			const dropped = this.pending.shift();
-			if (dropped) {
-				this.options.onDrop?.(this.options.countRecords(dropped.batch), "queue-full");
-				dropped.completion.resolve();
-			}
-		}
-		this.pending.push(incoming);
+	private evictOldestIfFull(): number {
+		if (this.pending.length < this.options.maxQueuedBatches) return 0;
+		const dropped = this.pending.shift();
+		if (!dropped) return 0;
+		dropped.completion.resolve();
+		return this.options.countRecords(dropped.batch);
 	}
 
 	private pump(): void {
@@ -181,7 +188,7 @@ export class DeliveryQueue<T> {
 		}
 
 		this.pending.shift();
-		this.notifyQueueSize();
+		this.options.onTransition?.({ type: "queue", queuedBatches: this.pending.length });
 		this.inFlight = true;
 		void this.attempt(next).then((result) => {
 			this.inFlight = false;
@@ -213,7 +220,10 @@ export class DeliveryQueue<T> {
 		});
 		const stopped = new Promise<AttemptOutcome>((resolve) => {
 			const onAbort = () =>
-				resolve({ source: "deadline", result: err(new Error("Destination delivery aborted")) });
+				resolve({
+					source: "deadline",
+					result: err(new DestinationFailure("Destination delivery aborted", { retryable: false })),
+				});
 			controller.signal.addEventListener("abort", onAbort, { once: true });
 			removeAbortListener = () => controller.signal.removeEventListener("abort", onAbort);
 		});
@@ -255,59 +265,56 @@ export class DeliveryQueue<T> {
 		const records = this.options.countRecords(pending.batch);
 		if (result.isOk()) {
 			if (!hasValidRejectedRecords(result.value, records)) {
-				this.options.onError?.(invalidAcknowledgementFailure(), this.pending.length);
-				this.options.onDrop?.(records, "invalid-ack");
+				this.options.onTransition?.({
+					type: "failure",
+					queuedBatches: this.pending.length,
+					droppedRecords: records,
+					error: new DestinationFailure(
+						"Destination exporter returned an invalid rejectedRecords count",
+						{ retryable: false },
+					),
+				});
 				pending.completion.resolve();
 				return;
 			}
 			const rejected = result.value.rejectedRecords;
-			const accepted = records - rejected;
-			if (accepted > 0) {
-				this.options.onSuccess?.(accepted, rejected);
-			} else if (rejected > 0) {
-				this.options.onError?.(totalRejectionFailure(), this.pending.length);
-			}
-			if (rejected > 0) this.options.onDrop?.(rejected, "rejected");
+			this.options.onTransition?.({
+				type: "export",
+				queuedBatches: this.pending.length,
+				acceptedRecords: records - rejected,
+				rejectedRecords: rejected,
+			});
 			pending.completion.resolve();
 			return;
 		}
 
-		this.options.onError?.(result.error, this.pending.length);
 		const shouldRetry =
 			this.options.mode === "retry" &&
 			result.error.retryable !== false &&
 			pending.attempt < this.options.maxRetries &&
 			!this.closed;
-		if (!shouldRetry) {
-			this.options.onDrop?.(records, "max-retries");
+		let droppedRecords = records;
+		if (shouldRetry) {
+			droppedRecords = this.evictOldestIfFull();
+			this.pending.unshift({
+				...pending,
+				attempt: pending.attempt + 1,
+				readyAt: Date.now() + this.retryDelay(pending.attempt, result.error.retryAfterMs),
+			});
+		} else {
 			pending.completion.resolve();
-			return;
 		}
-
-		const retryDelay = this.retryDelay(pending.attempt, result.error.retryAfterMs);
-		const retry: PendingBatch<T> = {
-			...pending,
-			attempt: pending.attempt + 1,
-			readyAt: Date.now() + retryDelay,
-		};
-		if (this.pending.length >= this.options.maxQueuedBatches) {
-			const dropped = this.pending.shift();
-			if (dropped) {
-				this.options.onDrop?.(this.options.countRecords(dropped.batch), "queue-full");
-				dropped.completion.resolve();
-			}
-		}
-		this.pending.unshift(retry);
-		this.notifyQueueSize();
+		this.options.onTransition?.({
+			type: "failure",
+			queuedBatches: this.pending.length,
+			error: result.error,
+			droppedRecords,
+		});
 	}
 
 	private retryDelay(attempt: number, retryAfterMs: number | undefined): number {
 		const exponentialDelay = Math.min(2 ** attempt * 1_000, MAX_RETRY_DELAY_MS);
 		if (retryAfterMs === undefined || !Number.isFinite(retryAfterMs)) return exponentialDelay;
 		return Math.min(Math.max(0, retryAfterMs), MAX_RETRY_DELAY_MS);
-	}
-
-	private notifyQueueSize(): void {
-		this.options.onQueueSize?.(this.pending.length);
 	}
 }

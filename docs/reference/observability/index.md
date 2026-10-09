@@ -16,7 +16,7 @@ import { observability } from '@bluecadet/launchpad/observability';
 import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';
 
 const endpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
-const token = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN;
+const token = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined;
 
 if (!endpoint) {
   throw new Error('LAUNCHPAD_OBSERVABILITY_ENDPOINT is required');

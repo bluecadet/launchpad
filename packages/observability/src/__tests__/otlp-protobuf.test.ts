@@ -3,6 +3,18 @@ import { decodeOtlpProtobufResponse, encodeOtlpProtobufRequest } from "../core/o
 import { wireFixtures } from "./fixtures/otlp-protobuf/wire-fixtures.js";
 
 describe("OTLP protobuf request encoding", () => {
+	it("sanitizes protobuf library encoding failures into permanent Results", () => {
+		const payload = {
+			get resourceLogs() {
+				throw new Error("private library input");
+			},
+		};
+		expect(encodeOtlpProtobufRequest("logs", payload)._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP export payload could not be encoded",
+			retryable: false,
+		});
+	});
+
 	it("matches the official logs fixture for 64-bit values and nested AnyValue data", () => {
 		const payload = {
 			resourceLogs: [
@@ -56,7 +68,7 @@ describe("OTLP protobuf request encoding", () => {
 			],
 		};
 
-		const encoded = encodeOtlpProtobufRequest("logs", payload);
+		const encoded = encodeOtlpProtobufRequest("logs", payload)._unsafeUnwrap();
 
 		expect(encoded).toEqual(wireFixtures.logsRequest);
 		expect(encoded.buffer).toBeInstanceOf(ArrayBuffer);
@@ -104,19 +116,25 @@ describe("OTLP protobuf request encoding", () => {
 			],
 		};
 
-		expect(encodeOtlpProtobufRequest("metrics", payload)).toEqual(wireFixtures.metricsRequest);
+		expect(encodeOtlpProtobufRequest("metrics", payload)._unsafeUnwrap()).toEqual(
+			wireFixtures.metricsRequest,
+		);
 	});
 });
 
 describe("OTLP protobuf response decoding", () => {
 	it("preserves large and negative signed log rejection counts as decimal strings", () => {
-		expect(decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseLarge)).toEqual({
+		expect(
+			decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseLarge)._unsafeUnwrap(),
+		).toEqual({
 			partialSuccess: {
 				rejectedLogRecords: "9223372036854775807",
 				errorMessage: "large count",
 			},
 		});
-		expect(decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseNegative)).toEqual({
+		expect(
+			decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseNegative)._unsafeUnwrap(),
+		).toEqual({
 			partialSuccess: {
 				rejectedLogRecords: "-1",
 				errorMessage: "invalid negative count",
@@ -125,7 +143,9 @@ describe("OTLP protobuf response decoding", () => {
 	});
 
 	it("preserves a metric rejection count above Number.MAX_SAFE_INTEGER", () => {
-		expect(decodeOtlpProtobufResponse("metrics", wireFixtures.metricsResponseLarge)).toEqual({
+		expect(
+			decodeOtlpProtobufResponse("metrics", wireFixtures.metricsResponseLarge)._unsafeUnwrap(),
+		).toEqual({
 			partialSuccess: {
 				rejectedDataPoints: "9007199254740993",
 				errorMessage: "partial",
@@ -134,8 +154,10 @@ describe("OTLP protobuf response decoding", () => {
 	});
 
 	it("treats an empty response as success and ignores unknown fields", () => {
-		expect(decodeOtlpProtobufResponse("logs", new Uint8Array())).toEqual({});
-		expect(decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseLargeUnknown)).toEqual({
+		expect(decodeOtlpProtobufResponse("logs", new Uint8Array())._unsafeUnwrap()).toEqual({});
+		expect(
+			decodeOtlpProtobufResponse("logs", wireFixtures.logsResponseLargeUnknown)._unsafeUnwrap(),
+		).toEqual({
 			partialSuccess: {
 				rejectedLogRecords: "9223372036854775807",
 				errorMessage: "large count",
@@ -143,13 +165,21 @@ describe("OTLP protobuf response decoding", () => {
 		});
 	});
 
-	it("throws for a truncated protobuf response", () => {
+	it("returns a permanent sanitized Result for a truncated protobuf response", () => {
 		const complete = wireFixtures.logsResponseNegative;
 		const truncated = complete.subarray(0, complete.byteLength - 1);
 		const unterminatedInt64 = Uint8Array.from([0x0a, 0x05, 0x08, 0x80, 0x80, 0x80, 0x80]);
 
-		expect(() => decodeOtlpProtobufResponse("logs", truncated)).toThrow();
-		expect(() => decodeOtlpProtobufResponse("logs", unterminatedInt64)).toThrow();
-		expect(() => decodeOtlpProtobufResponse("metrics", unterminatedInt64)).toThrow();
+		expect(decodeOtlpProtobufResponse("logs", truncated)._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP response was malformed",
+			retryable: false,
+		});
+		expect(decodeOtlpProtobufResponse("logs", unterminatedInt64)._unsafeUnwrapErr()).toMatchObject({
+			message: "OTLP response was malformed",
+			retryable: false,
+		});
+		expect(
+			decodeOtlpProtobufResponse("metrics", unterminatedInt64)._unsafeUnwrapErr(),
+		).toMatchObject({ message: "OTLP response was malformed", retryable: false });
 	});
 });

@@ -19,7 +19,7 @@ npm install @bluecadet/launchpad-controller
 
 ## Logging
 
-The controller is the single owner of local log normalization, redaction, files, rotation, retention, and the logging-directory lease. The default `.logs` directory contains canonical segmented JSONL plus a default-on text view at `info` and above. Observability can opt into checkpointed delivery from the canonical source without creating a sidecar spool.
+The controller is the single owner of local log normalization, redaction, files, rotation, retention, and the logging-directory lease. The default `.logs` directory contains canonical segmented JSONL plus a default-on text view at `info` and above. Configured observability destinations default to checkpointed delivery from the canonical source without creating a sidecar spool.
 
 See the [controller logging reference](https://launchpad.bluecadet.com/reference/controller/logging/) for configuration and migration details.
 

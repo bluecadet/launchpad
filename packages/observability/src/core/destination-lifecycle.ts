@@ -80,7 +80,7 @@ export function createExporters(
 					);
 				}
 				if (
-					config.logStorage !== false &&
+					config.logStorage.type === "file" &&
 					result.value.logs &&
 					(result.value.logs.supportsResourceContext !== true ||
 						typeof destination.checkpointKey !== "string" ||

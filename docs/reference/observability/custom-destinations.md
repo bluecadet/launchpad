@@ -70,7 +70,7 @@ Set `retryable: false` for a permanent failure. A retryable backend can provide 
 
 ## File-delivery support
 
-A custom destination used with `logStorage: { type: 'file' }` must provide both:
+File delivery is the default when `logStorage` is omitted, as well as when `{ type: 'file' }` is explicit. A custom destination with a log exporter must provide both:
 
 - a stable, credential-free `checkpointKey` on the destination; and
 - `supportsResourceContext: true` on its log exporter.
@@ -81,7 +81,9 @@ During replay, `LogExportContext.resourceAttributes` contains the resource snaps
 
 The file-delivery runtime also sets `recordFormat: 'canonical'` for trusted, validated central-source records alongside their historical resource snapshot. These records have already been normalized and redacted; exporters may preserve their resource and nested metadata without normalizing them again. This is an exporter context flag, not a user configuration option. Omit it for raw entries: a resource override alone does not make records canonical, and the default export path still normalizes and redacts them.
 
-Without file delivery, `checkpointKey`, `supportsResourceContext`, and the per-call resource are optional for backward compatibility.
+Custom log exporters without this support must explicitly configure `logStorage: { type: 'memory' }` or implement replay support before upgrading. With explicit memory delivery, `checkpointKey`, `supportsResourceContext`, and the per-call resource remain optional. Metrics-only exporters do not need log replay support.
+
+The default file source contains the controller's canonical records, not every raw custom bus event. Use explicit memory delivery for custom live-bus event capture, test contexts without a canonical source, or ephemeral delivery. There is no automatic memory fallback when the file source is unavailable.
 
 ## Design limits
 

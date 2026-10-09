@@ -195,9 +195,11 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined");
 		expect(result).toContain("// Optional: resource: { 'service.name': 'my-launchpad-service' },");
 		expect(result).toContain(
-			"// Optional: logStorage: { type: 'file' }, // Resume retained logs after restart.",
+			"// Logs resume from retained files by default. Opt out for ephemeral delivery:",
 		);
-		expect(result).not.toContain("logStorage: { type: 'file' },\n");
+		expect(result).toContain("// logStorage: { type: 'memory' },");
+		expect(result).not.toMatch(/^\s*logStorage:/m);
+		expect(result).not.toContain("type: 'file'");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_CLIENT");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_PROJECT");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_INSTALLATION");

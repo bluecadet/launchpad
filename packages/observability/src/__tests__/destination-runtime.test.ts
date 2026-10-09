@@ -160,9 +160,11 @@ describe("destination observability runtime", () => {
 				createDestination("first", firstSetupContexts),
 				createDestination("second", firstSetupContexts),
 			],
-			{ resource },
+			{ resource, logStorage: { type: "memory" } },
 		);
-		const second = await setupRuntime([createDestination("third", secondSetupContexts)]);
+		const second = await setupRuntime([createDestination("third", secondSetupContexts)], {
+			logStorage: { type: "memory" },
+		});
 
 		expect(firstSetupContexts).toHaveLength(2);
 		expect(firstSetupContexts[0]?.resourceAttributes).toBe(
@@ -181,18 +183,21 @@ describe("destination observability runtime", () => {
 		await second.instance.disconnect?.({ type: "manual" });
 	});
 
-	it("rejects file log storage in legacy transport mode before starting capture", async () => {
-		const { context } = createContext();
-		const push = vi.fn(() => okAsync(undefined));
-		const result = await observability({
-			transports: [{ name: "legacy", push }],
-			logStorage: { type: "file" },
-		} as never).setup(context);
+	it.each(["file", "memory"] as const)(
+		"rejects %s log storage in legacy transport mode before starting capture",
+		async (type) => {
+			const { context } = createContext();
+			const push = vi.fn(() => okAsync(undefined));
+			const result = await observability({
+				transports: [{ name: "legacy", push }],
+				logStorage: { type },
+			} as never).setup(context);
 
-		expect(result.isErr()).toBe(true);
-		expect(context.eventBus.onAny).not.toHaveBeenCalled();
-		expect(push).not.toHaveBeenCalled();
-	});
+			expect(result.isErr()).toBe(true);
+			expect(context.eventBus.onAny).not.toHaveBeenCalled();
+			expect(push).not.toHaveBeenCalled();
+		},
+	);
 
 	it("keeps the legacy transport configuration unchanged", async () => {
 		const push = vi.fn(() => okAsync(undefined));
@@ -234,7 +239,7 @@ describe("destination observability runtime", () => {
 				destination("logs", { logs: { export: exportLogs } }),
 				destination("metrics", { metrics: { export: exportMetrics } }),
 			],
-			{ batch: { maxEntries: 1, intervalMs: 60_000 } },
+			{ logStorage: { type: "memory" }, batch: { maxEntries: 1, intervalMs: 60_000 } },
 			{ collectMetrics: () => [{ name: "app.temperature", value: 21 }] },
 		);
 
@@ -350,7 +355,12 @@ describe("destination observability runtime", () => {
 		const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
 		const { instance, context } = await setupRuntime(
 			[destination("both", { logs: { export: exportLogs }, metrics: { export: exportMetrics } })],
-			{ include: ["*"], exclude: ["log:*"], batch: { maxEntries: 1, intervalMs: 60_000 } },
+			{
+				logStorage: { type: "memory" },
+				include: ["*"],
+				exclude: ["log:*"],
+				batch: { maxEntries: 1, intervalMs: 60_000 },
+			},
 		);
 
 		context.eventBus.emit("observability:internal" as "log:info", {} as never);
@@ -481,12 +491,15 @@ describe("destination observability runtime", () => {
 		const shutdown = vi.fn(() => {
 			throw new Error("secret=https://user:pass@example.test/body");
 		});
-		const { instance } = await setupRuntime([
-			destination("shutdown", {
-				logs: { export: () => okAsync({ rejectedRecords: 0 }) },
-				shutdown,
-			}),
-		]);
+		const { instance } = await setupRuntime(
+			[
+				destination("shutdown", {
+					logs: { export: () => okAsync({ rejectedRecords: 0 }) },
+					shutdown,
+				}),
+			],
+			{ logStorage: { type: "memory" } },
+		);
 
 		const result = await instance.disconnect?.({ type: "manual" });
 		expect(result?.isErr()).toBe(true);
@@ -531,7 +544,7 @@ describe("destination observability runtime", () => {
 	it("does not mark a fully rejected export as successful", async () => {
 		const { instance, context, state } = await setupRuntime(
 			[destination("rejecting", { logs: { export: () => okAsync({ rejectedRecords: 1 }) } })],
-			{ batch: { maxEntries: 1, intervalMs: 60_000 } },
+			{ logStorage: { type: "memory" }, batch: { maxEntries: 1, intervalMs: 60_000 } },
 		);
 		context.eventBus.emit("log:info", { message: "rejected", args: [], module: "app" });
 		await instance.executeCommand?.({ type: "observability.flush" });
@@ -553,7 +566,7 @@ describe("destination observability runtime", () => {
 		};
 		const { instance, context, state } = await setupRuntime(
 			[destination("sometimes-rejecting", { logs: { export: exportLogs } })],
-			{ batch: { maxEntries: 1, intervalMs: 60_000 } },
+			{ logStorage: { type: "memory" }, batch: { maxEntries: 1, intervalMs: 60_000 } },
 		);
 
 		context.eventBus.emit("log:info", { message: "accepted", args: [], module: "app" });

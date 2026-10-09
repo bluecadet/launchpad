@@ -191,7 +191,7 @@ export class DestinationRuntime {
 	) {
 		this.eventFilter = makeEventFilter(config.include, config.exclude);
 		const metricsEnabled = config.metrics !== false;
-		const durableLogs = config.logStorage !== false;
+		const durableLogs = config.logStorage.type === "file";
 		for (const destination of destinations) {
 			const signals = activeSignals(destination.exporters, metricsEnabled);
 			this.stateManager.initDestination(destination.name, signals, { durableLogs });
@@ -480,7 +480,7 @@ export function createDestinationRuntime(
 	config: ResolvedDestinationObservabilityConfig,
 	ctx: PluginContext<ObservabilityState>,
 ): ResultAsync<DestinationRuntime, Error> {
-	let logSource = config.logStorage === false ? null : (ctx.logSource ?? null);
+	let logSource = config.logStorage.type === "memory" ? null : (ctx.logSource ?? null);
 	const resourceAttributes = createResourceAttributes(
 		config.resource,
 		logSource?.identity.runtimeId,

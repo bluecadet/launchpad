@@ -41,7 +41,7 @@ The generator does not create an environment file, secrets, or a Bluecadet endpo
 
 The generated destination uses OTLP/HTTP JSON by default. It includes a commented `encoding: 'protobuf'` option for selecting binary OTLP/HTTP protobuf when your recipient supports it; this is not gRPC. Enabling protobuf does not require another environment variable or generator prompt.
 
-The generated configuration also includes a commented `logStorage: { type: 'file' }` hint. Uncomment it to deliver retained canonical logs with per-destination checkpoints. The generator does not enable file delivery silently, and the plugin still requires `LAUNCHPAD_OBSERVABILITY_ENDPOINT` before it is added.
+Once the endpoint is set, logs use the controller's retained canonical JSONL with per-destination checkpoints by default. A new destination starts at the oldest retained record: this backfill can increase ingestion costs, and the backend may reject old timestamps. The generated configuration includes a commented `logStorage: { type: 'memory' }` opt-out for ephemeral delivery. The plugin still requires `LAUNCHPAD_OBSERVABILITY_ENDPOINT` before it is added. Review the [delivery configuration](../reference/observability/observability-config.md#logstorage) before enabling export.
 
 No client, project, installation, environment, or organization value is required. The generated config includes a commented example that you can edit when you want a custom service name:
 

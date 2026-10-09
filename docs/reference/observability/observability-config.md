@@ -6,7 +6,7 @@ title: "Observability Config"
 
 ## Destination mode
 
-File policy belongs to the controller; observability only chooses whether a destination reads the canonical file:
+Configured destinations read the controller's canonical file by default. File directory and retention policy belong to the controller:
 
 ```typescript
 export default defineConfig({
@@ -19,13 +19,12 @@ export default defineConfig({
   plugins: [
     observability({
       destinations: [destination],
-      logStorage: { type: 'file' },
     }),
   ],
 });
 ```
 
-Omit `logStorage` to keep the existing in-memory path. The remaining destination options are independent of the controller's file policy:
+Omitting `logStorage` is equivalent to `{ type: 'file' }`. Use `{ type: 'memory' }` to opt out of retained log delivery. The remaining destination options are independent of the controller's file policy:
 
 ```typescript
 observability({
@@ -73,19 +72,25 @@ At least one destination is required. Each destination declares the exporters it
 
 ### `logStorage`
 
-**Type:** `{ type: 'file' }`
+**Type:** `{ type: 'file' } | { type: 'memory' }`
+
+**Default:** `{ type: 'file' }`
 
 **Required:** No
 
-Selects checkpointed delivery from the controller-owned canonical JSONL log. When omitted, logs use the existing bounded in-memory batching path.
+Selects the log delivery source. Omitted or `{ type: 'file' }` uses checkpointed delivery from the controller-owned canonical JSONL. Explicit `{ type: 'memory' }` uses bounded in-memory batching without replay, suitable for tests, ephemeral delivery, or custom log exporters that do not support replay. This opt-out does not disable controller logging.
 
-File delivery is available only in destination mode and only for destinations with a log exporter. Legacy `transports` reject this option. The logging owner controls the directory, format, rotation, and retention; `logStorage` does not accept directory, size, or age settings.
+File delivery is available only in destination mode and only for destinations with a log exporter. Legacy `transports` retain their existing in-memory path and reject both `{ type: 'file' }` and `{ type: 'memory' }`. The logging owner controls the directory, format, rotation, and retention; `logStorage` does not accept directory, size, or age settings.
 
 Each destination reads independently. A newly enrolled destination starts at the oldest canonical record still retained. After an acknowledged export, an atomic checkpoint records its progress. Restarting with the same destination `name`, credential-free `checkpointKey`, and controller log source resumes from that checkpoint. Built-in Loki and OTLP destinations derive the key from their normalized endpoint. Changing the name or endpoint enrolls a new reader at the oldest retained record. Rotating a token or headers keeps the existing checkpoint.
 
+**Backfill warning:** enabling a destination can immediately export historical records, increasing ingestion costs. Backends may reject records older than their accepted timestamp window. Check retained data and backend policy before enrollment. Bounded controller retention can expire unread records, and a lost acknowledgement can cause duplicate replay; delivery is neither lossless nor exactly once.
+
+Memory delivery does not advance file checkpoints. Switching from memory to file resumes from an existing checkpoint, or the oldest retained record if none exists, and may replay records already sent from memory.
+
 For endpoints shared by multiple accounts, such as a common Grafana gateway, credentials are deliberately excluded from checkpoint identity. Change the destination name when switching accounts so the new account does not inherit the old account's delivery position.
 
-File delivery preserves each record's original timestamp and resource snapshot. Metrics remain current in-memory snapshots and are not reconstructed from the log.
+File delivery preserves each record's original timestamp and resource snapshot. Custom log exporters must provide a stable `checkpointKey` and `supportsResourceContext: true`, and honor the replayed resource context; otherwise configure explicit memory delivery. See [custom destination support](./custom-destinations.md#file-delivery-support). An unavailable canonical file source never causes an automatic fallback to memory. Metrics always remain latest, coalesced in-memory snapshots and are not reconstructed from the log.
 
 ### `include`
 
@@ -93,7 +98,9 @@ File delivery preserves each record's original timestamp and resource snapshot. 
 
 **Default:** `['log:*']`
 
-Event-name patterns to export as logs. `*` is a wildcard. An empty array includes all events.
+Event-name patterns to export as logs. `*` is a wildcard. An empty array includes all available events.
+
+In default file delivery, these filters select only [canonical records captured by the controller](../controller/logging.md#recorded-events), not every raw custom bus event. Use explicit memory delivery if you need the legacy live-bus capture behavior for custom events; changing `include` cannot add unrecorded events to the canonical source.
 
 ### `exclude`
 
@@ -147,4 +154,4 @@ observability({
 });
 ```
 
-Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, `delivery`, and `logStorage` options belong to destination mode and are rejected in legacy mode. See [Migrate from transports](./migration.md) before switching an existing deployment.
+Legacy mode is logs-only and preserves the existing in-memory batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, `delivery`, and `logStorage` options belong to destination mode and are rejected in legacy mode. This includes `logStorage` with either `'file'` or `'memory'`. See [Migrate from transports](./migration.md) before switching an existing deployment.

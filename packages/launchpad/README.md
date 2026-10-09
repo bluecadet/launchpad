@@ -39,7 +39,7 @@ npx launchpad stop
 
 ## Note
 
-This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content`, `@bluecadet/launchpad/monitor`, and `@bluecadet/launchpad/observability`. Observability destinations can opt into checkpointed delivery from the controller's canonical JSONL with `logStorage: { type: 'file' }`. For more targeted installations, you can install individual packages directly.
+This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content`, `@bluecadet/launchpad/monitor`, and `@bluecadet/launchpad/observability`. Configured observability destinations default to checkpointed delivery from the controller's canonical JSONL; `logStorage: { type: 'memory' }` opts out of retained log delivery. For more targeted installations, you can install individual packages directly.
 
 ## License
 

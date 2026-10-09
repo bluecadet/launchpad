@@ -4,7 +4,7 @@ title: "Observability Signal Catalog"
 
 Launchpad exports logs and finite, current-state gauge observations. Metrics are collected when the plugin becomes ready, every `metrics.intervalMs` in persistent mode, and once more during graceful shutdown. Event `include` and `exclude` patterns affect logs only.
 
-With `logStorage: { type: 'file' }`, logs can replay from the controller's retained canonical file. Each replayed record keeps its original timestamp and resource snapshot. Metrics are never reconstructed or backfilled from that file; after restart they remain latest-state observations from the new process.
+Destination logs replay from the controller's retained canonical file by default; `logStorage: { type: 'memory' }` opts out. Each replayed record keeps its original timestamp and resource snapshot. Metrics are never reconstructed or backfilled from that file; after restart they remain latest-state observations from the new process.
 
 Metrics are observations, not fleet assertions. Missing metrics can mean a plugin is absent, its state is unavailable, or a configured entity has not been observed. They do not describe desired applications, expected machines, or overall health.
 

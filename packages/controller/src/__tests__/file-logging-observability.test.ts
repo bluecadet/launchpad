@@ -19,7 +19,7 @@ vi.unmock("fs/promises");
 vi.unmock("node:fs");
 vi.unmock("node:fs/promises");
 
-it("replays offline canonical logs with historical identity and resumes the acknowledged checkpoint after another restart", async () => {
+it("defaults to file delivery, replays offline canonical logs with historical identity and resumes the acknowledged checkpoint after another restart", async () => {
 	const directory = await mkdtemp(path.join(tmpdir(), "launchpad-controller-replay-"));
 	const controllers: LaunchpadController[] = [];
 	const config = controllerConfigSchema.parse({
@@ -56,7 +56,6 @@ it("replays offline canonical logs with historical identity and resumes the ackn
 		const registration = await controller.registerPlugin(
 			observability({
 				destinations: [destination],
-				logStorage: { type: "file" },
 				resource: { installation },
 				include: ["log:info"],
 				metrics: false,

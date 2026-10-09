@@ -27,13 +27,13 @@ The controller writes canonical structured logs to its configured logging direct
 
 Launchpad's automatic destination configuration and checkpoint handling do not write destination credentials, authorization headers, or complete destination configuration into canonical records or checkpoints. Checkpoint keys must also be credential-free. This does not make arbitrary application log messages safe: free-form strings can contain secrets, and key-based redaction cannot guarantee their removal. Avoid logging secrets and review application logging at the source. File permissions, full-disk encryption, backup access, and secure deletion remain deployment responsibilities.
 
-The optional text log contains the same selected records in a human-readable, optionally customized format, filtered at its configured level. It is not the canonical machine-readable schema.
+The optional text log is enabled by default at `info` and above. It contains the same selected records in a human-readable, optionally customized format, filtered at its configured level. It is not the canonical machine-readable schema.
 
 ## Delivery is bounded, not exactly once
 
-Without `logStorage`, destination logs use capped in-memory queues. Process exit or crash can lose buffered data, as can queue overflow, delivery deadlines, permanent rejection, or exhausted retries.
+With explicit `logStorage: { type: 'memory' }`, destination logs use capped in-memory queues. Process exit or crash can lose buffered data, as can queue overflow, delivery deadlines, permanent rejection, or exhausted retries.
 
-With `logStorage: { type: 'file' }`, each destination acknowledges progress through retained canonical JSONL. This permits replay after restart, but it is neither lossless nor exactly once:
+By default (omitted `logStorage` or `{ type: 'file' }`), each configured destination acknowledges progress through retained canonical JSONL. This permits replay after restart, but it is neither lossless nor exactly once:
 
 - a backend may accept a batch before Launchpad loses the acknowledgement, causing duplicate replay;
 - rotation or retention can expire unread records;
@@ -42,10 +42,10 @@ With `logStorage: { type: 'file' }`, each destination acknowledges progress thro
 - a backend can reject historical timestamps even though Launchpad preserves them; and
 - a forced exit can end bounded shutdown before delivery finishes.
 
-Launchpad does not silently switch to an in-memory delivery path when canonical file writes fail, and logging failure does not intentionally crash the application. Loss counters are exact only when the source can prove a record count; otherwise diagnostics report an unknown-size gap.
+Launchpad does not silently switch to an in-memory delivery path when the canonical file source is unavailable or writes fail, and logging failure does not intentionally crash the application. Loss counters are exact only when the source can prove a record count; otherwise diagnostics report an unknown-size gap.
 
 Retryable failures, delivery timeouts, exhausted attempts, and interrupted shutdown do not advance the checkpoint. A permanent export failure parks that destination's file reader with its records pending until restart or configuration repair. OTLP partial success is terminal for the batch: accepted and rejected counts are recorded, then the whole batch is acknowledged because the response cannot identify individual rejected records.
 
-Canonical retention defaults are bounded. Choose a receiving backend whose accepted timestamp age covers the expected offline interval; replay keeps the original timestamp rather than making old activity appear current. Metrics remain current in-memory snapshots and are not replayed.
+A newly configured destination starts at the oldest retained record, potentially backfilling historical data and increasing ingestion costs. Restarting with the same destination identity and controller source resumes from its checkpoint. Canonical retention defaults are bounded. Choose a receiving backend whose accepted timestamp age covers the expected offline interval; replay keeps the original timestamp rather than making old activity appear current. Metrics remain current in-memory snapshots and are not replayed.
 
 Launchpad provides no central server, observability sidecar, alerting rules, or dashboard.

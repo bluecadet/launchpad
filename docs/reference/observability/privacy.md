@@ -15,11 +15,11 @@ Before enabling a destination:
 1. Review application log calls and the event patterns in `include`.
 2. Do not log credentials, personal data, access URLs, or raw request bodies.
 3. Use `exclude` to suppress event families that are not appropriate for the destination.
-4. Keep deployment and metric attributes low-cardinality and non-sensitive.
+4. Keep resource and metric-point attributes low-cardinality and non-sensitive.
 5. Protect destination tokens with your deployment secret manager and TLS.
 6. Verify retention, access, and regional requirements in the receiving system.
 
-Metrics are bounded current-state gauges, but their resource and observation attributes still identify a deployment. Disabling log patterns does not disable metrics; set `metrics: false` when those observations must not leave the machine.
+Metrics are bounded current-state gauges, but their resource and metric-point attributes can still identify a machine or deployment. The two attribute scopes are configured and exported separately. Disabling log patterns does not disable metrics; set `metrics: false` when those observations must not leave the machine.
 
 ## Delivery is best effort
 

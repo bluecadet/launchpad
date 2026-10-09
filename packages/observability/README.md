@@ -25,12 +25,8 @@ if (!endpoint) throw new Error('LAUNCHPAD_OBSERVABILITY_ENDPOINT is required');
 export default defineConfig({
   plugins: [
     observability({
-      deployment: {
-        client: 'museum',
-        project: 'west-wing',
-        installation: 'lobby-kiosk',
-        environment: 'production',
-      },
+      // Optional. Omit resource to use service.name = 'launchpad'.
+      resource: { 'service.name': 'museum-kiosk' },
       destinations: [
         createOtlpDestination({
           endpoint,
@@ -42,13 +38,15 @@ export default defineConfig({
 });
 ```
 
+`resource` is an optional flat record of string, finite number, and boolean attributes. Launchpad defaults `service.name` to `launchpad` and generates `service.instance.id` at runtime. Other attributes are caller-defined.
+
 The OTLP destination uses native `fetch`, sends JSON to `/v1/logs` and `/v1/metrics`, and defaults to both signals. Metrics default to a 30-second observation interval and are independent of log event filters.
 
 No telemetry is sent to Bluecadet automatically. Delivery is bounded and best effort: queues are in memory, requests and shutdown have deadlines, and records can be dropped. Review application logs and destination retention before enabling export; key-based redaction cannot detect every secret.
 
 ## Loki
 
-Use `createLokiDestination` from `@bluecadet/launchpad-observability/destinations/loki` for structured, versioned JSON log lines. Use `createLokiTransport` from `@bluecadet/launchpad-observability/transports/loki` to preserve the legacy plain-text format.
+Use `createLokiDestination` from `@bluecadet/launchpad-observability/destinations/loki` for structured, versioned JSON log lines. It maps only `service.name` to the `service_name` stream label by default; configure `resourceLabels` to replace that map. Use `createLokiTransport` from `@bluecadet/launchpad-observability/transports/loki` to preserve the legacy plain-text format.
 
 Destination mode and legacy `{ transports }` mode cannot be combined in one plugin configuration.
 

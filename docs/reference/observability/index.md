@@ -25,19 +25,15 @@ if (!endpoint) {
 export default defineConfig({
   plugins: [
     observability({
-      deployment: {
-        client: 'museum',
-        project: 'west-wing',
-        installation: 'lobby-kiosk',
-        environment: 'production',
-      },
+      // Optional. Omit resource to use service.name = 'launchpad'.
+      resource: { 'service.name': 'museum-kiosk' },
       destinations: [createOtlpDestination({ endpoint, token })],
     }),
   ],
 });
 ```
 
-This setup sends logs and periodic gauges to the configured OTLP endpoint. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
+This setup sends logs and periodic gauges to the configured OTLP endpoint. `resource` is optional; Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
 
 ## Choose a destination
 

@@ -29,19 +29,23 @@ The main configuration file. If a `launchpad.config.ts` already exists it will *
 
 ### Optional observability
 
-Observability is not selected by default. If you opt in, the generated config sends logs and metrics to an OTLP endpoint only when all required variables are set:
+Observability is not selected by default. If you opt in, the generated config sends logs and metrics to an OTLP endpoint only when `LAUNCHPAD_OBSERVABILITY_ENDPOINT` is set:
 
 ```dotenv
 LAUNCHPAD_OBSERVABILITY_ENDPOINT=https://telemetry.example.com
-LAUNCHPAD_OBSERVABILITY_CLIENT=example-client
-LAUNCHPAD_OBSERVABILITY_PROJECT=example-project
-LAUNCHPAD_OBSERVABILITY_INSTALLATION=lobby-kiosk
-LAUNCHPAD_OBSERVABILITY_ENVIRONMENT=production
 # Optional:
 LAUNCHPAD_OBSERVABILITY_TOKEN=
 ```
 
-The generator does not create secrets or configure a Bluecadet endpoint. Treat the endpoint and token as deployment secrets. If the required variables are absent, the generated config omits the observability plugin rather than sending data to a default service. See [Observability](../reference/observability/index.md) for the data sent and privacy limits.
+The generator does not create an environment file, secrets, or a Bluecadet endpoint. Treat the endpoint and token as deployment secrets. If the endpoint is absent, the generated config omits the observability plugin rather than sending data to a default service.
+
+No client, project, installation, environment, or organization value is required. The generated config includes a commented example that you can edit when you want a custom service name:
+
+```typescript
+resource: { 'service.name': 'my-launchpad-service' },
+```
+
+You can add other flat string, finite number, or boolean resource attributes to that record when your deployment policy requires them. If `resource` is omitted, Launchpad defaults `service.name` to `launchpad` and generates `service.instance.id` at runtime. See [Observability](../reference/observability/index.md) for the data sent and privacy limits.
 
 ### `package.json`
 

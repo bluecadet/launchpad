@@ -128,7 +128,7 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).not.toContain("observability(");
 	});
 
-	it("generates env-backed OTLP observability when selected", () => {
+	it("generates endpoint-backed OTLP observability when selected", () => {
 		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
 
 		expect(result).toContain("import { observability } from '@bluecadet/launchpad/observability';");
@@ -137,19 +137,20 @@ describe("generateLaunchpadConfig", () => {
 		);
 		expect(result).toContain("endpoint: observabilityEndpoint");
 		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN");
-		expect(result).toContain("client: observabilityClient");
-		expect(result).toContain("project: observabilityProject");
-		expect(result).toContain("installation: observabilityInstallation");
-		expect(result).toContain("environment: observabilityEnvironment");
+		expect(result).toContain("// Optional: resource: { 'service.name': 'my-launchpad-service' },");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_CLIENT");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_PROJECT");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_INSTALLATION");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_ENVIRONMENT");
 		expect(result).not.toContain("your-token");
 		expect(result).not.toContain("production'");
 	});
 
-	it("conditionally omits the observability plugin until required variables are set", () => {
+	it("enables observability with only the endpoint and otherwise omits the plugin", () => {
 		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
 
-		expect(result).toContain("observabilityEndpoint &&");
-		expect(result).toContain("observabilityEnvironment");
+		expect(result).toContain("const observabilityPlugin = observabilityEndpoint");
+		expect(result).toContain("? observability({");
 		expect(result).toContain("...(observabilityPlugin ? [observabilityPlugin] : [])");
 	});
 

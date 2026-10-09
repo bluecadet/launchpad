@@ -215,6 +215,7 @@ function buildObservabilitySetup(): string {
 		const observabilityPlugin = observabilityEndpoint
 			? observability({
 					// Optional: resource: { 'service.name': 'my-launchpad-service' },
+					// Optional: logStorage: { type: 'file' }, // Resume retained logs after restart.
 					destinations: [
 						createOtlpDestination({
 							endpoint: observabilityEndpoint,

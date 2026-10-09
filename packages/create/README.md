@@ -33,6 +33,8 @@ resource: { 'service.name': 'my-launchpad-service' },
 
 You can add other flat primitive resource attributes when your deployment policy requires them.
 
+The generated observability block includes a commented `logStorage: { type: 'file' }` hint. Uncomment it to resume retained canonical logs from per-destination checkpoints. The scaffolder does not enable file delivery silently, and it still omits the observability plugin unless `LAUNCHPAD_OBSERVABILITY_ENDPOINT` is set.
+
 ## Docs
 
 See [Creating a Project](https://bluecadet.github.io/launchpad/guides/creating-a-project) for full documentation.

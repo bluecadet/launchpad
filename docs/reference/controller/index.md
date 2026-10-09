@@ -39,6 +39,7 @@ interface PluginConfig<TCommand, TState> {
 interface PluginContext<TState = unknown> {
   eventBus: EventBus;          // Type-safe event bus
   logger: Logger;              // Scoped logger
+  logSource?: LoggerSource;    // Controller-owned canonical log source
   abortSignal: AbortSignal;    // Cancelled on controller shutdown
   cwd: string;                 // Working directory
   mode: ControllerMode;        // "task" | "persistent" — which mode the controller is running in
@@ -78,6 +79,10 @@ definePlugin({
 ```
 
 The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
+
+### Logging
+
+The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
 
 ### Host-Owned Workflows
 

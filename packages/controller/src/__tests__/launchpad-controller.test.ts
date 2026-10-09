@@ -3,6 +3,7 @@ import {
 	type BaseCommand,
 	definePlugin,
 	type InstantiatedPlugin,
+	type PluginConfig,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
@@ -655,6 +656,107 @@ describe("LaunchpadController", () => {
 			expect(result.isErr()).toBe(true);
 			expect(result._unsafeUnwrapErr().message).toContain("Plugin command execution failed");
 			expect(calls).toEqual(["execute", "disconnect"]);
+		});
+	});
+
+	describe("metric collection", () => {
+		it("collects lazily from installed providers without using display snapshots", async () => {
+			const controller = createController();
+			let collectMetrics: PluginContext["collectMetrics"];
+			const summarize = vi.fn(() => {
+				throw new Error("display projection should not be used");
+			});
+
+			await controller.registerPlugin(
+				definePlugin({
+					name: "collector",
+					setup(ctx) {
+						collectMetrics = ctx.collectMetrics;
+						return okAsync({});
+					},
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "provider",
+					summarize,
+					observe: (state) => [
+						{
+							name: "launchpad_test_provider_ready",
+							value: "provider" in state.plugins ? 1 : 0,
+						},
+					],
+					setup(ctx: PluginContext<{ ready: boolean }>) {
+						ctx.updateState(() => ({ ready: true }));
+						return okAsync({});
+					},
+				}),
+			);
+
+			expect(collectMetrics).toBeDefined();
+			expect(collectMetrics?.()).toEqual([{ name: "launchpad_test_provider_ready", value: 1 }]);
+			expect(summarize).not.toHaveBeenCalled();
+		});
+
+		it("isolates observation failures and excludes plugins that failed setup", async () => {
+			const controller = createController();
+			let collectMetrics: PluginContext["collectMetrics"];
+			const warnings: string[] = [];
+			controller.getEventBus().on("log:warn", (payload) => warnings.push(payload.message));
+
+			await controller.registerPlugin(
+				definePlugin({
+					name: "collector",
+					setup(ctx) {
+						collectMetrics = ctx.collectMetrics;
+						return okAsync({});
+					},
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "explosive-provider",
+					observe: () => {
+						throw new Error("Export failed for https://user:secret@example.invalid");
+					},
+					setup: () => okAsync({}),
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "throwing-getter-provider",
+					get observe(): NonNullable<PluginConfig["observe"]> {
+						throw new Error("Getter exposed https://token@example.invalid");
+					},
+					setup: () => okAsync({}),
+				}),
+			);
+			const failedRegistration = await controller.registerPlugin(
+				definePlugin({
+					name: "failed-provider",
+					observe: () => [{ name: "launchpad_test_should_not_exist", value: 1 }],
+					setup(ctx: PluginContext<{ initialized: boolean }>) {
+						ctx.updateState(() => ({ initialized: true }));
+						return errAsync(new Error("setup failed"));
+					},
+				}),
+			);
+			await controller.registerPlugin(
+				definePlugin({
+					name: "healthy-provider",
+					observe: () => [{ name: "launchpad_test_healthy", value: 1 }],
+					setup: () => okAsync({}),
+				}),
+			);
+
+			expect(failedRegistration).toBeErr();
+			expect(collectMetrics?.()).toEqual([{ name: "launchpad_test_healthy", value: 1 }]);
+			expect(warnings).toEqual([
+				"Metric observation failed for plugin 'explosive-provider'",
+				"Metric observation failed for plugin 'throwing-getter-provider'",
+			]);
+			expect(warnings.join(" ")).not.toContain("secret");
+			expect(warnings.join(" ")).not.toContain("token@example.invalid");
 		});
 	});
 

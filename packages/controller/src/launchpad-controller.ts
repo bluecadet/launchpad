@@ -10,6 +10,7 @@ import type {
 	PluginConfig,
 	PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import type {
 	ControllerMode,
 	StatusSnapshot,
@@ -30,6 +31,7 @@ import type { AllEvents } from "./all-events.js";
 import type { AllPluginsState } from "./all-plugin-state.js";
 
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
+import { collectPluginMetrics } from "./core/collect-plugin-metrics.js";
 import { createFileLogger } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
 import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
@@ -311,6 +313,16 @@ export class LaunchpadController {
 		return buildStatusSnapshot(this._stateStore.getState(), this._pluginConfigs.values());
 	}
 
+	private collectMetrics(): readonly MetricObservation[] {
+		return collectPluginMetrics(
+			this._stateStore.getState(),
+			this._pluginConfigs.values(),
+			(pluginName) => {
+				this._logger.warn(`Metric observation failed for plugin '${pluginName}'`);
+			},
+		);
+	}
+
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
@@ -325,6 +337,7 @@ export class LaunchpadController {
 			dispatchCommand: (command: BaseCommand) => this.executeCommand(command),
 			getGlobalState: () => this.getState(),
 			onGlobalStatePatch: (handler) => this._stateStore.onPatch(handler),
+			collectMetrics: () => this.collectMetrics(),
 			updateState,
 		};
 	}

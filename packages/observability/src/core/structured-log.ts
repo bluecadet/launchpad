@@ -24,17 +24,16 @@ export interface StructuredNormalizationOptions {
 	readonly maxTotalStringLength: number;
 }
 
-export const DEFAULT_STRUCTURED_NORMALIZATION_OPTIONS: StructuredNormalizationOptions =
-	Object.freeze({
-		maxDepth: 8,
-		maxProperties: 100,
-		maxArrayLength: 100,
-		maxStringLength: 16_384,
-		maxTotalValues: 1_000,
-		maxTotalStringLength: 131_072,
-	});
+const DEFAULT_STRUCTURED_NORMALIZATION_OPTIONS: StructuredNormalizationOptions = Object.freeze({
+	maxDepth: 8,
+	maxProperties: 100,
+	maxArrayLength: 100,
+	maxStringLength: 16_384,
+	maxTotalValues: 1_000,
+	maxTotalStringLength: 131_072,
+});
 
-export const STRUCTURED_LOG_SCHEMA_VERSION = 1 as const;
+const STRUCTURED_LOG_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_MAX_STRUCTURED_LOG_LENGTH = 262_144;
 export const REDACTED_VALUE = "[REDACTED]";
 export const CIRCULAR_VALUE = "[Circular]";

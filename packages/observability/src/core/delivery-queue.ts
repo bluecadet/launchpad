@@ -1,13 +1,8 @@
 import { err, type Result, type ResultAsync } from "neverthrow";
 import type { ExportFailure, ExportResult } from "./destination.js";
 
-export type DeliveryQueueMode = "retry" | "coalesce";
-export type DeliveryDropReason =
-	| "queue-full"
-	| "max-retries"
-	| "rejected"
-	| "invalid-ack"
-	| "shutdown";
+type DeliveryQueueMode = "retry" | "coalesce";
+type DeliveryDropReason = "queue-full" | "max-retries" | "rejected" | "invalid-ack" | "shutdown";
 
 export interface DeliveryQueueOptions<T> {
 	readonly mode: DeliveryQueueMode;

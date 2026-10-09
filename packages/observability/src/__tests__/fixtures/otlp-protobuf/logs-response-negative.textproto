@@ -1,0 +1,4 @@
+partial_success {
+  rejected_log_records: -1
+  error_message: "invalid negative count"
+}

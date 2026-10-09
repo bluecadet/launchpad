@@ -1,0 +1,40 @@
+resource_metrics {
+  resource {
+    attributes {
+      key: "service.name"
+      value { string_value: "codec-test" }
+    }
+  }
+  scope_metrics {
+    scope {
+      name: "codec-scope"
+      version: "1.2.3"
+    }
+    metrics {
+      name: "temperature"
+      description: "Current temperature"
+      unit: "Cel"
+      gauge {
+        data_points {
+          time_unix_nano: 1718452800123000000
+          as_double: -0.0
+          attributes {
+            key: "room"
+            value { string_value: "gallery" }
+          }
+        }
+        data_points {
+          start_time_unix_nano: 1718452799123000000
+          time_unix_nano: 1718452800123000001
+          as_double: 20.25
+          attributes {
+            key: "floor"
+            value { int_value: 2 }
+          }
+        }
+      }
+    }
+    schema_url: "https://example.test/scope/1.0"
+  }
+  schema_url: "https://example.test/resource/1.0"
+}

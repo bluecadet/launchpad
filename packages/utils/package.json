@@ -8,6 +8,10 @@
       "types": "./dist/logger.d.ts",
       "default": "./dist/logger.js"
     },
+    "./logging": {
+      "types": "./dist/logging.d.ts",
+      "default": "./dist/logging.js"
+    },
     "./fixed-tty-logger": {
       "types": "./dist/fixed-tty-logger.d.ts",
       "default": "./dist/fixed-tty-logger.js"

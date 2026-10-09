@@ -1,14 +1,17 @@
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
+import { normalizeCheckpointEndpoint } from "../core/checkpoint-endpoint.js";
 import type {
 	DestinationContext,
 	DestinationExporters,
 	ExportContext,
 	ExportFailure,
 	ExportResult,
+	LogExportContext,
 	MetricBatch,
 	ObservabilityDestination,
+	ResourceAttributes,
 	ResourceAttributeValue,
 } from "../core/destination.js";
 import { DestinationFailure } from "../core/export-failure.js";
@@ -125,13 +128,18 @@ type MetricGroup = {
  * warn=WARN (13), and error=ERROR (17). severityText preserves the source level.
  */
 export function createOtlpDestination(config: OtlpDestinationConfig): ObservabilityDestination {
+	const endpoint = Result.fromThrowable(
+		() => normalizeCheckpointEndpoint(config?.endpoint),
+		() => undefined,
+	)().unwrapOr(undefined);
 	return {
 		name: destinationName(config),
+		checkpointKey: endpoint === undefined ? undefined : `otlp:${endpoint}`,
 		create(context: DestinationContext) {
 			const result = resolveConfig(config);
 			if (result.isErr()) return err(result.error);
 			const resolved = result.value;
-			const resource = createResource(context);
+			const resource = createResource(context.resourceAttributes);
 			if (!resource) {
 				return err(createFailure("OTLP resource attributes are invalid", false));
 			}
@@ -140,8 +148,15 @@ export function createOtlpDestination(config: OtlpDestinationConfig): Observabil
 				...(resolved.signals.has("logs")
 					? {
 							logs: {
-								export(records: readonly LogEntry[], exportContext: ExportContext) {
-									return exportLogs(resolved, resource, records, exportContext);
+								supportsResourceContext: true,
+								export(records: readonly LogEntry[], exportContext: LogExportContext) {
+									return exportLogs(
+										resolved,
+										resource,
+										context.resourceAttributes,
+										records,
+										exportContext,
+									);
 								},
 							},
 						}
@@ -205,11 +220,11 @@ function createHeaders(config: {
 }
 
 function createResource(
-	context: DestinationContext,
+	resourceAttributes: ResourceAttributes,
 ): { readonly attributes: readonly OtlpKeyValue[] } | null {
-	if (!isObject(context.resourceAttributes)) return null;
+	if (!isObject(resourceAttributes)) return null;
 	const attributes: OtlpKeyValue[] = [];
-	for (const [key, value] of Object.entries(context.resourceAttributes)) {
+	for (const [key, value] of Object.entries(resourceAttributes)) {
 		const attribute = primitiveAttribute(key, value);
 		if (!attribute) return null;
 		attributes.push(attribute);
@@ -310,10 +325,18 @@ function createLogRecord(entry: LogEntry) {
 
 function exportLogs(
 	config: ResolvedConfig,
-	resource: { readonly attributes: readonly OtlpKeyValue[] },
+	factoryResource: { readonly attributes: readonly OtlpKeyValue[] },
+	factoryResourceAttributes: ResourceAttributes,
 	records: readonly LogEntry[],
-	context: ExportContext,
+	context: LogExportContext,
 ): ResultAsync<ExportResult, ExportFailure> {
+	const resourceAttributes = context.resourceAttributes ?? factoryResourceAttributes;
+	const resource =
+		resourceAttributes === factoryResourceAttributes
+			? factoryResource
+			: createResource(resourceAttributes);
+	if (!resource) return errAsync(createFailure("OTLP resource attributes are invalid", false));
+
 	const logRecords = [];
 	let locallyRejected = 0;
 	for (const entry of records) {

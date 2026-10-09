@@ -217,7 +217,8 @@ function buildObservabilitySetup(): string {
 					destinations: [
 						createOtlpDestination({
 							endpoint: observabilityEndpoint,
-							token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
+							// encoding: 'protobuf', // Optional; defaults to JSON.
+							token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined,
 						}),
 					],
 				})

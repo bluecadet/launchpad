@@ -16,7 +16,7 @@ import { observability } from '@bluecadet/launchpad/observability';
 import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';
 
 const endpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
-const token = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN;
+const token = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined;
 
 if (!endpoint) {
   throw new Error('LAUNCHPAD_OBSERVABILITY_ENDPOINT is required');
@@ -27,19 +27,19 @@ export default defineConfig({
     observability({
       // Optional. Omit resource to use service.name = 'launchpad'.
       resource: { 'service.name': 'museum-kiosk' },
-      destinations: [createOtlpDestination({ endpoint, token })],
+      destinations: [createOtlpDestination({ endpoint, encoding: 'protobuf', token })],
     }),
   ],
 });
 ```
 
-This setup sends logs and periodic gauges to the configured OTLP endpoint. `resource` is optional; Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
+This setup sends logs and periodic gauges as binary OTLP/HTTP protobuf, not gRPC. The recipient must support the selected encoding. Omit `encoding` to use the default OTLP/HTTP JSON encoding. `resource` is optional; Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
 
 ## Choose a destination
 
 | Destination | Signals | Use it when |
 |---|---|---|
-| [OTLP/HTTP](./destinations/otlp.md) | Logs and metrics | Your collector or vendor accepts OTLP JSON over HTTP |
+| [OTLP/HTTP](./destinations/otlp.md) | Logs and metrics | Your collector or vendor accepts OTLP JSON or protobuf over HTTP |
 | [Loki](./destinations/loki.md) | Logs only | You send logs directly to Grafana Loki |
 | [Custom](./custom-destinations.md) | Logs, metrics, or both | You need another protocol or backend |
 

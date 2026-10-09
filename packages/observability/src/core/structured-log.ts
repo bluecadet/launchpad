@@ -1,4 +1,6 @@
-import type { ResourceAttributes } from "./destination.js";
+import { err, Result } from "neverthrow";
+import type { ExportFailure, ResourceAttributes } from "./destination.js";
+import { DestinationFailure } from "./export-failure.js";
 import type { LogEntry } from "./log-entry.js";
 
 export type StructuredValue =
@@ -399,7 +401,7 @@ export function createStructuredLog(
 	entry: LogEntry,
 	resourceAttributes: ResourceAttributes,
 	options: Partial<StructuredNormalizationOptions> = {},
-): StructuredLog {
+): Result<StructuredLog, ExportFailure> {
 	const normalized = normalizeStructuredValue(
 		{
 			event: entry.event,
@@ -413,7 +415,7 @@ export function createStructuredLog(
 		options,
 	);
 	if (normalized === null || typeof normalized !== "object" || Array.isArray(normalized)) {
-		throw new Error("Failed to normalize structured log");
+		return err(new DestinationFailure("Failed to normalize structured log", { retryable: false }));
 	}
 
 	const event = normalized.event;
@@ -421,22 +423,31 @@ export function createStructuredLog(
 	const message = normalized.message;
 	const module = normalized.module;
 	if (typeof event !== "string" || typeof level !== "string" || typeof message !== "string") {
-		throw new Error("Failed to normalize required structured log fields");
+		return err(
+			new DestinationFailure("Failed to normalize required structured log fields", {
+				retryable: false,
+			}),
+		);
 	}
 	if (module !== undefined && typeof module !== "string") {
-		throw new Error("Failed to normalize structured log module");
+		return err(
+			new DestinationFailure("Failed to normalize structured log module", { retryable: false }),
+		);
 	}
 
-	return {
+	return Result.fromThrowable(
+		() => entry.timestamp.toISOString(),
+		() => new DestinationFailure("Invalid structured log timestamp", { retryable: false }),
+	)().map((timestamp) => ({
 		schemaVersion: STRUCTURED_LOG_SCHEMA_VERSION,
-		timestamp: entry.timestamp.toISOString(),
+		timestamp,
 		event,
 		level,
 		message,
 		...(module === undefined ? {} : { module }),
 		metadata: normalized.metadata ?? null,
 		resource: normalized.resource ?? null,
-	};
+	}));
 }
 
 /**
@@ -447,7 +458,14 @@ export function createStructuredLog(
 export function serializeStructuredLog(
 	log: StructuredLog,
 	maxLength = DEFAULT_MAX_STRUCTURED_LOG_LENGTH,
-): string {
+): Result<string, ExportFailure> {
+	return Result.fromThrowable(
+		() => serializeBoundedStructuredLog(log, maxLength),
+		() => new DestinationFailure("Structured log serialization failed", { retryable: false }),
+	)();
+}
+
+function serializeBoundedStructuredLog(log: StructuredLog, maxLength: number): string {
 	const boundedMaxLength = boundedInteger(maxLength, DEFAULT_MAX_STRUCTURED_LOG_LENGTH, 1_024);
 	const fits = (serialized: string) => Buffer.byteLength(serialized, "utf8") <= boundedMaxLength;
 	const serialized = JSON.stringify(log);

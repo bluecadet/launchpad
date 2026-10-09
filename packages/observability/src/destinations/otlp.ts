@@ -1,5 +1,6 @@
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
-import { err, ok, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import { z } from "zod";
 import type {
 	DestinationContext,
 	DestinationExporters,
@@ -10,25 +11,72 @@ import type {
 	ObservabilityDestination,
 	ResourceAttributeValue,
 } from "../core/destination.js";
+import { DestinationFailure } from "../core/export-failure.js";
 import type { LogEntry, LogLevel } from "../core/log-entry.js";
+import { decodeOtlpProtobufResponse, encodeOtlpProtobufRequest } from "../core/otlp-protobuf.js";
 import { normalizeStructuredValue, type StructuredValue } from "../core/structured-log.js";
 
 const INSTRUMENTATION_SCOPE_NAME = "@bluecadet/launchpad-observability";
 const DEFAULT_SIGNALS = ["logs", "metrics"] as const;
 const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504]);
 const MAX_UINT64 = 18_446_744_073_709_551_615n;
-const FAILURE_MARKER = Symbol("otlp-export-failure");
 
 export type OtlpSignal = (typeof DEFAULT_SIGNALS)[number];
+export type OtlpEncoding = "json" | "protobuf";
 
-export type OtlpDestinationConfig = {
-	/** OTLP/HTTP base URL. Signal paths are appended automatically. */
-	readonly endpoint: string;
-	readonly name?: string;
-	readonly token?: string;
-	readonly headers?: Readonly<Record<string, string>>;
-	readonly signals?: readonly OtlpSignal[];
-};
+/** Local OTLP configuration validation, applied by the destination's create() method. */
+export const otlpDestinationConfigSchema = z
+	.object({
+		/** OTLP/HTTP base URL. Signal paths are appended automatically. */
+		endpoint: z
+			.string()
+			.trim()
+			.min(1)
+			.refine((value) => {
+				const url = URL.parse(value);
+				return (
+					url !== null &&
+					(url.protocol === "http:" || url.protocol === "https:") &&
+					!url.username &&
+					!url.password &&
+					!url.search &&
+					!url.hash
+				);
+			}, "OTLP endpoint must be an HTTP(S) URL without credentials, query, or fragment"),
+		name: z
+			.string()
+			.refine((value) => value.trim().length > 0)
+			.default("otlp"),
+		token: z
+			.string()
+			.refine((value) => value.trim().length > 0)
+			.optional(),
+		headers: z
+			.record(
+				z.string().min(1),
+				z.string().refine((value) => value.trim().length > 0),
+			)
+			.optional(),
+		signals: z
+			.array(z.enum(DEFAULT_SIGNALS))
+			.nonempty()
+			.readonly()
+			.refine((signals) => new Set(signals).size === signals.length, "OTLP signals must be unique")
+			.default(DEFAULT_SIGNALS),
+		/** OTLP/HTTP request and response encoding. Defaults to JSON. */
+		encoding: z.enum(["json", "protobuf"]).default("json"),
+	})
+	.refine(
+		(config) =>
+			Result.fromThrowable(
+				() => createHeaders(config),
+				() => false,
+			)().isOk(),
+		"OTLP headers and token must contain valid header values",
+	);
+
+export type OtlpDestinationConfig = z.input<typeof otlpDestinationConfigSchema>;
+export type ResolvedOtlpDestinationConfig = z.output<typeof otlpDestinationConfigSchema>;
 
 type OtlpAnyValue =
 	| { readonly stringValue: string }
@@ -47,16 +95,12 @@ type OtlpKeyValue = {
 	readonly value: OtlpAnyValue;
 };
 
-type InternalExportFailure = ExportFailure & {
-	readonly [FAILURE_MARKER]: true;
-};
-
 type ResolvedConfig = {
-	readonly name: string;
 	readonly logsUrl: string;
 	readonly metricsUrl: string;
 	readonly headers: Headers;
 	readonly signals: ReadonlySet<OtlpSignal>;
+	readonly encoding: OtlpEncoding;
 };
 
 type MetricGroup = {
@@ -72,18 +116,21 @@ type MetricGroup = {
 };
 
 /**
- * Creates a dependency-free OTLP/HTTP JSON destination for logs and gauge metrics.
+ * Creates an SDK-free OTLP/HTTP destination for logs and gauge metrics using native fetch.
+ * The factory is inert: create() validates configuration and returns a sanitized
+ * error Result for invalid options. Neither phase performs network requests.
  *
  * Severity numbers use the lowest value in each OpenTelemetry range:
  * verbose maps to TRACE (1), debug=DEBUG (5), info/event=INFO (9),
  * warn=WARN (13), and error=ERROR (17). severityText preserves the source level.
  */
 export function createOtlpDestination(config: OtlpDestinationConfig): ObservabilityDestination {
-	const resolved = resolveConfig(config);
-
 	return {
-		name: resolved.name,
+		name: typeof config?.name === "string" ? config.name : "otlp",
 		create(context: DestinationContext) {
+			const result = resolveConfig(config);
+			if (result.isErr()) return err(result.error);
+			const resolved = result.value;
 			const resource = createResource(context);
 			if (!resource) {
 				return err(createFailure("OTLP resource attributes are invalid", false));
@@ -115,107 +162,43 @@ export function createOtlpDestination(config: OtlpDestinationConfig): Observabil
 	};
 }
 
-function resolveConfig(config: OtlpDestinationConfig): ResolvedConfig {
-	if (!config || typeof config !== "object") {
-		throw new Error("Invalid OTLP destination configuration");
-	}
-
-	const name = config.name ?? "otlp";
-	if (typeof name !== "string" || name.trim().length === 0) {
-		throw new Error("OTLP destination name must be nonblank");
-	}
-
-	const endpoint = parseEndpoint(config.endpoint);
-	const signals = resolveSignals(config.signals);
-	const headers = resolveHeaders(config.headers, config.token);
-
-	return {
-		name,
-		logsUrl: appendSignalPath(endpoint, "/v1/logs"),
-		metricsUrl: appendSignalPath(endpoint, "/v1/metrics"),
-		headers,
-		signals,
-	};
+function resolveConfig(config: OtlpDestinationConfig): Result<ResolvedConfig, ExportFailure> {
+	const parsed = otlpDestinationConfigSchema.safeParse(config);
+	if (!parsed.success) return err(createFailure("Invalid OTLP destination configuration", false));
+	const resolved = parsed.data;
+	return ok({
+		logsUrl: appendSignalPath(resolved.endpoint, "/v1/logs"),
+		metricsUrl: appendSignalPath(resolved.endpoint, "/v1/metrics"),
+		headers: createHeaders(resolved),
+		signals: new Set(resolved.signals),
+		encoding: resolved.encoding,
+	});
 }
 
-function parseEndpoint(endpoint: string): URL {
-	if (typeof endpoint !== "string" || endpoint.trim().length === 0) {
-		throw new Error("OTLP endpoint must be a nonblank URL");
-	}
-
-	let parsed: URL;
-	try {
-		parsed = new URL(endpoint);
-	} catch {
-		throw new Error("OTLP endpoint must be a valid HTTP(S) URL");
-	}
-
-	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-		throw new Error("OTLP endpoint must use HTTP or HTTPS");
-	}
-	if (parsed.username || parsed.password) {
-		throw new Error("OTLP endpoint must not contain credentials");
-	}
-	if (parsed.search || parsed.hash) {
-		throw new Error("OTLP endpoint must not contain a query or fragment");
-	}
-
-	return parsed;
-}
-
-function appendSignalPath(endpoint: URL, signalPath: string): string {
+function appendSignalPath(endpoint: string, signalPath: string): string {
 	const result = new URL(endpoint);
 	result.pathname = `${result.pathname.replace(/\/+$/u, "")}${signalPath}`;
 	return result.toString();
 }
 
-function resolveSignals(signals: readonly OtlpSignal[] | undefined): ReadonlySet<OtlpSignal> {
-	const configured = signals ?? DEFAULT_SIGNALS;
-	if (!Array.isArray(configured) || configured.length === 0) {
-		throw new Error("OTLP destination must configure at least one signal");
-	}
-
-	const unique = new Set<OtlpSignal>();
-	for (const signal of configured) {
-		if (signal !== "logs" && signal !== "metrics") {
-			throw new Error("OTLP destination contains an unsupported signal");
-		}
-		if (unique.has(signal)) {
-			throw new Error("OTLP destination signals must not contain duplicates");
-		}
-		unique.add(signal);
-	}
-	return unique;
-}
-
-function resolveHeaders(
-	headers: Readonly<Record<string, string>> | undefined,
-	token: string | undefined,
-): Headers {
-	if (token !== undefined && (typeof token !== "string" || token.trim().length === 0)) {
-		throw new Error("OTLP token must be nonblank when provided");
-	}
-
-	const result = new Headers();
-	try {
-		for (const [key, value] of Object.entries(headers ?? {})) {
-			if (key.trim().length === 0 || typeof value !== "string" || value.trim().length === 0) {
-				throw new Error();
-			}
-			result.set(key, value);
-		}
-
-		result.set("Content-Type", "application/json");
-		if (token !== undefined) result.set("Authorization", `Bearer ${token}`);
-	} catch {
-		throw new Error("OTLP headers and token must contain valid nonblank header values");
-	}
-	return result;
+function createHeaders(config: {
+	readonly headers?: Readonly<Record<string, string>>;
+	readonly token?: string;
+	readonly encoding: OtlpEncoding;
+}): Headers {
+	const headers = new Headers(config.headers);
+	headers.set(
+		"Content-Type",
+		config.encoding === "json" ? "application/json" : "application/x-protobuf",
+	);
+	if (config.token !== undefined) headers.set("Authorization", `Bearer ${config.token}`);
+	return headers;
 }
 
 function createResource(
 	context: DestinationContext,
 ): { readonly attributes: readonly OtlpKeyValue[] } | null {
+	if (!isObject(context.resourceAttributes)) return null;
 	const attributes: OtlpKeyValue[] = [];
 	for (const [key, value] of Object.entries(context.resourceAttributes)) {
 		const attribute = primitiveAttribute(key, value);
@@ -322,43 +305,39 @@ function exportLogs(
 	records: readonly LogEntry[],
 	context: ExportContext,
 ): ResultAsync<ExportResult, ExportFailure> {
-	return ResultAsync.fromPromise(
-		(async () => {
-			const logRecords = [];
-			let locallyRejected = 0;
-			for (const entry of records) {
-				const record = createLogRecord(entry);
-				if (record) logRecords.push(record);
-				else locallyRejected += 1;
-			}
+	const logRecords = [];
+	let locallyRejected = 0;
+	for (const entry of records) {
+		const record = createLogRecord(entry);
+		if (record) logRecords.push(record);
+		else locallyRejected += 1;
+	}
 
-			if (logRecords.length === 0) return { rejectedRecords: locallyRejected };
+	if (logRecords.length === 0) return okAsync({ rejectedRecords: locallyRejected });
 
-			const payload = {
-				resourceLogs: [
+	const payload = {
+		resourceLogs: [
+			{
+				resource,
+				scopeLogs: [
 					{
-						resource,
-						scopeLogs: [
-							{
-								scope: { name: INSTRUMENTATION_SCOPE_NAME },
-								logRecords,
-							},
-						],
+						scope: { name: INSTRUMENTATION_SCOPE_NAME },
+						logRecords,
 					},
 				],
-			};
-			const rejected = await postOtlp(
-				config.logsUrl,
-				config.headers,
-				payload,
-				"rejectedLogRecords",
-				logRecords.length,
-				context.signal,
-			);
-			return { rejectedRecords: locallyRejected + rejected };
-		})(),
-		(error) => normalizeFailure(error, context.signal),
-	);
+			},
+		],
+	};
+	return postOtlp(
+		config.logsUrl,
+		config.headers,
+		payload,
+		"logs",
+		config.encoding,
+		"rejectedLogRecords",
+		logRecords.length,
+		context.signal,
+	).map((rejected) => ({ rejectedRecords: locallyRejected + rejected }));
 }
 
 function exportMetrics(
@@ -367,43 +346,39 @@ function exportMetrics(
 	batch: MetricBatch,
 	context: ExportContext,
 ): ResultAsync<ExportResult, ExportFailure> {
-	return ResultAsync.fromPromise(
-		(async () => {
-			const timeUnixNano = toUnixNano(batch.timestamp);
-			if (!timeUnixNano) return { rejectedRecords: batch.observations.length };
+	const timeUnixNano = toUnixNano(batch.timestamp);
+	if (!timeUnixNano) return okAsync({ rejectedRecords: batch.observations.length });
 
-			const { metrics, rejectedRecords } = createMetrics(batch.observations, timeUnixNano);
-			const submittedRecords = metrics.reduce(
-				(count, metric) => count + metric.gauge.dataPoints.length,
-				0,
-			);
-			if (submittedRecords === 0) return { rejectedRecords };
+	const { metrics, rejectedRecords } = createMetrics(batch.observations, timeUnixNano);
+	const submittedRecords = metrics.reduce(
+		(count, metric) => count + metric.gauge.dataPoints.length,
+		0,
+	);
+	if (submittedRecords === 0) return okAsync({ rejectedRecords });
 
-			const payload = {
-				resourceMetrics: [
+	const payload = {
+		resourceMetrics: [
+			{
+				resource,
+				scopeMetrics: [
 					{
-						resource,
-						scopeMetrics: [
-							{
-								scope: { name: INSTRUMENTATION_SCOPE_NAME },
-								metrics,
-							},
-						],
+						scope: { name: INSTRUMENTATION_SCOPE_NAME },
+						metrics,
 					},
 				],
-			};
-			const backendRejected = await postOtlp(
-				config.metricsUrl,
-				config.headers,
-				payload,
-				"rejectedDataPoints",
-				submittedRecords,
-				context.signal,
-			);
-			return { rejectedRecords: rejectedRecords + backendRejected };
-		})(),
-		(error) => normalizeFailure(error, context.signal),
-	);
+			},
+		],
+	};
+	return postOtlp(
+		config.metricsUrl,
+		config.headers,
+		payload,
+		"metrics",
+		config.encoding,
+		"rejectedDataPoints",
+		submittedRecords,
+		context.signal,
+	).map((backendRejected) => ({ rejectedRecords: rejectedRecords + backendRejected }));
 }
 
 function createMetrics(observations: readonly MetricObservation[], timeUnixNano: string) {
@@ -490,87 +465,106 @@ function createMetricAttributes(
 	return result;
 }
 
-async function postOtlp(
+function postOtlp(
 	url: string,
 	configuredHeaders: Headers,
-	payload: unknown,
+	payload: object,
+	otlpSignal: OtlpSignal,
+	encoding: OtlpEncoding,
 	rejectedField: "rejectedLogRecords" | "rejectedDataPoints",
 	submittedRecords: number,
 	signal: AbortSignal,
-): Promise<number> {
-	if (signal.aborted) throw createFailure("OTLP export was aborted", false);
+): ResultAsync<number, ExportFailure> {
+	if (signal.aborted) return errAsync(createFailure("OTLP export was aborted", false));
 
-	let body: string;
-	try {
-		body = JSON.stringify(payload);
-	} catch {
-		throw createFailure("OTLP export payload could not be encoded", false);
+	const body =
+		encoding === "protobuf"
+			? encodeOtlpProtobufRequest(otlpSignal, payload)
+			: Result.fromThrowable(
+					() => JSON.stringify(payload),
+					() => createFailure("OTLP export payload could not be encoded", false),
+				)();
+	return body.asyncAndThen((encoded) =>
+		ResultAsync.fromPromise(
+			Promise.resolve().then(() =>
+				fetch(url, {
+					method: "POST",
+					headers: new Headers(configuredHeaders),
+					body: encoded,
+					signal,
+				}),
+			),
+			(error) =>
+				signal.aborted || isAbortError(error)
+					? createFailure("OTLP export was aborted", false)
+					: createFailure("OTLP request failed", true),
+		).andThen((response) => {
+			if (response.status !== 200) {
+				const retryable = RETRYABLE_HTTP_STATUSES.has(response.status);
+				const retryAfterMs = retryable
+					? parseRetryAfter(response.headers.get("Retry-After"))
+					: undefined;
+				const failure = createFailure(
+					`OTLP request failed with HTTP status ${response.status}`,
+					retryable,
+					retryAfterMs,
+				);
+				// Error responses may stream indefinitely. Release their body before
+				// settling so retry scheduling cannot accumulate open connections.
+				return ResultAsync.fromPromise(
+					Promise.resolve().then(() => response.body?.cancel()),
+					() => failure,
+				).andThen(() => err(failure));
+			}
+			return decodeResponse(response, otlpSignal, encoding, signal).andThen((decoded) =>
+				parseResponse(decoded, rejectedField, submittedRecords),
+			);
+		}),
+	);
+}
+
+function decodeResponse(
+	response: Response,
+	otlpSignal: OtlpSignal,
+	encoding: OtlpEncoding,
+	signal: AbortSignal,
+): ResultAsync<unknown, ExportFailure> {
+	const readFailure = (error: unknown) =>
+		signal.aborted || isAbortError(error)
+			? createFailure("OTLP export was aborted", false)
+			: createFailure("OTLP response body could not be read", false);
+	const malformed = () => createFailure("OTLP response was malformed", false);
+	if (encoding === "protobuf") {
+		return ResultAsync.fromPromise(
+			Promise.resolve().then(() => response.arrayBuffer()),
+			readFailure,
+		).andThen((buffer) => decodeOtlpProtobufResponse(otlpSignal, new Uint8Array(buffer)));
 	}
-
-	let response: Response;
-	try {
-		response = await fetch(url, {
-			method: "POST",
-			headers: new Headers(configuredHeaders),
-			body,
-			signal,
-		});
-	} catch (error) {
-		if (signal.aborted || isAbortError(error)) {
-			throw createFailure("OTLP export was aborted", false);
-		}
-		throw createFailure("OTLP request failed", true);
-	}
-
-	if (response.status !== 200) {
-		const retryable = RETRYABLE_HTTP_STATUSES.has(response.status);
-		const retryAfterMs = retryable
-			? parseRetryAfter(response.headers.get("Retry-After"))
-			: undefined;
-		throw createFailure(
-			`OTLP request failed with HTTP status ${response.status}`,
-			retryable,
-			retryAfterMs,
-		);
-	}
-
-	let responseBody: string;
-	try {
-		responseBody = await response.text();
-	} catch (error) {
-		if (signal.aborted || isAbortError(error)) {
-			throw createFailure("OTLP export was aborted", false);
-		}
-		throw createFailure("OTLP response body could not be read", false);
-	}
-
-	return parseResponse(responseBody, rejectedField, submittedRecords);
+	return ResultAsync.fromPromise(
+		Promise.resolve().then(() => response.text()),
+		readFailure,
+	).andThen((body) =>
+		body.trim().length === 0
+			? ok({})
+			: Result.fromThrowable((): unknown => JSON.parse(body), malformed)(),
+	);
 }
 
 function parseResponse(
-	body: string,
+	response: unknown,
 	rejectedField: "rejectedLogRecords" | "rejectedDataPoints",
 	submittedRecords: number,
-): number {
-	if (body.trim().length === 0) return 0;
-
-	let response: unknown;
-	try {
-		response = JSON.parse(body);
-	} catch {
-		throw createFailure("OTLP response was malformed", false);
-	}
-	if (!isObject(response)) throw createFailure("OTLP response was malformed", false);
-	if (!("partialSuccess" in response)) return 0;
+): Result<number, ExportFailure> {
+	if (!isObject(response)) return err(createFailure("OTLP response was malformed", false));
+	if (!("partialSuccess" in response)) return ok(0);
 
 	const partialSuccess = response.partialSuccess;
-	if (!isObject(partialSuccess)) throw createFailure("OTLP response was malformed", false);
+	if (!isObject(partialSuccess)) return err(createFailure("OTLP response was malformed", false));
 	const rejected = partialSuccess[rejectedField];
-	if (rejected === undefined) return 0;
+	if (rejected === undefined) return ok(0);
 
 	const count = parseRejectedCount(rejected, submittedRecords);
-	if (count === null) throw createFailure("OTLP response was malformed", false);
-	return count;
+	return count === null ? err(createFailure("OTLP response was malformed", false)) : ok(count);
 }
 
 function parseRejectedCount(value: unknown, submittedRecords: number): number | null {
@@ -601,26 +595,17 @@ function createFailure(
 	message: string,
 	retryable: boolean,
 	retryAfterMs?: number,
-): InternalExportFailure {
-	return Object.assign(new Error(message), {
-		[FAILURE_MARKER]: true as const,
-		retryable,
-		...(retryAfterMs === undefined ? {} : { retryAfterMs }),
-	});
-}
-
-function normalizeFailure(error: unknown, signal: AbortSignal): ExportFailure {
-	if (isInternalFailure(error)) return error;
-	if (signal.aborted || isAbortError(error)) return createFailure("OTLP export was aborted", false);
-	return createFailure("OTLP export failed", false);
-}
-
-function isInternalFailure(error: unknown): error is InternalExportFailure {
-	return error instanceof Error && FAILURE_MARKER in error;
+): DestinationFailure {
+	return new DestinationFailure(message, { retryable, retryAfterMs });
 }
 
 function isAbortError(error: unknown): boolean {
-	return error instanceof Error && error.name === "AbortError";
+	try {
+		return error instanceof Error && error.name === "AbortError";
+	} catch {
+		// Library rejections can contain proxies or throwing property accessors.
+		return false;
+	}
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

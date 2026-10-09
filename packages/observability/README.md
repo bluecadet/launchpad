@@ -1,6 +1,6 @@
 # @bluecadet/launchpad-observability
 
-Exports Launchpad logs and current-state gauges to endpoints you control. Built-in destinations support OTLP/HTTP JSON and Grafana Loki; the legacy transport API remains available.
+Exports Launchpad logs and current-state gauges to endpoints you control. Built-in destinations support OTLP/HTTP JSON or protobuf and Grafana Loki; the legacy transport API remains available.
 
 ## Documentation
 
@@ -30,7 +30,8 @@ export default defineConfig({
       destinations: [
         createOtlpDestination({
           endpoint,
-          token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN,
+          encoding: 'protobuf',
+          token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined,
         }),
       ],
     }),
@@ -40,7 +41,9 @@ export default defineConfig({
 
 `resource` is an optional flat record of string, finite number, and boolean attributes. Launchpad defaults `service.name` to `launchpad` and generates `service.instance.id` at runtime. Other attributes are caller-defined.
 
-The OTLP destination uses native `fetch`, sends JSON to `/v1/logs` and `/v1/metrics`, and defaults to both signals. Metrics default to a 30-second observation interval and are independent of log event filters.
+The OTLP destination uses native `fetch` and sends logs and metrics to `/v1/logs` and `/v1/metrics`. The example selects binary OTLP/HTTP protobuf, not gRPC; the recipient must support that encoding. Omit `encoding` to use the default JSON encoding. JSON requests and responses use `Content-Type: application/json`, while protobuf requests and responses use `Content-Type: application/x-protobuf`. Both encodings use the same endpoint paths, authentication, batching, resources, partial-success handling, and retries. Selecting an encoding does not enable payload compression or configure global OpenTelemetry providers.
+
+The destination defaults to both signals. Metrics default to a 30-second observation interval and are independent of log event filters.
 
 No telemetry is sent to Bluecadet automatically. Delivery is bounded and best effort: queues are in memory, requests and shutdown have deadlines, and records can be dropped. Review application logs and destination retention before enabling export; key-based redaction cannot detect every secret.
 

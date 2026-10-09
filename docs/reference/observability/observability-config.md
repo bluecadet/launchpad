@@ -55,7 +55,7 @@ Resource attributes and metric-point attributes are separate scopes. Resource at
 
 **Required:** Yes
 
-At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique within the plugin because they identify the delivery target in diagnostics.
+At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics. The name `__proto__` is rejected.
 
 ### `include`
 
@@ -117,4 +117,4 @@ observability({
 });
 ```
 
-Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, and `delivery` options belong to destination mode. See [Migrate from transports](./migration.md) before switching an existing deployment.
+Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, and `delivery` options belong to destination mode and are rejected in legacy mode. See [Migrate from transports](./migration.md) before switching an existing deployment.

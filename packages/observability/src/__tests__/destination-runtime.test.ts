@@ -58,9 +58,19 @@ async function setupRuntime(
 ) {
 	const { context, state } = createContext(contextOptions);
 	const plugin = observability({ destinations, ...overrides });
-	const result = await plugin.setup(context);
+	const runtimeContext = {
+		...context,
+		collectMetrics: () => [
+			...(context.collectMetrics?.() ?? []),
+			...plugin.observe!({
+				...context.getGlobalState(),
+				plugins: { ...context.getGlobalState().plugins, observability: state },
+			}),
+		],
+	};
+	const result = await plugin.setup(runtimeContext);
 	if (result.isErr()) throw result.error;
-	return { instance: result.value, context, state };
+	return { instance: result.value, context: runtimeContext, state };
 }
 
 afterEach(() => {
@@ -341,8 +351,7 @@ describe("destination observability runtime", () => {
 
 	it("accounts for partial rejection without retrying accepted records", async () => {
 		const deliver = vi.fn(() => okAsync({ rejectedRecords: 1 }));
-		const onSuccess = vi.fn();
-		const onDrop = vi.fn();
+		const onTransition = vi.fn();
 		const queue = new DeliveryQueue<readonly number[]>({
 			mode: "retry",
 			maxQueuedBatches: 2,
@@ -350,21 +359,24 @@ describe("destination observability runtime", () => {
 			deliveryTimeoutMs: 100,
 			countRecords: (records) => records.length,
 			deliver,
-			onSuccess,
-			onDrop,
+			onTransition,
 		});
 
 		queue.enqueue([1, 2, 3]);
 		await queue.flush(100);
 		expect(deliver).toHaveBeenCalledOnce();
-		expect(onSuccess).toHaveBeenCalledWith(2, 1);
-		expect(onDrop).toHaveBeenCalledWith(1, "rejected");
+		expect(onTransition).toHaveBeenLastCalledWith({
+			type: "export",
+			queuedBatches: 0,
+			acceptedRecords: 2,
+			rejectedRecords: 1,
+		});
 	});
 
 	it("times out uncooperative exporters and bounds queued batches", async () => {
 		vi.useFakeTimers();
 		const never = new Promise<never>(() => {});
-		const onDrop = vi.fn();
+		const onTransition = vi.fn();
 		const queue = new DeliveryQueue<readonly number[]>({
 			mode: "retry",
 			maxQueuedBatches: 1,
@@ -372,16 +384,26 @@ describe("destination observability runtime", () => {
 			deliveryTimeoutMs: 50,
 			countRecords: (records) => records.length,
 			deliver: () => ResultAsync.fromPromise(never, () => new Error("unreachable")),
-			onDrop,
+			onTransition,
 		});
 
 		queue.enqueue([1]);
 		queue.enqueue([2]);
 		queue.enqueue([3, 4]);
 		expect(queue.queuedBatches).toBe(1);
-		expect(onDrop).toHaveBeenCalledWith(1, "queue-full");
+		expect(onTransition).toHaveBeenCalledWith({
+			type: "drop",
+			queuedBatches: 1,
+			droppedRecords: 1,
+			reason: "queue-full",
+		});
 		await vi.advanceTimersByTimeAsync(100);
-		expect(onDrop).toHaveBeenCalledWith(1, "max-retries");
+		expect(onTransition).toHaveBeenLastCalledWith({
+			type: "failure",
+			queuedBatches: 1,
+			droppedRecords: 1,
+			error: expect.objectContaining({ message: "Destination delivery timed out after 50ms" }),
+		});
 	});
 
 	it("coalesces pending gauge snapshots to the newest batch", async () => {
@@ -465,7 +487,7 @@ describe("destination observability runtime", () => {
 			settleFirst = resolve;
 		});
 		const delivered: number[] = [];
-		const onSuccess = vi.fn();
+		const onTransition = vi.fn();
 		const queue = new DeliveryQueue<number>({
 			mode: "coalesce",
 			maxQueuedBatches: 2,
@@ -478,7 +500,7 @@ describe("destination observability runtime", () => {
 					? ResultAsync.fromPromise(first, () => new Error())
 					: okAsync({ rejectedRecords: 0 });
 			},
-			onSuccess,
+			onTransition,
 		});
 
 		queue.enqueue(1);
@@ -488,7 +510,9 @@ describe("destination observability runtime", () => {
 		settleFirst({ rejectedRecords: 0 });
 		await vi.advanceTimersByTimeAsync(0);
 		expect(delivered).toEqual([1, 2]);
-		expect(onSuccess).toHaveBeenCalledTimes(1);
+		expect(onTransition.mock.calls.filter(([transition]) => transition.type === "export")).toEqual([
+			[{ type: "export", queuedBatches: 0, acceptedRecords: 1, rejectedRecords: 0 }],
+		]);
 	});
 
 	it("does not mark a fully rejected export as successful", async () => {
@@ -539,8 +563,7 @@ describe("destination observability runtime", () => {
 		"treats invalid rejectedRecords %s as a permanent invalid acknowledgement",
 		async (rejectedRecords) => {
 			const deliver = vi.fn(() => okAsync({ rejectedRecords }));
-			const onSuccess = vi.fn();
-			const onDrop = vi.fn();
+			const onTransition = vi.fn();
 			const queue = new DeliveryQueue<readonly number[]>({
 				mode: "retry",
 				maxQueuedBatches: 2,
@@ -548,14 +571,20 @@ describe("destination observability runtime", () => {
 				deliveryTimeoutMs: 100,
 				countRecords: (records) => records.length,
 				deliver,
-				onSuccess,
-				onDrop,
+				onTransition,
 			});
 			queue.enqueue([1, 2]);
 			await queue.flush(100);
 			expect(deliver).toHaveBeenCalledOnce();
-			expect(onSuccess).not.toHaveBeenCalled();
-			expect(onDrop).toHaveBeenCalledWith(2, "invalid-ack");
+			expect(onTransition.mock.calls.some(([transition]) => transition.type === "export")).toBe(
+				false,
+			);
+			expect(onTransition).toHaveBeenLastCalledWith({
+				type: "failure",
+				queuedBatches: 0,
+				droppedRecords: 2,
+				error: expect.objectContaining({ retryable: false }),
+			});
 		},
 	);
 

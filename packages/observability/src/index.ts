@@ -3,6 +3,7 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { Batcher } from "./core/batcher.js";
@@ -10,16 +11,16 @@ import { createDestinationRuntime } from "./core/destination-runtime.js";
 import { makeEventFilter } from "./core/event-filter.js";
 import { eventToLogEntry, type LogEntry } from "./core/log-entry.js";
 import { RetryBuffer } from "./core/retry-buffer.js";
+import type { ObservabilityTransport } from "./core/transport.js";
 import {
-	type DestinationObservabilityConfig,
-	deliveryConfigSchema,
-	type ObservabilityCoreConfig,
-	observabilityCoreConfigSchema,
-	observationConfigSchema,
-	resourceAttributesSchema,
+	type ObservabilityConfig,
+	observabilityConfigSchema,
+	type ResolvedDestinationObservabilityConfig,
+	type ResolvedObservabilityConfig,
 } from "./observability-config.js";
 import "./observability-events.js";
 import { type ObservabilityCommand, observabilityCommandSchema } from "./observability-commands.js";
+import { projectObservabilityMetrics } from "./observability-metrics.js";
 import { type ObservabilityState, ObservabilityStateManager } from "./observability-state.js";
 import { buildObservabilitySection } from "./observability-summarize.js";
 
@@ -47,18 +48,34 @@ export {
 	createLokiDestination,
 	lokiDestinationConfigSchema,
 } from "./destinations/loki.js";
-export type { OtlpDestinationConfig, OtlpSignal } from "./destinations/otlp.js";
+export type {
+	OtlpDestinationConfig,
+	OtlpEncoding,
+	OtlpSignal,
+} from "./destinations/otlp.js";
 export { createOtlpDestination } from "./destinations/otlp.js";
 export type { ObservabilityCommand, ObservabilityFlushCommand } from "./observability-commands.js";
 export type {
 	DeliveryConfig,
 	DestinationObservabilityConfig,
+	LegacyObservabilityConfig,
+	ObservabilityConfig,
 	ObservabilityCoreConfig,
 	ObservationConfig,
+	ResolvedDeliveryConfig,
+	ResolvedDestinationObservabilityConfig,
+	ResolvedLegacyObservabilityConfig,
+	ResolvedObservabilityConfig,
+	ResolvedObservabilityCoreConfig,
+	ResolvedObservationConfig,
 } from "./observability-config.js";
 export {
 	deliveryConfigSchema,
+	destinationObservabilityConfigSchema,
+	legacyObservabilityConfigSchema,
+	observabilityConfigSchema,
 	observabilityCoreConfigSchema,
+	observabilityDestinationsSchema,
 	observationConfigSchema,
 	resourceAttributesSchema,
 } from "./observability-config.js";
@@ -74,17 +91,11 @@ export type {
 } from "./observability-state.js";
 export { createLokiTransport } from "./transports/loki.js";
 
-import type { ObservabilityTransport } from "./core/transport.js";
-
-export type LegacyObservabilityConfig = ObservabilityCoreConfig & {
-	readonly transports: ObservabilityTransport[];
-	readonly resource?: never;
-	readonly destinations?: never;
-	readonly metrics?: never;
-	readonly delivery?: never;
-};
-
-export type ObservabilityConfig = LegacyObservabilityConfig | DestinationObservabilityConfig;
+function isDestinationConfig(
+	config: ResolvedObservabilityConfig,
+): config is ResolvedDestinationObservabilityConfig {
+	return config.destinations !== undefined;
+}
 
 export function observability(config: ObservabilityConfig) {
 	return definePlugin({
@@ -114,72 +125,23 @@ export function observability(config: ObservabilityConfig) {
 			return buildObservabilitySection(obsState);
 		},
 
+		observe(state: LaunchpadState): readonly MetricObservation[] {
+			return projectObservabilityMetrics(state.plugins.observability);
+		},
+
 		setup(ctx: PluginContext<ObservabilityState>) {
-			if (Object.hasOwn(config, "deployment")) {
+			const configResult = observabilityConfigSchema.safeParse(config);
+			if (!configResult.success) {
 				return errAsync(
-					new Error(
-						"Observability deployment configuration was removed; use resource attributes instead",
-					),
+					new Error(`Invalid observability configuration: ${configResult.error.message}`, {
+						cause: configResult.error,
+					}),
 				);
 			}
 
-			const configuredTransports = config.transports;
-			const configuredDestinations = config.destinations;
-			if (
-				configuredTransports !== undefined &&
-				(configuredDestinations !== undefined || config.resource !== undefined)
-			) {
-				return errAsync(
-					new Error("Observability transports and destination resources cannot be combined"),
-				);
-			}
-
-			if (configuredDestinations !== undefined) {
-				if (!Array.isArray(configuredDestinations) || configuredDestinations.length === 0) {
-					return errAsync(new Error("Observability destinations must be a non-empty array"));
-				}
-				const names = new Set<string>();
-				for (const destination of configuredDestinations) {
-					if (typeof destination?.name !== "string" || destination.name.trim().length === 0) {
-						return errAsync(new Error("Observability destination names must not be empty"));
-					}
-					const normalizedName = destination.name.trim();
-					if (names.has(normalizedName)) {
-						return errAsync(
-							new Error(`Duplicate observability destination name: "${normalizedName}"`),
-						);
-					}
-					names.add(normalizedName);
-				}
-
-				const coreConfigResult = observabilityCoreConfigSchema.safeParse(config);
-				const resourceResult = resourceAttributesSchema.safeParse(
-					config.resource === undefined ? {} : config.resource,
-				);
-				const metricsResult =
-					config.metrics === false
-						? { success: true as const, data: false as const }
-						: observationConfigSchema.safeParse(config.metrics ?? {});
-				const deliveryResult = deliveryConfigSchema.safeParse(config.delivery ?? {});
-				if (
-					!coreConfigResult.success ||
-					!resourceResult.success ||
-					!metricsResult.success ||
-					!deliveryResult.success
-				) {
-					return errAsync(new Error("Invalid destination observability configuration"));
-				}
-
-				return createDestinationRuntime(
-					{
-						...coreConfigResult.data,
-						resource: resourceResult.data,
-						destinations: configuredDestinations,
-						metrics: metricsResult.data,
-						delivery: deliveryResult.data,
-					},
-					ctx,
-				).map((runtime) => {
+			const resolvedConfig: ResolvedObservabilityConfig = configResult.data;
+			if (isDestinationConfig(resolvedConfig)) {
+				return createDestinationRuntime(resolvedConfig, ctx).map((runtime) => {
 					runtime.start();
 					return {
 						ready: () => runtime.ready(),
@@ -199,19 +161,9 @@ export function observability(config: ObservabilityConfig) {
 				});
 			}
 
-			if (!Array.isArray(configuredTransports)) {
-				return errAsync(new Error("Observability transports must be an array"));
-			}
-			const coreConfigResult = observabilityCoreConfigSchema.safeParse(config);
-			if (!coreConfigResult.success) {
-				return errAsync(
-					new Error("Invalid observability configuration", { cause: coreConfigResult.error }),
-				);
-			}
-
-			const resolved = coreConfigResult.data;
+			const resolved = resolvedConfig;
 			const eventFilter = makeEventFilter(resolved.include, resolved.exclude);
-			const transports = configuredTransports;
+			const transports = resolved.transports;
 
 			if (transports.length === 0) {
 				ctx.logger.warn("observability plugin configured with no transports");

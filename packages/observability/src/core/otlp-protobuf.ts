@@ -1,5 +1,8 @@
+import { Result } from "neverthrow";
 import type { Type } from "protobufjs";
 import protobuf from "protobufjs/light.js";
+import type { ExportFailure } from "./destination.js";
+import { DestinationFailure } from "./export-failure.js";
 import { otlpProtobufSchema } from "./otlp-protobuf-schema.js";
 
 type OtlpSignal = "logs" | "metrics";
@@ -15,25 +18,38 @@ const getMessageTypes = createLazyMessageTypes();
 export function encodeOtlpProtobufRequest(
 	signal: "logs" | "metrics",
 	payload: object,
-): Uint8Array<ArrayBuffer> {
-	const requestType = getMessageTypes().request[signal];
-	const message = requestType.fromObject(payload);
-	const encoded = requestType.encode(message).finish();
+): Result<Uint8Array<ArrayBuffer>, ExportFailure> {
+	return Result.fromThrowable(
+		() => {
+			const requestType = getMessageTypes().request[signal];
+			const message = requestType.fromObject(payload);
+			const encoded = requestType.encode(message).finish();
 
-	// protobufjs can expose an ArrayBufferLike-backed view. Fetch's BodyInit
-	// expects an owned ArrayBuffer-backed view under TypeScript's typed arrays.
-	const ownedBytes = new Uint8Array(encoded.byteLength);
-	ownedBytes.set(encoded);
-	return ownedBytes;
+			// protobufjs can expose an ArrayBufferLike-backed view. Fetch's BodyInit
+			// expects an owned ArrayBuffer-backed view under TypeScript's typed arrays.
+			const ownedBytes = new Uint8Array(encoded.byteLength);
+			ownedBytes.set(encoded);
+			return ownedBytes;
+		},
+		() => new DestinationFailure("OTLP export payload could not be encoded", { retryable: false }),
+	)();
 }
 
 /** Decodes an OTLP protobuf response to its canonical JSON-shaped plain object. */
-export function decodeOtlpProtobufResponse(signal: "logs" | "metrics", bytes: Uint8Array): unknown {
-	if (bytes.byteLength === 0) return {};
+export function decodeOtlpProtobufResponse(
+	signal: "logs" | "metrics",
+	bytes: Uint8Array,
+): Result<unknown, ExportFailure> {
+	return Result.fromThrowable(
+		() => {
+			if (bytes.byteLength === 0) return {};
 
-	const responseType = getMessageTypes().response[signal];
-	const message = responseType.decode(bytes);
-	return responseType.toObject(message, { longs: String });
+			const responseType = getMessageTypes().response[signal];
+			const message = responseType.decode(bytes);
+			return responseType.toObject(message, { longs: String });
+		},
+		() => new DestinationFailure("OTLP response was malformed", { retryable: false }),
+	)();
 }
 
 function createLazyMessageTypes(): () => OtlpMessageTypes {

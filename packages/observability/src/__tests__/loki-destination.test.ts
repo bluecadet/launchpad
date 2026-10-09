@@ -272,9 +272,11 @@ describe("createLokiDestination", () => {
 			'{"__proto__":"prototype_label"}',
 		);
 
-		expect(() =>
-			createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
-		).toThrowError("Invalid Loki destination configuration");
+		expect(
+			createLokiDestination({ url: "http://localhost:3100", resourceLabels })
+				.create({ resourceAttributes })
+				._unsafeUnwrapErr().message,
+		).toBe("Invalid Loki destination configuration");
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -315,9 +317,11 @@ describe("createLokiDestination", () => {
 	] satisfies Array<[Readonly<Record<string, string>>, string]>)(
 		"rejects an invalid resource label mapping: %s",
 		(resourceLabels, _description) => {
-			expect(() =>
-				createLokiDestination({ url: "http://localhost:3100", resourceLabels }),
-			).toThrowError("Invalid Loki destination configuration");
+			expect(
+				createLokiDestination({ url: "http://localhost:3100", resourceLabels })
+					.create({ resourceAttributes })
+					._unsafeUnwrapErr().message,
+			).toBe("Invalid Loki destination configuration");
 			expect(fetchMock).not.toHaveBeenCalled();
 		},
 	);
@@ -376,20 +380,14 @@ describe("createLokiDestination", () => {
 			Authorization: `Basic ${Buffer.from("user:password").toString("base64")}`,
 		});
 
-		expect(() =>
-			createLokiDestination({
-				url: "",
-				auth: { type: "bearer", token: "must-not-appear" },
-			}),
-		).toThrowError("Invalid Loki destination configuration");
-		try {
-			createLokiDestination({
-				url: "",
-				auth: { type: "bearer", token: "must-not-appear" },
-			});
-		} catch (error) {
-			expect(String(error)).not.toContain("must-not-appear");
-		}
+		const failure = createLokiDestination({
+			url: "",
+			auth: { type: "bearer", token: "must-not-appear" },
+		})
+			.create({ resourceAttributes })
+			._unsafeUnwrapErr();
+		expect(failure.message).toBe("Invalid Loki destination configuration");
+		expect(String(failure)).not.toContain("must-not-appear");
 	});
 
 	it("contains serialization errors in ResultAsync rather than throwing synchronously", async () => {
@@ -475,6 +473,57 @@ describe("createLokiDestination", () => {
 
 		expect(result.isErr()).toBe(true);
 		expect(result._unsafeUnwrapErr()).toMatchObject({ retryable: false });
+	});
+
+	it.each([200, 503])("awaits streamed HTTP %i response cancellation", async (status) => {
+		const cancelStarted = Promise.withResolvers<void>();
+		const cancelFinished = Promise.withResolvers<void>();
+		const streamedResponse = new Response(
+			new ReadableStream({
+				cancel() {
+					cancelStarted.resolve();
+					return cancelFinished.promise;
+				},
+			}),
+			{ status },
+		);
+		fetchMock.mockResolvedValue(streamedResponse);
+		let settled = false;
+		const resultPromise = Promise.resolve(
+			logExporter().export([logEntry()], {
+				signal: new AbortController().signal,
+			}),
+		).then((result) => {
+			settled = true;
+			return result;
+		});
+		await cancelStarted.promise;
+		try {
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(settled).toBe(false);
+		} finally {
+			cancelFinished.resolve();
+		}
+		const result = await resultPromise;
+		expect(result.isOk()).toBe(status === 200);
+		expect(streamedResponse.bodyUsed).toBe(true);
+	});
+
+	it.each([
+		{ url: "not-a-url" },
+		{ url: "ftp://private.example" },
+		{ url: "https://user:secret@private.example" },
+		{ url: "https://private.example?token=secret" },
+		{ url: "https://private.example", headers: { "bad header": "secret" } },
+		{ url: "https://private.example", auth: { type: "bearer", token: "secret\nvalue" } },
+	] satisfies LokiDestinationConfig[])("reports invalid config only from create", (config) => {
+		const destination = createLokiDestination(config);
+		const failure = destination.create({ resourceAttributes })._unsafeUnwrapErr();
+		expect(failure).toMatchObject({
+			message: "Invalid Loki destination configuration",
+			retryable: false,
+		});
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it("preserves the legacy transport wire body byte-for-byte", async () => {

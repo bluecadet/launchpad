@@ -1,5 +1,7 @@
 // Need to import so that declaration merging works
 import "@bluecadet/launchpad-utils/types";
+import type { DeliveryTransition } from "./core/delivery-queue.js";
+import { exportFailureMessage } from "./core/export-failure.js";
 
 export type TransportStatus = "ok" | "degraded" | "failing";
 
@@ -115,58 +117,44 @@ export class ObservabilityStateManager {
 		});
 	}
 
-	recordDestinationSuccess(
+	/** Apply counters, outcome, and final queue depth as one observable transition. */
+	applyDestinationTransition(
 		name: string,
 		signal: DestinationSignal,
-		accepted: number,
-		rejected: number,
-	): void {
-		if (accepted <= 0) return;
-		this.updateState((draft) => {
-			const state = draft.destinations?.[name]?.[signal];
-			if (!state) return;
-			state.totalPushed += accepted;
-			state.lastSuccessAt = new Date();
-			if (rejected === 0) {
-				state.status = "ok";
-				state.lastError = null;
-				return;
-			}
-			state.status = accepted > 0 ? "degraded" : "failing";
-			state.lastError = `Destination rejected ${rejected} record${rejected === 1 ? "" : "s"}`;
-		});
-	}
-
-	recordDestinationError(
-		name: string,
-		signal: DestinationSignal,
-		errorMessage: string,
-		queueSize: number,
+		transition: DeliveryTransition,
 	): void {
 		this.updateState((draft) => {
 			const state = draft.destinations?.[name]?.[signal];
 			if (!state) return;
-			state.status = queueSize > 0 ? "degraded" : "failing";
-			state.lastError = errorMessage;
-			state.queueSize = queueSize;
-		});
-	}
+			state.queueSize = transition.queuedBatches;
 
-	recordDestinationDropped(name: string, signal: DestinationSignal, count: number): void {
-		this.updateState((draft) => {
-			const state = draft.destinations?.[name]?.[signal];
-			if (!state) return;
-			state.totalDropped += count;
-		});
-	}
-
-	updateDestinationQueue(name: string, signal: DestinationSignal, queueSize: number): void {
-		this.updateState((draft) => {
-			const state = draft.destinations?.[name]?.[signal];
-			if (!state) return;
-			state.queueSize = queueSize;
-			if (queueSize === 0 && state.status === "degraded" && state.lastError === null) {
-				state.status = "ok";
+			switch (transition.type) {
+				case "queue":
+					return;
+				case "drop":
+					state.totalDropped += transition.droppedRecords;
+					return;
+				case "failure":
+					state.totalDropped += transition.droppedRecords;
+					state.status = transition.queuedBatches > 0 ? "degraded" : "failing";
+					state.lastError = exportFailureMessage(transition.error);
+					return;
+				case "export": {
+					const { acceptedRecords: accepted, rejectedRecords: rejected } = transition;
+					state.totalPushed += accepted;
+					state.totalDropped += rejected;
+					if (accepted > 0) {
+						state.lastSuccessAt = new Date();
+						state.status = rejected > 0 ? "degraded" : "ok";
+						state.lastError =
+							rejected > 0
+								? `Destination rejected ${rejected} record${rejected === 1 ? "" : "s"}`
+								: null;
+					} else if (rejected > 0) {
+						state.status = transition.queuedBatches > 0 ? "degraded" : "failing";
+						state.lastError = "Destination rejected all records";
+					}
+				}
 			}
 		});
 	}

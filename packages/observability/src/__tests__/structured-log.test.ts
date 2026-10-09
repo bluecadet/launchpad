@@ -214,8 +214,35 @@ describe("normalizeStructuredValue", () => {
 });
 
 describe("structured log", () => {
+	it("reports invalid timestamps as permanent Results", () => {
+		const entry = { ...logEntry({}), timestamp: new Date(Number.NaN) };
+		expect(createStructuredLog(entry, resourceAttributes)._unsafeUnwrapErr()).toMatchObject({
+			message: "Invalid structured log timestamp",
+			retryable: false,
+		});
+	});
+
+	it("reports normalization limits that omit required fields as Results", () => {
+		const result = createStructuredLog(logEntry({}), resourceAttributes, { maxProperties: 1 });
+		expect(result.isErr()).toBe(true);
+		expect(result._unsafeUnwrapErr().retryable).toBe(false);
+	});
+
+	it("sanitizes JSON serialization exceptions", () => {
+		const log = createStructuredLog(logEntry({}), resourceAttributes)._unsafeUnwrap();
+		const cyclic = { ...log, metadata: {} };
+		cyclic.metadata = cyclic;
+		expect(serializeStructuredLog(cyclic)._unsafeUnwrapErr()).toMatchObject({
+			message: "Structured log serialization failed",
+			retryable: false,
+		});
+	});
+
 	it("builds the versioned destination-neutral shape with canonical resource identity", () => {
-		const structured = createStructuredLog(logEntry({ documentCount: 42 }), resourceAttributes);
+		const structured = createStructuredLog(
+			logEntry({ documentCount: 42 }),
+			resourceAttributes,
+		)._unsafeUnwrap();
 
 		expect(structured).toEqual({
 			schemaVersion: 1,
@@ -234,8 +261,8 @@ describe("structured log", () => {
 			Array.from({ length: 100 }, (_, index) => [`field-${index}`, "\0".repeat(16_384)]),
 		);
 		const serialized = serializeStructuredLog(
-			createStructuredLog(logEntry(metadata), resourceAttributes),
-		);
+			createStructuredLog(logEntry(metadata), resourceAttributes)._unsafeUnwrap(),
+		)._unsafeUnwrap();
 
 		expect(Buffer.byteLength(serialized)).toBeLessThanOrEqual(DEFAULT_MAX_STRUCTURED_LOG_LENGTH);
 		expect(JSON.parse(serialized)).toMatchObject({
@@ -256,7 +283,7 @@ describe("structured log", () => {
 				resource: "\0".repeat(10_000),
 			},
 			1_024,
-		);
+		)._unsafeUnwrap();
 
 		expect(Buffer.byteLength(serialized)).toBeLessThanOrEqual(1_024);
 		expect(() => JSON.parse(serialized)).not.toThrow();

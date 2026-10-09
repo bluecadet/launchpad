@@ -6,6 +6,12 @@ Launchpad exports logs and finite, current-state gauge observations. Metrics are
 
 Metrics are observations, not fleet assertions. Missing metrics can mean a plugin is absent, its state is unavailable, or a configured entity has not been observed. They do not describe desired applications, expected machines, or overall health.
 
+## Attribute scopes
+
+Every metric batch carries the plugin's resource attributes, including the runtime-managed `service.name` and `service.instance.id`. The attributes listed in the tables below belong to individual metric points. Resource attributes are not copied into that point scope.
+
+Plugins define their own primitive point attributes. `service.name` and `service.instance.id` are reserved on metric points so they cannot conflict with the resource identity; other resource keys are not reserved there.
+
 ## Runtime and delivery
 
 | Name | Unit | Attributes | Meaning |

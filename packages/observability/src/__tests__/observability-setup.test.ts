@@ -117,6 +117,7 @@ describe("observability setup validation", () => {
 		const names = ["normal", "constructor", "prototype", "toString"];
 		const exportLogs = vi.fn(() => okAsync({ rejectedRecords: 0 }));
 		const result = await observability({
+			logStorage: { type: "memory" },
 			destinations: names.map((name) => ({
 				name,
 				create: () => ok({ logs: { export: exportLogs } }),

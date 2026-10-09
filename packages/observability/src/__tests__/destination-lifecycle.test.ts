@@ -7,7 +7,7 @@ import { destinationObservabilityConfigSchema } from "../observability-config.js
 const logs = { export: () => okAsync({ rejectedRecords: 0 }) };
 
 function config(destinations: readonly ObservabilityDestination[]) {
-	return destinationObservabilityConfigSchema.parse({ destinations });
+	return destinationObservabilityConfigSchema.parse({ destinations, logStorage: { type: "memory" } });
 }
 
 afterEach(() => vi.useRealTimers());

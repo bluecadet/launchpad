@@ -2,7 +2,7 @@
 title: "Controller Logging"
 ---
 
-The controller owns one local logging pipeline. It writes a canonical structured log and, by default, a human-readable text view to the configured logging directory. Observability can read the canonical log directly; it does not create a second archive or spool.
+The controller owns one local logging pipeline. It writes a canonical structured log and, by default, a human-readable text view to the configured logging directory. Configured observability destinations read the canonical log directly by default; they do not create a second archive or spool.
 
 ## Configuration
 
@@ -62,4 +62,4 @@ Logger calls enter a bounded admission queue so application work does not wait o
 
 Shutdown callers wait only for their configured deadline. The logging owner nevertheless keeps the operating-system lease until all file and checkpoint I/O has settled; a caller timing out does not release the lease while I/O remains active. Retention can remove records before a lagging destination reads or acknowledges them; diagnostics report a known loss count where it can be proven and an unknown-size gap otherwise.
 
-See [Observability configuration](../observability/observability-config.md) to opt a destination into checkpointed file delivery.
+See [Observability configuration](../observability/observability-config.md) for default checkpointed file delivery and the explicit memory opt-out.

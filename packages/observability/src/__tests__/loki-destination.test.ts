@@ -40,8 +40,8 @@ function response(status = 204, body = "", headers?: Record<string, string>): Re
 	return new Response(status === 204 ? null : body, { status, headers });
 }
 
-function requestBody(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): string {
-	const body = fetchMock.mock.calls[0]?.[1]?.body;
+function requestBody(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>, call = 0): string {
+	const body = fetchMock.mock.calls[call]?.[1]?.body;
 	if (typeof body !== "string") throw new Error("Expected a string request body");
 	return body;
 }
@@ -78,6 +78,73 @@ describe("createLokiDestination", () => {
 		expect(destination.name).toBe("primary-loki");
 		expect(destination.create({ resourceAttributes }).isOk()).toBe(true);
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("uses a credential-free checkpoint key that is stable across auth changes", () => {
+		const original = createLokiDestination({
+			url: "https://loki.example/gateway/",
+			auth: { type: "bearer", token: "first-secret" },
+			headers: { "X-Scope-OrgID": "first-tenant-secret" },
+		});
+		const rotated = createLokiDestination({
+			url: "https://loki.example/gateway",
+			auth: { type: "bearer", token: "second-secret" },
+			headers: { "X-Scope-OrgID": "second-tenant-secret" },
+			resourceLabels: { region: "region" },
+		});
+		const differentEndpoint = createLokiDestination({ url: "https://other-loki.example/gateway" });
+
+		expect(original.checkpointKey).toBe(rotated.checkpointKey);
+		expect(original.checkpointKey).not.toBe(differentEndpoint.checkpointKey);
+		expect(original.checkpointKey).not.toContain("first-secret");
+		expect(original.checkpointKey).not.toContain("first-tenant-secret");
+	});
+
+	it("recomputes mapped labels and structured resources for each historical batch", async () => {
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					"service.name": "service_name",
+					region: "region",
+				},
+			}),
+		);
+		const historicalResource: ResourceAttributes = {
+			"service.name": "archived-worker",
+			region: "eu-central-1",
+		};
+
+		expect(exporter.supportsResourceContext).toBe(true);
+		await exporter.export([logEntry()], {
+			signal: new AbortController().signal,
+			resourceAttributes: historicalResource,
+		});
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+
+		const historicalPayload = JSON.parse(requestBody(fetchMock, 0)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		const currentPayload = JSON.parse(requestBody(fetchMock, 1)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		expect(historicalPayload.streams[0]?.stream).toEqual({
+			level: "info",
+			service_name: "archived-worker",
+			region: "eu-central-1",
+			module: "content",
+		});
+		expect(JSON.parse(historicalPayload.streams[0]?.values[0]?.[1] ?? "null")).toMatchObject({
+			resource: historicalResource,
+		});
+		expect(currentPayload.streams[0]?.stream).toEqual({
+			level: "info",
+			service_name: "launchpad",
+			module: "content",
+		});
+		expect(JSON.parse(currentPayload.streams[0]?.values[0]?.[1] ?? "null")).toMatchObject({
+			resource: resourceAttributes,
+		});
 	});
 
 	it("indexes only service.name by default while retaining all resource metadata", async () => {

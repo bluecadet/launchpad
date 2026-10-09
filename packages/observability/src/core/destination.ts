@@ -1,9 +1,12 @@
+import type { ResourceAttributes } from "@bluecadet/launchpad-utils/logging";
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import type { Result, ResultAsync } from "neverthrow";
 import type { LogEntry } from "./log-entry.js";
 
-export type ResourceAttributeValue = string | number | boolean;
-export type ResourceAttributes = Readonly<Record<string, ResourceAttributeValue>>;
+export type {
+	ResourceAttributes,
+	ResourceAttributeValue,
+} from "@bluecadet/launchpad-utils/logging";
 
 /** Immutable setup context shared by every configured destination. */
 export interface DestinationContext {
@@ -13,6 +16,11 @@ export interface DestinationContext {
 /** Per-call cancellation context for signal export and shutdown. */
 export interface ExportContext {
 	readonly signal: AbortSignal;
+}
+
+/** Per-call log context, optionally restoring a record's original resource. */
+export interface LogExportContext extends ExportContext {
+	readonly resourceAttributes?: ResourceAttributes;
 }
 
 /**
@@ -36,9 +44,10 @@ export interface MetricBatch {
 }
 
 export interface LogExporter {
+	readonly supportsResourceContext?: true;
 	export(
 		records: readonly LogEntry[],
-		context: ExportContext,
+		context: LogExportContext,
 	): ResultAsync<ExportResult, ExportFailure>;
 }
 
@@ -59,5 +68,6 @@ export interface DestinationExporters {
  */
 export interface ObservabilityDestination {
 	readonly name: string;
+	readonly checkpointKey?: string;
 	readonly create: (context: DestinationContext) => Result<DestinationExporters, ExportFailure>;
 }

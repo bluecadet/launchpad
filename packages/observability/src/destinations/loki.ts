@@ -1,11 +1,12 @@
 import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
+import { normalizeCheckpointEndpoint } from "../core/checkpoint-endpoint.js";
 import type {
 	DestinationContext,
 	DestinationExporters,
-	ExportContext,
 	ExportFailure,
 	ExportResult,
+	LogExportContext,
 	ObservabilityDestination,
 	ResourceAttributes,
 } from "../core/destination.js";
@@ -282,13 +283,14 @@ function fetchFailure(value: unknown, signal: AbortSignal): ExportFailure {
 function exportRecords(
 	pushUrl: string,
 	resolved: ResolvedLokiDestinationConfig,
-	resourceAttributes: ResourceAttributes,
+	factoryResourceAttributes: ResourceAttributes,
 	records: readonly LogEntry[],
-	context: ExportContext,
+	context: LogExportContext,
 ): ResultAsync<ExportResult, ExportFailure> {
 	if (context.signal.aborted)
 		return errAsync(new DestinationFailure("Loki export was aborted", { retryable: false }));
 
+	const resourceAttributes = context.resourceAttributes ?? factoryResourceAttributes;
 	const body = buildLokiPayload(records, resourceAttributes, resolved.resourceLabels).andThen(
 		(payload) =>
 			Result.fromThrowable(
@@ -356,13 +358,24 @@ function parseConfig(
  * Each export is one HTTP request; retry policy belongs to the delivery loop.
  */
 export function createLokiDestination(config: LokiDestinationConfig): ObservabilityDestination {
+	const endpoint = Result.fromThrowable(
+		() => normalizeCheckpointEndpoint(config?.url),
+		() => undefined,
+	)().unwrapOr(undefined);
 	return {
 		name: destinationName(config),
+		checkpointKey: endpoint === undefined ? undefined : `loki:${endpoint}`,
 		create(context: DestinationContext) {
 			const result = parseConfig(config);
 			if (result.isErr()) return err(result.error);
 			const resolved = result.value;
-			const pushUrl = `${resolved.url.replace(/\/$/, "")}/loki/api/v1/push`;
+			const endpoint = normalizeCheckpointEndpoint(resolved.url);
+			if (endpoint === undefined) {
+				return err(
+					new DestinationFailure("Invalid Loki destination configuration", { retryable: false }),
+				);
+			}
+			const pushUrl = `${endpoint.replace(/\/$/, "")}/loki/api/v1/push`;
 			if (!context.resourceAttributes) {
 				return err(
 					new DestinationFailure("Loki destination requires resource attributes", {
@@ -373,6 +386,7 @@ export function createLokiDestination(config: LokiDestinationConfig): Observabil
 
 			const exporters: DestinationExporters = {
 				logs: {
+					supportsResourceContext: true,
 					export(records, exportContext) {
 						return exportRecords(
 							pushUrl,

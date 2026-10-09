@@ -1,8 +1,8 @@
 ---
-"@bluecadet/launchpad-controller": major
+"@bluecadet/launchpad-controller": minor
 "@bluecadet/launchpad-utils": minor
 "@bluecadet/launchpad-observability": minor
-"@bluecadet/launchpad": major
+"@bluecadet/launchpad": minor
 "@bluecadet/create-launchpad": minor
 ---
 

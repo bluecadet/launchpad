@@ -187,7 +187,7 @@ function writeJsonAtomicSync(filePath: string, value: unknown): void {
 	const temporaryPath = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
 	try {
 		writeFileSync(temporaryPath, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
-		const descriptor = openSync(temporaryPath, "r");
+		const descriptor = openSync(temporaryPath, "r+");
 		try {
 			fsyncSync(descriptor);
 		} finally {
@@ -208,7 +208,7 @@ async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> 
 	const temporaryPath = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
 	try {
 		await writeFile(temporaryPath, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
-		const handle = await open(temporaryPath, "r");
+		const handle = await open(temporaryPath, "r+");
 		try {
 			await handle.sync();
 		} finally {
@@ -797,14 +797,14 @@ class FileSourceState {
 
 	private async syncActive(): Promise<void> {
 		if (!existsSync(this.activeSegment.canonicalPath)) return;
-		const handle = await open(this.activeSegment.canonicalPath, "r");
+		const handle = await open(this.activeSegment.canonicalPath, "r+");
 		try {
 			await handle.sync();
 		} finally {
 			await handle.close();
 		}
 		if (!existsSync(this.activeSegment.textPath)) return;
-		const textHandle = await open(this.activeSegment.textPath, "r");
+		const textHandle = await open(this.activeSegment.textPath, "r+");
 		try {
 			await textHandle.sync();
 		} finally {

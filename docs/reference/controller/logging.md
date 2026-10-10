@@ -43,7 +43,9 @@ When `text.enabled` is true, matching `launchpad-<sequence>-<id>-<UTC-date>.<act
 
 The directory also contains source metadata, atomic per-destination checkpoints, and `.launchpad-log.lock`. The lock file is permanent by design: do not delete, rename, replace, or rotate it. The operating system releases the advisory lock when its owning process exits; do not use PID inspection or manual lock-file cleanup to take ownership.
 
-Only one controller process may own a logging directory at a time. The lock uses `fs-native-extensions` and requires a local filesystem. NFS, SMB, and other network filesystems are unsupported and unverified. The lock path has been exercised on macOS ARM with Node.js 24; Linux and Windows validation is pending CI.
+Only one controller process may own a logging directory at a time. This resource-level lock is separate from the controller's project ownership lease: the project lease prevents task and persistent controllers with the same resolved `pidFile` identity from overlapping, while the logging lease independently protects a configured log directory from accidental sharing.
+
+Both leases use `fs-native-extensions` and require a local filesystem. NFS, SMB, and other network filesystems are unsupported and unverified. The logging lock path has been exercised on macOS ARM with Node.js 24; Linux and Windows validation is pending CI.
 
 ## Recorded events
 

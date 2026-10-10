@@ -31,9 +31,9 @@ export default defineConfig({
 | `format` | Winston `Format` | Built-in text format | Legacy-compatible formatter for the text view only |
 | `datePattern` | `string` | `'YYYY-MM-DD'` | Accepted for compatibility; a nondefault value is ignored with one deprecation warning because segment names are owner-managed |
 
-`format` and `text.level` never change the canonical JSONL schema. There are no observability-side directory, maximum-byte, or maximum-age options. The logging owner applies one rotation and retention policy to the files and checkpoints in this directory. `maxSize` must parse as a positive byte size (for example, `8m` or `12mb`); invalid values fail configuration validation.
+`format` and `text.level` never change the canonical JSONL schema. There are no observability-side directory, maximum-byte, or maximum-age options. The logging owner applies one rotation and retention policy to the files and checkpoints in this directory. `maxSize` must parse as a byte size of at least 1,024 bytes (for example, `8m` or `12mb`); invalid or smaller values fail configuration validation.
 
-The built-in policy rotates by UTC day or when a segment reaches approximately 8 MiB. It bounds retained files to 256 MiB total and, by default, 28 days. `maxSize` and a day-based `maxFiles` value preserve the existing logging configuration surface; the total 256 MiB cap is not configurable through observability.
+The built-in policy rotates by UTC day or when a segment reaches approximately 8 MiB. It bounds retained files to 256 MiB total and, by default, 28 days. Retention is checked before reader enrollment, during rotation and shutdown, and by scheduled maintenance while the source is idle. Expired history is removed before a newly enrolled destination can replay it. `maxSize` and a day-based `maxFiles` value preserve the existing logging configuration surface; the total 256 MiB cap is not configurable through observability.
 
 ## Files and format
 
@@ -59,6 +59,8 @@ Progress events and raw application stdout/stderr are not copied wholesale from 
 ## Failure and shutdown behavior
 
 Logger calls enter a bounded admission queue so application work does not wait on filesystem I/O. Disk-full, write, or admission-overflow failures produce logging diagnostics and loss accounting. Launchpad does not silently switch file-backed observability to memory delivery, and a logging failure does not intentionally crash the application.
+
+A failure of the optional text view produces a diagnostic without discarding pending canonical records. Canonical loss counters do not count records that were successfully persisted only because their text view failed.
 
 Shutdown callers wait only for their configured deadline. The logging owner nevertheless keeps the operating-system lease until all file and checkpoint I/O has settled; a caller timing out does not release the lease while I/O remains active. Retention can remove records before a lagging destination reads or acknowledges them; diagnostics report a known loss count where it can be proven and an unknown-size gap otherwise.
 

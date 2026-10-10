@@ -48,7 +48,7 @@ export function exporters(
 	return destination.create({ resourceAttributes })._unsafeUnwrap();
 }
 
-export function okResponse(body = "{}", headers?: Readonly<Record<string, string>>): Response {
+function okResponse(body = "{}", headers?: Readonly<Record<string, string>>): Response {
 	return new Response(body, { status: 200, headers });
 }
 

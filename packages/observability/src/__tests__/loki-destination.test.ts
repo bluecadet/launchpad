@@ -1,12 +1,19 @@
 import {
+	type NormalizedLogRecord,
 	normalizeLogRecord,
 	parseLogRecord,
 	serializeLogRecord,
 } from "@bluecadet/launchpad-utils/logging";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResourceAttributes } from "../core/destination.js";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { LogEntry } from "../core/log-entry.js";
 import { createLokiDestination, type LokiDestinationConfig } from "../destinations/loki.js";
+import type {
+	CanonicalLogBatch,
+	ExportContext,
+	LogExportContext,
+	LogExporter,
+	ResourceAttributes,
+} from "../index.js";
 import { createLokiTransport } from "../transports/loki.js";
 
 const resourceAttributes: ResourceAttributes = {
@@ -74,6 +81,22 @@ describe("createLokiDestination", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("separates raw export from the typed canonical replay capability", () => {
+		type CanonicalExport = NonNullable<LogExporter["exportCanonical"]>;
+		expectTypeOf<Parameters<CanonicalExport>>().toEqualTypeOf<[CanonicalLogBatch, ExportContext]>();
+		expectTypeOf<CanonicalLogBatch["records"]>().toEqualTypeOf<readonly NormalizedLogRecord[]>();
+		expectTypeOf<Parameters<LogExporter["export"]>>().toEqualTypeOf<
+			[readonly LogEntry[], LogExportContext]
+		>();
+		expectTypeOf<LogEntry>().not.toMatchTypeOf<NormalizedLogRecord>();
+		expectTypeOf<
+			LogEntry & { schemaVersion: 1; resource: ResourceAttributes }
+		>().not.toMatchTypeOf<NormalizedLogRecord>();
+		expectTypeOf<"recordFormat">().not.toMatchTypeOf<keyof LogExportContext>();
+		expectTypeOf<"supportsResourceContext">().not.toMatchTypeOf<keyof LogExporter>();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it("is network-inert until export and supports a configurable name", () => {
 		const destination = createLokiDestination({
 			name: "primary-loki",
@@ -120,7 +143,7 @@ describe("createLokiDestination", () => {
 			region: "eu-central-1",
 		};
 
-		expect(exporter.supportsResourceContext).toBe(true);
+		expect(exporter.exportCanonical).toBeTypeOf("function");
 		await exporter.export([logEntry()], {
 			signal: new AbortController().signal,
 			resourceAttributes: historicalResource,
@@ -166,15 +189,18 @@ describe("createLokiDestination", () => {
 					logEntry({
 						metadata: {
 							deep: { a: { b: { c: { d: { e: { f: { leaf: "depth-eight" } } } } } } },
+							...JSON.parse(
+								'{"constructor":"own constructor","prototype":"own prototype","__proto__":"own proto"}',
+							),
 							...Object.fromEntries(
 								Array.from({ length: 8 }, (_, index) => [`field${index}`, "m".repeat(14000)]),
 							),
 						},
 					}),
 					historicalResource,
-				),
-			),
-		);
+				)._unsafeUnwrap(),
+			)._unsafeUnwrap(),
+		)._unsafeUnwrap();
 		const exporter = logExporter(
 			createLokiDestination({
 				url: "http://localhost:3100",
@@ -184,11 +210,10 @@ describe("createLokiDestination", () => {
 				},
 			}),
 		);
-		const result = await exporter.export([canonical], {
-			signal: new AbortController().signal,
-			resourceAttributes: canonical.resource,
-			recordFormat: "canonical",
-		});
+		const result = await exporter.exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
 		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
 		const payload = JSON.parse(requestBody(fetchMock)) as {
 			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
@@ -198,19 +223,43 @@ describe("createLokiDestination", () => {
 			service_instance_id: historicalResource["service.instance.id"],
 		});
 		const line = payload.streams[0]?.values[0]?.[1] ?? "null";
-		expect(JSON.parse(line)).toEqual(JSON.parse(serializeLogRecord(canonical)));
+		expect(JSON.parse(line)).toEqual(JSON.parse(serializeLogRecord(canonical)._unsafeUnwrap()));
 		expect(line).toContain("depth-eight");
 		expect(Buffer.byteLength(line)).toBeLessThanOrEqual(262144);
 	});
 
 	it("locally rejects an unrepresentable canonical resource instead of replacing identity", async () => {
-		const result = await logExporter().export([logEntry()], {
-			signal: new AbortController().signal,
-			recordFormat: "canonical",
-			resourceAttributes: { "service.name": "x".repeat(262144) },
-		});
+		const canonical = normalizeLogRecord(logEntry(), {
+			"service.name": "x".repeat(262144),
+		})._unsafeUnwrap();
+		const result = await logExporter().exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
 		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("uses shared canonical byte bounding without discarding historical resource", async () => {
+		const canonical = normalizeLogRecord(
+			logEntry({
+				metadata: Object.fromEntries(
+					Array.from({ length: 8 }, (_, index) => [`field${index}`, "\0".repeat(16_000)]),
+				),
+			}),
+			resourceAttributes,
+		)._unsafeUnwrap();
+		const expected = serializeLogRecord(canonical)._unsafeUnwrap();
+		expect(Buffer.byteLength(expected)).toBeLessThanOrEqual(262_144);
+		expect(JSON.parse(expected).metadata).toHaveProperty("[Truncated]");
+		const result = await logExporter().exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		const payload = JSON.parse(requestBody(fetchMock));
+		expect(payload.streams[0].values[0][1]).toBe(expected);
+		expect(JSON.parse(expected).resource).toEqual(resourceAttributes);
 	});
 
 	it.each([false, true])("redacts raw metadata with resource override=%s", async (override) => {
@@ -537,16 +586,25 @@ describe("createLokiDestination", () => {
 		expect(String(failure)).not.toContain("must-not-appear");
 	});
 
-	it("contains serialization errors in ResultAsync rather than throwing synchronously", async () => {
-		const exporter = logExporter();
-		const resultAsync = exporter.export([logEntry({ timestamp: new Date(Number.NaN) })], {
-			signal: new AbortController().signal,
-		});
+	it.each([false, true])(
+		"preserves raw serialization failures with resource override=%s",
+		async (override) => {
+			const exporter = logExporter();
+			const resultAsync = exporter.export([logEntry({ timestamp: new Date(Number.NaN) })], {
+				signal: new AbortController().signal,
+				...(override ? { resourceAttributes: { "service.name": "historical-service" } } : {}),
+			});
 
-		const result = await resultAsync;
-		expect(result.isErr()).toBe(true);
-		expect(fetchMock).not.toHaveBeenCalled();
-	});
+			const result = await resultAsync;
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr()).toMatchObject({
+				name: "DestinationFailure",
+				message: "Invalid structured log timestamp",
+				retryable: false,
+			});
+			expect(fetchMock).not.toHaveBeenCalled();
+		},
+	);
 
 	it("honors a pre-aborted signal and classifies cancellation as permanent", async () => {
 		const exporter = logExporter();

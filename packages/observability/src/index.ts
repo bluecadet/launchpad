@@ -26,6 +26,7 @@ import { buildObservabilitySection } from "./observability-summarize.js";
 
 export type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 export type {
+	CanonicalLogBatch,
 	DestinationContext,
 	DestinationExporters,
 	ExportContext,

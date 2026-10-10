@@ -30,16 +30,23 @@ interface DestinationExporters {
 }
 
 interface LogExporter {
-  readonly supportsResourceContext?: true;
   export(
     records: readonly LogEntry[],
     context: LogExportContext,
   ): ResultAsync<ExportResult, ExportFailure>;
+  exportCanonical?(
+    batch: CanonicalLogBatch,
+    context: ExportContext,
+  ): ResultAsync<ExportResult, ExportFailure>;
+}
+
+interface CanonicalLogBatch {
+  readonly records: readonly NormalizedLogRecord[];
+  readonly resourceAttributes: ResourceAttributes;
 }
 
 interface LogExportContext extends ExportContext {
   readonly resourceAttributes?: ResourceAttributes;
-  readonly recordFormat?: 'canonical';
 }
 
 interface MetricExporter {
@@ -73,15 +80,15 @@ Set `retryable: false` for a permanent failure. A retryable backend can provide 
 File delivery is the default when `logStorage` is omitted, as well as when `{ type: 'file' }` is explicit. A custom destination with a log exporter must provide both:
 
 - a stable, credential-free `checkpointKey` on the destination; and
-- `supportsResourceContext: true` on its log exporter.
+- an `exportCanonical(batch, context)` method on its log exporter.
 
 The checkpoint identity combines the destination name, checkpoint key, and controller log source. Base the key on the logical target, such as a normalized endpoint. Do not include tokens, passwords, authorization headers, or the destination's complete configuration. Keep it stable across ordinary credential rotation. Change the destination name when two accounts share one endpoint but require separate delivery histories.
 
-During replay, `LogExportContext.resourceAttributes` contains the resource snapshot stored with that batch. A compatible exporter must use it instead of only the setup-time resource from `DestinationContext`. This prevents a restarted process from relabeling historical logs with its new runtime identity. Built-in Loki and OTLP destinations implement both requirements.
+During replay, Launchpad calls `exportCanonical()` with normalized records and their historical resource snapshot in `batch.resourceAttributes`. Use that snapshot instead of the setup-time resource from `DestinationContext`. This prevents a restarted process from relabeling historical logs with its new runtime identity. Built-in Loki and OTLP destinations implement both requirements.
 
-The file-delivery runtime also sets `recordFormat: 'canonical'` for trusted, validated central-source records alongside their historical resource snapshot. These records have already been normalized and redacted; exporters may preserve their resource and nested metadata without normalizing them again. This is an exporter context flag, not a user configuration option. Omit it for raw entries: a resource override alone does not make records canonical, and the default export path still normalizes and redacts them.
+`CanonicalLogBatch.records` contains validated `NormalizedLogRecord` values from the central source. They have already been normalized and redacted; preserve their resource and nested metadata without normalizing them again. Raw entries belong in `export()`, whose optional resource override does not make them canonical. Keeping these entry points separate lets TypeScript check the canonical record shape rather than relying on a context flag to skip redaction.
 
-Custom log exporters without this support must explicitly configure `logStorage: { type: 'memory' }` or implement replay support before upgrading. With explicit memory delivery, `checkpointKey`, `supportsResourceContext`, and the per-call resource remain optional. Metrics-only exporters do not need log replay support.
+Custom log exporters without `exportCanonical()` must explicitly configure `logStorage: { type: 'memory' }` or implement replay support before upgrading. With explicit memory delivery, `checkpointKey`, `exportCanonical()`, and the per-call resource remain optional. Metrics-only exporters do not need log replay support.
 
 The default file source contains the controller's canonical records, not every raw custom bus event. Use explicit memory delivery for custom live-bus event capture, test contexts without a canonical source, or ephemeral delivery. There is no automatic memory fallback when the file source is unavailable.
 

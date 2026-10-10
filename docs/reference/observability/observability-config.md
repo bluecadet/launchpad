@@ -90,7 +90,7 @@ Memory delivery does not advance file checkpoints. Switching from memory to file
 
 For endpoints shared by multiple accounts, such as a common Grafana gateway, credentials are deliberately excluded from checkpoint identity. Change the destination name when switching accounts so the new account does not inherit the old account's delivery position.
 
-File delivery preserves each record's original timestamp and resource snapshot. Custom log exporters must provide a stable `checkpointKey` and `supportsResourceContext: true`, and honor the replayed resource context; otherwise configure explicit memory delivery. See [custom destination support](./custom-destinations.md#file-delivery-support). An unavailable canonical file source never causes an automatic fallback to memory. Metrics always remain latest, coalesced in-memory snapshots and are not reconstructed from the log.
+File delivery preserves each record's original timestamp and resource snapshot. Custom log exporters must provide a stable `checkpointKey` and an `exportCanonical(batch, context)` method that honors the batch's historical resource snapshot; otherwise configure explicit memory delivery. See [custom destination support](./custom-destinations.md#file-delivery-support). An unavailable canonical file source never causes an automatic fallback to memory. Metrics always remain latest, coalesced in-memory snapshots and are not reconstructed from the log.
 
 ### `include`
 

@@ -1,8 +1,8 @@
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
-import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
+import { err, ok, Result, ResultAsync } from "neverthrow";
 import type { ResolvedDestinationObservabilityConfig } from "../observability-config.js";
 import type { DestinationExporters, ResourceAttributes } from "./destination.js";
-import { DestinationFailure } from "./export-failure.js";
+import { startAttempt } from "./exporter-attempt.js";
 import { createResourceAttributes } from "./resource.js";
 
 export type CreatedDestination = {
@@ -10,31 +10,6 @@ export type CreatedDestination = {
 	readonly checkpointKey?: string;
 	readonly exporters: DestinationExporters;
 };
-
-/** Contain custom hooks and bound them even when they ignore cancellation. */
-function boundedShutdown(
-	shutdown: NonNullable<DestinationExporters["shutdown"]>,
-	timeoutMs: number,
-): ResultAsync<void, Error> {
-	const controller = new AbortController();
-	const failure = new DestinationFailure(`Destination shutdown timed out after ${timeoutMs}ms`);
-	if (timeoutMs <= 0) controller.abort();
-	const operation = ResultAsync.fromThrowable(
-		async () => await shutdown({ signal: controller.signal }),
-		ensureError,
-	)().andThen((result) => result);
-	if (timeoutMs <= 0) return errAsync(failure);
-
-	let timer: ReturnType<typeof setTimeout>;
-	const timeout = new Promise<Result<void, Error>>((resolve) => {
-		timer = setTimeout(() => {
-			resolve(err(failure));
-			controller.abort();
-		}, timeoutMs);
-		timer.unref?.();
-	});
-	return new ResultAsync(Promise.race([operation, timeout]).finally(() => clearTimeout(timer)));
-}
 
 /** Attempt every shutdown hook concurrently; no failure skips another destination. */
 export function shutdownDestinations(
@@ -44,7 +19,14 @@ export function shutdownDestinations(
 	return ResultAsync.combine(
 		destinations.flatMap(({ exporters }) => {
 			const shutdown = exporters.shutdown;
-			return shutdown ? [boundedShutdown(shutdown.bind(exporters), timeoutMs)] : [];
+			if (!shutdown) return [];
+			const attempt = startAttempt({
+				call: (signal) => shutdown.call(exporters, { signal }),
+				controller: new AbortController(),
+				timeoutMs,
+				timeoutMessage: `Destination shutdown timed out after ${timeoutMs}ms`,
+			});
+			return [new ResultAsync(attempt.outcome.then((outcome) => outcome.result))];
 		}),
 	).map(() => undefined);
 }
@@ -82,14 +64,14 @@ export function createExporters(
 				if (
 					config.logStorage.type === "file" &&
 					result.value.logs &&
-					(result.value.logs.supportsResourceContext !== true ||
+					(typeof result.value.logs.exportCanonical !== "function" ||
 						typeof destination.checkpointKey !== "string" ||
 						destination.checkpointKey.trim().length === 0)
 				) {
 					await shutdownDestinations(created, config.delivery.shutdownTimeoutMs);
 					return err(
 						new Error(
-							`File-backed log delivery for destination "${destination.name}" requires supportsResourceContext and checkpointKey`,
+							`File-backed log delivery for destination "${destination.name}" requires exportCanonical and checkpointKey`,
 						),
 					);
 				}

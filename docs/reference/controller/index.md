@@ -82,7 +82,7 @@ The controller only dispatches commands that have been explicitly registered. La
 
 ### Logging
 
-The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
+The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
 
 ### Host-Owned Workflows
 

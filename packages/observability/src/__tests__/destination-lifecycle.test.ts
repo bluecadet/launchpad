@@ -7,7 +7,10 @@ import { destinationObservabilityConfigSchema } from "../observability-config.js
 const logs = { export: () => okAsync({ rejectedRecords: 0 }) };
 
 function config(destinations: readonly ObservabilityDestination[]) {
-	return destinationObservabilityConfigSchema.parse({ destinations, logStorage: { type: "memory" } });
+	return destinationObservabilityConfigSchema.parse({
+		destinations,
+		logStorage: { type: "memory" },
+	});
 }
 
 afterEach(() => vi.useRealTimers());
@@ -24,7 +27,10 @@ describe("destination lifecycle results", () => {
 						name: "first",
 						checkpointKey: "first-route",
 						create: () =>
-							ok({ logs: { ...logs, supportsResourceContext: true }, shutdown: firstShutdown }),
+							ok({
+								logs: { ...logs, exportCanonical: () => okAsync({ rejectedRecords: 0 }) },
+								shutdown: firstShutdown,
+							}),
 					},
 					{
 						name: "invalid",
@@ -35,15 +41,16 @@ describe("destination lifecycle results", () => {
 			}),
 		);
 		expect(result.isErr()).toBe(true);
-		if (result.isErr())
-			expect(result.error.message).toContain("supportsResourceContext and checkpointKey");
+		if (result.isErr()) expect(result.error.message).toContain("exportCanonical and checkpointKey");
 		expect(firstShutdown).toHaveBeenCalledOnce();
 		expect(invalidShutdown).toHaveBeenCalledOnce();
 	});
 
 	it("passes the exact source resource snapshot through setup and retains checkpoint identity", async () => {
 		const resourceAttributes = Object.freeze({ "service.instance.id": "source-runtime" });
-		const create = vi.fn(() => ok({ logs: { ...logs, supportsResourceContext: true as const } }));
+		const create = vi.fn(() =>
+			ok({ logs: { ...logs, exportCanonical: () => okAsync({ rejectedRecords: 0 }) } }),
+		);
 		const result = await createExporters(
 			destinationObservabilityConfigSchema.parse({
 				logStorage: { type: "file" },

@@ -2,6 +2,7 @@ import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type {
+	CanonicalLogBatch,
 	DestinationContext,
 	DestinationExporters,
 	ExportContext,
@@ -144,7 +145,6 @@ export function createOtlpDestination(config: OtlpDestinationConfig): Observabil
 				...(resolved.signals.has("logs")
 					? {
 							logs: {
-								supportsResourceContext: true,
 								export(records: readonly LogEntry[], exportContext: LogExportContext) {
 									return exportLogs(
 										resolved,
@@ -152,6 +152,17 @@ export function createOtlpDestination(config: OtlpDestinationConfig): Observabil
 										context.resourceAttributes,
 										records,
 										exportContext,
+										(entry) => normalizeStructuredValue(entry.metadata),
+									);
+								},
+								exportCanonical(batch: CanonicalLogBatch, exportContext: ExportContext) {
+									return exportLogs(
+										resolved,
+										resource,
+										context.resourceAttributes,
+										batch.records,
+										{ ...exportContext, resourceAttributes: batch.resourceAttributes },
+										(entry) => entry.metadata,
 									);
 								},
 							},
@@ -301,7 +312,7 @@ const severityByLevel: Readonly<
 	error: { severityNumber: 17, severityText: "ERROR" },
 };
 
-function createLogRecord(entry: LogEntry, recordFormat: LogExportContext["recordFormat"]) {
+function createLogRecord(entry: LogEntry, metadata: () => StructuredValue) {
 	const timeUnixNano = toUnixNano(entry.timestamp);
 	if (!timeUnixNano) return null;
 
@@ -316,12 +327,7 @@ function createLogRecord(entry: LogEntry, recordFormat: LogExportContext["record
 	}
 	attributes.push({
 		key: "metadata",
-		// Only the explicit canonical-source contract permits skipping redaction.
-		value: structuredValue(
-			recordFormat === "canonical"
-				? (entry.metadata as Readonly<Record<string, StructuredValue>>)
-				: normalizeStructuredValue(entry.metadata),
-		),
+		value: structuredValue(metadata()),
 	});
 
 	return {
@@ -332,12 +338,13 @@ function createLogRecord(entry: LogEntry, recordFormat: LogExportContext["record
 	};
 }
 
-function exportLogs(
+function exportLogs<T extends LogEntry>(
 	config: ResolvedConfig,
 	factoryResource: { readonly attributes: readonly OtlpKeyValue[] },
 	factoryResourceAttributes: ResourceAttributes,
-	records: readonly LogEntry[],
+	records: readonly T[],
 	context: LogExportContext,
+	metadata: (entry: T) => StructuredValue,
 ): ResultAsync<ExportResult, ExportFailure> {
 	const resourceAttributes = context.resourceAttributes ?? factoryResourceAttributes;
 	const resource =
@@ -349,7 +356,7 @@ function exportLogs(
 	const logRecords = [];
 	let locallyRejected = 0;
 	for (const entry of records) {
-		const record = createLogRecord(entry, context.recordFormat);
+		const record = createLogRecord(entry, () => metadata(entry));
 		if (record) logRecords.push(record);
 		else locallyRejected += 1;
 	}

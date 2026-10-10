@@ -36,6 +36,9 @@ describe("OTLP replay resources", () => {
 					logEntry({
 						metadata: {
 							deep: { a: { b: { c: { d: { e: { f: { leaf: "depth-eight" } } } } } } },
+							...JSON.parse(
+								'{"constructor":"own constructor","prototype":"own prototype","__proto__":"own proto"}',
+							),
 							...Object.fromEntries(
 								Array.from({ length: 105 }, (_, index) => [`field${index}`, index]),
 							),
@@ -46,20 +49,16 @@ describe("OTLP replay resources", () => {
 						"service.name": "archived-service-".repeat(1200),
 						"service.instance.id": "old-instance-".repeat(1500),
 					},
-				),
-			),
-		);
+				)._unsafeUnwrap(),
+			)._unsafeUnwrap(),
+		)._unsafeUnwrap();
 		const jsonFetch = fetchOk();
 		vi.stubGlobal("fetch", jsonFetch);
 		const destinationExporters = exporters();
-		const context = {
-			...activeContext(),
-			resourceAttributes: canonical.resource,
-			recordFormat: "canonical" as const,
-		};
-		expect((await destinationExporters.logs!.export([canonical], context))._unsafeUnwrap()).toEqual(
-			{ rejectedRecords: 0 },
-		);
+		const batch = { records: [canonical], resourceAttributes: canonical.resource };
+		expect(
+			(await destinationExporters.logs!.exportCanonical!(batch, activeContext()))._unsafeUnwrap(),
+		).toEqual({ rejectedRecords: 0 });
 		const payload = requestFrom(jsonFetch).body;
 		const deepValue = {
 			kvlistValue: { values: [{ key: "leaf", value: { stringValue: "depth-eight" } }] },
@@ -125,7 +124,7 @@ describe("OTLP replay resources", () => {
 		vi.stubGlobal("fetch", protobufFetch);
 		expect(
 			(
-				await exporters({ encoding: "protobuf" }).logs!.export([canonical], context)
+				await exporters({ encoding: "protobuf" }).logs!.exportCanonical!(batch, activeContext())
 			)._unsafeUnwrap(),
 		).toEqual({ rejectedRecords: 0 });
 		expect(rawRequestFrom(protobufFetch).init.body).toEqual(
@@ -184,7 +183,7 @@ describe("OTLP replay resources", () => {
 			region: "ap-southeast-2",
 		};
 
-		expect(destinationExporters.logs?.supportsResourceContext).toBe(true);
+		expect(destinationExporters.logs?.exportCanonical).toBeTypeOf("function");
 		await destinationExporters.logs!.export([logEntry()], {
 			...activeContext(),
 			resourceAttributes: HISTORICAL_RESOURCE,

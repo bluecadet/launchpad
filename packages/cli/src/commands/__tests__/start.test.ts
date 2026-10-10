@@ -37,7 +37,6 @@ vi.mock("node:child_process", () => ({
 import { fork } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { LaunchpadController } from "@bluecadet/launchpad-controller";
-import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { createMockController } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { errAsync, okAsync } from "neverthrow";
@@ -48,8 +47,7 @@ import { withDaemonOrController } from "../../utils/controller-execution.js";
 import { onTerminate } from "../../utils/on-terminate.js";
 import { start } from "../start.js";
 
-const mockControllerConfig = controllerConfigSchema.parse({});
-const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
+const mockConfig = resolveLaunchpadConfig({});
 const loadedConfig = () => ({ dir: "/test", config: mockConfig });
 
 type MockChild = EventEmitter & {

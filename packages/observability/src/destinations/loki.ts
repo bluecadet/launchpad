@@ -1,21 +1,18 @@
+import { serializeLogRecord } from "@bluecadet/launchpad-utils/logging";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type {
 	DestinationContext,
 	DestinationExporters,
+	ExportContext,
 	ExportFailure,
 	ExportResult,
-	LogExportContext,
 	ObservabilityDestination,
 	ResourceAttributes,
 } from "../core/destination.js";
 import { DestinationFailure } from "../core/export-failure.js";
 import type { LogEntry } from "../core/log-entry.js";
-import {
-	createStructuredLog,
-	DEFAULT_MAX_STRUCTURED_LOG_LENGTH,
-	serializeStructuredLog,
-} from "../core/structured-log.js";
+import { createStructuredLog, serializeStructuredLog } from "../core/structured-log.js";
 
 const lokiAuthSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -194,41 +191,18 @@ function labelsKey(labels: Readonly<Record<string, string>>): string {
 	);
 }
 
-/** Preserve the canonical schema without spending its normalization budget twice. */
-function canonicalLine(record: LogEntry, resource: ResourceAttributes): string | null {
-	try {
-		const line = JSON.stringify({
-			schemaVersion: 1,
-			timestamp: record.timestamp.toISOString(),
-			event: record.event,
-			level: record.level,
-			message: record.message,
-			...(record.module === undefined ? {} : { module: record.module }),
-			metadata: record.metadata,
-			resource,
-		});
-		return Buffer.byteLength(line, "utf8") <= DEFAULT_MAX_STRUCTURED_LOG_LENGTH ? line : null;
-	} catch {
-		return null;
-	}
-}
-
-function buildLokiPayload(
-	records: readonly LogEntry[],
+function buildLokiPayload<T extends LogEntry>(
+	records: readonly T[],
 	resourceAttributes: ResourceAttributes,
 	resourceLabels: Readonly<Record<string, string>>,
-	recordFormat: LogExportContext["recordFormat"],
+	// Null rejects one canonical record; errors retain raw export failure semantics.
+	serialize: (record: T) => Result<string | null, ExportFailure>,
 ): Result<{ payload: LokiPushPayload; rejectedRecords: number }, ExportFailure> {
 	const streams = new Map<string, LokiStream>();
 	let rejectedRecords = 0;
 
 	for (const record of records) {
-		const line =
-			recordFormat === "canonical"
-				? ok(canonicalLine(record, resourceAttributes))
-				: createStructuredLog(record, resourceAttributes).andThen((log) =>
-						serializeStructuredLog(log),
-					);
+		const line = serialize(record);
 		if (line.isErr()) return err(line.error);
 		if (line.value === null) {
 			rejectedRecords += 1;
@@ -313,23 +287,18 @@ function fetchFailure(value: unknown, signal: AbortSignal): ExportFailure {
 	);
 }
 
-function exportRecords(
+function exportRecords<T extends LogEntry>(
 	pushUrl: string,
 	resolved: ResolvedLokiDestinationConfig,
-	factoryResourceAttributes: ResourceAttributes,
-	records: readonly LogEntry[],
-	context: LogExportContext,
+	resourceAttributes: ResourceAttributes,
+	records: readonly T[],
+	context: ExportContext,
+	serialize: (record: T) => Result<string | null, ExportFailure>,
 ): ResultAsync<ExportResult, ExportFailure> {
 	if (context.signal.aborted)
 		return errAsync(new DestinationFailure("Loki export was aborted", { retryable: false }));
 
-	const resourceAttributes = context.resourceAttributes ?? factoryResourceAttributes;
-	const built = buildLokiPayload(
-		records,
-		resourceAttributes,
-		resolved.resourceLabels,
-		context.recordFormat,
-	);
+	const built = buildLokiPayload(records, resourceAttributes, resolved.resourceLabels, serialize);
 	if (built.isErr()) return errAsync(built.error);
 	const { payload, rejectedRecords } = built.value;
 	if (records.length > 0 && rejectedRecords === records.length) return okAsync({ rejectedRecords });
@@ -425,14 +394,23 @@ export function createLokiDestination(config: LokiDestinationConfig): Observabil
 
 			const exporters: DestinationExporters = {
 				logs: {
-					supportsResourceContext: true,
 					export(records, exportContext) {
+						const resource = exportContext.resourceAttributes ?? context.resourceAttributes;
+						return exportRecords(pushUrl, resolved, resource, records, exportContext, (record) =>
+							createStructuredLog(record, resource).andThen(serializeStructuredLog),
+						);
+					},
+					exportCanonical(batch, exportContext) {
 						return exportRecords(
 							pushUrl,
 							resolved,
-							context.resourceAttributes,
-							records,
+							batch.resourceAttributes,
+							batch.records,
 							exportContext,
+							(record) =>
+								serializeLogRecord({ ...record, resource: batch.resourceAttributes }).orElse(() =>
+									ok(null),
+								),
 						);
 					},
 				},

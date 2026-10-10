@@ -29,6 +29,7 @@ import {
 import { createLogCheckpointId, DurableLogPump } from "./durable-log-pump.js";
 import { makeEventFilter } from "./event-filter.js";
 import { DestinationFailure, exportFailureMessage } from "./export-failure.js";
+import { errorFromUnknown, startAttempt } from "./exporter-attempt.js";
 import { eventToLogEntry, type LogEntry } from "./log-entry.js";
 import { createResourceAttributes } from "./resource.js";
 
@@ -39,11 +40,6 @@ const MAX_METRIC_ATTRIBUTE_STRING_LENGTH = 256;
 const MAX_METRIC_DESCRIPTION_LENGTH = 1_024;
 const METRIC_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/;
 const reservedMetricAttributeKeys = new Set<string>(["service.name", "service.instance.id"]);
-
-function errorFromUnknown(value: unknown, message: string): Error {
-	if (value instanceof Error) return value;
-	return new Error(message, { cause: value });
-}
 
 function activeSignals(
 	exporters: DestinationExporters,
@@ -132,41 +128,6 @@ function validateMetricObservation(observation: unknown): MetricObservation | nu
 	}
 }
 
-function withBoundedCall<T>(
-	call: (signal: AbortSignal) => PromiseLike<T>,
-	timeoutMs: number,
-	timeoutMessage: string,
-): Promise<T> {
-	const controller = new AbortController();
-	if (timeoutMs <= 0) {
-		controller.abort();
-		try {
-			void Promise.resolve(call(controller.signal)).catch(() => undefined);
-		} catch {
-			// The deadline error remains the public shutdown result.
-		}
-		return Promise.reject(new Error(timeoutMessage));
-	}
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const timeout = new Promise<T>((_, reject) => {
-		timer = setTimeout(() => {
-			reject(new Error(timeoutMessage));
-			controller.abort();
-		}, timeoutMs);
-		timer.unref?.();
-	});
-
-	let operation: Promise<T>;
-	try {
-		operation = Promise.resolve(call(controller.signal));
-	} catch (error) {
-		operation = Promise.reject(error);
-	}
-	return Promise.race([operation, timeout]).finally(() => {
-		if (timer) clearTimeout(timer);
-	});
-}
-
 export class DestinationRuntime {
 	private readonly logQueues: DeliveryQueue<readonly LogEntry[]>[] = [];
 	private readonly metricQueues: DeliveryQueue<MetricBatch>[] = [];
@@ -197,12 +158,12 @@ export class DestinationRuntime {
 			this.stateManager.initDestination(destination.name, signals, { durableLogs });
 			const logExporter = destination.exporters.logs;
 			if (logExporter && durableLogs) {
-				if (logSource && destination.checkpointKey) {
+				if (logSource && destination.checkpointKey && logExporter.exportCanonical) {
 					this.durableLogPumps.push(
 						this.createDurableLogPump(
 							destination.name,
 							destination.checkpointKey,
-							logExporter,
+							logExporter.exportCanonical.bind(logExporter),
 							logSource,
 						),
 					);
@@ -302,7 +263,7 @@ export class DestinationRuntime {
 	private createDurableLogPump(
 		destinationName: string,
 		checkpointKey: string,
-		exporter: NonNullable<DestinationExporters["logs"]>,
+		exporter: NonNullable<NonNullable<DestinationExporters["logs"]>["exportCanonical"]>,
 		source: LoggerSource,
 	): DurableLogPump {
 		return new DurableLogPump({
@@ -429,22 +390,22 @@ export class DestinationRuntime {
 	}
 
 	private async captureSourceBarrier(timeoutMs: number): Promise<LogSourceBarrier | null> {
-		if (!this.logSource || this.durableLogPumps.length === 0) return null;
+		const source = this.logSource;
+		if (!source || this.durableLogPumps.length === 0) return null;
 		for (const pump of this.durableLogPumps) pump.pause();
-		try {
-			return await withBoundedCall(
-				(signal) =>
-					this.logSource?.flush(signal) ?? Promise.reject(new Error("Source unavailable")),
-				timeoutMs,
-				`Canonical log flush timed out after ${timeoutMs}ms`,
-			);
-		} catch {
-			for (const destination of this.destinations) {
-				if (!destination.exporters.logs) continue;
-				this.recordSourceProblem(destination.name, "unavailable", "Canonical log flush failed");
-			}
-			return null;
+		const attempt = startAttempt({
+			call: (signal) => source.flush(signal),
+			controller: new AbortController(),
+			timeoutMs,
+			timeoutMessage: `Canonical log flush timed out after ${timeoutMs}ms`,
+		});
+		const { result } = await attempt.outcome;
+		if (result.isOk()) return result.value;
+		for (const destination of this.destinations) {
+			if (!destination.exporters.logs) continue;
+			this.recordSourceProblem(destination.name, "unavailable", "Canonical log flush failed");
 		}
+		return null;
 	}
 
 	private async finishFlush(): Promise<void> {

@@ -25,13 +25,20 @@ it("defaults to file delivery, replays offline canonical logs with historical id
 	const config = controllerConfigSchema.parse({
 		logging: { dirname: "logs", overrideConsole: false, text: { enabled: false } },
 	});
-	const offline = vi.fn<LogExporter["export"]>(() =>
+	const offline = vi.fn<NonNullable<LogExporter["exportCanonical"]>>(() =>
 		errAsync(Object.assign(new Error("offline"), { retryable: true, retryAfterMs: 60_000 })),
 	);
-	const online = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
-	const afterAck = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+	const online = vi.fn<NonNullable<LogExporter["exportCanonical"]>>(() =>
+		okAsync({ rejectedRecords: 0 }),
+	);
+	const afterAck = vi.fn<NonNullable<LogExporter["exportCanonical"]>>(() =>
+		okAsync({ rejectedRecords: 0 }),
+	);
 
-	async function startSession(exportLogs: LogExporter["export"], installation: string) {
+	async function startSession(
+		exportLogs: NonNullable<LogExporter["exportCanonical"]>,
+		installation: string,
+	) {
 		const controller = new LaunchpadController(config, directory);
 		controllers.push(controller);
 		let source: LoggerSource | undefined;
@@ -51,7 +58,10 @@ it("defaults to file delivery, replays offline canonical logs with historical id
 		const destination: ObservabilityDestination = {
 			name: "integration",
 			checkpointKey: "stable-route",
-			create: () => ok({ logs: { supportsResourceContext: true, export: exportLogs } }),
+			create: () =>
+				ok({
+					logs: { export: () => okAsync({ rejectedRecords: 0 }), exportCanonical: exportLogs },
+				}),
 		};
 		const registration = await controller.registerPlugin(
 			observability({
@@ -77,12 +87,11 @@ it("defaults to file delivery, replays offline canonical logs with historical id
 		await vi.waitFor(() => expect(offline).toHaveBeenCalled());
 		const original = offline.mock.calls[0];
 		if (!original) throw new Error("Expected an offline export attempt");
-		expect(original[0]).toHaveLength(1);
-		expect(original[1].resourceAttributes).toMatchObject({
+		expect(original[0].records).toHaveLength(1);
+		expect(original[0].resourceAttributes).toMatchObject({
 			installation: "original-installation",
 			"service.instance.id": first.source.identity.runtimeId,
 		});
-		expect(original[1].recordFormat).toBe("canonical");
 		expect(JSON.stringify(original[0])).not.toContain("must-not-persist");
 		expect((await first.controller.stop()).isOk()).toBe(true);
 
@@ -95,9 +104,8 @@ it("defaults to file delivery, replays offline canonical logs with historical id
 		await vi.waitFor(() => expect(online).toHaveBeenCalledOnce());
 		const replay = online.mock.calls[0];
 		expect(replay?.[0]).toEqual(original[0]);
-		expect(replay?.[0][0]?.timestamp).toBeInstanceOf(Date);
-		expect(replay?.[1].resourceAttributes).toEqual(original[1].resourceAttributes);
-		expect(replay?.[1].recordFormat).toBe("canonical");
+		expect(replay?.[0].records[0]?.timestamp).toBeInstanceOf(Date);
+		expect(replay?.[0].resourceAttributes).toEqual(original[0].resourceAttributes);
 		expect((await second.controller.stop()).isOk()).toBe(true);
 
 		const third = await startSession(afterAck, "third-installation");
@@ -111,9 +119,9 @@ it("defaults to file delivery, replays offline canonical logs with historical id
 		);
 		await vi.waitFor(() => expect(afterAck).toHaveBeenCalledOnce());
 		expect(
-			afterAck.mock.calls.flatMap(([entries]) => entries.map((entry) => entry.message)),
+			afterAck.mock.calls.flatMap(([batch]) => batch.records.map((entry) => entry.message)),
 		).toEqual(["New record after checkpoint"]);
-		expect(afterAck.mock.calls[0]?.[1].resourceAttributes).toMatchObject({
+		expect(afterAck.mock.calls[0]?.[0].resourceAttributes).toMatchObject({
 			installation: "third-installation",
 			"service.instance.id": third.source.identity.runtimeId,
 		});

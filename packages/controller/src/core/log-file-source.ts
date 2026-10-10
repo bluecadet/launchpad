@@ -1,50 +1,71 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-	closeSync,
-	existsSync,
-	fsyncSync,
-	mkdirSync,
-	openSync,
-	readdirSync,
-	readFileSync,
-	readSync,
-	renameSync,
-	statSync,
-	truncateSync,
-	unlinkSync,
-	writeFileSync,
-} from "node:fs";
-import { appendFile, open, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync } from "node:fs";
+import { appendFile, open, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import {
 	type LoggerSource,
 	type LoggerSourceReader,
 	type LoggerSourceStatus,
-	type LogReadReceipt,
 	type LogSourceBarrier,
 	type LogSourceBatch,
 	type LogSourceGap,
 	type LogSourceReadRequest,
 	type NormalizedLogRecord,
-	parseLogRecord,
 	type ResourceAttributes,
 	serializeLogRecord,
 } from "@bluecadet/launchpad-utils/logging";
+import { Result, ResultAsync } from "neverthrow";
+import {
+	CHECKPOINT_ID_PATTERN,
+	type Cursor,
+	chainHash,
+	cursorAtStart,
+	decodeBarrier,
+	EMPTY_CHAIN_HASH,
+	encodeOpaque,
+	exactObject,
+	type FeedMetadata,
+	FORBIDDEN_NAMES,
+	FORMAT_VERSION,
+	parseCursor,
+	parseFeed,
+	parseJson,
+	type Segment,
+	safeInteger,
+	sealedSegment,
+	segmentBase,
+	utcDate,
+} from "./log-file-codec.js";
 import { acquireLogDirectoryLock, type LogDirectoryLock } from "./log-file-lock.js";
+import {
+	awaitWithSignal,
+	errorMessage,
+	LogFileOperations,
+	safeDiagnostic,
+	throwIfAborted,
+} from "./log-file-operations.js";
+import { FileSourceReader, readLogBatch } from "./log-file-replay.js";
+import {
+	listLogFiles,
+	listSegments,
+	listSegmentsSync,
+	settledValues,
+	syncDirectory,
+	syncDirectorySync,
+	syncFile,
+	syncFileSync,
+	truncateIncompleteTailSync,
+	writeJsonAtomic,
+	writeJsonAtomicSync,
+} from "./log-file-storage.js";
 
-const FORMAT_VERSION = 1;
 const DEFAULT_SEGMENT_BYTES = 8 * 1024 * 1024;
 const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
 const DEFAULT_MAX_AGE_MS = 28 * 24 * 60 * 60 * 1_000;
 const DEFAULT_MAX_PENDING_RECORDS = 2_048;
 const MAX_READ_ENTRIES = 10_000;
 const MAX_READ_BYTES = 64 * 1024 * 1024;
-const MAX_LINE_BYTES = 262_145;
-const EMPTY_CHAIN_HASH = createHash("sha256").update("launchpad-log-segment-v1").digest("hex");
-const SEGMENT_PATTERN =
-	/^launchpad-(\d{16})-([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})-(\d{4}-\d{2}-\d{2})\.(active|sealed)\.jsonl$/;
-const CHECKPOINT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const FORBIDDEN_NAMES = new Set(["__proto__", "prototype", "constructor"]);
 
 export interface LogFileSourceOptions {
 	readonly directory: string;
@@ -59,36 +80,8 @@ export interface LogFileSourceOptions {
 export interface LogFileSourceOwner {
 	readonly source: LoggerSource;
 	append(record: NormalizedLogRecord, textLine?: string): boolean;
-	close(signal: AbortSignal): Promise<void>;
+	close(signal: AbortSignal): ResultAsync<void, Error>;
 }
-
-type FeedMetadata = {
-	formatVersion: 1;
-	sourceId: string;
-	nextSegmentSequence: number;
-	retentionGeneration: number;
-	truncationGeneration: number;
-};
-
-type Segment = {
-	sequence: number;
-	id: string;
-	date: string;
-	state: "active" | "sealed";
-	canonicalPath: string;
-	textPath: string;
-};
-
-type Cursor = {
-	formatVersion: 1;
-	sourceId: string;
-	segmentSequence: number;
-	segmentId: string;
-	offset: number;
-	chainHash: string;
-	seenRetentionGeneration: number;
-	seenTruncationGeneration: number;
-};
 
 type PendingRecord = {
 	canonicalLine: string;
@@ -103,405 +96,8 @@ type MutableStatus = {
 	lastError?: string;
 };
 
-type LineRead =
-	| { kind: "line"; line: string; bytes: Buffer; nextOffset: number }
-	| { kind: "partial"; bytes: number }
-	| { kind: "eof" };
-
-function safeInteger(value: number | undefined, fallback: number, minimum = 1): number {
-	if (value === undefined) return fallback;
-	if (!Number.isSafeInteger(value) || value < minimum) {
-		throw new Error(`Expected a safe integer greater than or equal to ${minimum}`);
-	}
-	return value;
-}
-
-function exactObject(
-	value: unknown,
-	keys: readonly string[],
-	label: string,
-): Record<string, unknown> {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		throw new Error(`Invalid ${label}`);
-	}
-	const prototype = Object.getPrototypeOf(value);
-	if (prototype !== Object.prototype && prototype !== null) throw new Error(`Invalid ${label}`);
-	const candidate = value as Record<string, unknown>;
-	const actualKeys = Object.keys(candidate);
-	if (actualKeys.some((key) => FORBIDDEN_NAMES.has(key))) throw new Error(`Invalid ${label}`);
-	if (actualKeys.length !== keys.length || keys.some((key) => !Object.hasOwn(candidate, key))) {
-		throw new Error(`Invalid ${label}`);
-	}
-	return candidate;
-}
-
-function parseJson(text: string, label: string): unknown {
-	try {
-		return JSON.parse(text);
-	} catch (error) {
-		throw new Error(`Invalid ${label}`, { cause: error });
-	}
-}
-
-function isUuid(value: unknown): value is string {
-	return (
-		typeof value === "string" &&
-		/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
-	);
-}
-
-function parseFeed(text: string): FeedMetadata {
-	const candidate = exactObject(
-		parseJson(text, "log source metadata"),
-		[
-			"formatVersion",
-			"sourceId",
-			"nextSegmentSequence",
-			"retentionGeneration",
-			"truncationGeneration",
-		],
-		"log source metadata",
-	);
-	if (
-		candidate.formatVersion !== FORMAT_VERSION ||
-		!isUuid(candidate.sourceId) ||
-		!Number.isSafeInteger(candidate.nextSegmentSequence) ||
-		(candidate.nextSegmentSequence as number) < 1 ||
-		!Number.isSafeInteger(candidate.retentionGeneration) ||
-		(candidate.retentionGeneration as number) < 0 ||
-		!Number.isSafeInteger(candidate.truncationGeneration) ||
-		(candidate.truncationGeneration as number) < 0
-	) {
-		throw new Error("Invalid log source metadata");
-	}
-	return {
-		formatVersion: FORMAT_VERSION,
-		sourceId: candidate.sourceId,
-		nextSegmentSequence: candidate.nextSegmentSequence as number,
-		retentionGeneration: candidate.retentionGeneration as number,
-		truncationGeneration: candidate.truncationGeneration as number,
-	};
-}
-
-function writeJsonAtomicSync(filePath: string, value: unknown): void {
-	const temporaryPath = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
-	try {
-		writeFileSync(temporaryPath, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
-		const descriptor = openSync(temporaryPath, "r+");
-		try {
-			fsyncSync(descriptor);
-		} finally {
-			closeSync(descriptor);
-		}
-		renameSync(temporaryPath, filePath);
-	} catch (error) {
-		try {
-			unlinkSync(temporaryPath);
-		} catch {
-			// The temporary file may not have been created.
-		}
-		throw error;
-	}
-}
-
-async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
-	const temporaryPath = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
-	try {
-		await writeFile(temporaryPath, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
-		const handle = await open(temporaryPath, "r+");
-		try {
-			await handle.sync();
-		} finally {
-			await handle.close();
-		}
-		await rename(temporaryPath, filePath);
-	} catch (error) {
-		await rm(temporaryPath, { force: true }).catch(() => undefined);
-		throw error;
-	}
-}
-
-function utcDate(timestamp: number): string {
-	const date = new Date(timestamp);
-	if (!Number.isFinite(date.getTime()))
-		throw new Error("The log source clock returned an invalid time");
-	return date.toISOString().slice(0, 10);
-}
-
-function segmentBase(sequence: number, id: string, date: string, state: Segment["state"]): string {
-	return `launchpad-${String(sequence).padStart(16, "0")}-${id}-${date}.${state}`;
-}
-
-function segmentFromName(directory: string, fileName: string): Segment | null {
-	const match = SEGMENT_PATTERN.exec(fileName);
-	if (!match) return null;
-	const sequence = Number(match[1]);
-	if (!Number.isSafeInteger(sequence)) return null;
-	const id = match[2];
-	const date = match[3];
-	const state = match[4];
-	if (!id || !date || (state !== "active" && state !== "sealed")) return null;
-	const base = segmentBase(sequence, id, date, state);
-	return {
-		sequence,
-		id,
-		date,
-		state,
-		canonicalPath: path.join(directory, `${base}.jsonl`),
-		textPath: path.join(directory, `${base}.log`),
-	};
-}
-
-function listSegmentsSync(directory: string): Segment[] {
-	return readdirSync(directory)
-		.map((fileName) => segmentFromName(directory, fileName))
-		.filter((segment): segment is Segment => segment !== null)
-		.sort((left, right) => left.sequence - right.sequence);
-}
-
-async function listSegments(directory: string): Promise<Segment[]> {
-	return (await readdir(directory))
-		.map((fileName) => segmentFromName(directory, fileName))
-		.filter((segment): segment is Segment => segment !== null)
-		.sort((left, right) => left.sequence - right.sequence);
-}
-
-function sealedSegment(segment: Segment): Segment {
-	const base = segmentBase(segment.sequence, segment.id, segment.date, "sealed");
-	return {
-		...segment,
-		state: "sealed",
-		canonicalPath: path.join(path.dirname(segment.canonicalPath), `${base}.jsonl`),
-		textPath: path.join(path.dirname(segment.textPath), `${base}.log`),
-	};
-}
-
-function truncateIncompleteTailSync(filePath: string): boolean {
-	const size = statSync(filePath).size;
-	if (size === 0) return false;
-	const descriptor = openSync(filePath, "r");
-	try {
-		const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, size));
-		let end = size;
-		while (end > 0) {
-			const start = Math.max(0, end - buffer.length);
-			const length = readSync(descriptor, buffer, 0, end - start, start);
-			const newline = buffer.subarray(0, length).lastIndexOf(0x0a);
-			if (newline >= 0) {
-				const completeSize = start + newline + 1;
-				if (completeSize === size) return false;
-				truncateSync(filePath, completeSize);
-				return true;
-			}
-			end = start;
-		}
-		truncateSync(filePath, 0);
-		return true;
-	} finally {
-		closeSync(descriptor);
-	}
-}
-
-function chainHash(previousHash: string, bytes: Buffer): string {
-	return createHash("sha256").update(previousHash).update(bytes).digest("hex");
-}
-
-function encodeOpaque(value: unknown): string {
-	return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
-}
-
-function parseCursor(value: unknown, expectedSourceId: string, label: string): Cursor {
-	const candidate = exactObject(
-		value,
-		[
-			"formatVersion",
-			"sourceId",
-			"segmentSequence",
-			"segmentId",
-			"offset",
-			"chainHash",
-			"seenRetentionGeneration",
-			"seenTruncationGeneration",
-		],
-		label,
-	);
-	if (
-		candidate.formatVersion !== FORMAT_VERSION ||
-		candidate.sourceId !== expectedSourceId ||
-		!Number.isSafeInteger(candidate.segmentSequence) ||
-		(candidate.segmentSequence as number) < 1 ||
-		!isUuid(candidate.segmentId) ||
-		!Number.isSafeInteger(candidate.offset) ||
-		(candidate.offset as number) < 0 ||
-		typeof candidate.chainHash !== "string" ||
-		!/^[0-9a-f]{64}$/.test(candidate.chainHash) ||
-		!Number.isSafeInteger(candidate.seenRetentionGeneration) ||
-		(candidate.seenRetentionGeneration as number) < 0 ||
-		!Number.isSafeInteger(candidate.seenTruncationGeneration) ||
-		(candidate.seenTruncationGeneration as number) < 0
-	) {
-		throw new Error(`Invalid ${label}`);
-	}
-	return candidate as Cursor;
-}
-
-function decodeBarrier(barrier: string, sourceId: string): Cursor {
-	let decoded: unknown;
-	try {
-		decoded = JSON.parse(Buffer.from(barrier, "base64url").toString("utf8"));
-	} catch (error) {
-		throw new Error("Invalid log source barrier", { cause: error });
-	}
-	return parseCursor(decoded, sourceId, "log source barrier");
-}
-
-function cursorAtStart(
-	segment: Segment,
-	sourceId: string,
-	seenRetentionGeneration: number,
-	seenTruncationGeneration: number,
-): Cursor {
-	return {
-		formatVersion: FORMAT_VERSION,
-		sourceId,
-		segmentSequence: segment.sequence,
-		segmentId: segment.id,
-		offset: 0,
-		chainHash: EMPTY_CHAIN_HASH,
-		seenRetentionGeneration,
-		seenTruncationGeneration,
-	};
-}
-
-function cursorReached(cursor: Cursor, through: Cursor): boolean {
-	return (
-		cursor.segmentSequence > through.segmentSequence ||
-		(cursor.segmentSequence === through.segmentSequence && cursor.offset >= through.offset)
-	);
-}
-
-function throwIfAborted(signal: AbortSignal): void {
-	if (signal.aborted) throw signal.reason ?? new Error("Operation aborted");
-}
-
-function awaitWithSignal<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-	return new Promise<T>((resolve, reject) => {
-		const onAbort = () => reject(signal.reason ?? new Error("Operation aborted"));
-		// Cancellation bounds the caller's wait, not the underlying operation.
-		// Always observe its settlement, even when cancellation predates this call.
-		if (signal.aborted) onAbort();
-		else signal.addEventListener("abort", onAbort, { once: true });
-		operation.then(
-			(value) => {
-				signal.removeEventListener("abort", onAbort);
-				resolve(value);
-			},
-			(error: unknown) => {
-				signal.removeEventListener("abort", onAbort);
-				reject(error);
-			},
-		);
-	});
-}
-
-function safeDiagnostic(callback: ((message: string) => void) | undefined, message: string): void {
-	try {
-		callback?.(message);
-	} catch {
-		// Diagnostics must never feed back into logging or fail source operations.
-	}
-}
-
 function sanitizeTextLine(line: string): string {
 	return `${line.replaceAll("\r", "\\r").replaceAll("\n", "\\n")}\n`;
-}
-
-function assertSafeJsonNames(value: unknown, depth = 0): void {
-	if (depth > 16 || value === null || typeof value !== "object") return;
-	for (const key of Object.keys(value)) {
-		if (FORBIDDEN_NAMES.has(key)) throw new Error("Invalid structured log prototype property");
-		assertSafeJsonNames((value as Record<string, unknown>)[key], depth + 1);
-	}
-}
-
-class SegmentChangedError extends Error {}
-
-/** One bounded window per batch, shared by all sequential lines. No open handle
- * survives a read, so rotation is safe on Windows as well as POSIX. */
-function bufferedLines() {
-	let cachedPath = "";
-	let start = 0;
-	let bytes = Buffer.alloc(0);
-	let endOfFile = false;
-	return async (
-		filePath: string,
-		offset: number,
-		end = Number.MAX_SAFE_INTEGER,
-	): Promise<LineRead> => {
-		if (offset >= end) return { kind: "eof" };
-		if (cachedPath !== filePath || offset < start || offset >= start + bytes.length) {
-			cachedPath = filePath;
-			start = offset;
-			bytes = Buffer.alloc(0);
-			endOfFile = false;
-		}
-		let remaining = bytes.subarray(offset - start, Math.min(bytes.length, end - start));
-		if (remaining.indexOf(0x0a) < 0 && !endOfFile) {
-			const handle = await open(filePath, "r");
-			try {
-				const buffer = Buffer.allocUnsafe(Math.min(MAX_LINE_BYTES + 1, end - offset));
-				const result = await handle.read(buffer, 0, buffer.length, offset);
-				bytes = buffer.subarray(0, result.bytesRead);
-				start = offset;
-				endOfFile = result.bytesRead < buffer.length;
-				remaining = bytes;
-			} finally {
-				await handle.close();
-			}
-		}
-		if (remaining.length === 0) return { kind: "eof" };
-		const newline = remaining.indexOf(0x0a);
-		if (newline >= 0) {
-			const line = remaining.subarray(0, newline + 1);
-			return {
-				kind: "line",
-				line: line.subarray(0, -1).toString("utf8"),
-				bytes: line,
-				nextOffset: offset + line.length,
-			};
-		}
-		if (remaining.length <= MAX_LINE_BYTES) return { kind: "partial", bytes: remaining.length };
-		// Do not scan an arbitrarily large malformed file searching for a newline.
-		return {
-			kind: "line",
-			line: "",
-			bytes: Buffer.alloc(0),
-			nextOffset: offset + remaining.length,
-		};
-	};
-}
-
-async function computeChainToOffset(segment: Segment, offset: number): Promise<string> {
-	if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("Invalid log cursor offset");
-	const file = await stat(segment.canonicalPath);
-	if (offset > file.size) throw new SegmentChangedError("Log source segment was truncated");
-	let position = 0;
-	let hash = EMPTY_CHAIN_HASH;
-	const readLine = bufferedLines();
-	while (position < offset) {
-		const line = await readLine(segment.canonicalPath, position, offset);
-		if (line.kind !== "line" || line.nextOffset > offset || line.bytes.length === 0) {
-			throw new SegmentChangedError("Log source segment identity no longer matches its checkpoint");
-		}
-		hash = chainHash(hash, line.bytes);
-		position = line.nextOffset;
-	}
-	return hash;
-}
-
-async function segmentSignature(segment: Segment): Promise<string> {
-	const file = await stat(segment.canonicalPath, { bigint: true });
-	return `${file.dev}:${file.ino}:${file.size}:${file.mtimeNs}:${file.ctimeNs}`;
 }
 
 class FileSourceState {
@@ -522,19 +118,14 @@ class FileSourceState {
 	private activeSegment: Segment;
 	private activeBytes = 0;
 	private activeChainHash = EMPTY_CHAIN_HASH;
-	private activeRecordCount = 0;
-	private readonly queue: PendingRecord[] = [];
-	private draining = false;
-	private drainWaiters: Array<() => void> = [];
 	private closing = false;
 	private closePromise?: Promise<void>;
-	private activeOperations = 0;
-	private ioTail: Promise<unknown> = Promise.resolve();
+	private readonly operations = new LogFileOperations();
+	private maintenanceTimer?: ReturnType<typeof setTimeout>;
 	private readonly verifiedPrefixes = new Map<
 		string,
 		{ signature: string; offset: number; hash: string }
 	>();
-	private operationWaiters: Array<() => void> = [];
 	private readonly activeReaderIds = new Set<string>();
 	private statusState: MutableStatus = {
 		available: true,
@@ -580,12 +171,20 @@ class FileSourceState {
 				state.configureResourceAttributes(attributes);
 			},
 			flush(signal) {
-				return state.flush(signal);
+				return ResultAsync.fromPromise(state.flush(signal), ensureError);
 			},
 			createReader(identity, signal) {
-				return state.createReader(identity.checkpointId, signal);
+				return ResultAsync.fromPromise(
+					state.createReader(identity.checkpointId, signal),
+					ensureError,
+				);
 			},
 		};
+		// Queue startup retention before enrollment or any admitted writes.
+		void this.operations
+			.enqueue(() => this.maintain())
+			.catch((error: unknown) => this.maintenanceFailed(error));
+		this.scheduleMaintenance();
 	}
 
 	private loadOrCreateFeed(): FeedMetadata {
@@ -611,8 +210,16 @@ class FileSourceState {
 			recoveredTruncation =
 				truncateIncompleteTailSync(segment.canonicalPath) || recoveredTruncation;
 			const sealed = sealedSegment(segment);
+			syncFileSync(segment.canonicalPath);
 			renameSync(segment.canonicalPath, sealed.canonicalPath);
-			if (existsSync(segment.textPath)) renameSync(segment.textPath, sealed.textPath);
+			try {
+				if (existsSync(segment.textPath)) renameSync(segment.textPath, sealed.textPath);
+			} catch (error) {
+				safeDiagnostic(
+					this.onDiagnostic,
+					`Human-readable log recovery failed: ${errorMessage(error)}`,
+				);
+			}
 		}
 		let metadataChanged = false;
 		if (this.feed.nextSegmentSequence <= maximumSequence) {
@@ -623,6 +230,7 @@ class FileSourceState {
 			this.feed.truncationGeneration += 1;
 			metadataChanged = true;
 		}
+		syncDirectorySync(this.directory);
 		if (metadataChanged) writeJsonAtomicSync(this.feedPath, this.feed);
 	}
 
@@ -642,9 +250,9 @@ class FileSourceState {
 			textPath: path.join(this.directory, `${base}.log`),
 		};
 		closeSync(openSync(segment.canonicalPath, "ax", 0o600));
+		syncDirectorySync(this.directory);
 		this.activeBytes = 0;
 		this.activeChainHash = EMPTY_CHAIN_HASH;
-		this.activeRecordCount = 0;
 		return segment;
 	}
 
@@ -653,57 +261,39 @@ class FileSourceState {
 			this.recordLoss(1, this.closing ? "log source is closing" : "pending log buffer is full");
 			return false;
 		}
-		let canonicalLine: string;
-		try {
-			canonicalLine = `${serializeLogRecord(record)}\n`;
-		} catch (error) {
-			this.recordLoss(1, `log record serialization failed: ${errorMessage(error)}`);
+		const serialized = serializeLogRecord(record);
+		if (serialized.isErr()) {
+			this.recordLoss(1, `log record serialization failed: ${serialized.error.message}`);
 			return false;
 		}
-		this.queue.push({
-			canonicalLine,
+		const pending: PendingRecord = {
+			canonicalLine: `${serialized.value}\n`,
 			...(textLine === undefined ? {} : { textLine: sanitizeTextLine(textLine) }),
-		});
+		};
 		this.statusState.pendingRecords += 1;
-		this.startDrain();
-		return true;
-	}
-
-	private startDrain(): void {
-		if (this.draining) return;
-		this.draining = true;
-		void this.track(async () => {
+		// Reserve the physical write immediately; barriers cannot be starved by
+		// later logger calls. A failed write never discards unrelated admissions.
+		void this.operations.enqueue(async () => {
 			try {
-				while (this.queue.length > 0) {
-					const pending = this.queue.shift();
-					if (!pending) break;
-					try {
-						await this.serialize(() => this.writePending(pending));
-						this.statusState.pendingRecords -= 1;
-						this.statusState.available = true;
-						delete this.statusState.lastError;
-					} catch (error) {
-						const lost = 1 + this.queue.length;
-						this.queue.length = 0;
-						this.statusState.pendingRecords = 0;
-						this.recordLoss(lost, `log file write failed: ${errorMessage(error)}`);
-						this.statusState.available = false;
-						await this.serialize(() => this.abandonActiveAfterFailure());
-					}
-				}
+				await this.writePending(pending);
+				this.statusState.available = true;
+				delete this.statusState.lastError;
+			} catch (error) {
+				this.recordLoss(1, `log file write failed: ${errorMessage(error)}`);
+				this.statusState.available = false;
+				await this.abandonActiveAfterFailure();
 			} finally {
-				this.draining = false;
-				for (const resolve of this.drainWaiters.splice(0)) resolve();
-				if (this.queue.length > 0) this.startDrain();
+				this.statusState.pendingRecords -= 1;
 			}
 		});
+		return true;
 	}
 
 	private async writePending(pending: PendingRecord): Promise<void> {
 		const bytes = Buffer.byteLength(pending.canonicalLine, "utf8");
 		const date = utcDate(this.now());
 		if (
-			this.activeRecordCount > 0 &&
+			this.activeBytes > 0 &&
 			(this.activeBytes + bytes > this.maxSegmentBytes || date !== this.activeSegment.date)
 		) {
 			await this.rotate();
@@ -711,13 +301,15 @@ class FileSourceState {
 		await appendFile(this.activeSegment.canonicalPath, pending.canonicalLine, "utf8");
 		const lineBytes = Buffer.from(pending.canonicalLine, "utf8");
 		this.activeBytes += lineBytes.length;
-		this.activeRecordCount += 1;
 		this.activeChainHash = chainHash(this.activeChainHash, lineBytes);
-		if (pending.textLine !== undefined) {
-			await appendFile(this.activeSegment.textPath, pending.textLine, {
-				encoding: "utf8",
-				mode: 0o600,
-			});
+		const textLine = pending.textLine;
+		if (textLine !== undefined) {
+			await this.optionalText("append", () =>
+				appendFile(this.activeSegment.textPath, textLine, {
+					encoding: "utf8",
+					mode: 0o600,
+				}),
+			);
 		}
 	}
 
@@ -728,12 +320,15 @@ class FileSourceState {
 	}
 
 	private async sealActive(): Promise<void> {
-		const sealed = sealedSegment(this.activeSegment);
-		await rename(this.activeSegment.canonicalPath, sealed.canonicalPath);
-		if (existsSync(this.activeSegment.textPath)) {
-			await rename(this.activeSegment.textPath, sealed.textPath);
-		}
+		const previous = this.activeSegment;
+		const sealed = sealedSegment(previous);
+		await this.syncActive();
+		await rename(previous.canonicalPath, sealed.canonicalPath);
 		this.activeSegment = sealed;
+		await syncDirectory(this.directory);
+		await this.optionalText("seal", async () => {
+			if (existsSync(previous.textPath)) await rename(previous.textPath, sealed.textPath);
+		});
 	}
 
 	private async abandonActiveAfterFailure(): Promise<void> {
@@ -746,27 +341,92 @@ class FileSourceState {
 		}
 	}
 
-	private async enforceRetention(): Promise<void> {
-		const segments = await listSegments(this.directory);
-		const sized = await Promise.all(
-			segments.map(async (segment) => {
-				const canonicalSize = (await stat(segment.canonicalPath)).size;
-				const textSize = existsSync(segment.textPath) ? (await stat(segment.textPath)).size : 0;
-				return { segment, bytes: canonicalSize + textSize };
-			}),
+	private async optionalText(operation: string, action: () => Promise<void>): Promise<void> {
+		try {
+			await action();
+		} catch (error) {
+			safeDiagnostic(
+				this.onDiagnostic,
+				`Human-readable log ${operation} failed: ${errorMessage(error)}`,
+			);
+		}
+	}
+
+	private scheduleMaintenance(): void {
+		if (this.closing) return;
+		this.maintenanceTimer = setTimeout(
+			() => {
+				this.maintenanceTimer = undefined;
+				void this.operations
+					.enqueue(() => this.maintain())
+					.catch((error: unknown) => this.maintenanceFailed(error))
+					.finally(() => this.scheduleMaintenance());
+			},
+			Math.min(60_000, Math.max(1_000, this.maxAgeMs)),
 		);
-		let totalBytes = sized.reduce((sum, item) => sum + item.bytes, 0);
+		this.maintenanceTimer.unref();
+	}
+
+	private maintenanceFailed(error: unknown): void {
+		safeDiagnostic(this.onDiagnostic, `Log retention failed: ${errorMessage(error)}`);
+	}
+
+	private async maintain(): Promise<void> {
 		const cutoff = this.now() - this.maxAgeMs;
-		for (const item of sized) {
+		if (this.activeBytes > 0 && Date.parse(`${this.activeSegment.date}T00:00:00.000Z`) < cutoff) {
+			await this.sealActive();
+			this.activeSegment = this.createActiveSegment();
+		}
+		await this.enforceRetention();
+	}
+
+	private async enforceRetention(): Promise<void> {
+		const { segments, textSegments } = await listLogFiles(this.directory);
+		// Size independent files concurrently, but never advance the owner queue
+		// until all sibling I/O has settled (even when one stat fails).
+		const sizes = await settledValues([
+			...segments.map(async (segment) => ({
+				segment,
+				text: false,
+				bytes: (await stat(segment.canonicalPath)).size,
+			})),
+			...textSegments.map(async (segment) => {
+				let bytes = 0;
+				await this.optionalText("stat", async () => {
+					bytes = (await stat(segment.textPath)).size;
+				});
+				return { segment, text: true, bytes };
+			}),
+		]);
+		const canonical = sizes.filter((item) => !item.text);
+		const text = sizes.filter((item) => item.text);
+		let totalBytes = sizes.reduce((sum, item) => sum + item.bytes, 0);
+		const removeText = async (id: string): Promise<void> => {
+			for (const item of text.filter((item) => item.segment.id === id)) {
+				await this.optionalText("retention", async () => {
+					await rm(item.segment.textPath, { force: true });
+					totalBytes -= item.bytes;
+				});
+			}
+		};
+		const canonicalIds = new Set(segments.map((segment) => segment.id));
+		for (const id of new Set(textSegments.map((segment) => segment.id))) {
+			if (!canonicalIds.has(id)) await removeText(id);
+		}
+		const cutoff = this.now() - this.maxAgeMs;
+		for (const item of canonical) {
 			if (item.segment.state !== "sealed") continue;
 			const segmentTime = Date.parse(`${item.segment.date}T00:00:00.000Z`);
 			if (segmentTime >= cutoff && totalBytes <= this.maxBytes) continue;
-			// Persist loss intent before unlink: a crash may over-report loss, never hide it.
 			this.feed.retentionGeneration += 1;
 			await writeJsonAtomic(this.feedPath, this.feed);
 			await rm(item.segment.canonicalPath, { force: true });
-			await rm(item.segment.textPath, { force: true });
+			await syncDirectory(this.directory);
+			this.verifiedPrefixes.delete(item.segment.id);
 			totalBytes -= item.bytes;
+			// Both active and sealed text names belong to the same identity. Failed
+			// renames/deletes remain discoverable and count toward retention.
+			await removeText(item.segment.id);
 		}
 	}
 
@@ -789,38 +449,20 @@ class FileSourceState {
 		});
 	}
 
-	private async waitForDrain(): Promise<void> {
-		if (!this.draining && this.queue.length === 0) return;
-		await new Promise<void>((resolve) => this.drainWaiters.push(resolve));
-		if (this.draining || this.queue.length > 0) await this.waitForDrain();
-	}
-
 	private async syncActive(): Promise<void> {
-		if (!existsSync(this.activeSegment.canonicalPath)) return;
-		const handle = await open(this.activeSegment.canonicalPath, "r+");
-		try {
-			await handle.sync();
-		} finally {
-			await handle.close();
-		}
-		if (!existsSync(this.activeSegment.textPath)) return;
-		const textHandle = await open(this.activeSegment.textPath, "r+");
-		try {
-			await textHandle.sync();
-		} finally {
-			await textHandle.close();
-		}
+		await syncFile(this.activeSegment.canonicalPath);
+		await this.optionalText("sync", async () => {
+			if (existsSync(this.activeSegment.textPath)) await syncFile(this.activeSegment.textPath);
+		});
 	}
 
 	async flush(signal: AbortSignal): Promise<LogSourceBarrier> {
 		throwIfAborted(signal);
 		if (this.closing) throw new Error("Log source is closing");
-		const operation = this.track(async () => {
-			await this.waitForDrain();
-			return this.serialize(async () => {
-				await this.syncActive();
-				return encodeOpaque(this.currentEndCursor());
-			});
+		const operation = this.operations.enqueue(async () => {
+			await this.syncActive();
+			await syncDirectory(this.directory);
+			return encodeOpaque(this.currentEndCursor());
 		});
 		return awaitWithSignal(operation, signal);
 	}
@@ -855,9 +497,10 @@ class FileSourceState {
 		this.validateCheckpointId(checkpointId);
 		if (this.activeReaderIds.has(checkpointId)) throw new Error("Log reader is already open");
 		this.activeReaderIds.add(checkpointId);
-		const operation = this.track(async () => {
+		const operation = this.operations.enqueue(async () => {
 			try {
-				const checkpoint = await this.serialize(() => this.loadCheckpoint(checkpointId));
+				await this.maintain();
+				const checkpoint = await this.loadCheckpoint(checkpointId);
 				throwIfAborted(signal);
 				return new FileSourceReader(this, checkpointId, checkpoint.cursor, checkpoint.gaps);
 			} catch (error) {
@@ -952,213 +595,17 @@ class FileSourceState {
 				? undefined
 				: decodeBarrier(request.through, this.feed.sourceId);
 		return awaitWithSignal(
-			this.track(() =>
-				this.serialize(() => this.readBatch(cursor, request.maxEntries, request.maxBytes, through)),
+			this.operations.enqueue(() =>
+				readLogBatch(
+					{ directory: this.directory, feed: this.feed, verifiedPrefixes: this.verifiedPrefixes },
+					cursor,
+					request.maxEntries,
+					request.maxBytes,
+					through,
+				),
 			),
 			request.signal,
 		);
-	}
-
-	private async readBatch(
-		originalCursor: Cursor,
-		maxEntries: number,
-		maxBytes: number,
-		through: Cursor | undefined,
-	): Promise<{ batch: LogSourceBatch; cursor: Cursor }> {
-		const segments = await listSegments(this.directory);
-		if (segments.length === 0) throw new Error("Log source has no active segment");
-		let cursor = { ...originalCursor };
-		const gaps: LogSourceGap[] = [];
-		let index = segments.findIndex((segment) => segment.sequence === cursor.segmentSequence);
-		if (index < 0) {
-			const oldest = segments[0];
-			if (
-				!oldest ||
-				cursor.segmentSequence >= oldest.sequence ||
-				cursor.seenRetentionGeneration >= this.feed.retentionGeneration
-			) {
-				throw new Error("Log source segment identity is unknown");
-			}
-			gaps.push({
-				reason: "retention",
-				lostRecords: null,
-				detail: "Retention removed unread backlog; the number of lost records is unknown",
-			});
-			cursor = cursorAtStart(
-				oldest,
-				this.feed.sourceId,
-				this.feed.retentionGeneration,
-				cursor.seenTruncationGeneration,
-			);
-			index = 0;
-		} else if (segments[index]?.id !== cursor.segmentId) {
-			throw new Error("Log source segment identity does not match the checkpoint");
-		}
-
-		const checkpointSegment = segments[index];
-		if (!checkpointSegment) throw new Error("Log source segment identity is unknown");
-		const signature = await segmentSignature(checkpointSegment);
-		const verified = this.verifiedPrefixes.get(checkpointSegment.id);
-		try {
-			const actualHash =
-				verified?.signature === signature && verified.offset === cursor.offset
-					? verified.hash
-					: await computeChainToOffset(checkpointSegment, cursor.offset);
-			if (actualHash !== cursor.chainHash)
-				throw new SegmentChangedError("Log source segment content changed");
-		} catch (error) {
-			if (!(error instanceof SegmentChangedError)) throw error;
-			gaps.push({
-				reason: "truncation",
-				lostRecords: null,
-				detail: "The checkpointed segment was truncated or replaced; replay resumed from its start",
-			});
-			cursor = cursorAtStart(
-				checkpointSegment,
-				this.feed.sourceId,
-				cursor.seenRetentionGeneration,
-				cursor.seenTruncationGeneration,
-			);
-		}
-		if (
-			cursor.seenRetentionGeneration < this.feed.retentionGeneration &&
-			cursor.offset === 0 &&
-			index === 0
-		) {
-			gaps.push({
-				reason: "retention",
-				lostRecords: null,
-				detail: "Retention removed earlier backlog; the number of lost records is unknown",
-			});
-			cursor.seenRetentionGeneration = this.feed.retentionGeneration;
-		}
-		if (cursor.seenTruncationGeneration < this.feed.truncationGeneration) {
-			gaps.push({
-				reason: "truncation",
-				lostRecords: null,
-				detail:
-					"Crash recovery removed an incomplete record; the number of lost records is unknown",
-			});
-			cursor.seenTruncationGeneration = this.feed.truncationGeneration;
-		}
-
-		const records: NormalizedLogRecord[] = [];
-		let returnedBytes = 0;
-		const readLine = bufferedLines();
-		let progressEvents = gaps.length;
-		while (
-			index < segments.length &&
-			records.length < maxEntries &&
-			progressEvents < maxEntries &&
-			returnedBytes < maxBytes &&
-			(!through || !cursorReached(cursor, through))
-		) {
-			const segment = segments[index];
-			if (!segment) break;
-			const end = Math.min(
-				through?.segmentSequence === segment.sequence ? through.offset : Number.MAX_SAFE_INTEGER,
-				cursor.offset + maxBytes - returnedBytes,
-			);
-			const line = await readLine(segment.canonicalPath, cursor.offset, end);
-			if (line.kind === "eof") {
-				if (segment.state === "active" || index + 1 >= segments.length) break;
-				index += 1;
-				progressEvents += 1;
-				const nextSegment = segments[index];
-				if (!nextSegment) break;
-				cursor = cursorAtStart(
-					nextSegment,
-					this.feed.sourceId,
-					cursor.seenRetentionGeneration,
-					cursor.seenTruncationGeneration,
-				);
-				continue;
-			}
-			if (line.kind === "partial") {
-				// A byte budget or barrier can end inside a complete on-disk line.
-				if (cursor.offset + line.bytes >= end || segment.state === "active") break;
-				gaps.push({
-					reason: "corruption",
-					lostRecords: null,
-					detail: "A sealed segment ended with an incomplete record; loss is unknown",
-				});
-				const nextSegment = segments[index + 1];
-				if (!nextSegment) break;
-				index += 1;
-				cursor = cursorAtStart(
-					nextSegment,
-					this.feed.sourceId,
-					cursor.seenRetentionGeneration,
-					cursor.seenTruncationGeneration,
-				);
-				progressEvents += 1;
-				continue;
-			}
-			const lineBytes = line.nextOffset - cursor.offset;
-			if (returnedBytes + lineBytes > maxBytes) break;
-			returnedBytes += lineBytes;
-			if (line.bytes.length === 0) {
-				gaps.push({
-					reason: "corruption",
-					lostRecords: null,
-					detail: "An oversized record was skipped; loss is unknown",
-				});
-				if (segment.state === "active") break;
-				const nextSegment = segments[index + 1];
-				if (!nextSegment) break;
-				index += 1;
-				cursor = cursorAtStart(
-					nextSegment,
-					this.feed.sourceId,
-					cursor.seenRetentionGeneration,
-					cursor.seenTruncationGeneration,
-				);
-				progressEvents += 1;
-				continue;
-			}
-			let parsed: NormalizedLogRecord;
-			try {
-				const untrusted: unknown = JSON.parse(line.line);
-				assertSafeJsonNames(untrusted);
-				parsed = parseLogRecord(line.line);
-			} catch {
-				gaps.push({
-					reason: "corruption",
-					lostRecords: null,
-					detail: "A malformed canonical record was skipped; loss is unknown",
-				});
-				cursor.offset = line.nextOffset;
-				cursor.chainHash = chainHash(cursor.chainHash, line.bytes);
-				progressEvents += 1;
-				continue;
-			}
-			records.push(parsed);
-			cursor.offset = line.nextOffset;
-			cursor.chainHash = chainHash(cursor.chainHash, line.bytes);
-			progressEvents += 1;
-			if (through && cursorReached(cursor, through)) break;
-		}
-		if (
-			cursor.segmentId === checkpointSegment.id &&
-			(await segmentSignature(checkpointSegment)) === signature
-		) {
-			if (this.verifiedPrefixes.size >= 64) this.verifiedPrefixes.clear();
-			this.verifiedPrefixes.set(cursor.segmentId, {
-				signature,
-				offset: cursor.offset,
-				hash: cursor.chainHash,
-			});
-		}
-		const receipt = encodeOpaque({ reader: randomUUID(), cursor });
-		return {
-			cursor,
-			batch: {
-				records,
-				gaps,
-				receipt,
-				reachedThrough: through === undefined ? false : cursorReached(cursor, through),
-			},
-		};
 	}
 
 	async acknowledge(
@@ -1177,50 +624,26 @@ class FileSourceState {
 			cursor,
 		};
 		await awaitWithSignal(
-			this.track(() =>
-				this.serialize(() => writeJsonAtomic(this.checkpointPath(checkpointId), checkpoint)),
-			),
+			this.operations.enqueue(() => writeJsonAtomic(this.checkpointPath(checkpointId), checkpoint)),
 			signal,
 		);
 	}
 
-	readerClosed(checkpointId: string): void {
-		this.activeReaderIds.delete(checkpointId);
-	}
-
-	/** Enqueue before awaiting. Handles close before the next mutation starts. */
-	private serialize<T>(operation: () => Promise<T>): Promise<T> {
-		const result = this.ioTail.then(operation);
-		this.ioTail = result.catch(() => undefined);
-		return result;
-	}
-
-	private track<T>(operation: () => Promise<T>): Promise<T> {
-		this.activeOperations += 1;
-		return operation().finally(() => {
-			this.activeOperations -= 1;
-			if (this.activeOperations === 0) {
-				for (const resolve of this.operationWaiters.splice(0)) resolve();
-			}
+	readerClosed(checkpointId: string): Promise<void> {
+		// Enrollment cannot reuse an identity until earlier physical I/O settles.
+		return this.operations.enqueue(async () => {
+			this.activeReaderIds.delete(checkpointId);
 		});
 	}
 
-	private async waitForOperations(): Promise<void> {
-		if (this.activeOperations === 0) return;
-		await new Promise<void>((resolve) => this.operationWaiters.push(resolve));
-	}
-
-	close(signal: AbortSignal): Promise<void> {
+	close(signal: AbortSignal): ResultAsync<void, Error> {
 		this.closing = true;
-		this.closePromise ??= (async () => {
-			await this.waitForDrain();
-			await this.waitForOperations();
+		clearTimeout(this.maintenanceTimer);
+		this.maintenanceTimer = undefined;
+		this.closePromise ??= this.operations.enqueue(async () => {
 			try {
-				if (existsSync(this.activeSegment.canonicalPath)) {
-					await this.syncActive();
-					await this.sealActive();
-					await this.enforceRetention();
-				}
+				await this.sealActive();
+				await this.enforceRetention();
 			} catch (error) {
 				this.statusState.available = false;
 				this.statusState.lastError = `Log source close failed: ${errorMessage(error)}`;
@@ -1229,87 +652,28 @@ class FileSourceState {
 			} finally {
 				this.lock.release();
 			}
-		})();
-		return awaitWithSignal(this.closePromise, signal);
+		});
+		return ResultAsync.fromPromise(awaitWithSignal(this.closePromise, signal), ensureError);
 	}
 }
 
-class FileSourceReader implements LoggerSourceReader {
-	private cursor: Cursor;
-	private initialGaps: LogSourceGap[];
-	private outstanding?: { receipt: LogReadReceipt; cursor: Cursor };
-	private closed = false;
-	private reading = false;
-	private acknowledging = false;
-
-	constructor(
-		private readonly source: FileSourceState,
-		private readonly checkpointId: string,
-		cursor: Cursor,
-		initialGaps: LogSourceGap[],
-	) {
-		this.cursor = cursor;
-		this.initialGaps = initialGaps;
-	}
-
-	async read(request: LogSourceReadRequest): Promise<LogSourceBatch> {
-		if (this.closed) throw new Error("Log reader is closed");
-		if (this.outstanding || this.reading)
-			throw new Error("Log reader has an outstanding receipt or read in progress");
-		this.reading = true;
+/** Acquire a canonical log owner without throwing on validation or filesystem failure. */
+export function createLogFileSource(
+	options: LogFileSourceOptions,
+): Result<LogFileSourceOwner, Error> {
+	return Result.fromThrowable(() => {
+		const directory = path.resolve(options.directory);
+		const lock = acquireLogDirectoryLock(directory);
 		try {
-			const result = await this.source.read(this.cursor, request);
-			this.outstanding = { receipt: result.batch.receipt, cursor: result.cursor };
-			if (this.initialGaps.length === 0) return result.batch;
-			return { ...result.batch, gaps: [...this.initialGaps, ...result.batch.gaps] };
-		} finally {
-			this.reading = false;
+			const state = new FileSourceState({ ...options, directory }, lock);
+			return {
+				source: state.source,
+				append: (record: NormalizedLogRecord, textLine?: string) => state.append(record, textLine),
+				close: (signal: AbortSignal) => state.close(signal),
+			};
+		} catch (error) {
+			lock.release();
+			throw error;
 		}
-	}
-
-	async ack(receipt: LogReadReceipt, signal: AbortSignal): Promise<void> {
-		if (this.closed) throw new Error("Log reader is closed");
-		if (this.acknowledging || !this.outstanding || receipt !== this.outstanding.receipt) {
-			throw new Error("Invalid or stale log read receipt");
-		}
-		this.acknowledging = true;
-		try {
-			const unchanged =
-				this.initialGaps.length === 0 &&
-				encodeOpaque(this.cursor) === encodeOpaque(this.outstanding.cursor);
-			await this.source.acknowledge(this.checkpointId, this.outstanding.cursor, signal, unchanged);
-			this.cursor = this.outstanding.cursor;
-			this.outstanding = undefined;
-			this.initialGaps = [];
-		} finally {
-			this.acknowledging = false;
-		}
-	}
-
-	async close(signal: AbortSignal): Promise<void> {
-		throwIfAborted(signal);
-		if (this.closed) return;
-		this.closed = true;
-		this.source.readerClosed(this.checkpointId);
-	}
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-export function createLogFileSource(options: LogFileSourceOptions): LogFileSourceOwner {
-	const directory = path.resolve(options.directory);
-	const lock = acquireLogDirectoryLock(directory);
-	try {
-		const state = new FileSourceState({ ...options, directory }, lock);
-		return {
-			source: state.source,
-			append: (record, textLine) => state.append(record, textLine),
-			close: (signal) => state.close(signal),
-		};
-	} catch (error) {
-		lock.release();
-		throw error;
-	}
+	}, ensureError)();
 }

@@ -24,7 +24,6 @@ vi.mock("@bluecadet/launchpad-monitor/launchpad-monitor", async () => {
 	};
 });
 
-import { controllerConfigSchema } from "@bluecadet/launchpad-controller/config";
 import type { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { deletePidFile, isProcessRunning } from "@bluecadet/launchpad-controller/pid-utils";
 import { killPM2 } from "@bluecadet/launchpad-monitor/launchpad-monitor";
@@ -37,8 +36,7 @@ import { handleFatalError } from "../../utils/command-utils.js";
 import { DaemonNotRunningError, withDaemon } from "../../utils/controller-execution.js";
 import { stop } from "../stop.js";
 
-const mockControllerConfig = controllerConfigSchema.parse({});
-const mockConfig = resolveLaunchpadConfig({ controller: mockControllerConfig });
+const mockConfig = resolveLaunchpadConfig({});
 const loadedConfig = () => ({ dir: "/test", config: mockConfig });
 
 describe("stop", () => {

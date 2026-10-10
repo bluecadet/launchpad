@@ -6,13 +6,17 @@ import type {
 	NormalizedLogRecord,
 	ResourceAttributes,
 } from "@bluecadet/launchpad-utils/logging";
-import { err, type Result } from "neverthrow";
 import type { DestinationTransition } from "../observability-state.js";
-import type { ExportFailure, ExportResult, LogExporter } from "./destination.js";
+import type { CanonicalLogBatch, ExportFailure, ExportResult, LogExporter } from "./destination.js";
 import { DestinationFailure } from "./export-failure.js";
+import {
+	type AttemptOutcome,
+	retryDelay,
+	startAttempt,
+	validExportResult,
+} from "./exporter-attempt.js";
 
 const CHECKPOINT_VERSION = 1;
-const MAX_RETRY_DELAY_MS = 30_000;
 const MAX_TIMER_MS = 2_147_483_647;
 const DEFAULT_READ_MAX_BYTES = 1_048_576;
 const MIN_IDLE_READ_INTERVAL_MS = 100;
@@ -28,16 +32,11 @@ type BarrierRequest = {
 	readonly completion: Deferred;
 };
 
-type RecordGroup = {
-	readonly records: readonly NormalizedLogRecord[];
-	readonly resourceAttributes: ResourceAttributes;
-};
-
 export interface DurableLogPumpOptions {
 	readonly source: LoggerSource;
 	readonly checkpointId: string;
 	readonly destinationName: string;
-	readonly exporter: LogExporter;
+	readonly exporter: NonNullable<LogExporter["exportCanonical"]>;
 	readonly maxEntries: number;
 	readonly maxRetries: number;
 	readonly deliveryTimeoutMs: number;
@@ -62,7 +61,9 @@ function resourceAttributesEqual(left: ResourceAttributes, right: ResourceAttrib
 	return leftEntries.every(([key, value]) => right[key] === value);
 }
 
-function contiguousResourceGroups(records: readonly NormalizedLogRecord[]): readonly RecordGroup[] {
+function contiguousResourceGroups(
+	records: readonly NormalizedLogRecord[],
+): readonly CanonicalLogBatch[] {
 	const groups: Array<{ records: NormalizedLogRecord[]; resourceAttributes: ResourceAttributes }> =
 		[];
 	for (const record of records) {
@@ -74,29 +75,6 @@ function contiguousResourceGroups(records: readonly NormalizedLogRecord[]): read
 		groups.push({ records: [record], resourceAttributes: record.resource });
 	}
 	return groups;
-}
-
-function retryDelay(attempt: number, retryAfterMs: number | undefined): number {
-	const exponentialDelay = Math.min(2 ** attempt * 1_000, MAX_RETRY_DELAY_MS);
-	if (retryAfterMs === undefined || !Number.isFinite(retryAfterMs)) return exponentialDelay;
-	return Math.max(0, retryAfterMs);
-}
-
-function errorFromUnknown(value: unknown, message: string): Error {
-	if (value instanceof Error) return value;
-	return new Error(message, { cause: value });
-}
-
-function isAbortError(error: unknown): boolean {
-	return error instanceof Error && error.name === "AbortError";
-}
-
-function validExportResult(result: ExportResult, recordCount: number): boolean {
-	return (
-		Number.isInteger(result.rejectedRecords) &&
-		result.rejectedRecords >= 0 &&
-		result.rejectedRecords <= recordCount
-	);
 }
 
 async function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -238,16 +216,15 @@ export class DurableLogPump {
 			return;
 		}
 
-		try {
-			this.reader = await this.options.source.createReader(
-				{ checkpointId: this.options.checkpointId },
-				this.lifecycleController.signal,
-			);
-		} catch {
+		const opened = await this.options.source.createReader(
+			{ checkpointId: this.options.checkpointId },
+			this.lifecycleController.signal,
+		);
+		if (opened.isErr()) {
 			this.park("Canonical log reader could not be opened", "unavailable");
 			return;
 		}
-
+		this.reader = opened.value;
 		this.options.onTransition({ type: "source", status: "active", queuedBatches: 0 });
 		while (!this.forceStopped && !this.parked) {
 			const shouldContinue = await this.readAndDeliver();
@@ -264,26 +241,23 @@ export class DurableLogPump {
 		const readController = new AbortController();
 		this.readController = readController;
 
-		let batch: Awaited<ReturnType<LoggerSourceReader["read"]>>;
-		try {
-			batch = await reader.read({
-				maxEntries: this.options.maxEntries,
-				maxBytes: DEFAULT_READ_MAX_BYTES,
-				...(requestedBarrier === undefined ? {} : { through: requestedBarrier }),
-				signal: readController.signal,
-			});
-		} catch (error) {
+		const read = await reader.read({
+			maxEntries: this.options.maxEntries,
+			maxBytes: DEFAULT_READ_MAX_BYTES,
+			...(requestedBarrier === undefined ? {} : { through: requestedBarrier }),
+			signal: readController.signal,
+		});
+		if (this.readController === readController) this.readController = null;
+		if (read.isErr()) {
 			if (readController.signal.aborted && !this.forceStopped) return true;
-			if (this.forceStopped || isAbortError(error)) return false;
+			if (this.forceStopped) return false;
 			this.park(
 				"Canonical log read failed",
 				this.options.source.status.available ? "parked" : "unavailable",
 			);
 			return false;
-		} finally {
-			if (this.readController === readController) this.readController = null;
 		}
-
+		const batch = read.value;
 		const records = batch.records.filter(this.options.includeRecord);
 		this.options.onTransition({
 			type: "source-batch",
@@ -294,11 +268,10 @@ export class DurableLogPump {
 		const delivered = await this.deliverGroups(contiguousResourceGroups(records));
 		if (!delivered || this.forceStopped || this.parked) return false;
 
-		try {
-			// Even an empty batch owns a receipt and may cross a segment header or
-			// source gap. Release it; the source elides unchanged-cursor disk writes.
-			await reader.ack(batch.receipt, this.lifecycleController.signal);
-		} catch {
+		// Even an empty batch owns a receipt and may cross a segment header or
+		// source gap. Release it; the source elides unchanged-cursor disk writes.
+		const acknowledged = await reader.ack(batch.receipt, this.lifecycleController.signal);
+		if (acknowledged.isErr()) {
 			this.park("Canonical log checkpoint could not be saved", "parked");
 			return false;
 		}
@@ -330,12 +303,13 @@ export class DurableLogPump {
 		return !this.forceStopped;
 	}
 
-	private async deliverGroups(groups: readonly RecordGroup[]): Promise<boolean> {
+	private async deliverGroups(groups: readonly CanonicalLogBatch[]): Promise<boolean> {
 		for (const [index, group] of groups.entries()) {
 			let attempt = 0;
 			while (!this.forceStopped) {
-				const result = await this.attemptDelivery(group);
-				if (result === null) return false;
+				const outcome = await this.attemptDelivery(group);
+				if (outcome === null) return false;
+				const result = outcome.result;
 				if (result.isOk()) {
 					if (!validExportResult(result.value, group.records.length)) {
 						this.park("Destination exporter returned an invalid acknowledgement", "parked");
@@ -360,12 +334,7 @@ export class DurableLogPump {
 					this.park("Destination log delivery retries exhausted", "parked");
 					return false;
 				}
-				if (
-					!(
-						result.error instanceof DestinationFailure &&
-						result.error.message.startsWith("Destination delivery timed out")
-					)
-				) {
+				if (outcome.source !== "timeout") {
 					this.options.onTransition({
 						type: "failure",
 						error: result.error,
@@ -374,7 +343,7 @@ export class DurableLogPump {
 					});
 				}
 				await delay(
-					retryDelay(attempt, result.error.retryAfterMs),
+					retryDelay(attempt, result.error.retryAfterMs, Number.POSITIVE_INFINITY),
 					this.lifecycleController.signal,
 				);
 				attempt += 1;
@@ -384,83 +353,28 @@ export class DurableLogPump {
 	}
 
 	private async attemptDelivery(
-		group: RecordGroup,
-	): Promise<Result<ExportResult, ExportFailure> | null> {
+		group: CanonicalLogBatch,
+	): Promise<AttemptOutcome<ExportResult> | null> {
 		const controller = new AbortController();
 		this.deliveryController = controller;
-		let timeout: ReturnType<typeof setTimeout> | undefined;
-		let delivery: Promise<Result<ExportResult, ExportFailure>>;
-		try {
-			delivery = Promise.resolve(
-				this.options.exporter.export(group.records, {
-					signal: controller.signal,
-					resourceAttributes: group.resourceAttributes,
-					recordFormat: "canonical",
-				}),
-			).catch((error: unknown) => {
-				throw errorFromUnknown(error, "Destination log exporter rejected");
+		const attempt = startAttempt({
+			call: (signal) => this.options.exporter(group, { signal }),
+			controller,
+			timeoutMs: this.options.deliveryTimeoutMs,
+			timeoutMessage: `Destination delivery timed out after ${this.options.deliveryTimeoutMs}ms`,
+		});
+		const outcome = await attempt.outcome;
+		if (outcome.source === "timeout" && outcome.result.isErr()) {
+			this.options.onTransition({
+				type: "failure",
+				error: outcome.result.error,
+				queuedBatches: 1,
+				droppedRecords: 0,
 			});
-		} catch (error) {
-			delivery = Promise.reject(
-				errorFromUnknown(error, "Destination log exporter threw while starting delivery"),
-			);
 		}
-
-		type Outcome =
-			| { readonly source: "delivery"; readonly result: Result<ExportResult, ExportFailure> }
-			| { readonly source: "timeout" }
-			| { readonly source: "stopped" };
-		const deadline = new Promise<Outcome>((resolve) => {
-			timeout = setTimeout(() => {
-				resolve({ source: "timeout" });
-				controller.abort();
-			}, this.options.deliveryTimeoutMs);
-			timeout.unref?.();
-		});
-		const stopped = new Promise<Outcome>((resolve) => {
-			controller.signal.addEventListener(
-				"abort",
-				() => {
-					if (this.forceStopped) resolve({ source: "stopped" });
-				},
-				{ once: true },
-			);
-		});
-		const delivered = delivery.then(
-			(result): Outcome => ({ source: "delivery", result }),
-			(): Outcome => ({
-				source: "delivery",
-				result: err(new Error("Destination log exporter failed")),
-			}),
-		);
-		const outcome = await Promise.race([delivered, deadline, stopped]);
-		if (timeout) clearTimeout(timeout);
-
-		if (outcome.source === "delivery") {
-			if (this.deliveryController === controller) this.deliveryController = null;
-			return outcome.result;
-		}
-		if (outcome.source === "stopped") {
-			void delivery.catch(() => undefined);
-			return null;
-		}
-
-		// Keep the physical slot occupied until an exporter that ignored abort
-		// settles. Its eventual result is ignored and no overlapping call starts.
-		const timeoutError = new DestinationFailure(
-			`Destination delivery timed out after ${this.options.deliveryTimeoutMs}ms`,
-			{ retryable: true },
-		);
-		this.options.onTransition({
-			type: "failure",
-			error: timeoutError,
-			queuedBatches: 1,
-			droppedRecords: 0,
-		});
-		await delivery.catch(() => undefined);
+		await attempt.settled;
 		if (this.deliveryController === controller) this.deliveryController = null;
-		if (this.forceStopped) return null;
-		return err(timeoutError);
+		return this.forceStopped ? null : outcome;
 	}
 
 	private park(error: string | ExportFailure, status: "unavailable" | "parked"): void {
@@ -488,10 +402,9 @@ export class DurableLogPump {
 		const reader = this.reader;
 		if (!reader) return;
 		const controller = new AbortController();
-		try {
-			await reader.close(controller.signal);
-		} catch {
-			// Source health already reports closure/lease failures. Shutdown stays bounded.
+		const closed = await reader.close(controller.signal);
+		if (closed.isErr()) {
+			this.park("Canonical log reader could not be closed", "unavailable");
 		}
 	}
 

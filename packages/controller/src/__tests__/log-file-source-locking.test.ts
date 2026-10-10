@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fail, unwrap } from "./log-result-test-utils.js";
 
 vi.unmock("fs");
 vi.unmock("fs/promises");
@@ -126,23 +127,23 @@ afterEach(async () => {
 describe("log file source native ownership", () => {
 	it("denies a second child-process owner", async () => {
 		const directory = await temporaryDirectory();
-		const owner = createLogFileSource({ directory });
+		const owner = createLogFileSource({ directory })._unsafeUnwrap();
 		const child = startChild(directory, "attempt");
 		await waitForMessage(child, "LAUNCHPAD_CHILD_DENIED");
 		await waitForExit(child);
-		await owner.close(new AbortController().signal);
+		await owner.close(new AbortController().signal).then((result) => unwrap(result), fail);
 	});
 
 	it("releases ownership in the kernel when a child process crashes", async () => {
 		const directory = await temporaryDirectory();
 		const child = startChild(directory, "hold");
 		await waitForMessage(child, "LAUNCHPAD_CHILD_LOCKED");
-		expect(() => createLogFileSource({ directory })).toThrow(/already owned/i);
+		expect(createLogFileSource({ directory })._unsafeUnwrapErr().message).toMatch(/already owned/i);
 
 		child.kill("SIGKILL");
 		await waitForExit(child);
-		const recovered = createLogFileSource({ directory });
-		await recovered.close(new AbortController().signal);
+		const recovered = createLogFileSource({ directory })._unsafeUnwrap();
+		await recovered.close(new AbortController().signal).then((result) => unwrap(result), fail);
 	});
 	it("reports loss after a crash immediately following retention unlink of never-acked history", async () => {
 		const directory = await temporaryDirectory();
@@ -150,20 +151,23 @@ describe("log file source native ownership", () => {
 		await waitForMessage(child, "LAUNCHPAD_CHILD_UNLINKED");
 		child.kill("SIGKILL");
 		await waitForExit(child);
-		const owner = createLogFileSource({ directory });
-		const reader = await owner.source.createReader(
-			{ checkpointId: "crash-retention" },
-			new AbortController().signal,
-		);
-		const batch = await reader.read({
-			maxEntries: 10,
-			maxBytes: 1000000,
-			signal: new AbortController().signal,
-		});
+		const owner = createLogFileSource({ directory })._unsafeUnwrap();
+		const reader = await owner.source
+			.createReader({ checkpointId: "crash-retention" }, new AbortController().signal)
+			.then((result) => unwrap(result), fail);
+		const batch = await reader
+			.read({
+				maxEntries: 10,
+				maxBytes: 1000000,
+				signal: new AbortController().signal,
+			})
+			.then((result) => unwrap(result), fail);
 		expect(batch.gaps).toContainEqual(
 			expect.objectContaining({ reason: "retention", lostRecords: null }),
 		);
-		await reader.ack(batch.receipt, new AbortController().signal);
-		await owner.close(new AbortController().signal);
+		await reader
+			.ack(batch.receipt, new AbortController().signal)
+			.then((result) => unwrap(result), fail);
+		await owner.close(new AbortController().signal).then((result) => unwrap(result), fail);
 	});
 });

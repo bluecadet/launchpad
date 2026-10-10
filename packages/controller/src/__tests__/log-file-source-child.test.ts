@@ -1,6 +1,7 @@
 import * as fsPromises from "node:fs/promises";
 import { normalizeLogRecord } from "@bluecadet/launchpad-utils/logging";
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { fail, unwrap } from "./log-result-test-utils.js";
 
 vi.unmock("fs");
 vi.unmock("fs/promises");
@@ -17,14 +18,16 @@ let owner: LogFileSourceOwner | undefined;
 
 afterAll(async () => {
 	if (!owner) return;
-	await owner.close(new AbortController().signal);
+	await owner.close(new AbortController().signal).then((result) => unwrap(result), fail);
 });
 
 describe.skipIf(!directory || !mode)("log file source child process fixture", () => {
 	it("exercises native ownership through the public source factory", async () => {
 		if (!directory) throw new Error("Missing child log directory");
 		if (mode === "attempt") {
-			expect(() => createLogFileSource({ directory })).toThrow(/already owned/i);
+			expect(createLogFileSource({ directory })._unsafeUnwrapErr().message).toMatch(
+				/already owned/i,
+			);
 			process.stdout.write("LAUNCHPAD_CHILD_DENIED\n");
 			return;
 		}
@@ -34,23 +37,24 @@ describe.skipIf(!directory || !mode)("log file source child process fixture", ()
 				maxBytes: 1024,
 				maxSegmentBytes: 1024,
 				maxAgeMs: 0,
-			});
+			})._unsafeUnwrap();
 			const makeRecord = (message: string) =>
 				normalizeLogRecord(
 					{ timestamp: new Date(), level: "info", message, event: "log:info", metadata: {} },
 					{},
-				);
+				)._unsafeUnwrap();
 			owner.append(makeRecord("old".repeat(200)));
-			await owner.source.flush(new AbortController().signal);
-			const reader = await owner.source.createReader(
-				{ checkpointId: "crash-retention" },
-				new AbortController().signal,
-			);
-			await reader.read({
-				maxEntries: 10,
-				maxBytes: 1000000,
-				signal: new AbortController().signal,
-			});
+			await owner.source.flush(new AbortController().signal).then((result) => unwrap(result), fail);
+			const reader = await owner.source
+				.createReader({ checkpointId: "crash-retention" }, new AbortController().signal)
+				.then((result) => unwrap(result), fail);
+			await reader
+				.read({
+					maxEntries: 10,
+					maxBytes: 1000000,
+					signal: new AbortController().signal,
+				})
+				.then((result) => unwrap(result), fail);
 			const remove = fsPromises.rm;
 			vi.spyOn(fsPromises, "rm").mockImplementation(async (target, options) => {
 				await remove(target, options);
@@ -65,7 +69,7 @@ describe.skipIf(!directory || !mode)("log file source child process fixture", ()
 		}
 
 		if (mode !== "hold") throw new Error(`Unknown child mode: ${mode}`);
-		owner = createLogFileSource({ directory });
+		owner = createLogFileSource({ directory })._unsafeUnwrap();
 		process.stdout.write("LAUNCHPAD_CHILD_LOCKED\n");
 		await new Promise<void>(() => undefined);
 	});

@@ -9,7 +9,7 @@ import type {
 } from "@bluecadet/launchpad-utils/logging";
 import { normalizeLogRecord } from "@bluecadet/launchpad-utils/logging";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
-import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from "neverthrow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
 	DestinationContext,
@@ -20,6 +20,8 @@ import type {
 import { observability } from "../index.js";
 import type { LogStorageConfig } from "../observability-config.js";
 import type { ObservabilityState } from "../observability-state.js";
+
+type CanonicalExporter = NonNullable<LogExporter["exportCanonical"]>;
 
 function abortError(): Error {
 	return Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -46,7 +48,7 @@ class FakeLogSource implements LoggerSource {
 	holdUnboundedReads = false;
 	returnEmptyReads = false;
 	readCount = 0;
-	beforeAck: (() => Promise<void>) | undefined;
+	beforeAck: (() => ResultAsync<void, Error>) | undefined;
 	onFlush: ((barrier: string) => void) | undefined;
 	private readonly records: NormalizedLogRecord[];
 	private readonly waiters = new Set<() => void>();
@@ -65,75 +67,87 @@ class FakeLogSource implements LoggerSource {
 		this.waiters.clear();
 	}
 
-	async flush(_signal: AbortSignal): Promise<string> {
+	flush(_signal: AbortSignal): ResultAsync<string, Error> {
 		const barrier = String(this.records.length);
 		this.onFlush?.(barrier);
-		return barrier;
+		return okAsync(barrier);
 	}
 
-	async createReader(
+	createReader(
 		identity: { readonly checkpointId: string },
 		_signal: AbortSignal,
-	): Promise<LoggerSourceReader> {
+	): ResultAsync<LoggerSourceReader, Error> {
 		const checkpointId = identity.checkpointId;
 		this.readers.push(checkpointId);
 		let outstandingReceipt: string | null = null;
 		let reportedGaps = false;
-		return {
-			read: async (request): Promise<LogSourceBatch> => {
-				if (outstandingReceipt) throw new Error("one receipt is already outstanding");
-				this.readCount += 1;
-				while (true) {
-					if (request.signal.aborted) throw abortError();
-					const offset = this.checkpointOffsets.get(checkpointId) ?? 0;
-					const through = request.through === undefined ? null : Number(request.through);
-					const end =
-						through === null ? this.records.length : Math.min(this.records.length, through);
-					if (!this.holdUnboundedReads || through !== null) {
-						const records = this.records.slice(offset, Math.min(end, offset + request.maxEntries));
-						if (
-							this.returnEmptyReads ||
-							records.length > 0 ||
-							(through !== null && offset >= through)
-						) {
-							const nextOffset = offset + records.length;
-							outstandingReceipt = `${offset}:${nextOffset}`;
-							const batchGaps = reportedGaps ? [] : this.gaps;
-							reportedGaps = true;
-							return {
-								records,
-								gaps: batchGaps,
-								receipt: outstandingReceipt,
-								reachedThrough: through !== null && nextOffset >= through,
-							};
+		return okAsync({
+			read: (request) =>
+				new ResultAsync(
+					(async (): Promise<Result<LogSourceBatch, Error>> => {
+						if (outstandingReceipt) return err(new Error("one receipt is already outstanding"));
+						this.readCount += 1;
+						while (true) {
+							if (request.signal.aborted) return err(abortError());
+							const offset = this.checkpointOffsets.get(checkpointId) ?? 0;
+							const through = request.through === undefined ? null : Number(request.through);
+							const end =
+								through === null ? this.records.length : Math.min(this.records.length, through);
+							if (!this.holdUnboundedReads || through !== null) {
+								const records = this.records.slice(
+									offset,
+									Math.min(end, offset + request.maxEntries),
+								);
+								if (
+									this.returnEmptyReads ||
+									records.length > 0 ||
+									(through !== null && offset >= through)
+								) {
+									const nextOffset = offset + records.length;
+									outstandingReceipt = `${offset}:${nextOffset}`;
+									const batchGaps = reportedGaps ? [] : this.gaps;
+									reportedGaps = true;
+									return ok({
+										records,
+										gaps: batchGaps,
+										receipt: outstandingReceipt,
+										reachedThrough: through !== null && nextOffset >= through,
+									});
+								}
+							}
+							await new Promise<void>((resolve) => {
+								const wake = () => {
+									request.signal.removeEventListener("abort", onAbort);
+									resolve();
+								};
+								const onAbort = () => {
+									this.waiters.delete(wake);
+									resolve();
+								};
+								this.waiters.add(wake);
+								request.signal.addEventListener("abort", onAbort, { once: true });
+							});
 						}
-					}
-					await new Promise<void>((resolve, reject) => {
-						const wake = () => {
-							request.signal.removeEventListener("abort", onAbort);
-							resolve();
-						};
-						const onAbort = () => {
-							this.waiters.delete(wake);
-							reject(abortError());
-						};
-						this.waiters.add(wake);
-						request.signal.addEventListener("abort", onAbort, { once: true });
-					});
-				}
-			},
-			ack: async (receipt) => {
-				if (receipt !== outstandingReceipt) throw new Error("invalid receipt");
-				await this.beforeAck?.();
-				const nextOffset = Number(receipt.split(":")[1]);
-				this.checkpointOffsets.set(checkpointId, nextOffset);
-				this.acknowledgements.push({ checkpointId, receipt });
-				outstandingReceipt = null;
-			},
-			close: async () => {
+					})(),
+				),
+			ack: (receipt) =>
+				new ResultAsync(
+					(async () => {
+						if (receipt !== outstandingReceipt) return err(new Error("invalid receipt"));
+						const result = await this.beforeAck?.();
+						if (result?.isErr()) return result;
+						const nextOffset = Number(receipt.split(":")[1]);
+						this.checkpointOffsets.set(checkpointId, nextOffset);
+						this.acknowledgements.push({ checkpointId, receipt });
+						outstandingReceipt = null;
+						return ok(undefined);
+					})(),
+				),
+			close: () => {
 				this.closedReaders.push(checkpointId);
+				return okAsync(undefined);
 			},
-		};
+		});
 	}
 }
 
@@ -152,7 +166,7 @@ function record(
 			metadata: { message },
 		},
 		resource,
-	);
+	)._unsafeUnwrap();
 }
 
 function createContext(source?: LoggerSource) {
@@ -186,7 +200,7 @@ function createContext(source?: LoggerSource) {
 
 function fileDestination(
 	name: string,
-	exportLogs: LogExporter["export"],
+	exportLogs: CanonicalExporter,
 	extras: { metrics?: MetricExporter; checkpointKey?: string } = {},
 ): ObservabilityDestination {
 	return {
@@ -194,7 +208,10 @@ function fileDestination(
 		checkpointKey: extras.checkpointKey ?? `route-${name}`,
 		create: () =>
 			ok({
-				logs: { supportsResourceContext: true, export: exportLogs },
+				logs: {
+					export: () => errAsync(new Error("Raw export must not be called")),
+					exportCanonical: exportLogs,
+				},
 				...(extras.metrics === undefined ? {} : { metrics: extras.metrics }),
 			}),
 	};
@@ -234,9 +251,34 @@ afterEach(() => {
 });
 
 describe("file-backed destination log replay", () => {
+	it("preserves the canonical exporter receiver without invoking raw export", async () => {
+		const source = new FakeLogSource([record("canonical-only")]);
+		const rawExport = vi.fn<LogExporter["export"]>(() => errAsync(new Error("raw export called")));
+		const logs: LogExporter = {
+			export: rawExport,
+			exportCanonical(batch, context) {
+				expect(this).toBe(logs);
+				expect(batch.records[0]?.message).toBe("canonical-only");
+				expect(batch.resourceAttributes).toEqual(batch.records[0]?.resource);
+				expect(context.signal.aborted).toBe(false);
+				return okAsync({ rejectedRecords: 0 });
+			},
+		};
+		const { instance } = await setupFileRuntime(source, [
+			{
+				name: "receiver",
+				checkpointKey: "receiver-route",
+				create: () => ok({ logs }),
+			},
+		]);
+		await vi.waitFor(() => expect(source.acknowledgements).toHaveLength(1));
+		expect(rawExport).not.toHaveBeenCalled();
+		await instance.disconnect?.({ type: "manual" });
+	});
+
 	it("acknowledges total rejection once without reporting a successful export", async () => {
 		const source = new FakeLogSource([record("rejected")]);
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 1 }));
+		const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 1 }));
 		const { instance, state } = await setupFileRuntime(source, [
 			fileDestination("rejected", exportLogs),
 		]);
@@ -272,6 +314,69 @@ describe("file-backed destination log replay", () => {
 		expect(source.acknowledgements).toHaveLength(0);
 		await instance.disconnect?.({ type: "manual" });
 	});
+	it.each(["open", "read", "read-abort", "flush", "close", "configure"] as const)(
+		"keeps %s source failures in source status without memory fallback",
+		async (failure) => {
+			const source = new FakeLogSource();
+			const error = failure === "read-abort" ? abortError() : new Error("private source failure");
+			const createReader = source.createReader.bind(source);
+			if (failure === "configure") {
+				vi.spyOn(source, "configureResourceAttributes").mockImplementation(() => {
+					throw error;
+				});
+			} else if (failure === "open") {
+				vi.spyOn(source, "createReader").mockReturnValue(errAsync(error));
+			} else if (failure === "read" || failure === "read-abort" || failure === "close") {
+				vi.spyOn(source, "createReader").mockImplementation((identity, signal) =>
+					createReader(identity, signal).map((reader) => ({
+						...reader,
+						...(failure === "close"
+							? { close: () => errAsync(error) }
+							: { read: () => errAsync(error) }),
+					})),
+				);
+			} else {
+				vi.spyOn(source, "flush").mockReturnValue(errAsync(error));
+			}
+			const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
+			const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const { instance, context, state } = await setupFileRuntime(source, [
+				fileDestination("source-failure", exportLogs, { metrics: { export: exportMetrics } }),
+			]);
+			await instance.ready?.();
+			context.eventBus.emit("log:info", { message: "never-memory", args: [], module: "app" });
+			if (failure === "close") await instance.disconnect?.({ type: "manual" });
+			else await instance.executeCommand?.({ type: "observability.flush" });
+			await vi.waitFor(() =>
+				expect(state.destinations?.["source-failure"]?.logs?.sourceStatus).toBe(
+					failure === "read" || failure === "read-abort" ? "parked" : "unavailable",
+				),
+			);
+			expect(state.destinations?.["source-failure"]?.logs?.lastError).not.toContain("private");
+			expect(exportLogs).not.toHaveBeenCalled();
+			expect(exportMetrics).toHaveBeenCalled();
+			expect(context.eventBus.onAny).not.toHaveBeenCalled();
+			await instance.disconnect?.({ type: "manual" });
+		},
+	);
+
+	it.each([-1, 0.5, 2, Number.NaN])(
+		"parks invalid canonical acknowledgement %s without advancing receipt",
+		async (rejectedRecords) => {
+			const source = new FakeLogSource([record("retained")]);
+			const exporter = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords }));
+			const { instance, state } = await setupFileRuntime(source, [
+				fileDestination("invalid", exporter),
+			]);
+			await vi.waitFor(() =>
+				expect(state.destinations?.invalid?.logs?.sourceStatus).toBe("parked"),
+			);
+			expect(source.acknowledgements).toHaveLength(0);
+			expect(state.destinations?.invalid?.logs?.totalDropped).toBe(0);
+			expect(exporter).toHaveBeenCalledOnce();
+			await instance.disconnect?.({ type: "manual" });
+		},
+	);
 
 	it("polls an idle source at the configured interval and flush wakes it immediately", async () => {
 		vi.useFakeTimers();
@@ -299,9 +404,11 @@ describe("file-backed destination log replay", () => {
 		source.returnEmptyReads = true;
 		let releaseAck = () => {};
 		source.beforeAck = () =>
-			new Promise<void>((resolve) => {
-				releaseAck = resolve;
-			});
+			ResultAsync.fromSafePromise(
+				new Promise<void>((resolve) => {
+					releaseAck = resolve;
+				}),
+			);
 		const { instance } = await setupFileRuntime(source, [
 			fileDestination("idle-race", () => okAsync({ rejectedRecords: 0 })),
 		]);
@@ -320,7 +427,7 @@ describe("file-backed destination log replay", () => {
 		vi.useFakeTimers();
 		const source = new FakeLogSource([record("retry-after")]);
 		const exportLogs = vi
-			.fn<LogExporter["export"]>()
+			.fn<CanonicalExporter>()
 			.mockImplementationOnce(() =>
 				errAsync(Object.assign(new Error("busy"), { retryable: true, retryAfterMs: 45_000 })),
 			)
@@ -346,7 +453,7 @@ describe("file-backed destination log replay", () => {
 			record("third", oldResource),
 		]);
 		let failed = false;
-		const exportLogs = vi.fn<LogExporter["export"]>((records) => {
+		const exportLogs = vi.fn<CanonicalExporter>(({ records }) => {
 			expect(source.acknowledgements).toHaveLength(0);
 			if (records[0]?.message === "second" && !failed) {
 				failed = true;
@@ -356,10 +463,10 @@ describe("file-backed destination log replay", () => {
 		});
 		const { instance } = await setupFileRuntime(source, [fileDestination("groups", exportLogs)]);
 		await vi.waitFor(() => expect(source.acknowledgements).toHaveLength(1));
-		expect(exportLogs.mock.calls.map(([records]) => records.map((entry) => entry.message))).toEqual(
-			[["first"], ["second"], ["second"], ["third"]],
-		);
-		expect(exportLogs.mock.calls.map(([, context]) => context.resourceAttributes)).toEqual([
+		expect(
+			exportLogs.mock.calls.map(([{ records }]) => records.map((entry) => entry.message)),
+		).toEqual([["first"], ["second"], ["second"], ["third"]]);
+		expect(exportLogs.mock.calls.map(([batch]) => batch.resourceAttributes)).toEqual([
 			oldResource,
 			newResource,
 			newResource,
@@ -370,7 +477,7 @@ describe("file-backed destination log replay", () => {
 
 	it("parks after retry exhaustion without acknowledging or counting durable records as dropped", async () => {
 		const source = new FakeLogSource([record("retained")]);
-		const exportLogs = vi.fn<LogExporter["export"]>(() =>
+		const exportLogs = vi.fn<CanonicalExporter>(() =>
 			errAsync(Object.assign(new Error("retry"), { retryable: true, retryAfterMs: 0 })),
 		);
 		const { instance, state } = await setupFileRuntime(source, [
@@ -389,10 +496,8 @@ describe("file-backed destination log replay", () => {
 
 	it("parks a failed checkpoint without re-exporting an already accepted batch", async () => {
 		const source = new FakeLogSource([record("accepted")]);
-		source.beforeAck = async () => {
-			throw new Error("disk full");
-		};
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		source.beforeAck = () => errAsync(new Error("disk full"));
+		const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 		const { instance, state } = await setupFileRuntime(source, [
 			fileDestination("checkpoint", exportLogs),
 		]);
@@ -409,7 +514,7 @@ describe("file-backed destination log replay", () => {
 	it("bounds shutdown during Retry-After and retains the unacknowledged receipt", async () => {
 		vi.useFakeTimers();
 		const source = new FakeLogSource([record("pending-retry")]);
-		const exportLogs = vi.fn<LogExporter["export"]>(() =>
+		const exportLogs = vi.fn<CanonicalExporter>(() =>
 			errAsync(Object.assign(new Error("busy"), { retryable: true, retryAfterMs: 45_000 })),
 		);
 		const { instance } = await setupFileRuntime(source, [fileDestination("shutdown", exportLogs)]);
@@ -429,7 +534,7 @@ describe("file-backed destination log replay", () => {
 		const pending = new Promise<void>((resolve) => {
 			settle = resolve;
 		});
-		const exportLogs = vi.fn<LogExporter["export"]>(() =>
+		const exportLogs = vi.fn<CanonicalExporter>(() =>
 			ResultAsync.fromPromise(pending, () => new Error("unexpected")).map(() => ({
 				rejectedRecords: 0,
 			})),
@@ -459,8 +564,8 @@ describe("file-backed destination log replay", () => {
 			for (const capabilities of [
 				{},
 				{ checkpointKey: "custom-route" },
-				{ supportsResourceContext: true },
-				{ supportsResourceContext: true, checkpointKey: " " },
+				{ exportCanonical: () => okAsync({ rejectedRecords: 0 }) },
+				{ exportCanonical: () => okAsync({ rejectedRecords: 0 }), checkpointKey: " " },
 			] as const) {
 				const { context } = createContext(new FakeLogSource());
 				const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
@@ -476,8 +581,8 @@ describe("file-backed destination log replay", () => {
 							create: () =>
 								ok({
 									logs: {
-										...("supportsResourceContext" in capabilities
-											? { supportsResourceContext: capabilities.supportsResourceContext }
+										...("exportCanonical" in capabilities
+											? { exportCanonical: capabilities.exportCanonical }
 											: {}),
 										export: exportLogs,
 									},
@@ -488,9 +593,7 @@ describe("file-backed destination log replay", () => {
 				}).setup(context);
 				expect(invalid.isErr()).toBe(true);
 				if (invalid.isErr())
-					expect(invalid.error.message).toContain(
-						"requires supportsResourceContext and checkpointKey",
-					);
+					expect(invalid.error.message).toContain("requires exportCanonical and checkpointKey");
 				expect(exportLogs).not.toHaveBeenCalled();
 				expect(context.eventBus.onAny).not.toHaveBeenCalled();
 				expect(shutdown).toHaveBeenCalledOnce();
@@ -542,7 +645,7 @@ describe("file-backed destination log replay", () => {
 		await instance.executeCommand?.({ type: "observability.flush" });
 		expect(exportLogs).toHaveBeenCalledOnce();
 		expect(exportLogs.mock.calls[0]?.[0].map((entry) => entry.message)).toEqual(["live-only"]);
-		expect(exportLogs.mock.calls[0]?.[1].recordFormat).toBeUndefined();
+
 		expect(state.destinations?.memory?.logs?.sourceStatus).toBeUndefined();
 		expect(source.readers).toHaveLength(0);
 		expect(source.acknowledgements).toHaveLength(0);
@@ -579,7 +682,7 @@ describe("file-backed destination log replay", () => {
 		async ({ logStorage }) => {
 			const source = new FakeLogSource([record("stored")]);
 			const destinationContexts: DestinationContext[] = [];
-			const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 			const configured = fileDestination("archive", exportLogs);
 			const destination: ObservabilityDestination = {
 				...configured,
@@ -593,12 +696,14 @@ describe("file-backed destination log replay", () => {
 			await vi.waitFor(() => expect(source.acknowledgements).toHaveLength(1));
 			expect(destinationContexts[0]?.resourceAttributes["service.instance.id"]).toBe("runtime-123");
 			expect(source.resourceAttributes["service.instance.id"]).toBe("runtime-123");
-			expect(exportLogs.mock.calls[0]?.[0].map((entry) => entry.message)).toEqual(["stored"]);
-			expect(exportLogs.mock.calls[0]?.[0][0]?.timestamp).toEqual(
+			expect(exportLogs.mock.calls[0]?.[0].records.map((entry) => entry.message)).toEqual([
+				"stored",
+			]);
+			expect(exportLogs.mock.calls[0]?.[0].records[0]?.timestamp).toEqual(
 				new Date("2025-01-01T00:00:00.000Z"),
 			);
-			expect(exportLogs.mock.calls[0]?.[1].recordFormat).toBe("canonical");
-			expect(exportLogs.mock.calls[0]?.[1].resourceAttributes).toEqual({
+
+			expect(exportLogs.mock.calls[0]?.[0].resourceAttributes).toEqual({
 				"service.name": "historical",
 				"service.instance.id": "old",
 			});
@@ -613,7 +718,7 @@ describe("file-backed destination log replay", () => {
 	it("does not advance the source receipt on retryable failure and acknowledges after retry succeeds", async () => {
 		const source = new FakeLogSource([record("retry")]);
 		let attempts = 0;
-		const exportLogs = vi.fn<LogExporter["export"]>(() => {
+		const exportLogs = vi.fn<CanonicalExporter>(() => {
 			attempts += 1;
 			return attempts === 1
 				? errAsync(Object.assign(new Error("temporary"), { retryable: true, retryAfterMs: 0 }))
@@ -628,10 +733,10 @@ describe("file-backed destination log replay", () => {
 
 	it("parks permanent failures without acknowledging or blocking another destination", async () => {
 		const source = new FakeLogSource([record("shared")]);
-		const failing = vi.fn<LogExporter["export"]>(() =>
+		const failing = vi.fn<CanonicalExporter>(() =>
 			errAsync(Object.assign(new Error("invalid route"), { retryable: false })),
 		);
-		const successful = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		const successful = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 		const { instance, state } = await setupFileRuntime(source, [
 			fileDestination("blocked", failing),
 			fileDestination("healthy", successful),
@@ -648,7 +753,7 @@ describe("file-backed destination log replay", () => {
 
 	it("acknowledges partial rejection once and counts rejected records as terminal", async () => {
 		const source = new FakeLogSource([record("accepted"), record("rejected")]);
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 1 }));
+		const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 1 }));
 		const { instance, state, snapshots } = await setupFileRuntime(source, [
 			fileDestination("partial", exportLogs),
 		]);
@@ -675,7 +780,7 @@ describe("file-backed destination log replay", () => {
 
 	it("terminally acknowledges filtered records without exporting them", async () => {
 		const source = new FakeLogSource([record("filtered", undefined, "command:success")]);
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 		const { instance, state } = await setupFileRuntime(
 			source,
 			[fileDestination("filtered", exportLogs)],
@@ -714,7 +819,7 @@ describe("file-backed destination log replay", () => {
 	] as const)(
 		"$label keeps logs unavailable without a source while metrics continue, without fallback",
 		async ({ logStorage }) => {
-			const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+			const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 			const exportMetrics = vi.fn<MetricExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
 			const { instance, context, state } = await setupFileRuntime(
 				undefined,
@@ -736,20 +841,20 @@ describe("file-backed destination log replay", () => {
 		const source = new FakeLogSource([record("before-barrier")]);
 		source.holdUnboundedReads = true;
 		source.onFlush = () => source.append(record("after-barrier"));
-		const exportLogs = vi.fn<LogExporter["export"]>(() => okAsync({ rejectedRecords: 0 }));
+		const exportLogs = vi.fn<CanonicalExporter>(() => okAsync({ rejectedRecords: 0 }));
 		const { instance } = await setupFileRuntime(source, [fileDestination("finite", exportLogs)]);
 
 		await instance.executeCommand?.({ type: "observability.flush" });
-		expect(exportLogs.mock.calls.flatMap((call) => call[0].map((entry) => entry.message))).toEqual([
-			"before-barrier",
-		]);
+		expect(
+			exportLogs.mock.calls.flatMap((call) => call[0].records.map((entry) => entry.message)),
+		).toEqual(["before-barrier"]);
 		await instance.disconnect?.({ type: "manual" });
 	});
 
 	it("quarantines an exporter that ignores timeout without overlapping another call", async () => {
 		const source = new FakeLogSource([record("blocked")]);
 		const never = new Promise<never>(() => {});
-		const actualExport = vi.fn<LogExporter["export"]>(() =>
+		const actualExport = vi.fn<CanonicalExporter>(() =>
 			ResultAsync.fromPromise(never, () => new Error("unreachable")),
 		);
 		const { instance, state } = await setupFileRuntime(

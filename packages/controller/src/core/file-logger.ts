@@ -1,5 +1,6 @@
 import path from "node:path";
 import { formatWithOptions } from "node:util";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type {
 	LogEventPayload,
@@ -16,6 +17,7 @@ import {
 	normalizeStructuredValue,
 	type ResourceAttributes,
 } from "@bluecadet/launchpad-utils/logging";
+import { err, ok, Result } from "neverthrow";
 import { LEVEL, MESSAGE, SPLAT } from "triple-beam";
 import winston from "winston";
 import Transport from "winston-transport";
@@ -29,7 +31,6 @@ import {
 const DEFAULT_SEGMENT_SIZE = "8m";
 const DEFAULT_DATE_PATTERN = "YYYY-MM-DD";
 const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
-const DEFAULT_MAX_AGE_MS = 28 * 24 * 60 * 60 * 1_000;
 const DEFAULT_CLOSE_TIMEOUT_MS = 5_000;
 
 const FILE_LOG_LEVELS = ["error", "warn", "info", "debug", "verbose"] as const;
@@ -71,20 +72,20 @@ export const logConfigSchema = z
 		/** The directory where controller-owned log files are stored. */
 		dirname: z.string().default(".logs").describe("The directory where log files are stored."),
 		/** Legacy segment size setting, now applied to the canonical source when it can be parsed. */
-		maxSize: z
-			.string()
-			.refine((value) => parseByteSize(value) !== undefined, {
-				message: "logging.maxSize must be a positive byte size such as '8m'",
-			})
-			.default(DEFAULT_SEGMENT_SIZE)
+		maxSize: parsedLimitSchema(
+			parseByteSize,
+			1_024,
+			"logging.maxSize must be at least 1024 bytes, such as '8m'",
+		)
+			.prefault(DEFAULT_SEGMENT_SIZE)
 			.describe("The target size of each log segment."),
 		/** Legacy age-retention setting. Count-based values are no longer supported. */
-		maxFiles: z
-			.string()
-			.refine((value) => parseMaxAge(value) !== undefined, {
-				message: "logging.maxFiles must be an age in days such as '28d'",
-			})
-			.default("28d")
+		maxFiles: parsedLimitSchema(
+			parseMaxAge,
+			1,
+			"logging.maxFiles must be an age in days such as '28d'",
+		)
+			.prefault("28d")
 			.describe("How long retained log segments are kept."),
 		/** Retained for configuration compatibility; source segment names are owner-managed. */
 		datePattern: z
@@ -103,7 +104,7 @@ export const logConfigSchema = z
 
 export type ResolvedLogConfig = z.output<typeof logConfigSchema>;
 
-type LogFileSourceFactory = (options: LogFileSourceOptions) => LogFileSourceOwner;
+type LogFileSourceFactory = (options: LogFileSourceOptions) => Result<LogFileSourceOwner, Error>;
 
 export interface FileLoggerDependencies {
 	readonly createSource?: LogFileSourceFactory;
@@ -176,26 +177,42 @@ function parseMaxAge(value: string): number | undefined {
 	return Number.isSafeInteger(milliseconds) && milliseconds > 0 ? milliseconds : undefined;
 }
 
-function currentResourceAttributes(owner: LogFileSourceOwner): ResourceAttributes {
-	return owner.source.resourceAttributes;
+function parsedLimitSchema(
+	parse: (value: string) => number | undefined,
+	minimum: number,
+	message: string,
+) {
+	return z.string().transform((value, context) => {
+		const parsed = parse(value);
+		if (parsed === undefined || parsed < minimum) {
+			context.addIssue({ code: "custom", message });
+			return z.NEVER;
+		}
+		return parsed;
+	});
 }
 
 function normalizeCanonicalRecord(
 	event: string,
 	payload: unknown,
 	resource: ResourceAttributes,
-): NormalizedLogRecord {
-	const record = normalizeLogRecord(eventToLogEntry(event, payload), resource);
-	const args = record.metadata.args;
-	if (!event.startsWith("log:") || !Array.isArray(args)) return record;
-
-	// Preserve the legacy bus message, but never interpolate raw structured
-	// arguments into canonical or text output before key-based redaction.
-	const message = normalizeStructuredValue(
-		formatWithOptions({ colors: false, compact: true }, ...args),
-	);
-	if (typeof message !== "string") throw new Error("Unable to normalize the log message");
-	return Object.freeze({ ...record, message });
+): Result<NormalizedLogRecord, Error> {
+	return Result.fromThrowable(() => eventToLogEntry(event, payload), ensureError)()
+		.andThen((entry) => normalizeLogRecord(entry, resource))
+		.andThen((record) => {
+			const args = record.metadata.args;
+			if (!event.startsWith("log:") || !Array.isArray(args)) return ok(record);
+			// Format only redacted arguments; preserve the separate legacy bus message.
+			return Result.fromThrowable(
+				() =>
+					normalizeStructuredValue(formatWithOptions({ colors: false, compact: true }, ...args)),
+				ensureError,
+			)().andThen((message) =>
+				typeof message === "string"
+					? ok(Object.freeze({ ...record, message }))
+					: err(new Error("Unable to normalize the log message")),
+			);
+		});
 }
 
 function shouldRenderText(record: NormalizedLogRecord, config: ResolvedLogConfig): boolean {
@@ -228,15 +245,21 @@ function normalizedFormatInfo(record: NormalizedLogRecord): LogInfo {
 	};
 }
 
-function renderTextLine(record: NormalizedLogRecord, config: ResolvedLogConfig): string {
-	const info = normalizedFormatInfo(record);
-	const transformed: unknown = config.format.transform(info, config.format.options);
-	if (transformed === false || !isLogInfo(transformed)) {
-		throw new Error("The configured text log format did not produce a log record");
-	}
-	const rendered = transformed[MESSAGE];
-	if (typeof rendered === "string") return rendered;
-	return String(transformed.message);
+function renderTextLine(
+	record: NormalizedLogRecord,
+	config: ResolvedLogConfig,
+): Result<string, Error> {
+	return Result.fromThrowable(
+		(): unknown => config.format.transform(normalizedFormatInfo(record), config.format.options),
+		ensureError,
+	)().andThen((transformed) => {
+		if (!isLogInfo(transformed))
+			return err(new Error("The configured text log format did not produce a log record"));
+		return Result.fromThrowable(() => {
+			const rendered = transformed[MESSAGE];
+			return typeof rendered === "string" ? rendered : String(transformed.message);
+		}, ensureError)();
+	});
 }
 
 class ControllerLogTransport extends Transport {
@@ -305,25 +328,21 @@ function appendEntry(
 ): void {
 	if (!owner) return;
 
-	try {
-		const record = normalizeCanonicalRecord(event, payload, currentResourceAttributes(owner));
-		let textLine: string | undefined;
-		if (shouldRenderText(record, config)) {
-			try {
-				textLine = renderTextLine(record, config);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				reportDiagnostic(`Unable to format the human-readable log view: ${message}`);
-			}
-		}
-
-		if (!owner.append(record, textLine)) {
-			reportDiagnostic("The canonical log admission queue is full; records are being dropped");
-		}
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		reportDiagnostic(`Unable to normalize a canonical log record: ${message}`);
+	const normalized = normalizeCanonicalRecord(event, payload, owner.source.resourceAttributes);
+	if (normalized.isErr()) {
+		reportDiagnostic(`Unable to normalize a canonical log record: ${normalized.error.message}`);
+		return;
 	}
+	const record = normalized.value;
+	let textLine: string | undefined;
+	if (shouldRenderText(record, config)) {
+		const rendered = renderTextLine(record, config);
+		if (rendered.isOk()) textLine = rendered.value;
+		else
+			reportDiagnostic(`Unable to format the human-readable log view: ${rendered.error.message}`);
+	}
+	// The source owns accurate diagnostics (closing, capacity, or serialization).
+	owner.append(record, textLine);
 }
 
 /**
@@ -343,36 +362,25 @@ export function createFileLogger(
 	const reportDiagnostic = createDiagnosticReporter(eventBus);
 	const createSource = dependencies.createSource ?? createLogFileSource;
 	let owner: LogFileSourceOwner | undefined;
-	const maxSegmentBytes = parseByteSize(config.maxSize);
-	const maxAgeMs = parseMaxAge(config.maxFiles);
-	if (maxSegmentBytes === undefined) {
-		reportDiagnostic(
-			`Unsupported logging.maxSize '${config.maxSize}'; using the canonical 8 MiB default`,
-		);
-	}
-	if (maxAgeMs === undefined) {
-		reportDiagnostic(
-			`Unsupported logging.maxFiles '${config.maxFiles}'; using the canonical 28 day default`,
-		);
-	}
 	if (config.datePattern !== DEFAULT_DATE_PATTERN) {
 		reportDiagnostic(
 			"logging.datePattern is deprecated and no longer controls owner-managed log filenames",
 		);
 	}
 
-	try {
-		owner = createSource({
-			directory: path.resolve(cwd, config.dirname),
-			maxSegmentBytes,
-			maxBytes: DEFAULT_MAX_BYTES,
-			maxAgeMs: maxAgeMs ?? DEFAULT_MAX_AGE_MS,
-			onDiagnostic: reportDiagnostic,
-		});
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		reportDiagnostic(`File-backed logging is unavailable: ${message}`);
-	}
+	const created = Result.fromThrowable(
+		() =>
+			createSource({
+				directory: path.resolve(cwd, config.dirname),
+				maxSegmentBytes: config.maxSize,
+				maxBytes: DEFAULT_MAX_BYTES,
+				maxAgeMs: config.maxFiles,
+				onDiagnostic: reportDiagnostic,
+			}),
+		ensureError,
+	)().andThen((result) => result);
+	if (created.isOk()) owner = created.value;
+	else reportDiagnostic(`File-backed logging is unavailable: ${created.error.message}`);
 
 	const record = (event: string, payload: unknown): void => {
 		appendEntry(owner, config, event, payload, reportDiagnostic);
@@ -397,10 +405,12 @@ export function createFileLogger(
 			if (!owner) return Promise.resolve();
 
 			const timeout = dependencies.closeTimeoutMs ?? DEFAULT_CLOSE_TIMEOUT_MS;
-			const pendingClose = owner.close(AbortSignal.timeout(timeout)).catch((error: unknown) => {
-				const message = error instanceof Error ? error.message : String(error);
-				reportDiagnostic(`File-backed logging did not close cleanly: ${message}`);
-			});
+			const pendingClose = Promise.resolve(owner.close(AbortSignal.timeout(timeout))).then(
+				(result) => {
+					if (result.isErr())
+						reportDiagnostic(`File-backed logging did not close cleanly: ${result.error.message}`);
+				},
+			);
 			closePromise = pendingClose;
 			return pendingClose;
 		},

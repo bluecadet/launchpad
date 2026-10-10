@@ -1,4 +1,4 @@
-import type { ResourceAttributes } from "@bluecadet/launchpad-utils/logging";
+import type { NormalizedLogRecord, ResourceAttributes } from "@bluecadet/launchpad-utils/logging";
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import type { Result, ResultAsync } from "neverthrow";
 import type { LogEntry } from "./log-entry.js";
@@ -21,14 +21,6 @@ export interface ExportContext {
 /** Per-call log context, optionally restoring a record's original resource. */
 export interface LogExportContext extends ExportContext {
 	readonly resourceAttributes?: ResourceAttributes;
-	/**
-	 * Trusted canonical-source records only: fields and metadata have already
-	 * been normalized, redacted, byte-bounded, and validated as JSON-safe values.
-	 * The resource snapshot must also be normalized. Exporters may serialize
-	 * these values without repeating normalization; callers must not mutate them
-	 * during export. Omit for raw entries, even with a resource override.
-	 */
-	readonly recordFormat?: "canonical";
 }
 
 /**
@@ -51,11 +43,26 @@ export interface MetricBatch {
 	readonly observations: readonly MetricObservation[];
 }
 
+/**
+ * Canonical records grouped by their already-normalized historical resource.
+ * Every record must belong to this resource snapshot. Callers must not mutate
+ * the records or resource during export.
+ */
+export interface CanonicalLogBatch {
+	readonly records: readonly NormalizedLogRecord[];
+	readonly resourceAttributes: ResourceAttributes;
+}
+
+/** Raw log export with an optional typed canonical replay capability. */
 export interface LogExporter {
-	readonly supportsResourceContext?: true;
 	export(
 		records: readonly LogEntry[],
 		context: LogExportContext,
+	): ResultAsync<ExportResult, ExportFailure>;
+	/** Presence enables file-backed replay without normalizing canonical metadata again. */
+	exportCanonical?(
+		batch: CanonicalLogBatch,
+		context: ExportContext,
 	): ResultAsync<ExportResult, ExportFailure>;
 }
 

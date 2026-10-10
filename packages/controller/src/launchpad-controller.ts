@@ -1,7 +1,6 @@
 import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { isSelectedOperationalLogEvent } from "@bluecadet/launchpad-utils/logging";
 import type {
 	BaseCommand,
@@ -17,7 +16,7 @@ import type {
 	StatusSnapshot,
 	VersionedLaunchpadState,
 } from "@bluecadet/launchpad-utils/types";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import type { ResolvedControllerConfig } from "./controller-config.js";
 import { CommandDispatcher } from "./core/command-dispatcher.js";
 import { CommandRegistry } from "./core/command-registry.js";
@@ -34,20 +33,32 @@ import type { AllPluginsState } from "./all-plugin-state.js";
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { collectPluginMetrics } from "./core/collect-plugin-metrics.js";
 import {
+	acquireControllerInstanceLease,
+	type ControllerInstanceLease,
+} from "./core/controller-instance-lease.js";
+import {
 	type ControllerFileLogger,
 	createFileLogger,
 	type FileLoggerDependencies,
 } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
-import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
+import { deletePidFile, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
+
+export interface ControllerDependencies extends FileLoggerDependencies {
+	readonly acquireInstanceLease?: (
+		pidFile: string,
+		baseDirectory: string,
+	) => ControllerInstanceLease | Result<ControllerInstanceLease, Error>;
+}
 
 export class LaunchpadController {
 	private _config: ResolvedControllerConfig;
 	private _mode: ControllerMode;
 	private _baseDir: string;
-	private _logger: Logger;
-	private _fileLogger: ControllerFileLogger;
+	private _fileLogger: ControllerFileLogger | undefined;
+	private readonly _dependencies: ControllerDependencies;
+	private _instanceLease: ControllerInstanceLease | undefined;
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
@@ -57,31 +68,66 @@ export class LaunchpadController {
 	private _commandRegistry = new CommandRegistry();
 	private _abortController = new AbortController();
 	private _isStarted = false;
-	private _shutdownInProgress = false;
+	private _disposed = false;
+	private _startupResult: ResultAsync<void, Error> | undefined;
+	private _shutdownResult: ResultAsync<void, Error> | undefined;
+	private _cleanupResult: ResultAsync<void, Error> | undefined;
+	private _pidFileWritten = false;
+	private _registrations = new Set<ResultAsync<void, Error>>();
 	private _readyPhaseRun = false;
 
 	constructor(
 		config: ResolvedControllerConfig,
 		baseDir: string,
 		mode: ControllerMode = "task",
-		fileLoggerDependencies: FileLoggerDependencies = {},
+		dependencies: ControllerDependencies = {},
 	) {
 		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
+		this._dependencies = dependencies;
 		this._eventBus = new EventBus<AllEvents>();
-		this._fileLogger = createFileLogger(
-			this._config.logging,
-			baseDir,
-			this._eventBus,
-			fileLoggerDependencies,
-		);
-		this._logger = this._fileLogger.logger;
-		this._eventBus.onAny(this.recordOperationalEvent);
 		this._stateStore = new StateStore(this._mode);
 		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
 			this.executeCommand(command),
 		);
+	}
+
+	/** Reserve ownership before opening logging or invoking any plugin setup. */
+	private initializeResources(): Result<ControllerFileLogger, Error> {
+		if (this._disposed || this._shutdownResult) {
+			return err(new Error("A stopped controller cannot be restarted"));
+		}
+		if (this._fileLogger) return ok(this._fileLogger);
+
+		const acquire = this._dependencies.acquireInstanceLease ?? acquireControllerInstanceLease;
+		return Result.fromThrowable(
+			() => acquire(path.resolve(this._baseDir, this._config.pidFile), this._baseDir),
+			ensureError,
+		)()
+			.andThen((lease) => ("release" in lease ? ok(lease) : lease))
+			.andThen((lease) => {
+				this._instanceLease = lease;
+				return Result.fromThrowable(
+					() =>
+						createFileLogger(
+							this._config.logging,
+							this._baseDir,
+							this._eventBus,
+							this._dependencies,
+						),
+					ensureError,
+				)()
+					.map((fileLogger) => {
+						this._fileLogger = fileLogger;
+						this._eventBus.onAny(this.recordOperationalEvent);
+						return fileLogger;
+					})
+					.mapErr((error) => {
+						this.releaseInstanceLease();
+						return error;
+					});
+			});
 	}
 
 	registerPlugin(
@@ -91,13 +137,17 @@ export class LaunchpadController {
 			return errAsync(new Error(`Plugin '${plugin.name}' is already registered`));
 		}
 
+		const initialized = this.initializeResources();
+		if (initialized.isErr()) return errAsync(initialized.error);
 		const updateState = this._stateStore.getPluginUpdater(plugin.name);
 
-		return this.safeSetup(plugin, updateState)
+		const registration = this.safeSetup(plugin, updateState, initialized.value)
 			.andThen((instance) => {
 				const manifestCommands = plugin.manifest?.commands ?? [];
 				if (manifestCommands.length > 0 && !instance.executeCommand) {
-					return errAsync(
+					return this.rejectRegistration(
+						plugin.name,
+						instance,
 						new Error(
 							`Plugin '${plugin.name}' declares manifest commands but does not implement executeCommand`,
 						),
@@ -110,13 +160,12 @@ export class LaunchpadController {
 					(command) => instance.executeCommand?.(command) ?? errAsync(new Error()),
 				);
 				if (registerResult.isErr()) {
-					instance.disconnect?.({ type: "error", error: registerResult.error });
-					return errAsync(registerResult.error);
+					return this.rejectRegistration(plugin.name, instance, registerResult.error);
 				}
 
 				this._plugins.set(plugin.name, instance);
 				this._pluginConfigs.set(plugin.name, plugin);
-				this._logger.verbose(`Registered plugin '${plugin.name}'`);
+				this._fileLogger?.logger.verbose(`Registered plugin '${plugin.name}'`);
 
 				// A plugin registered after the ready phase already ran cannot wait for it, so it
 				// gets its own ready() right after setup — every plugin sees the hook exactly once.
@@ -126,9 +175,34 @@ export class LaunchpadController {
 				return okAsync(undefined);
 			})
 			.orElse((error) => {
-				this._logger.error(`Failed to register plugin '${plugin.name}'`);
+				this._fileLogger?.logger.error(`Failed to register plugin '${plugin.name}'`);
 				return errAsync(error);
 			});
+		this._registrations.add(registration);
+		void registration.then(() => this._registrations.delete(registration));
+		return registration;
+	}
+
+	private rejectRegistration(
+		name: string,
+		instance: InstantiatedPlugin,
+		error: Error,
+	): ResultAsync<void, Error> {
+		return this.safeDisconnect(name, instance, { type: "error", error })
+			.orElse(() => okAsync(undefined))
+			.andThen(() => errAsync(error));
+	}
+
+	private safeDisconnect(
+		name: string,
+		plugin: InstantiatedPlugin,
+		reason: DisconnectReason,
+	): ResultAsync<void, Error> {
+		this._fileLogger?.logger.verbose(`Disconnecting plugin '${name}'`);
+		return ResultAsync.fromThrowable(
+			async () => await plugin.disconnect?.(reason),
+			ensureError,
+		)().andThen((result) => result ?? okAsync(undefined));
 	}
 
 	/** A plugin setup that throws synchronously (instead of returning errAsync)
@@ -136,9 +210,10 @@ export class LaunchpadController {
 	private safeSetup(
 		plugin: PluginConfig,
 		updateState: (producer: (draft: unknown) => void) => void,
+		fileLogger: ControllerFileLogger,
 	): ResultAsync<InstantiatedPlugin, Error> {
 		return ResultAsync.fromThrowable(
-			async () => await plugin.setup(this.getPluginCtx(plugin.name, updateState)),
+			async () => await plugin.setup(this.getPluginCtx(plugin.name, updateState, fileLogger)),
 			ensureError,
 		)().andThen((result) => result);
 	}
@@ -170,7 +245,7 @@ export class LaunchpadController {
 		);
 
 		return readyPhase.map(() => {
-			this._logger.verbose("All plugins ready");
+			this._fileLogger?.logger.verbose("All plugins ready");
 			return undefined;
 		});
 	}
@@ -182,11 +257,11 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		}
 
-		this._logger.verbose(`Readying plugin '${name}'`);
+		this._fileLogger?.logger.verbose(`Readying plugin '${name}'`);
 		return ResultAsync.fromThrowable(async () => await plugin.ready?.(), ensureError)()
 			.andThen((result) => result ?? okAsync(undefined))
 			.orElse((error) => {
-				this._logger.error(`Plugin '${name}' failed to become ready: ${error.message}`);
+				this._fileLogger?.logger.error(`Plugin '${name}' failed to become ready: ${error.message}`);
 				return okAsync(undefined);
 			});
 	}
@@ -203,101 +278,131 @@ export class LaunchpadController {
 		return Array.from(this._plugins.keys());
 	}
 
+	/** Single-flight startup; repeated callers observe the same attempt and Result. */
 	start(): ResultAsync<void, Error> {
-		if (this._isStarted) {
-			return okAsync(undefined);
+		if (this._disposed || this._shutdownResult) {
+			return errAsync(new Error("A stopped controller cannot be restarted"));
+		}
+		if (this._startupResult) return this._startupResult;
+		const initialized = this.initializeResources();
+		if (initialized.isErr()) {
+			this._startupResult = this.abandonStartup(initialized.error);
+			return this._startupResult;
 		}
 
-		this._logger.verbose(`Starting controller in ${this._mode} mode`);
+		this._fileLogger?.logger.verbose(`Starting controller in ${this._mode} mode`);
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
 
 		if (this._mode === "persistent") {
 			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 			const socketPath = path.resolve(this._baseDir, this._config.socketPath);
-
-			const daemonPidResult = getDaemonPid(pidFile);
-			if (daemonPidResult.isOk() && daemonPidResult.value !== null) {
-				return errAsync(new Error(`Controller already running with PID ${daemonPidResult.value}`));
-			}
-
 			const writePidResult = writePidFile(pidFile, process.pid);
 			if (writePidResult.isErr()) {
-				return errAsync(writePidResult.error);
+				this._startupResult = this.abandonStartup(writePidResult.error);
+				return this._startupResult;
 			}
-
-			return this.registerPlugin(createIPCTransport({ socketPath }))
+			this._pidFileWritten = true;
+			this._startupResult = this.registerPlugin(createIPCTransport({ socketPath }))
 				.andTee(() => {
 					this._isStarted = true;
-					this._logger.verbose("Controller started with IPC transport");
-					return undefined;
+					this._fileLogger?.logger.verbose("Controller started with IPC transport");
 				})
-				.orElse((error) => {
-					deletePidFile(pidFile);
-					return errAsync(error);
-				});
+				.orElse((error) => this.abandonStartup(error));
+			return this._startupResult;
 		}
 
 		this._isStarted = true;
-		this._logger.verbose("Controller started");
-		return okAsync(undefined);
+		this._fileLogger?.logger.verbose("Controller started");
+		this._startupResult = okAsync(undefined);
+		return this._startupResult;
 	}
 
 	private readonly recordOperationalEvent = (event: string, payload: unknown): void => {
 		if (!isSelectedOperationalLogEvent(event)) return;
-		this._fileLogger.recordEvent(event, payload);
+		this._fileLogger?.recordEvent(event, payload);
 	};
 
-	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
-		this._isStarted = false;
-
-		if (this._shutdownInProgress) {
-			return errAsync(new Error("Shutdown already in progress"));
-		}
-		this._logger.verbose("Controller is shutting down");
-		this._shutdownInProgress = true;
-
-		this._abortController.abort();
-
-		const pidFile = path.resolve(this._baseDir, this._config.pidFile);
-		deletePidFile(pidFile);
-
-		const disconnectResults = Array.from(this._plugins.entries()).map(([name, plugin]) => {
-			if (plugin.disconnect) {
-				this._logger.verbose(`Disconnecting plugin '${name}'`);
-				return plugin.disconnect(reason);
-			}
-			return okAsync(undefined);
-		});
-
-		return ResultAsync.combine(disconnectResults)
-			.map(() => null)
-			.orElse((error) => okAsync(error))
-			.andThen((disconnectError) => {
-				if (disconnectError === null) {
-					this._logger.verbose("All plugins disconnected");
-				}
-				this._eventBus.offAny(this.recordOperationalEvent);
-				return ResultAsync.fromSafePromise(this._fileLogger.close()).andThen(() =>
-					disconnectError === null ? okAsync(undefined) : errAsync(disconnectError),
-				);
-			});
+	private releaseInstanceLease(): Result<void, Error> {
+		const lease = this._instanceLease;
+		this._instanceLease = undefined;
+		return Result.fromThrowable(() => lease?.release(), ensureError)().andThen(
+			(result) => result ?? ok(undefined),
+		);
 	}
 
-	stop(): ResultAsync<void, Error> {
-		if (!this._isStarted) {
-			return okAsync(undefined);
-		}
-		this._logger.verbose("Stopping controller");
+	private closeOwnedResources(): ResultAsync<void, Error> {
+		this._eventBus.offAny(this.recordOperationalEvent);
+		const fileLogger = this._fileLogger;
+		if (!fileLogger) return this.releaseInstanceLease().asyncAndThen(() => okAsync(undefined));
 
-		const reason: DisconnectReason = { type: "manual" };
-		return this.runWorkflow("stop")
-			.map(() => ({ workflowError: null as Error | null }))
-			.orElse((workflowError) => okAsync({ workflowError }))
-			.andThen(({ workflowError }) =>
-				this.cleanup(workflowError ? { type: "error", error: workflowError } : reason).andThen(
-					() => (workflowError ? errAsync(workflowError) : okAsync(undefined)),
-				),
-			);
+		// A bounded close timeout stops waiting, not physical canonical/checkpoint I/O.
+		// Keep project ownership until the source's unbounded completion settles.
+		let releaseResult: Result<void, Error> | undefined;
+		void fileLogger.whenClosed().then(() => {
+			releaseResult = this.releaseInstanceLease();
+		});
+		return ResultAsync.fromThrowable(async () => await fileLogger.close(), ensureError)().andThen(
+			() => releaseResult ?? ok(undefined),
+		);
+	}
+
+	private abandonStartup(error: Error): ResultAsync<void, Error> {
+		return this.cleanup({ type: "error", error })
+			.orElse(() => okAsync(undefined))
+			.andThen(() => errAsync(error));
+	}
+
+	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
+		if (this._cleanupResult) return this._cleanupResult;
+		this._isStarted = false;
+		this._disposed = true;
+		this._fileLogger?.logger.verbose("Controller is shutting down");
+		this._abortController.abort();
+
+		// Plugin setup may still be settling when stop is called. Keep ownership until
+		// all admitted registrations have completed, then disconnect their instances.
+		this._cleanupResult = ResultAsync.combine(Array.from(this._registrations))
+			.orElse(() => okAsync([]))
+			.andThen(() => {
+				if (this._pidFileWritten) {
+					deletePidFile(path.resolve(this._baseDir, this._config.pidFile));
+					this._pidFileWritten = false;
+				}
+				const disconnectResults = Array.from(this._plugins.entries()).map(([name, plugin]) =>
+					this.safeDisconnect(name, plugin, reason),
+				);
+				return ResultAsync.combine(disconnectResults)
+					.map((): Error | undefined => undefined)
+					.orElse((error) => okAsync(error));
+			})
+			.andThen((disconnectError) => {
+				if (!disconnectError) this._fileLogger?.logger.verbose("All plugins disconnected");
+				return this.closeOwnedResources().andThen(() =>
+					disconnectError ? errAsync(disconnectError) : okAsync(undefined),
+				);
+			});
+		return this._cleanupResult;
+	}
+
+	/** Dispose even when startup was never attempted, and serialize with pending startup. */
+	stop(): ResultAsync<void, Error> {
+		if (this._shutdownResult) return this._shutdownResult;
+		if (this._cleanupResult) return this._cleanupResult;
+		const startupSettled =
+			this._startupResult?.orElse(() => okAsync(undefined)) ?? okAsync(undefined);
+		this._shutdownResult = startupSettled.andThen(() => {
+			if (!this._isStarted) return this.cleanup({ type: "manual" });
+			this._fileLogger?.logger.verbose("Stopping controller");
+			return this.runWorkflow("stop")
+				.map((): Error | undefined => undefined)
+				.orElse((error) => okAsync(error))
+				.andThen((workflowError) =>
+					this.cleanup(
+						workflowError ? { type: "error", error: workflowError } : { type: "manual" },
+					).andThen(() => (workflowError ? errAsync(workflowError) : okAsync(undefined))),
+				);
+		});
+		return this._shutdownResult;
 	}
 
 	executeCommand(command: BaseCommand): ResultAsync<unknown, Error> {
@@ -349,7 +454,7 @@ export class LaunchpadController {
 			this._stateStore.getState(),
 			this._pluginConfigs.values(),
 			(pluginName) => {
-				this._logger.warn(`Metric observation failed for plugin '${pluginName}'`);
+				this._fileLogger?.logger.warn(`Metric observation failed for plugin '${pluginName}'`);
 			},
 		);
 	}
@@ -357,11 +462,12 @@ export class LaunchpadController {
 	private getPluginCtx(
 		pluginName: string,
 		updateState: (producer: (draft: unknown) => void) => void,
+		fileLogger: ControllerFileLogger,
 	): PluginContext<unknown> {
 		return {
 			eventBus: this._eventBus,
-			logger: this._logger.child(pluginName),
-			...(this._fileLogger.source === undefined ? {} : { logSource: this._fileLogger.source }),
+			logger: fileLogger.logger.child(pluginName),
+			...(fileLogger.source === undefined ? {} : { logSource: fileLogger.source }),
 			cwd: this._baseDir,
 			mode: this._mode,
 			getStatusSnapshot: () => this.buildSnapshot(),

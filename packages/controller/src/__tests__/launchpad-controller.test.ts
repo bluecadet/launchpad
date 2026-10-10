@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import {
 	type BaseCommand,
@@ -6,7 +7,7 @@ import {
 	type PluginConfig,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
@@ -15,7 +16,9 @@ describe("LaunchpadController", () => {
 	const config = controllerConfigSchema.parse({ pidFile: "./pid", socketPath: "./socket" });
 
 	function createController(mode?: "task" | "persistent") {
-		return new LaunchpadController(config, "/test", mode);
+		return new LaunchpadController(config, "/test", mode, {
+			acquireInstanceLease: () => ({ release: vi.fn() }),
+		});
 	}
 
 	function makePlugin(name: string, inner: InstantiatedPlugin = {}) {
@@ -37,6 +40,56 @@ describe("LaunchpadController", () => {
 		it("should not be started after construction", () => {
 			const controller = createController("task");
 			expect(controller.isStarted()).toBe(false);
+		});
+
+		it.each(["result", "throw"])(
+			"returns injected lease failure without initializing owned resources (%s)",
+			async (failureMode) => {
+				const failure = new Error("Native locking unavailable");
+				const createSource = vi.fn();
+				const setup = vi.fn(() => okAsync({}));
+				const controller = new LaunchpadController(config, "/project", "task", {
+					createSource,
+					acquireInstanceLease: () => {
+						if (failureMode === "throw") throw failure;
+						return err(failure);
+					},
+				});
+				const registration = await controller.registerPlugin(
+					definePlugin({ name: "worker", setup }),
+				);
+				expect(registration.isErr()).toBe(true);
+				if (registration.isErr()) expect(registration.error).toBe(failure);
+				const startup = await controller.start();
+				expect(startup.isErr()).toBe(true);
+				if (startup.isErr()) expect(startup.error).toBe(failure);
+				expect(createSource).not.toHaveBeenCalled();
+				expect(setup).not.toHaveBeenCalled();
+				expect((await controller.stop()).isOk()).toBe(true);
+			},
+		);
+
+		it("acquires project ownership before initializing file logging", async () => {
+			const order: string[] = [];
+			const release = vi.fn();
+			const controller = new LaunchpadController(config, "/project", "task", {
+				acquireInstanceLease(pidFile, baseDirectory) {
+					order.push("lease");
+					expect(pidFile).toBe(path.resolve("/project", config.pidFile));
+					expect(baseDirectory).toBe("/project");
+					return { release };
+				},
+				createSource() {
+					order.push("logging");
+					return err(new Error("Logging intentionally unavailable"));
+				},
+			});
+
+			expect(order).toEqual([]);
+			await controller.start();
+			expect(order).toEqual(["lease", "logging"]);
+			await controller.stop();
+			expect(release).toHaveBeenCalledOnce();
 		});
 	});
 
@@ -749,6 +802,7 @@ describe("LaunchpadController", () => {
 				}),
 			);
 
+			warnings.length = 0; // Ignore initialization diagnostics; this assertion covers metric failures.
 			expect(failedRegistration).toBeErr();
 			expect(collectMetrics?.()).toEqual([{ name: "launchpad_test_healthy", value: 1 }]);
 			expect(warnings).toEqual([

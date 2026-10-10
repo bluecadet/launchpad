@@ -298,7 +298,7 @@ describe("createFileLogger", () => {
 		expect(warnings).toEqual([expect.stringContaining("directory is locked")]);
 	});
 
-	it("closes the owner once with a bounded signal", async () => {
+	it("closes the owner once while bounding the caller's wait", async () => {
 		const source = createSourceStub();
 		const fileLogger = createFileLogger(resolvedConfig(), "/installation", new EventBus(), {
 			createSource: source.createSource,

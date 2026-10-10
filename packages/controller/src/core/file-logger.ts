@@ -17,11 +17,12 @@ import {
 	normalizeStructuredValue,
 	type ResourceAttributes,
 } from "@bluecadet/launchpad-utils/logging";
-import { err, ok, Result } from "neverthrow";
+import { err, ok, Result, ResultAsync } from "neverthrow";
 import { LEVEL, MESSAGE, SPLAT } from "triple-beam";
 import winston from "winston";
 import Transport from "winston-transport";
 import { z } from "zod";
+import { awaitWithSignal, safeDiagnostic } from "./log-file-operations.js";
 import {
 	createLogFileSource,
 	type LogFileSourceOptions,
@@ -115,7 +116,10 @@ export interface ControllerFileLogger {
 	readonly logger: Logger;
 	readonly source?: LoggerSource;
 	recordEvent(event: string, payload: unknown): void;
+	/** Bounds the caller's wait; physical source I/O may continue after timeout. */
 	close(): Promise<void>;
+	/** Starts shutdown and resolves only after physical I/O settles, regardless of close timeout. */
+	whenClosed(): Promise<void>;
 }
 
 type LogInfo = Record<string | symbol, unknown> & {
@@ -393,6 +397,21 @@ export function createFileLogger(
 	if (config.overrideConsole) bindConsoleToLogger(winstonLogger);
 
 	let closePromise: Promise<void> | undefined;
+	let settledClosePromise: Promise<void> | undefined;
+	const reportCloseError = (error: Error): void => {
+		safeDiagnostic(reportDiagnostic, `File-backed logging did not close cleanly: ${error.message}`);
+	};
+	const whenClosed = (): Promise<void> => {
+		settledClosePromise ??= owner
+			? ResultAsync.fromThrowable(
+					async () => await owner.close(new AbortController().signal),
+					ensureError,
+				)()
+					.andThen((result) => result)
+					.match(() => undefined, reportCloseError)
+			: Promise.resolve();
+		return settledClosePromise;
+	};
 	return {
 		logger: proxyChildMethod(winstonLogger),
 		...(owner === undefined ? {} : { source: owner.source }),
@@ -402,17 +421,13 @@ export function createFileLogger(
 		},
 		close(): Promise<void> {
 			if (closePromise) return closePromise;
-			if (!owner) return Promise.resolve();
-
 			const timeout = dependencies.closeTimeoutMs ?? DEFAULT_CLOSE_TIMEOUT_MS;
-			const pendingClose = Promise.resolve(owner.close(AbortSignal.timeout(timeout))).then(
-				(result) => {
-					if (result.isErr())
-						reportDiagnostic(`File-backed logging did not close cleanly: ${result.error.message}`);
-				},
-			);
-			closePromise = pendingClose;
-			return pendingClose;
+			closePromise = ResultAsync.fromPromise(
+				awaitWithSignal(whenClosed(), AbortSignal.timeout(timeout)),
+				ensureError,
+			).match(() => undefined, reportCloseError);
+			return closePromise;
 		},
+		whenClosed,
 	};
 }

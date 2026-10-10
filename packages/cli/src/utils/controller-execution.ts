@@ -8,6 +8,7 @@ import { LaunchpadController } from "@bluecadet/launchpad-controller";
 import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/config";
 import { IPCClient } from "@bluecadet/launchpad-controller/ipc-client";
 import { getDaemonPid } from "@bluecadet/launchpad-controller/pid-utils";
+import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { ControllerMode, LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { errAsync, type Result, type ResultAsync } from "neverthrow";
 import { DaemonNotRunningError, IPCConnectionError } from "../errors.js";
@@ -88,7 +89,12 @@ export function withDaemonOrController<T>(
 
 	// Create local controller
 	cliLogger.info(`Daemon is not running, starting controller in ${options.mode} mode`);
-	const controller = new LaunchpadController(controllerConfig, baseDir, options.mode);
+	let controller: LaunchpadController;
+	try {
+		controller = new LaunchpadController(controllerConfig, baseDir, options.mode);
+	} catch (error) {
+		return errAsync(ensureError(error));
+	}
 
 	addLogListeners(controller.getEventBus());
 

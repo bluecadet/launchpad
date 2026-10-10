@@ -11,7 +11,7 @@ Collection of utils used across [@bluecadet/launchpad](https://www.npmjs.com/pac
 
 Plugins should no longer rely on implicit command prefix routing. Hosts now declare orchestration explicitly with config-level workflows.
 
-`PluginContext.logSource` optionally exposes the controller-owned canonical log source. The `./logging` export defines its source, reader, checkpoint receipt, gap, normalized-record, and resource contracts. Physical file and checkpoint I/O remain controller-owned; plugins should consume the interface rather than inspect the logging directory.
+`PluginContext.logSource` optionally exposes the controller-owned canonical log source. The `./logging` export defines its source, reader, checkpoint receipt, gap, normalized-record, and resource contracts. Physical file and checkpoint I/O remain controller-owned; plugins should consume the interface rather than inspect the logging directory. Fallible source and reader operations return `ResultAsync`, including `flush`, `createReader`, `read`, `ack`, and `close`. The canonical `normalizeLogRecord`, `serializeLogRecord`, and `parseLogRecord` helpers return `Result`; handle an error before using the record or serialized line.
 
 ## License
 

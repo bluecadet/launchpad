@@ -1,4 +1,4 @@
-import { err, Result } from "neverthrow";
+import { err, ok, Result, type ResultAsync } from "neverthrow";
 import type { LogEventPayload } from "./logger.js";
 
 export type ResourceAttributeValue = string | number | boolean;
@@ -105,9 +105,9 @@ export interface LogSourceBatch {
 }
 
 export interface LoggerSourceReader {
-	read(request: LogSourceReadRequest): Promise<LogSourceBatch>;
-	ack(receipt: LogReadReceipt, signal: AbortSignal): Promise<void>;
-	close(signal: AbortSignal): Promise<void>;
+	read(request: LogSourceReadRequest): ResultAsync<LogSourceBatch, Error>;
+	ack(receipt: LogReadReceipt, signal: AbortSignal): ResultAsync<void, Error>;
+	close(signal: AbortSignal): ResultAsync<void, Error>;
 }
 
 export interface LoggerSourceIdentity {
@@ -131,8 +131,11 @@ export interface LoggerSource {
 	readonly resourceAttributes: ResourceAttributes;
 	readonly status: LoggerSourceStatus;
 	configureResourceAttributes(attributes: ResourceAttributes): void;
-	flush(signal: AbortSignal): Promise<LogSourceBarrier>;
-	createReader(identity: LogReaderIdentity, signal: AbortSignal): Promise<LoggerSourceReader>;
+	flush(signal: AbortSignal): ResultAsync<LogSourceBarrier, Error>;
+	createReader(
+		identity: LogReaderIdentity,
+		signal: AbortSignal,
+	): ResultAsync<LoggerSourceReader, Error>;
 }
 
 export type StructuredValue =
@@ -648,37 +651,33 @@ type PersistedLogRecord = Omit<NormalizedLogRecord, "timestamp"> & {
 	readonly timestamp: string;
 };
 
-function structuredObject(value: StructuredValue, field: string): Record<string, StructuredValue> {
+function structuredObject(
+	value: StructuredValue,
+	field: string,
+): Result<Record<string, StructuredValue>, Error> {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		throw new Error(`Failed to normalize structured log ${field}`);
+		return err(new Error(`Failed to normalize structured log ${field}`));
 	}
-	return value;
+	return ok(value);
 }
 
 function normalizedResource(
 	resourceAttributes: ResourceAttributes,
 	options: Partial<StructuredNormalizationOptions>,
-): ResourceAttributes {
-	const resource = structuredObject(
+): Result<ResourceAttributes, Error> {
+	const normalized = structuredObject(
 		normalizeStructuredValue(resourceAttributes, options),
 		"resource",
 	);
+	if (normalized.isErr()) return err(normalized.error);
+	const resource = normalized.value;
 	for (const identityKey of ["service.name", "service.instance.id"]) {
 		const descriptor = ownPropertyDescriptor(resourceAttributes, identityKey);
 		if (descriptor?.enumerable && "value" in descriptor && descriptor.value !== undefined) {
 			setNormalizedProperty(resource, identityKey, descriptor.value);
 		}
 	}
-	for (const [key, value] of Object.entries(resource)) {
-		if (
-			typeof value !== "string" &&
-			typeof value !== "boolean" &&
-			!(typeof value === "number" && Number.isFinite(value))
-		) {
-			throw new Error(`Failed to normalize structured log resource attribute ${key}`);
-		}
-	}
-	return Object.freeze(resource) as ResourceAttributes;
+	return parseResource(resource);
 }
 
 /** Normalize and capture a log entry together with its historical resource. */
@@ -686,10 +685,22 @@ export function normalizeLogRecord(
 	entry: LogEntry,
 	resourceAttributes: ResourceAttributes,
 	options: Partial<StructuredNormalizationOptions> = {},
-): NormalizedLogRecord {
+): Result<NormalizedLogRecord, Error> {
+	try {
+		return normalizeRecord(entry, resourceAttributes, options);
+	} catch (cause) {
+		return err(new Error("Failed to normalize structured log", { cause }));
+	}
+}
+
+function normalizeRecord(
+	entry: LogEntry,
+	resourceAttributes: ResourceAttributes,
+	options: Partial<StructuredNormalizationOptions> = {},
+): Result<NormalizedLogRecord, Error> {
 	const timestamp = new Date(entry.timestamp.getTime());
 	if (!Number.isFinite(timestamp.getTime())) {
-		throw new Error("Failed to normalize structured log timestamp");
+		return err(new Error("Failed to normalize structured log timestamp"));
 	}
 
 	const required = structuredObject(
@@ -704,31 +715,32 @@ export function normalizeLogRecord(
 		),
 		"required fields",
 	);
-	const event = required.event;
-	const level = required.level;
-	const message = required.message;
-	const module = required.module;
+	if (required.isErr()) return err(required.error);
+	const { event, level, message, module } = required.value;
 	if (typeof event !== "string" || typeof level !== "string" || typeof message !== "string") {
-		throw new Error("Failed to normalize required structured log fields");
+		return err(new Error("Failed to normalize required structured log fields"));
 	}
-	if (!isLogLevel(level)) throw new Error("Failed to normalize structured log level");
+	if (!isLogLevel(level)) return err(new Error("Failed to normalize structured log level"));
 	if (module !== undefined && typeof module !== "string") {
-		throw new Error("Failed to normalize structured log module");
+		return err(new Error("Failed to normalize structured log module"));
 	}
 
-	const metadata = Object.freeze(
-		structuredObject(normalizeStructuredValue(entry.metadata, options), "metadata"),
+	const metadata = structuredObject(normalizeStructuredValue(entry.metadata, options), "metadata");
+	if (metadata.isErr()) return err(metadata.error);
+	const resource = normalizedResource(resourceAttributes, options);
+	if (resource.isErr()) return err(resource.error);
+	return ok(
+		Object.freeze({
+			schemaVersion: STRUCTURED_LOG_SCHEMA_VERSION,
+			timestamp,
+			event,
+			level,
+			message,
+			...(module === undefined ? {} : { module }),
+			metadata: Object.freeze(metadata.value),
+			resource: resource.value,
+		}),
 	);
-	return Object.freeze({
-		schemaVersion: STRUCTURED_LOG_SCHEMA_VERSION,
-		timestamp,
-		event,
-		level,
-		message,
-		...(module === undefined ? {} : { module }),
-		metadata,
-		resource: normalizedResource(resourceAttributes, options),
-	});
 }
 
 function persistedRecord(record: NormalizedLogRecord): PersistedLogRecord {
@@ -752,18 +764,26 @@ function persistedRecord(record: NormalizedLogRecord): PersistedLogRecord {
 export function serializeLogRecord(
 	record: NormalizedLogRecord,
 	maxLength = DEFAULT_MAX_STRUCTURED_LOG_LENGTH,
-): string {
+): Result<string, Error> {
+	try {
+		return serializeRecord(record, maxLength);
+	} catch (cause) {
+		return err(new Error("Failed to serialize structured log", { cause }));
+	}
+}
+
+function serializeRecord(record: NormalizedLogRecord, maxLength: number): Result<string, Error> {
 	const boundedMaxLength = boundedInteger(maxLength, DEFAULT_MAX_STRUCTURED_LOG_LENGTH, 1_024);
 	const fits = (serialized: string) => Buffer.byteLength(serialized, "utf8") <= boundedMaxLength;
 	const persisted = persistedRecord(record);
 	const serialized = JSON.stringify(persisted);
-	if (fits(serialized)) return serialized;
+	if (fits(serialized)) return ok(serialized);
 
 	const metadataMarker = {
 		[TRUNCATED_VALUE]: `structured log exceeded ${boundedMaxLength} bytes`,
 	};
 	const withoutMetadata = JSON.stringify({ ...persisted, metadata: metadataMarker });
-	if (fits(withoutMetadata)) return withoutMetadata;
+	if (fits(withoutMetadata)) return ok(withoutMetadata);
 
 	const compact = JSON.stringify({
 		...persisted,
@@ -772,10 +792,12 @@ export function serializeLogRecord(
 		...(record.module === undefined ? {} : { module: TRUNCATED_VALUE }),
 		metadata: metadataMarker,
 	});
-	if (fits(compact)) return compact;
+	if (fits(compact)) return ok(compact);
 
-	throw new Error(
-		`Structured log exceeds ${boundedMaxLength} bytes without discarding resource identity`,
+	return err(
+		new Error(
+			`Structured log exceeds ${boundedMaxLength} bytes without discarding resource identity`,
+		),
 	);
 }
 
@@ -792,11 +814,11 @@ function isLogLevel(value: string): value is LogLevel {
 	return LOG_LEVEL_VALUES.has(value);
 }
 
-function parsedObject(value: unknown, field: string): Record<string, unknown> {
+function parsedObject(value: unknown, field: string): Result<Record<string, unknown>, Error> {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		throw new Error(`Invalid structured log ${field}`);
+		return err(new Error(`Invalid structured log ${field}`));
 	}
-	return value as Record<string, unknown>;
+	return ok(value as Record<string, unknown>);
 }
 
 function isStructuredValue(value: unknown, depth = 0): value is StructuredValue {
@@ -810,66 +832,76 @@ function isStructuredValue(value: unknown, depth = 0): value is StructuredValue 
 	return Object.values(value).every((item) => isStructuredValue(item, depth + 1));
 }
 
-function parseMetadata(value: unknown): Readonly<Record<string, StructuredValue>> {
+function parseMetadata(value: unknown): Result<Readonly<Record<string, StructuredValue>>, Error> {
 	const metadata = parsedObject(value, "metadata");
-	if (!isStructuredValue(metadata)) throw new Error("Invalid structured log metadata");
-	return Object.freeze(metadata);
+	if (metadata.isErr()) return err(metadata.error);
+	if (!isStructuredValue(metadata.value)) return err(new Error("Invalid structured log metadata"));
+	return ok(Object.freeze(metadata.value));
 }
 
-function parseResource(value: unknown): ResourceAttributes {
+function parseResource(value: unknown): Result<ResourceAttributes, Error> {
 	const candidate = parsedObject(value, "resource");
+	if (candidate.isErr()) return err(candidate.error);
 	const resource: Record<string, ResourceAttributeValue> = {};
-	for (const [key, attribute] of Object.entries(candidate)) {
+	for (const [key, attribute] of Object.entries(candidate.value)) {
 		if (
 			typeof attribute !== "string" &&
 			typeof attribute !== "boolean" &&
 			!(typeof attribute === "number" && Number.isFinite(attribute))
 		) {
-			throw new Error(`Invalid structured log resource attribute ${key}`);
+			return err(new Error(`Invalid structured log resource attribute ${key}`));
 		}
 		setNormalizedProperty(resource, key, attribute);
 	}
-	return Object.freeze(resource);
+	return ok(Object.freeze(resource));
 }
 
 /** Validate and rehydrate one complete canonical JSONL record. */
-export function parseLogRecord(serialized: string): NormalizedLogRecord {
+export function parseLogRecord(serialized: string): Result<NormalizedLogRecord, Error> {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(serialized);
 	} catch (error) {
-		throw new Error("Invalid structured log JSON", { cause: error });
+		return err(new Error("Invalid structured log JSON", { cause: error }));
 	}
 
-	const candidate = parsedObject(parsed, "record");
+	const record = parsedObject(parsed, "record");
+	if (record.isErr()) return err(record.error);
+	const candidate = record.value;
 	if (candidate.schemaVersion !== STRUCTURED_LOG_SCHEMA_VERSION) {
-		throw new Error("Invalid structured log schemaVersion");
+		return err(new Error("Invalid structured log schemaVersion"));
 	}
 	if (typeof candidate.timestamp !== "string") {
-		throw new Error("Invalid structured log timestamp");
+		return err(new Error("Invalid structured log timestamp"));
 	}
 	const timestamp = new Date(candidate.timestamp);
 	if (!Number.isFinite(timestamp.getTime()) || timestamp.toISOString() !== candidate.timestamp) {
-		throw new Error("Invalid structured log timestamp");
+		return err(new Error("Invalid structured log timestamp"));
 	}
-	if (typeof candidate.event !== "string") throw new Error("Invalid structured log event");
+	if (typeof candidate.event !== "string") return err(new Error("Invalid structured log event"));
 	if (typeof candidate.level !== "string" || !isLogLevel(candidate.level)) {
-		throw new Error("Invalid structured log level");
+		return err(new Error("Invalid structured log level"));
 	}
-	if (typeof candidate.message !== "string") throw new Error("Invalid structured log message");
+	if (typeof candidate.message !== "string")
+		return err(new Error("Invalid structured log message"));
 	if (candidate.module !== undefined && typeof candidate.module !== "string") {
-		throw new Error("Invalid structured log module");
+		return err(new Error("Invalid structured log module"));
 	}
 
 	const metadata = parseMetadata(candidate.metadata);
-	return Object.freeze({
-		schemaVersion: STRUCTURED_LOG_SCHEMA_VERSION,
-		timestamp,
-		event: candidate.event,
-		level: candidate.level,
-		message: candidate.message,
-		...(candidate.module === undefined ? {} : { module: candidate.module }),
-		metadata,
-		resource: parseResource(candidate.resource),
-	});
+	if (metadata.isErr()) return err(metadata.error);
+	const resource = parseResource(candidate.resource);
+	if (resource.isErr()) return err(resource.error);
+	return ok(
+		Object.freeze({
+			schemaVersion: STRUCTURED_LOG_SCHEMA_VERSION,
+			timestamp,
+			event: candidate.event,
+			level: candidate.level,
+			message: candidate.message,
+			...(candidate.module === undefined ? {} : { module: candidate.module }),
+			metadata: metadata.value,
+			resource: resource.value,
+		}),
+	);
 }

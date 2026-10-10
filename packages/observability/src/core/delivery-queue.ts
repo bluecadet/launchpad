@@ -1,6 +1,7 @@
-import { err, type Result, type ResultAsync } from "neverthrow";
+import type { Result, ResultAsync } from "neverthrow";
 import type { ExportFailure, ExportResult } from "./destination.js";
 import { DestinationFailure } from "./export-failure.js";
+import { retryDelay, startAttempt, validExportResult } from "./exporter-attempt.js";
 
 type DeliveryQueueMode = "retry" | "coalesce";
 type DeliveryDropReason = "queue-full" | "shutdown";
@@ -43,28 +44,6 @@ function createDeferred(): Deferred {
 		resolve = done;
 	});
 	return { promise, resolve };
-}
-
-function toExportFailure(value: unknown, fallbackMessage: string): ExportFailure {
-	if (value instanceof Error) return value;
-	return new Error(fallbackMessage, { cause: value });
-}
-
-function timeoutFailure(timeoutMs: number): ExportFailure {
-	return new DestinationFailure(`Destination delivery timed out after ${timeoutMs}ms`, {
-		retryable: true,
-	});
-}
-
-function hasValidRejectedRecords(
-	result: ExportResult,
-	totalRecords: number,
-): result is ExportResult & { rejectedRecords: number } {
-	return (
-		Number.isInteger(result.rejectedRecords) &&
-		result.rejectedRecords >= 0 &&
-		result.rejectedRecords <= totalRecords
-	);
 }
 
 /**
@@ -190,72 +169,25 @@ export class DeliveryQueue<T> {
 		this.pending.shift();
 		this.options.onTransition?.({ type: "queue", queuedBatches: this.pending.length });
 		this.inFlight = true;
-		void this.attempt(next).then((result) => {
+		void this.attempt(next).then(() => {
 			this.inFlight = false;
-			if (result) this.handleResult(next, result);
 			this.pump();
 		});
 	}
 
-	private async attempt(
-		batch: PendingBatch<T>,
-	): Promise<Result<ExportResult, ExportFailure> | null> {
+	private async attempt(batch: PendingBatch<T>): Promise<void> {
 		const controller = new AbortController();
 		this.attemptController = controller;
-		let timeout: ReturnType<typeof setTimeout> | undefined;
-		let removeAbortListener = () => {};
-
-		type AttemptOutcome =
-			| { source: "delivery"; result: Result<ExportResult, ExportFailure> }
-			| { source: "deadline"; result: Result<ExportResult, ExportFailure> };
-		const deadline = new Promise<AttemptOutcome>((resolve) => {
-			timeout = setTimeout(() => {
-				resolve({
-					source: "deadline",
-					result: err(timeoutFailure(this.options.deliveryTimeoutMs)),
-				});
-				controller.abort();
-			}, this.options.deliveryTimeoutMs);
-			timeout.unref?.();
+		const attempt = startAttempt({
+			call: (signal) => this.options.deliver(batch.batch, signal),
+			controller,
+			timeoutMs: this.options.deliveryTimeoutMs,
+			timeoutMessage: `Destination delivery timed out after ${this.options.deliveryTimeoutMs}ms`,
 		});
-		const stopped = new Promise<AttemptOutcome>((resolve) => {
-			const onAbort = () =>
-				resolve({
-					source: "deadline",
-					result: err(new DestinationFailure("Destination delivery aborted", { retryable: false })),
-				});
-			controller.signal.addEventListener("abort", onAbort, { once: true });
-			removeAbortListener = () => controller.signal.removeEventListener("abort", onAbort);
-		});
-
-		let delivery: Promise<Result<ExportResult, ExportFailure>>;
-		try {
-			delivery = Promise.resolve(this.options.deliver(batch.batch, controller.signal)).catch(
-				(error: unknown) => err(toExportFailure(error, "Destination exporter rejected")),
-			);
-		} catch (error) {
-			delivery = Promise.resolve(
-				err(toExportFailure(error, "Destination exporter threw while starting delivery")),
-			);
-		}
-		const delivered = delivery.then((result): AttemptOutcome => ({ source: "delivery", result }));
-		const outcome = await Promise.race([delivered, deadline, stopped]);
-		if (timeout) clearTimeout(timeout);
-
-		if (outcome.source === "deadline") {
-			// Account for the logical timeout immediately, but keep this signal's
-			// physical slot occupied until an exporter that ignored AbortSignal
-			// actually settles. Its late result is intentionally ignored so an old
-			// gauge snapshot cannot overwrite a newer one.
-			this.handleResult(batch, outcome.result);
-			await delivery;
-			removeAbortListener();
-			if (this.attemptController === controller) this.attemptController = null;
-			return null;
-		}
-		removeAbortListener();
+		const outcome = await attempt.outcome;
+		this.handleResult(batch, outcome.result);
+		await attempt.settled;
 		if (this.attemptController === controller) this.attemptController = null;
-		return outcome.result;
 	}
 
 	private handleResult(
@@ -264,7 +196,7 @@ export class DeliveryQueue<T> {
 	): void {
 		const records = this.options.countRecords(pending.batch);
 		if (result.isOk()) {
-			if (!hasValidRejectedRecords(result.value, records)) {
+			if (!validExportResult(result.value, records)) {
 				this.options.onTransition?.({
 					type: "failure",
 					queuedBatches: this.pending.length,
@@ -299,7 +231,8 @@ export class DeliveryQueue<T> {
 			this.pending.unshift({
 				...pending,
 				attempt: pending.attempt + 1,
-				readyAt: Date.now() + this.retryDelay(pending.attempt, result.error.retryAfterMs),
+				readyAt:
+					Date.now() + retryDelay(pending.attempt, result.error.retryAfterMs, MAX_RETRY_DELAY_MS),
 			});
 		} else {
 			pending.completion.resolve();
@@ -310,11 +243,5 @@ export class DeliveryQueue<T> {
 			error: result.error,
 			droppedRecords,
 		});
-	}
-
-	private retryDelay(attempt: number, retryAfterMs: number | undefined): number {
-		const exponentialDelay = Math.min(2 ** attempt * 1_000, MAX_RETRY_DELAY_MS);
-		if (retryAfterMs === undefined || !Number.isFinite(retryAfterMs)) return exponentialDelay;
-		return Math.min(Math.max(0, retryAfterMs), MAX_RETRY_DELAY_MS);
 	}
 }

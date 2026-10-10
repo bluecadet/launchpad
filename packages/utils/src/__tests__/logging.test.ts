@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import type { Result } from "neverthrow";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
 	eventToLogEntry,
 	isSelectedOperationalLogEvent,
+	type NormalizedLogRecord,
 	normalizeLogRecord,
 	parseLogRecord,
 	REDACTED_VALUE,
@@ -62,9 +64,9 @@ describe("shared logging", () => {
 				},
 			},
 			resource,
-		);
-		const serialized = serializeLogRecord(normalized);
-		const rehydrated = parseLogRecord(serialized);
+		)._unsafeUnwrap();
+		const serialized = serializeLogRecord(normalized)._unsafeUnwrap();
+		const rehydrated = parseLogRecord(serialized)._unsafeUnwrap();
 
 		expect(rehydrated.timestamp).toEqual(new Date("2026-03-01T12:34:56.789Z"));
 		expect(rehydrated.timestamp).toBeInstanceOf(Date);
@@ -87,7 +89,7 @@ describe("shared logging", () => {
 			},
 			resource,
 			{ maxStringLength: 8 },
-		);
+		)._unsafeUnwrap();
 
 		expect(normalized.resource["service.name"]).toBe("launchpad");
 		expect(normalized.resource["service.instance.id"]).toBe("controller-runtime-id");
@@ -104,15 +106,73 @@ describe("shared logging", () => {
 			resource,
 		};
 
-		expect(() => parseLogRecord(JSON.stringify({ ...base, metadata: "not-an-object" }))).toThrow(
-			"metadata",
+		for (const [field, value] of Object.entries({
+			metadata: "not-an-object",
+			resource: "[Truncated]",
+			timestamp: "invalid",
+		})) {
+			const result = parseLogRecord(JSON.stringify({ ...base, [field]: value }));
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain(field);
+		}
+	});
+
+	it("exposes failures as Results rather than throwing", () => {
+		expectTypeOf<ReturnType<typeof normalizeLogRecord>>().toEqualTypeOf<
+			Result<NormalizedLogRecord, Error>
+		>();
+		expectTypeOf<ReturnType<typeof parseLogRecord>>().toEqualTypeOf<
+			Result<NormalizedLogRecord, Error>
+		>();
+		expectTypeOf<ReturnType<typeof serializeLogRecord>>().toEqualTypeOf<Result<string, Error>>();
+
+		const entry = eventToLogEntry("log:info", { message: "Ready", args: [] });
+		expect(
+			normalizeLogRecord({ ...entry, timestamp: new Date(Number.NaN) }, resource).isErr(),
+		).toBe(true);
+		expect(normalizeLogRecord(entry, resource, { maxDepth: 0 }).isErr()).toBe(true);
+		expect(parseLogRecord("not JSON")._unsafeUnwrapErr()).toBeInstanceOf(Error);
+
+		const canonical = normalizeLogRecord(entry, resource)._unsafeUnwrap();
+		expect(serializeLogRecord({ ...canonical, timestamp: new Date(Number.NaN) }).isErr()).toBe(
+			true,
 		);
-		expect(() => parseLogRecord(JSON.stringify({ ...base, resource: "[Truncated]" }))).toThrow(
-			"resource",
+		const oversized = normalizeLogRecord(entry, {
+			"service.name": "x".repeat(2_000),
+		})._unsafeUnwrap();
+		expect(serializeLogRecord(oversized, 1_024)._unsafeUnwrapErr().message).toContain(
+			"resource identity",
 		);
-		expect(() => parseLogRecord(JSON.stringify({ ...base, timestamp: "invalid" }))).toThrow(
-			"timestamp",
+	});
+
+	it("round-trips own prototype-related keys as ordinary data without polluting prototypes", () => {
+		const properties = JSON.parse(
+			'{"constructor":"own constructor","prototype":"own prototype","__proto__":"own proto"}',
 		);
+		const metadata = {
+			...properties,
+			nested: JSON.parse(
+				'{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"prototype":false}',
+			),
+		};
+		const canonical = normalizeLogRecord(
+			{ ...eventToLogEntry("log:info", { message: "Ready", args: [] }), metadata },
+			{ ...resource, ...properties },
+		)._unsafeUnwrap();
+		const serialized = serializeLogRecord(canonical)._unsafeUnwrap();
+		const parsed = parseLogRecord(serialized)._unsafeUnwrap();
+
+		expect(parsed.metadata).toEqual(metadata);
+		expect(parsed.resource).toEqual({ ...resource, ...properties });
+		for (const key of ["constructor", "prototype", "__proto__"]) {
+			expect(Object.hasOwn(parsed.metadata, key)).toBe(true);
+			expect(Object.hasOwn(parsed.resource, key)).toBe(true);
+			expect(parsed.metadata[key]).toBe(properties[key]);
+		}
+		expect(Object.getPrototypeOf(parsed.metadata)).toBe(Object.prototype);
+		expect(Object.getPrototypeOf(parsed.resource)).toBe(Object.prototype);
+		expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false);
+		expect(serializeLogRecord(parsed)._unsafeUnwrap()).toBe(serialized);
 	});
 
 	it("keeps resource identity structured when byte bounding replaces metadata", () => {
@@ -125,10 +185,10 @@ describe("shared logging", () => {
 				metadata: { payload: "\0".repeat(100_000) },
 			},
 			resource,
-		);
-		const serialized = serializeLogRecord(record, 1_024);
+		)._unsafeUnwrap();
+		const serialized = serializeLogRecord(record, 1_024)._unsafeUnwrap();
 		const persisted: unknown = JSON.parse(serialized);
-		const rehydrated = parseLogRecord(serialized);
+		const rehydrated = parseLogRecord(serialized)._unsafeUnwrap();
 
 		expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(1_024);
 		expect(persisted).toMatchObject({ resource });

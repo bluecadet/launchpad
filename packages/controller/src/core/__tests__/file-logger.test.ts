@@ -7,6 +7,7 @@ import type {
 	ResourceAttributes,
 } from "@bluecadet/launchpad-utils/logging";
 import { REDACTED_VALUE } from "@bluecadet/launchpad-utils/logging";
+import { err, ok, okAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import winston from "winston";
 import { createFileLogger, logConfigSchema } from "../file-logger.js";
@@ -17,11 +18,11 @@ function createSourceStub() {
 		"service.instance.id": "runtime-1",
 	});
 	const records: Array<{ record: NormalizedLogRecord; textLine?: string }> = [];
-	const close = vi.fn(async (_signal: AbortSignal) => undefined);
+	const close = vi.fn((_signal: AbortSignal) => okAsync(undefined));
 	const reader: LoggerSourceReader = {
-		read: vi.fn(async () => ({ records: [], gaps: [], receipt: "receipt", reachedThrough: true })),
-		ack: vi.fn(async () => undefined),
-		close: vi.fn(async () => undefined),
+		read: vi.fn(() => okAsync({ records: [], gaps: [], receipt: "receipt", reachedThrough: true })),
+		ack: vi.fn(() => okAsync(undefined)),
+		close: vi.fn(() => okAsync(undefined)),
 	};
 	const source: LoggerSource = {
 		identity: {
@@ -45,8 +46,8 @@ function createSourceStub() {
 				"service.instance.id": "runtime-1",
 			});
 		},
-		flush: vi.fn(async () => "barrier"),
-		createReader: vi.fn(async () => reader),
+		flush: vi.fn(() => okAsync("barrier")),
+		createReader: vi.fn(() => okAsync(reader)),
 	};
 	const append = vi.fn((record: NormalizedLogRecord, textLine?: string) => {
 		records.push({ record, ...(textLine === undefined ? {} : { textLine }) });
@@ -58,7 +59,7 @@ function createSourceStub() {
 		records,
 		append,
 		close,
-		createSource: vi.fn(() => ({ source, append, close })),
+		createSource: vi.fn(() => ok({ source, append, close })),
 	};
 }
 
@@ -210,7 +211,7 @@ describe("createFileLogger", () => {
 		expect(observed).not.toHaveBeenCalled();
 	});
 
-	it.each(["not-a-size", "0", "-1m", "0.1b", "999999999999999999999g"])(
+	it.each(["not-a-size", "0", "-1m", "0.1b", "1b", "1023b", "999999999999999999999g"])(
 		"rejects invalid or unrepresentable segment size %s",
 		(maxSize) => {
 			expect(logConfigSchema.safeParse({ maxSize }).success).toBe(false);
@@ -264,7 +265,7 @@ describe("createFileLogger", () => {
 		);
 	});
 
-	it("reports bounded-admission loss once without feeding diagnostics back into the source", () => {
+	it("leaves admission diagnostics to the source instead of misreporting every failure as queue overflow", () => {
 		const source = createSourceStub();
 		source.append.mockImplementation(() => false);
 		const eventBus = new EventBus();
@@ -278,9 +279,7 @@ describe("createFileLogger", () => {
 		fileLogger.logger.info("Second dropped record");
 
 		expect(source.append).toHaveBeenCalledTimes(2);
-		expect(warnings).toEqual([
-			"The canonical log admission queue is full; records are being dropped",
-		]);
+		expect(warnings).toEqual([]);
 	});
 
 	it("keeps the in-process logger available when durable source creation fails", () => {
@@ -290,9 +289,7 @@ describe("createFileLogger", () => {
 		eventBus.on("log:warn", (payload) => warnings.push(payload.message));
 		eventBus.on("log:info", (payload) => infos.push(payload.message));
 		const fileLogger = createFileLogger(resolvedConfig(), "/blocked", eventBus, {
-			createSource: () => {
-				throw new Error("directory is locked");
-			},
+			createSource: () => err(new Error("directory is locked")),
 		});
 
 		expect(fileLogger.source).toBeUndefined();

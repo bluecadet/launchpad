@@ -34,13 +34,24 @@ import type { AllPluginsState } from "./all-plugin-state.js";
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { collectPluginMetrics } from "./core/collect-plugin-metrics.js";
 import {
+	acquireControllerInstanceLease,
+	type ControllerInstanceLease,
+} from "./core/controller-instance-lease.js";
+import {
 	type ControllerFileLogger,
 	createFileLogger,
 	type FileLoggerDependencies,
 } from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
-import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
+import { deletePidFile, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
+
+export interface ControllerDependencies extends FileLoggerDependencies {
+	readonly acquireInstanceLease?: (
+		pidFile: string,
+		baseDirectory: string,
+	) => ControllerInstanceLease;
+}
 
 export class LaunchpadController {
 	private _config: ResolvedControllerConfig;
@@ -48,6 +59,7 @@ export class LaunchpadController {
 	private _baseDir: string;
 	private _logger: Logger;
 	private _fileLogger: ControllerFileLogger;
+	private _instanceLease: ControllerInstanceLease | undefined;
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
@@ -64,24 +76,34 @@ export class LaunchpadController {
 		config: ResolvedControllerConfig,
 		baseDir: string,
 		mode: ControllerMode = "task",
-		fileLoggerDependencies: FileLoggerDependencies = {},
+		dependencies: ControllerDependencies = {},
 	) {
 		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
-		this._eventBus = new EventBus<AllEvents>();
-		this._fileLogger = createFileLogger(
-			this._config.logging,
-			baseDir,
-			this._eventBus,
-			fileLoggerDependencies,
-		);
-		this._logger = this._fileLogger.logger;
-		this._eventBus.onAny(this.recordOperationalEvent);
-		this._stateStore = new StateStore(this._mode);
-		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
-			this.executeCommand(command),
-		);
+		const pidFile = path.resolve(baseDir, config.pidFile);
+		const acquireInstanceLease =
+			dependencies.acquireInstanceLease ?? acquireControllerInstanceLease;
+		this._instanceLease = acquireInstanceLease(pidFile, baseDir);
+
+		try {
+			this._eventBus = new EventBus<AllEvents>();
+			this._fileLogger = createFileLogger(
+				this._config.logging,
+				baseDir,
+				this._eventBus,
+				dependencies,
+			);
+			this._logger = this._fileLogger.logger;
+			this._eventBus.onAny(this.recordOperationalEvent);
+			this._stateStore = new StateStore(this._mode);
+			this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
+				this.executeCommand(command),
+			);
+		} catch (error) {
+			this.releaseInstanceLease();
+			throw error;
+		}
 	}
 
 	registerPlugin(
@@ -207,6 +229,9 @@ export class LaunchpadController {
 		if (this._isStarted) {
 			return okAsync(undefined);
 		}
+		if (!this._instanceLease) {
+			return errAsync(new Error("A stopped controller cannot be restarted"));
+		}
 
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
@@ -214,15 +239,9 @@ export class LaunchpadController {
 		if (this._mode === "persistent") {
 			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 			const socketPath = path.resolve(this._baseDir, this._config.socketPath);
-
-			const daemonPidResult = getDaemonPid(pidFile);
-			if (daemonPidResult.isOk() && daemonPidResult.value !== null) {
-				return errAsync(new Error(`Controller already running with PID ${daemonPidResult.value}`));
-			}
-
 			const writePidResult = writePidFile(pidFile, process.pid);
 			if (writePidResult.isErr()) {
-				return errAsync(writePidResult.error);
+				return this.abandonStartup(writePidResult.error);
 			}
 
 			return this.registerPlugin(createIPCTransport({ socketPath }))
@@ -231,10 +250,7 @@ export class LaunchpadController {
 					this._logger.verbose("Controller started with IPC transport");
 					return undefined;
 				})
-				.orElse((error) => {
-					deletePidFile(pidFile);
-					return errAsync(error);
-				});
+				.orElse((error) => this.abandonStartup(error, pidFile));
 		}
 
 		this._isStarted = true;
@@ -247,6 +263,21 @@ export class LaunchpadController {
 		this._fileLogger.recordEvent(event, payload);
 	};
 
+	private releaseInstanceLease(): void {
+		this._instanceLease?.release();
+		this._instanceLease = undefined;
+	}
+
+	private closeOwnedResources(): Promise<void> {
+		this._eventBus.offAny(this.recordOperationalEvent);
+		return this._fileLogger.close().finally(() => this.releaseInstanceLease());
+	}
+
+	private abandonStartup(error: Error, pidFile?: string): ResultAsync<void, Error> {
+		if (pidFile) deletePidFile(pidFile);
+		return ResultAsync.fromSafePromise(this.closeOwnedResources()).andThen(() => errAsync(error));
+	}
+
 	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
 		this._isStarted = false;
 
@@ -258,8 +289,10 @@ export class LaunchpadController {
 
 		this._abortController.abort();
 
-		const pidFile = path.resolve(this._baseDir, this._config.pidFile);
-		deletePidFile(pidFile);
+		if (this._mode === "persistent") {
+			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
+			deletePidFile(pidFile);
+		}
 
 		const disconnectResults = Array.from(this._plugins.entries()).map(([name, plugin]) => {
 			if (plugin.disconnect) {
@@ -276,8 +309,7 @@ export class LaunchpadController {
 				if (disconnectError === null) {
 					this._logger.verbose("All plugins disconnected");
 				}
-				this._eventBus.offAny(this.recordOperationalEvent);
-				return ResultAsync.fromSafePromise(this._fileLogger.close()).andThen(() =>
+				return ResultAsync.fromSafePromise(this.closeOwnedResources()).andThen(() =>
 					disconnectError === null ? okAsync(undefined) : errAsync(disconnectError),
 				);
 			});

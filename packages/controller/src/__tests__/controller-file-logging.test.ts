@@ -76,8 +76,10 @@ describe("file-backed logging integration", () => {
 				text: { enabled: false },
 			},
 		});
+		const releaseInstanceLease = vi.fn();
 		const controller = new LaunchpadController(fileConfig, "/installation", "task", {
 			createSource: owner.createSource,
+			acquireInstanceLease: () => ({ release: releaseInstanceLease }),
 		});
 		let logger: Logger | undefined;
 		let source: PluginContext["logSource"];
@@ -139,6 +141,7 @@ describe("file-backed logging integration", () => {
 			await reader.close(signal);
 		}
 		await controller.stop();
+		expect(releaseInstanceLease).toHaveBeenCalledOnce();
 	});
 
 	it("flushes records written during plugin disconnect before releasing the source", async () => {
@@ -146,8 +149,10 @@ describe("file-backed logging integration", () => {
 		const fileConfig = controllerConfigSchema.parse({
 			logging: { dirname: "logs", overrideConsole: false, text: { enabled: false } },
 		});
+		const releaseInstanceLease = vi.fn();
 		const controller = new LaunchpadController(fileConfig, "/installation", "task", {
 			createSource: owner.createSource,
+			acquireInstanceLease: () => ({ release: releaseInstanceLease }),
 		});
 		await controller.registerPlugin(
 			definePlugin({
@@ -176,5 +181,6 @@ describe("file-backed logging integration", () => {
 		);
 		expect(owner.calls.at(-1)).toBe("close");
 		expect(owner.close).toHaveBeenCalledTimes(1);
+		expect(releaseInstanceLease).toHaveBeenCalledOnce();
 	});
 });

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import {
 	type BaseCommand,
@@ -6,7 +7,7 @@ import {
 	type PluginConfig,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
 import { describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
@@ -15,7 +16,9 @@ describe("LaunchpadController", () => {
 	const config = controllerConfigSchema.parse({ pidFile: "./pid", socketPath: "./socket" });
 
 	function createController(mode?: "task" | "persistent") {
-		return new LaunchpadController(config, "/test", mode);
+		return new LaunchpadController(config, "/test", mode, {
+			acquireInstanceLease: () => ({ release: vi.fn() }),
+		});
 	}
 
 	function makePlugin(name: string, inner: InstantiatedPlugin = {}) {
@@ -37,6 +40,28 @@ describe("LaunchpadController", () => {
 		it("should not be started after construction", () => {
 			const controller = createController("task");
 			expect(controller.isStarted()).toBe(false);
+		});
+
+		it("acquires project ownership before initializing file logging", async () => {
+			const order: string[] = [];
+			const release = vi.fn();
+			const controller = new LaunchpadController(config, "/project", "task", {
+				acquireInstanceLease(pidFile, baseDirectory) {
+					order.push("lease");
+					expect(pidFile).toBe(path.resolve("/project", config.pidFile));
+					expect(baseDirectory).toBe("/project");
+					return { release };
+				},
+				createSource() {
+					order.push("logging");
+					return err(new Error("Logging intentionally unavailable"));
+				},
+			});
+
+			expect(order).toEqual(["lease", "logging"]);
+			await controller.start();
+			await controller.stop();
+			expect(release).toHaveBeenCalledOnce();
 		});
 	});
 

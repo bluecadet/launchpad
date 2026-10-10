@@ -2,6 +2,7 @@ import path from "node:path";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import { isSelectedOperationalLogEvent } from "@bluecadet/launchpad-utils/logging";
 import type {
 	BaseCommand,
 	CommandDescriptor,
@@ -32,16 +33,33 @@ import type { AllPluginsState } from "./all-plugin-state.js";
 
 import { buildStatusSnapshot } from "./core/build-status-snapshot.js";
 import { collectPluginMetrics } from "./core/collect-plugin-metrics.js";
-import { createFileLogger } from "./core/file-logger.js";
+import {
+	acquireControllerInstanceLease,
+	type ControllerInstanceLease,
+} from "./core/controller-instance-lease.js";
+import {
+	type ControllerFileLogger,
+	createFileLogger,
+	type FileLoggerDependencies,
+} from "./core/file-logger.js";
 import { StateStore } from "./core/state-store.js";
-import { deletePidFile, getDaemonPid, writePidFile } from "./pid-utils.js";
+import { deletePidFile, writePidFile } from "./pid-utils.js";
 import { createIPCTransport } from "./transports/ipc-transport.js";
+
+export interface ControllerDependencies extends FileLoggerDependencies {
+	readonly acquireInstanceLease?: (
+		pidFile: string,
+		baseDirectory: string,
+	) => ControllerInstanceLease;
+}
 
 export class LaunchpadController {
 	private _config: ResolvedControllerConfig;
 	private _mode: ControllerMode;
 	private _baseDir: string;
 	private _logger: Logger;
+	private _fileLogger: ControllerFileLogger;
+	private _instanceLease: ControllerInstanceLease | undefined;
 	private _eventBus: EventBus<AllEvents>;
 	private _stateStore: StateStore;
 	private _commandDispatcher!: CommandDispatcher;
@@ -54,16 +72,38 @@ export class LaunchpadController {
 	private _shutdownInProgress = false;
 	private _readyPhaseRun = false;
 
-	constructor(config: ResolvedControllerConfig, baseDir: string, mode: ControllerMode = "task") {
+	constructor(
+		config: ResolvedControllerConfig,
+		baseDir: string,
+		mode: ControllerMode = "task",
+		dependencies: ControllerDependencies = {},
+	) {
 		this._config = config;
 		this._mode = mode;
 		this._baseDir = baseDir;
-		this._eventBus = new EventBus<AllEvents>();
-		this._logger = createFileLogger(this._config.logging, baseDir, this._eventBus);
-		this._stateStore = new StateStore(this._mode);
-		this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
-			this.executeCommand(command),
-		);
+		const pidFile = path.resolve(baseDir, config.pidFile);
+		const acquireInstanceLease =
+			dependencies.acquireInstanceLease ?? acquireControllerInstanceLease;
+		this._instanceLease = acquireInstanceLease(pidFile, baseDir);
+
+		try {
+			this._eventBus = new EventBus<AllEvents>();
+			this._fileLogger = createFileLogger(
+				this._config.logging,
+				baseDir,
+				this._eventBus,
+				dependencies,
+			);
+			this._logger = this._fileLogger.logger;
+			this._eventBus.onAny(this.recordOperationalEvent);
+			this._stateStore = new StateStore(this._mode);
+			this._workflowRunner = new WorkflowRunner(this._eventBus, (command) =>
+				this.executeCommand(command),
+			);
+		} catch (error) {
+			this.releaseInstanceLease();
+			throw error;
+		}
 	}
 
 	registerPlugin(
@@ -189,6 +229,9 @@ export class LaunchpadController {
 		if (this._isStarted) {
 			return okAsync(undefined);
 		}
+		if (!this._instanceLease) {
+			return errAsync(new Error("A stopped controller cannot be restarted"));
+		}
 
 		this._logger.verbose(`Starting controller in ${this._mode} mode`);
 		this._commandDispatcher = new CommandDispatcher(this._eventBus, this._commandRegistry);
@@ -196,15 +239,9 @@ export class LaunchpadController {
 		if (this._mode === "persistent") {
 			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
 			const socketPath = path.resolve(this._baseDir, this._config.socketPath);
-
-			const daemonPidResult = getDaemonPid(pidFile);
-			if (daemonPidResult.isOk() && daemonPidResult.value !== null) {
-				return errAsync(new Error(`Controller already running with PID ${daemonPidResult.value}`));
-			}
-
 			const writePidResult = writePidFile(pidFile, process.pid);
 			if (writePidResult.isErr()) {
-				return errAsync(writePidResult.error);
+				return this.abandonStartup(writePidResult.error);
 			}
 
 			return this.registerPlugin(createIPCTransport({ socketPath }))
@@ -213,15 +250,32 @@ export class LaunchpadController {
 					this._logger.verbose("Controller started with IPC transport");
 					return undefined;
 				})
-				.orElse((error) => {
-					deletePidFile(pidFile);
-					return errAsync(error);
-				});
+				.orElse((error) => this.abandonStartup(error, pidFile));
 		}
 
 		this._isStarted = true;
 		this._logger.verbose("Controller started");
 		return okAsync(undefined);
+	}
+
+	private readonly recordOperationalEvent = (event: string, payload: unknown): void => {
+		if (!isSelectedOperationalLogEvent(event)) return;
+		this._fileLogger.recordEvent(event, payload);
+	};
+
+	private releaseInstanceLease(): void {
+		this._instanceLease?.release();
+		this._instanceLease = undefined;
+	}
+
+	private closeOwnedResources(): Promise<void> {
+		this._eventBus.offAny(this.recordOperationalEvent);
+		return this._fileLogger.close().finally(() => this.releaseInstanceLease());
+	}
+
+	private abandonStartup(error: Error, pidFile?: string): ResultAsync<void, Error> {
+		if (pidFile) deletePidFile(pidFile);
+		return ResultAsync.fromSafePromise(this.closeOwnedResources()).andThen(() => errAsync(error));
 	}
 
 	private cleanup(reason: DisconnectReason): ResultAsync<void, Error> {
@@ -235,8 +289,10 @@ export class LaunchpadController {
 
 		this._abortController.abort();
 
-		const pidFile = path.resolve(this._baseDir, this._config.pidFile);
-		deletePidFile(pidFile);
+		if (this._mode === "persistent") {
+			const pidFile = path.resolve(this._baseDir, this._config.pidFile);
+			deletePidFile(pidFile);
+		}
 
 		const disconnectResults = Array.from(this._plugins.entries()).map(([name, plugin]) => {
 			if (plugin.disconnect) {
@@ -246,10 +302,17 @@ export class LaunchpadController {
 			return okAsync(undefined);
 		});
 
-		return ResultAsync.combine(disconnectResults).map(() => {
-			this._logger.verbose("All plugins disconnected");
-			return undefined;
-		});
+		return ResultAsync.combine(disconnectResults)
+			.map(() => null)
+			.orElse((error) => okAsync(error))
+			.andThen((disconnectError) => {
+				if (disconnectError === null) {
+					this._logger.verbose("All plugins disconnected");
+				}
+				return ResultAsync.fromSafePromise(this.closeOwnedResources()).andThen(() =>
+					disconnectError === null ? okAsync(undefined) : errAsync(disconnectError),
+				);
+			});
 	}
 
 	stop(): ResultAsync<void, Error> {
@@ -330,6 +393,7 @@ export class LaunchpadController {
 		return {
 			eventBus: this._eventBus,
 			logger: this._logger.child(pluginName),
+			...(this._fileLogger.source === undefined ? {} : { logSource: this._fileLogger.source }),
 			cwd: this._baseDir,
 			mode: this._mode,
 			getStatusSnapshot: () => this.buildSnapshot(),

@@ -7,6 +7,7 @@ import {
 	deliveryConfigSchema,
 	destinationObservabilityConfigSchema,
 	legacyObservabilityConfigSchema,
+	logStorageConfigSchema,
 	observabilityConfigSchema,
 	observationConfigSchema,
 	resourceAttributesSchema,
@@ -89,6 +90,18 @@ describe("destination-mode configuration schemas", () => {
 		});
 	});
 
+	it("accepts file-backed delivery and the explicit memory opt-out", () => {
+		expect(logStorageConfigSchema.parse({ type: "file" })).toEqual({ type: "file" });
+		expect(logStorageConfigSchema.parse({ type: "memory" })).toEqual({ type: "memory" });
+		expect(logStorageConfigSchema.safeParse({ type: "other" }).success).toBe(false);
+		expect(logStorageConfigSchema.safeParse({ type: "memory", maxEntries: 100 }).success).toBe(
+			false,
+		);
+		expect(logStorageConfigSchema.safeParse({ type: "file", directory: "/tmp/logs" }).success).toBe(
+			false,
+		);
+	});
+
 	it.each([
 		[observationConfigSchema, { intervalMs: 0 }],
 		[deliveryConfigSchema, { deliveryTimeoutMs: -1 }],
@@ -120,6 +133,7 @@ describe("observabilityConfigSchema", () => {
 			include: ["log:*"],
 			exclude: [],
 			resource: {},
+			logStorage: { type: "file" },
 			metrics: { intervalMs: 30_000 },
 			delivery: {
 				deliveryTimeoutMs: 5_000,
@@ -138,6 +152,7 @@ describe("observabilityConfigSchema", () => {
 			destinations: undefined,
 			metrics: undefined,
 			delivery: undefined,
+			logStorage: undefined,
 		});
 		const state = { transports: {} };
 		const result = await plugin.setup({
@@ -164,6 +179,7 @@ describe("observabilityConfigSchema", () => {
 			{ transports: [], resource: {} },
 			{ transports: [], metrics: false },
 			{ transports: [], delivery: {} },
+			{ transports: [], logStorage: { type: "file" } },
 		];
 		for (const input of legacyInputs) {
 			expect(observabilityConfigSchema.safeParse(input).success).toBe(false);

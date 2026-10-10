@@ -18,7 +18,8 @@ This will install all core packages:
 - `@bluecadet/launchpad-cli`: Command line interface
 - `@bluecadet/launchpad-content`: Content management
 - `@bluecadet/launchpad-monitor`: Process monitoring
-- `@bluecadet/launchpad-controller`: Central orchestration and event system
+- `@bluecadet/launchpad-controller`: Central orchestration and canonical file logging
+- `@bluecadet/launchpad-observability`: Optional endpoint-neutral log and metric delivery
 
 ## Basic Usage
 
@@ -38,7 +39,7 @@ npx launchpad stop
 
 ## Note
 
-This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content` and `@bluecadet/launchpad/monitor`. For more targeted installations, you can install individual packages directly.
+This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content`, `@bluecadet/launchpad/monitor`, and `@bluecadet/launchpad/observability`. Configured observability destinations default to checkpointed delivery from the controller's canonical JSONL; `logStorage: { type: 'memory' }` opts out of retained log delivery. For more targeted installations, you can install individual packages directly.
 
 ## License
 

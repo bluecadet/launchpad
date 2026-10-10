@@ -1,6 +1,7 @@
 // Need to import so that declaration merging works
 import "@bluecadet/launchpad-utils/types";
 import type { DeliveryTransition } from "./core/delivery-queue.js";
+import type { ExportFailure } from "./core/destination.js";
 import { exportFailureMessage } from "./core/export-failure.js";
 
 export type TransportStatus = "ok" | "degraded" | "failing";
@@ -16,6 +17,24 @@ export type TransportState = {
 
 export type DestinationSignal = "logs" | "metrics";
 export type DestinationSignalStatus = "unknown" | "ok" | "degraded" | "failing";
+export type DestinationLogSourceStatus = "active" | "unavailable" | "parked";
+
+/** Durable source events belong to destination state, not the lossy delivery queue. */
+export type DestinationTransition =
+	| DeliveryTransition
+	| ({ readonly queuedBatches: number } & (
+			| { readonly type: "source"; readonly status: "active" }
+			| {
+					readonly type: "source";
+					readonly status: "unavailable" | "parked";
+					readonly error: ExportFailure;
+			  }
+			| {
+					readonly type: "source-batch";
+					readonly lostRecords: number;
+					readonly unknownGaps: number;
+			  }
+	  ));
 
 export type DestinationSignalState = {
 	status: DestinationSignalStatus;
@@ -24,6 +43,9 @@ export type DestinationSignalState = {
 	lastError: string | null;
 	totalPushed: number;
 	totalDropped: number;
+	sourceStatus?: DestinationLogSourceStatus;
+	totalSourceRecordsLost?: number;
+	totalUnknownSourceGaps?: number;
 };
 
 export type DestinationState = Partial<Record<DestinationSignal, DestinationSignalState>>;
@@ -99,11 +121,23 @@ export class ObservabilityStateManager {
 		});
 	}
 
-	initDestination(name: string, signals: readonly DestinationSignal[]): void {
+	initDestination(
+		name: string,
+		signals: readonly DestinationSignal[],
+		options: { readonly durableLogs?: boolean } = {},
+	): void {
 		this.updateState((draft) => {
 			draft.destinations ??= {};
 			const destination: DestinationState = {};
 			for (const signal of signals) {
+				const durableSourceState =
+					signal === "logs" && options.durableLogs
+						? {
+								sourceStatus: "active" as const,
+								totalSourceRecordsLost: 0,
+								totalUnknownSourceGaps: 0,
+							}
+						: {};
 				destination[signal] = {
 					status: "unknown",
 					queueSize: 0,
@@ -111,6 +145,7 @@ export class ObservabilityStateManager {
 					lastError: null,
 					totalPushed: 0,
 					totalDropped: 0,
+					...durableSourceState,
 				};
 			}
 			draft.destinations[name] = destination;
@@ -121,7 +156,7 @@ export class ObservabilityStateManager {
 	applyDestinationTransition(
 		name: string,
 		signal: DestinationSignal,
-		transition: DeliveryTransition,
+		transition: DestinationTransition,
 	): void {
 		this.updateState((draft) => {
 			const state = draft.destinations?.[name]?.[signal];
@@ -129,6 +164,19 @@ export class ObservabilityStateManager {
 			state.queueSize = transition.queuedBatches;
 
 			switch (transition.type) {
+				case "source":
+					state.sourceStatus = transition.status;
+					if (transition.status !== "active") {
+						state.status = "failing";
+						state.lastError = exportFailureMessage(transition.error);
+					}
+					return;
+				case "source-batch":
+					state.totalSourceRecordsLost =
+						(state.totalSourceRecordsLost ?? 0) + transition.lostRecords;
+					state.totalUnknownSourceGaps =
+						(state.totalUnknownSourceGaps ?? 0) + transition.unknownGaps;
+					return;
 				case "queue":
 					return;
 				case "drop":

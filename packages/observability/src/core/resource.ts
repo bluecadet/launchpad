@@ -6,7 +6,10 @@ import type { ResourceAttributes } from "./destination.js";
  * setup. Call this once per setup so the instance id is stable for that setup
  * and changes after a restart.
  */
-export function createResourceAttributes(resource: ResourceAttributes = {}): ResourceAttributes {
+export function createResourceAttributes(
+	resource: ResourceAttributes = {},
+	runtimeId: string = randomUUID(),
+): ResourceAttributes {
 	if (Object.hasOwn(resource, "service.instance.id")) {
 		throw new Error('Resource attribute "service.instance.id" is managed by the runtime');
 	}
@@ -14,6 +17,6 @@ export function createResourceAttributes(resource: ResourceAttributes = {}): Res
 	return Object.freeze({
 		"service.name": "launchpad",
 		...resource,
-		"service.instance.id": randomUUID(),
+		"service.instance.id": runtimeId,
 	});
 }

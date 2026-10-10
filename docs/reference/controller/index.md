@@ -39,6 +39,7 @@ interface PluginConfig<TCommand, TState> {
 interface PluginContext<TState = unknown> {
   eventBus: EventBus;          // Type-safe event bus
   logger: Logger;              // Scoped logger
+  logSource?: LoggerSource;    // Controller-owned canonical log source
   abortSignal: AbortSignal;    // Cancelled on controller shutdown
   cwd: string;                 // Working directory
   mode: ControllerMode;        // "task" | "persistent" — which mode the controller is running in
@@ -78,6 +79,18 @@ definePlugin({
 ```
 
 The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
+
+### Logging
+
+The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
+
+### Process ownership
+
+Only one controller may be active for a configured project identity, whether it runs in task or persistent mode. Constructing a controller acquires an operating-system lease at `<resolved pidFile>.lock` before file logging is initialized. `stop()` releases that lease after plugin shutdown and logging I/O settle. If the process crashes, the operating system releases the lease automatically.
+
+The adjacent PID file is persistent-daemon discovery metadata, not the ownership authority. It remains absent for task runs. The lease file is permanent and must not be deleted, renamed, or replaced; its presence does not mean a controller is active.
+
+This closes startup races that a PID existence check cannot prevent. Concurrent task commands do not run a second local controller, and a task controller cannot overlap a persistent controller that uses the same resolved `pidFile` identity.
 
 ### Host-Owned Workflows
 
@@ -184,7 +197,7 @@ Ephemeral controller instances for one-off operations:
 5. Execute command(s)
 6. Stop controller
 
-This mode is used when no persistent controller is running, allowing the CLI to operate independently.
+This mode is used when no persistent controller is running. It uses the same project ownership lease as persistent mode, so overlapping task runs fail instead of mutating project resources concurrently.
 
 ### Persistent Mode
 
@@ -193,7 +206,7 @@ Long-running controller that stays active to handle multiple commands:
 - Started with `launchpad start` (optionally detached with `-d`)
 - Registers plugins, then runs the ready phase (`ready()`) once all of them are set up — this is where, for example, the content plugin's startup announcement feeds the HTTP/SSE transport's replay backlog
 - Opens IPC socket for inter-process communication
-- Stores PID in a file for tracking
+- Holds the project ownership lease and stores PID metadata for discovery
 - Handles multiple CLI commands without reinitializing
 - Gracefully shuts down with `launchpad stop`
 

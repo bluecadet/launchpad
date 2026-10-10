@@ -31,6 +31,7 @@
 import type { ResultAsync } from "neverthrow";
 import type { EventBus } from "./event-bus.js";
 import type { Logger } from "./logger.js";
+import type { LoggerSource } from "./logging.js";
 import type { PatchHandler, PatchHandlerWithVersion } from "./state-patcher.js";
 import type { MetricObservation } from "./telemetry.js";
 import type {
@@ -212,6 +213,8 @@ export interface StateProvider<TState = unknown> {
 export interface PluginContext<TState = unknown> {
 	readonly eventBus: EventBus;
 	readonly logger: Logger;
+	/** Controller-owned canonical log source, when file-backed logging is available. */
+	readonly logSource?: LoggerSource;
 	readonly abortSignal: AbortSignal;
 	readonly cwd: string;
 	readonly mode: ControllerMode;

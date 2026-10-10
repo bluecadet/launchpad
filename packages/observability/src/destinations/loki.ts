@@ -1,4 +1,5 @@
-import { err, errAsync, ok, Result, ResultAsync } from "neverthrow";
+import { serializeLogRecord } from "@bluecadet/launchpad-utils/logging";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type {
 	DestinationContext,
@@ -190,14 +191,23 @@ function labelsKey(labels: Readonly<Record<string, string>>): string {
 	);
 }
 
-function buildLokiPayload(
-	records: readonly LogEntry[],
+function buildLokiPayload<T extends LogEntry>(
+	records: readonly T[],
 	resourceAttributes: ResourceAttributes,
 	resourceLabels: Readonly<Record<string, string>>,
-): Result<LokiPushPayload, ExportFailure> {
+	// Null rejects one canonical record; errors retain raw export failure semantics.
+	serialize: (record: T) => Result<string | null, ExportFailure>,
+): Result<{ payload: LokiPushPayload; rejectedRecords: number }, ExportFailure> {
 	const streams = new Map<string, LokiStream>();
+	let rejectedRecords = 0;
 
 	for (const record of records) {
+		const line = serialize(record);
+		if (line.isErr()) return err(line.error);
+		if (line.value === null) {
+			rejectedRecords += 1;
+			continue;
+		}
 		const labels = streamLabels(record, resourceAttributes, resourceLabels);
 		const key = labelsKey(labels);
 		let stream = streams.get(key);
@@ -205,10 +215,6 @@ function buildLokiPayload(
 			stream = { stream: labels, values: [] };
 			streams.set(key, stream);
 		}
-		const line = createStructuredLog(record, resourceAttributes).andThen((log) =>
-			serializeStructuredLog(log),
-		);
-		if (line.isErr()) return err(line.error);
 		stream.values.push([toNanosecondTimestamp(record.timestamp), line.value]);
 	}
 
@@ -219,7 +225,7 @@ function buildLokiPayload(
 			return firstTimestamp < secondTimestamp ? -1 : firstTimestamp > secondTimestamp ? 1 : 0;
 		});
 	}
-	return ok({ streams: [...streams.values()] });
+	return ok({ payload: { streams: [...streams.values()] }, rejectedRecords });
 }
 
 function authorizationHeader(auth: LokiDestinationAuth): string {
@@ -281,23 +287,26 @@ function fetchFailure(value: unknown, signal: AbortSignal): ExportFailure {
 	);
 }
 
-function exportRecords(
+function exportRecords<T extends LogEntry>(
 	pushUrl: string,
 	resolved: ResolvedLokiDestinationConfig,
 	resourceAttributes: ResourceAttributes,
-	records: readonly LogEntry[],
+	records: readonly T[],
 	context: ExportContext,
+	serialize: (record: T) => Result<string | null, ExportFailure>,
 ): ResultAsync<ExportResult, ExportFailure> {
 	if (context.signal.aborted)
 		return errAsync(new DestinationFailure("Loki export was aborted", { retryable: false }));
 
-	const body = buildLokiPayload(records, resourceAttributes, resolved.resourceLabels).andThen(
-		(payload) =>
-			Result.fromThrowable(
-				() => JSON.stringify(payload),
-				() => new DestinationFailure("Loki payload serialization failed", { retryable: false }),
-			)(),
-	);
+	const built = buildLokiPayload(records, resourceAttributes, resolved.resourceLabels, serialize);
+	if (built.isErr()) return errAsync(built.error);
+	const { payload, rejectedRecords } = built.value;
+	if (records.length > 0 && rejectedRecords === records.length) return okAsync({ rejectedRecords });
+
+	const body = Result.fromThrowable(
+		() => JSON.stringify(payload),
+		() => new DestinationFailure("Loki payload serialization failed", { retryable: false }),
+	)();
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 		...resolved.headers,
@@ -319,7 +328,7 @@ function exportRecords(
 			cancelResponseBody(response).andThen(() =>
 				!response.ok || response.status === 260
 					? err(httpFailure(response))
-					: ok({ rejectedRecords: 0 }),
+					: ok({ rejectedRecords }),
 			),
 		),
 	);
@@ -335,6 +344,23 @@ function parseConfig(
 	);
 }
 
+/** Derive checkpoint identity without throwing or validating the rest of the config. */
+function normalizeEndpoint(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const endpoint = URL.parse(value);
+	if (
+		!endpoint ||
+		(endpoint.protocol !== "http:" && endpoint.protocol !== "https:") ||
+		endpoint.username ||
+		endpoint.password ||
+		endpoint.search ||
+		endpoint.hash
+	)
+		return undefined;
+	endpoint.pathname = endpoint.pathname.replace(/\/+$/u, "");
+	return endpoint.toString();
+}
+
 /**
  * Configure structured log export through Loki's HTTP push API.
  *
@@ -343,13 +369,21 @@ function parseConfig(
  * Each export is one HTTP request; retry policy belongs to the delivery loop.
  */
 export function createLokiDestination(config: LokiDestinationConfig): ObservabilityDestination {
+	const endpoint = normalizeEndpoint(config?.url);
 	return {
 		name: typeof config?.name === "string" ? config.name.trim() : "loki",
+		checkpointKey: endpoint === undefined ? undefined : `loki:${endpoint}`,
 		create(context: DestinationContext) {
 			const result = parseConfig(config);
 			if (result.isErr()) return err(result.error);
 			const resolved = result.value;
-			const pushUrl = `${resolved.url.replace(/\/$/, "")}/loki/api/v1/push`;
+			const endpoint = normalizeEndpoint(resolved.url);
+			if (endpoint === undefined) {
+				return err(
+					new DestinationFailure("Invalid Loki destination configuration", { retryable: false }),
+				);
+			}
+			const pushUrl = `${endpoint.replace(/\/$/, "")}/loki/api/v1/push`;
 			if (!context.resourceAttributes) {
 				return err(
 					new DestinationFailure("Loki destination requires resource attributes", {
@@ -361,12 +395,22 @@ export function createLokiDestination(config: LokiDestinationConfig): Observabil
 			const exporters: DestinationExporters = {
 				logs: {
 					export(records, exportContext) {
+						const resource = exportContext.resourceAttributes ?? context.resourceAttributes;
+						return exportRecords(pushUrl, resolved, resource, records, exportContext, (record) =>
+							createStructuredLog(record, resource).andThen(serializeStructuredLog),
+						);
+					},
+					exportCanonical(batch, exportContext) {
 						return exportRecords(
 							pushUrl,
 							resolved,
-							context.resourceAttributes,
-							records,
+							batch.resourceAttributes,
+							batch.records,
 							exportContext,
+							(record) =>
+								serializeLogRecord({ ...record, resource: batch.resourceAttributes }).orElse(() =>
+									ok(null),
+								),
 						);
 					},
 				},

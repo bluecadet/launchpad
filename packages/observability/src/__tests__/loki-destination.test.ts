@@ -1,7 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ResourceAttributes } from "../core/destination.js";
+import {
+	type NormalizedLogRecord,
+	normalizeLogRecord,
+	parseLogRecord,
+	serializeLogRecord,
+} from "@bluecadet/launchpad-utils/logging";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { LogEntry } from "../core/log-entry.js";
 import { createLokiDestination, type LokiDestinationConfig } from "../destinations/loki.js";
+import type {
+	CanonicalLogBatch,
+	ExportContext,
+	LogExportContext,
+	LogExporter,
+	ResourceAttributes,
+} from "../index.js";
 import { createLokiTransport } from "../transports/loki.js";
 
 const resourceAttributes: ResourceAttributes = {
@@ -40,8 +52,8 @@ function response(status = 204, body = "", headers?: Record<string, string>): Re
 	return new Response(status === 204 ? null : body, { status, headers });
 }
 
-function requestBody(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): string {
-	const body = fetchMock.mock.calls[0]?.[1]?.body;
+function requestBody(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>, call = 0): string {
+	const body = fetchMock.mock.calls[call]?.[1]?.body;
 	if (typeof body !== "string") throw new Error("Expected a string request body");
 	return body;
 }
@@ -69,6 +81,22 @@ describe("createLokiDestination", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("separates raw export from the typed canonical replay capability", () => {
+		type CanonicalExport = NonNullable<LogExporter["exportCanonical"]>;
+		expectTypeOf<Parameters<CanonicalExport>>().toEqualTypeOf<[CanonicalLogBatch, ExportContext]>();
+		expectTypeOf<CanonicalLogBatch["records"]>().toEqualTypeOf<readonly NormalizedLogRecord[]>();
+		expectTypeOf<Parameters<LogExporter["export"]>>().toEqualTypeOf<
+			[readonly LogEntry[], LogExportContext]
+		>();
+		expectTypeOf<LogEntry>().not.toMatchTypeOf<NormalizedLogRecord>();
+		expectTypeOf<
+			LogEntry & { schemaVersion: 1; resource: ResourceAttributes }
+		>().not.toMatchTypeOf<NormalizedLogRecord>();
+		expectTypeOf<"recordFormat">().not.toMatchTypeOf<keyof LogExportContext>();
+		expectTypeOf<"supportsResourceContext">().not.toMatchTypeOf<keyof LogExporter>();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	it("is network-inert until export and supports a configurable name", () => {
 		const destination = createLokiDestination({
 			name: "primary-loki",
@@ -78,6 +106,174 @@ describe("createLokiDestination", () => {
 		expect(destination.name).toBe("primary-loki");
 		expect(destination.create({ resourceAttributes }).isOk()).toBe(true);
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("uses a credential-free checkpoint key that is stable across auth changes", () => {
+		const original = createLokiDestination({
+			url: "https://loki.example/gateway/",
+			auth: { type: "bearer", token: "first-secret" },
+			headers: { "X-Scope-OrgID": "first-tenant-secret" },
+		});
+		const rotated = createLokiDestination({
+			url: "https://loki.example/gateway",
+			auth: { type: "bearer", token: "second-secret" },
+			headers: { "X-Scope-OrgID": "second-tenant-secret" },
+			resourceLabels: { region: "region" },
+		});
+		const differentEndpoint = createLokiDestination({ url: "https://other-loki.example/gateway" });
+
+		expect(original.checkpointKey).toBe(rotated.checkpointKey);
+		expect(original.checkpointKey).not.toBe(differentEndpoint.checkpointKey);
+		expect(original.checkpointKey).not.toContain("first-secret");
+		expect(original.checkpointKey).not.toContain("first-tenant-secret");
+	});
+
+	it("recomputes mapped labels and structured resources for each historical batch", async () => {
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					"service.name": "service_name",
+					region: "region",
+				},
+			}),
+		);
+		const historicalResource: ResourceAttributes = {
+			"service.name": "archived-worker",
+			region: "eu-central-1",
+		};
+
+		expect(exporter.exportCanonical).toBeTypeOf("function");
+		await exporter.export([logEntry()], {
+			signal: new AbortController().signal,
+			resourceAttributes: historicalResource,
+		});
+		await exporter.export([logEntry()], { signal: new AbortController().signal });
+
+		const historicalPayload = JSON.parse(requestBody(fetchMock, 0)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		const currentPayload = JSON.parse(requestBody(fetchMock, 1)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		expect(historicalPayload.streams[0]?.stream).toEqual({
+			level: "info",
+			service_name: "archived-worker",
+			region: "eu-central-1",
+			module: "content",
+		});
+		expect(JSON.parse(historicalPayload.streams[0]?.values[0]?.[1] ?? "null")).toMatchObject({
+			resource: historicalResource,
+		});
+		expect(currentPayload.streams[0]?.stream).toEqual({
+			level: "info",
+			service_name: "launchpad",
+			module: "content",
+		});
+		expect(JSON.parse(currentPayload.streams[0]?.values[0]?.[1] ?? "null")).toMatchObject({
+			resource: resourceAttributes,
+		});
+	});
+
+	it("replays canonical depth, independent budgets, and long historical identity unchanged", async () => {
+		const historicalResource = {
+			"service.name": "archived-service-".repeat(1200),
+			"service.instance.id": "old-instance-".repeat(1500),
+			...Object.fromEntries(
+				Array.from({ length: 7 }, (_, index) => [`attribute${index}`, "r".repeat(14000)]),
+			),
+		};
+		const canonical = parseLogRecord(
+			serializeLogRecord(
+				normalizeLogRecord(
+					logEntry({
+						metadata: {
+							deep: { a: { b: { c: { d: { e: { f: { leaf: "depth-eight" } } } } } } },
+							...JSON.parse(
+								'{"constructor":"own constructor","prototype":"own prototype","__proto__":"own proto"}',
+							),
+							...Object.fromEntries(
+								Array.from({ length: 8 }, (_, index) => [`field${index}`, "m".repeat(14000)]),
+							),
+						},
+					}),
+					historicalResource,
+				)._unsafeUnwrap(),
+			)._unsafeUnwrap(),
+		)._unsafeUnwrap();
+		const exporter = logExporter(
+			createLokiDestination({
+				url: "http://localhost:3100",
+				resourceLabels: {
+					"service.name": "service_name",
+					"service.instance.id": "service_instance_id",
+				},
+			}),
+		);
+		const result = await exporter.exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		const payload = JSON.parse(requestBody(fetchMock)) as {
+			streams: Array<{ stream: Record<string, string>; values: Array<[string, string]> }>;
+		};
+		expect(payload.streams[0]?.stream).toMatchObject({
+			service_name: historicalResource["service.name"],
+			service_instance_id: historicalResource["service.instance.id"],
+		});
+		const line = payload.streams[0]?.values[0]?.[1] ?? "null";
+		expect(JSON.parse(line)).toEqual(JSON.parse(serializeLogRecord(canonical)._unsafeUnwrap()));
+		expect(line).toContain("depth-eight");
+		expect(Buffer.byteLength(line)).toBeLessThanOrEqual(262144);
+	});
+
+	it("locally rejects an unrepresentable canonical resource instead of replacing identity", async () => {
+		const canonical = normalizeLogRecord(logEntry(), {
+			"service.name": "x".repeat(262144),
+		})._unsafeUnwrap();
+		const result = await logExporter().exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 1 });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("uses shared canonical byte bounding without discarding historical resource", async () => {
+		const canonical = normalizeLogRecord(
+			logEntry({
+				metadata: Object.fromEntries(
+					Array.from({ length: 8 }, (_, index) => [`field${index}`, "\0".repeat(16_000)]),
+				),
+			}),
+			resourceAttributes,
+		)._unsafeUnwrap();
+		const expected = serializeLogRecord(canonical)._unsafeUnwrap();
+		expect(Buffer.byteLength(expected)).toBeLessThanOrEqual(262_144);
+		expect(JSON.parse(expected).metadata).toHaveProperty("[Truncated]");
+		const result = await logExporter().exportCanonical!(
+			{ records: [canonical], resourceAttributes: canonical.resource },
+			{ signal: new AbortController().signal },
+		);
+		expect(result._unsafeUnwrap()).toEqual({ rejectedRecords: 0 });
+		const payload = JSON.parse(requestBody(fetchMock));
+		expect(payload.streams[0].values[0][1]).toBe(expected);
+		expect(JSON.parse(expected).resource).toEqual(resourceAttributes);
+	});
+
+	it.each([false, true])("redacts raw metadata with resource override=%s", async (override) => {
+		await logExporter().export(
+			[logEntry({ metadata: { password: "raw-secret", nested: { token: "raw-token" } } })],
+			{
+				signal: new AbortController().signal,
+				...(override ? { resourceAttributes: { "service.name": "old-instance" } } : {}),
+			},
+		);
+		const body = requestBody(fetchMock);
+		expect(body).not.toContain("raw-secret");
+		expect(body).not.toContain("raw-token");
+		expect(body).toContain("[REDACTED]");
 	});
 
 	it("indexes only service.name by default while retaining all resource metadata", async () => {
@@ -390,16 +586,25 @@ describe("createLokiDestination", () => {
 		expect(String(failure)).not.toContain("must-not-appear");
 	});
 
-	it("contains serialization errors in ResultAsync rather than throwing synchronously", async () => {
-		const exporter = logExporter();
-		const resultAsync = exporter.export([logEntry({ timestamp: new Date(Number.NaN) })], {
-			signal: new AbortController().signal,
-		});
+	it.each([false, true])(
+		"preserves raw serialization failures with resource override=%s",
+		async (override) => {
+			const exporter = logExporter();
+			const resultAsync = exporter.export([logEntry({ timestamp: new Date(Number.NaN) })], {
+				signal: new AbortController().signal,
+				...(override ? { resourceAttributes: { "service.name": "historical-service" } } : {}),
+			});
 
-		const result = await resultAsync;
-		expect(result.isErr()).toBe(true);
-		expect(fetchMock).not.toHaveBeenCalled();
-	});
+			const result = await resultAsync;
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr()).toMatchObject({
+				name: "DestinationFailure",
+				message: "Invalid structured log timestamp",
+				retryable: false,
+			});
+			expect(fetchMock).not.toHaveBeenCalled();
+		},
+	);
 
 	it("honors a pre-aborted signal and classifies cancellation as permanent", async () => {
 		const exporter = logExporter();

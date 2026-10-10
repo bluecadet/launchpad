@@ -221,6 +221,22 @@ describe("controller-execution", () => {
 			expect(vi.mocked(LaunchpadController).mock.instances[0]!.stop).not.toHaveBeenCalled();
 		});
 
+		it("returns controller ownership conflicts as result errors", async () => {
+			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
+			vi.mocked(LaunchpadController).mockImplementationOnce(() => {
+				throw new Error("Another controller is already active");
+			});
+
+			const result = await withDaemonOrController(baseDir, controllerConfig, {
+				mode: "task",
+				ifDaemon: vi.fn(),
+				otherwise: vi.fn(),
+			});
+
+			expect(result.isErr()).toBe(true);
+			expect(result._unsafeUnwrapErr().message).toContain("already active");
+		});
+
 		it("should return error if controller start fails", async () => {
 			vi.mocked(getDaemonPid).mockReturnValue(ok(null));
 			vi.mocked(LaunchpadController).mockImplementationOnce(

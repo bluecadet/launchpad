@@ -214,6 +214,8 @@ function buildObservabilitySetup(): string {
 		const observabilityPlugin = observabilityEndpoint
 			? observability({
 					// Optional: resource: { 'service.name': 'my-launchpad-service' },
+					// Logs resume from retained files by default. Opt out for ephemeral delivery:
+					// logStorage: { type: 'memory' },
 					destinations: [
 						createOtlpDestination({
 							endpoint: observabilityEndpoint,

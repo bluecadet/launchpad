@@ -26,11 +26,13 @@ import { buildObservabilitySection } from "./observability-summarize.js";
 
 export type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 export type {
+	CanonicalLogBatch,
 	DestinationContext,
 	DestinationExporters,
 	ExportContext,
 	ExportFailure,
 	ExportResult,
+	LogExportContext,
 	LogExporter,
 	MetricBatch,
 	MetricExporter,
@@ -59,12 +61,14 @@ export type {
 	DeliveryConfig,
 	DestinationObservabilityConfig,
 	LegacyObservabilityConfig,
+	LogStorageConfig,
 	ObservabilityConfig,
 	ObservabilityCoreConfig,
 	ObservationConfig,
 	ResolvedDeliveryConfig,
 	ResolvedDestinationObservabilityConfig,
 	ResolvedLegacyObservabilityConfig,
+	ResolvedLogStorageConfig,
 	ResolvedObservabilityConfig,
 	ResolvedObservabilityCoreConfig,
 	ResolvedObservationConfig,
@@ -73,6 +77,7 @@ export {
 	deliveryConfigSchema,
 	destinationObservabilityConfigSchema,
 	legacyObservabilityConfigSchema,
+	logStorageConfigSchema,
 	observabilityConfigSchema,
 	observabilityCoreConfigSchema,
 	observabilityDestinationsSchema,
@@ -81,6 +86,7 @@ export {
 } from "./observability-config.js";
 export type { ObservabilityEvents } from "./observability-events.js";
 export type {
+	DestinationLogSourceStatus,
 	DestinationSignal,
 	DestinationSignalState,
 	DestinationSignalStatus,

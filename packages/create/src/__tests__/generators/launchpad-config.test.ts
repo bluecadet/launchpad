@@ -194,6 +194,12 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("// encoding: 'protobuf', // Optional; defaults to JSON.");
 		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined");
 		expect(result).toContain("// Optional: resource: { 'service.name': 'my-launchpad-service' },");
+		expect(result).toContain(
+			"// Logs resume from retained files by default. Opt out for ephemeral delivery:",
+		);
+		expect(result).toContain("// logStorage: { type: 'memory' },");
+		expect(result).not.toMatch(/^\s*logStorage:/m);
+		expect(result).not.toContain("type: 'file'");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_CLIENT");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_PROJECT");
 		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_INSTALLATION");
@@ -208,6 +214,9 @@ describe("generateLaunchpadConfig", () => {
 		expect(result).toContain("const observabilityPlugin = observabilityEndpoint");
 		expect(result).toContain("? observability({");
 		expect(result).toContain("...(observabilityPlugin ? [observabilityPlugin] : [])");
+		expect(result).toContain(
+			"const observabilityEndpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT",
+		);
 	});
 
 	it("evaluates an endpoint-backed config with an empty token as undefined", () => {

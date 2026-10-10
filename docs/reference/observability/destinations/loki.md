@@ -35,6 +35,8 @@ The destination always manages the `level`, `module`, and `event` labels; those 
 
 Every resource attribute remains available in the structured log line's `resource` object, whether or not it is mapped to a stream label. Each line also contains `schemaVersion: 1`, timestamp, event, level, message, optional module, and normalized metadata. Unsupported JSON values and circular references are represented safely, and oversized structures are truncated. Sensitive-key redaction is only a safeguard; read [Privacy and delivery limits](../privacy.md).
 
+With default file delivery, the destination derives its credential-free checkpoint key from the normalized Loki endpoint. Authentication, tenant headers, and label mapping do not affect that key. Changing only credentials preserves the checkpoint; changing the endpoint enrolls a new reader. Because Grafana gateways can use one URL for multiple tenant accounts, change the destination `name` when switching accounts. Replayed records preserve their stored timestamps and resource snapshots, so confirm that Loki accepts timestamps as old as the controller's retention window.
+
 ## Bluecadet fleet label recipe
 
 The following is an optional deployment policy for fleets that use Bluecadet's canonical resource keys. These fields are not required by the public observability model.

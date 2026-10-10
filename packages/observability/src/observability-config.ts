@@ -123,6 +123,15 @@ export const deliveryConfigSchema = z.object({
 export type DeliveryConfig = z.input<typeof deliveryConfigSchema>;
 export type ResolvedDeliveryConfig = z.output<typeof deliveryConfigSchema>;
 
+/** File delivery uses the controller-owned canonical log; memory captures live events only. */
+export const logStorageConfigSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("file") }).strict(),
+	z.object({ type: z.literal("memory") }).strict(),
+]);
+
+export type LogStorageConfig = z.input<typeof logStorageConfigSchema>;
+export type ResolvedLogStorageConfig = z.output<typeof logStorageConfigSchema>;
+
 const destinationSchema = z.custom<ObservabilityDestination>(
 	(value) =>
 		typeof value === "object" &&
@@ -227,6 +236,9 @@ export const legacyObservabilityConfigSchema = removedDeploymentGuardSchema.and(
 		delivery: forbiddenConfigField(
 			"Observability delivery requires destination-based configuration",
 		),
+		logStorage: forbiddenConfigField(
+			"Observability log storage configuration is only supported with destinations",
+		),
 	}),
 );
 
@@ -237,6 +249,8 @@ export const destinationObservabilityConfigSchema = removedDeploymentGuardSchema
 		destinations: observabilityDestinationsSchema,
 		metrics: z.union([z.literal(false), observationConfigSchema]).prefault({}),
 		delivery: deliveryConfigSchema.prefault({}),
+		/** Defaults to file-backed delivery. Select memory for live-only queues. */
+		logStorage: logStorageConfigSchema.prefault({ type: "file" }),
 		transports: forbiddenConfigField(
 			"Observability destinations and transports cannot be combined",
 		),

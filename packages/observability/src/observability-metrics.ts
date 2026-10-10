@@ -26,6 +26,20 @@ export function projectObservabilityMetrics(
 					attributes,
 				},
 			);
+			if (signal === "logs" && health.sourceStatus !== undefined) {
+				observations.push(
+					{
+						name: "launchpad.observability.source.records_lost_total",
+						value: health.totalSourceRecordsLost ?? 0,
+						attributes,
+					},
+					{
+						name: "launchpad.observability.source.unknown_gaps_total",
+						value: health.totalUnknownSourceGaps ?? 0,
+						attributes,
+					},
+				);
+			}
 			if (health.lastSuccessAt) {
 				observations.push({
 					name: "launchpad.observability.delivery.last_success_timestamp",

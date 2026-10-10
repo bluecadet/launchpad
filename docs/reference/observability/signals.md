@@ -4,6 +4,8 @@ title: "Observability Signal Catalog"
 
 Launchpad exports logs and finite, current-state gauge observations. Metrics are collected when the plugin becomes ready, every `metrics.intervalMs` in persistent mode, and once more during graceful shutdown. Event `include` and `exclude` patterns affect logs only.
 
+Destination logs replay from the controller's retained canonical file by default; `logStorage: { type: 'memory' }` opts out. Each replayed record keeps its original timestamp and resource snapshot. Metrics are never reconstructed or backfilled from that file; after restart they remain latest-state observations from the new process.
+
 Metrics are observations, not fleet assertions. Missing metrics can mean a plugin is absent, its state is unavailable, or a configured entity has not been observed. They do not describe desired applications, expected machines, or overall health.
 
 ## Attribute scopes
@@ -23,8 +25,10 @@ Plugins define their own primitive point attributes. `service.name` and `service
 | `launchpad.observability.delivery.dropped_total` | — | `destination`, `signal` | Records dropped during this process lifetime |
 | `launchpad.observability.delivery.queue_batches` | — | `destination`, `signal` | Batches currently queued |
 | `launchpad.observability.delivery.last_success_timestamp` | `ms` | `destination`, `signal` | Most recent successful export as Unix milliseconds; omitted until success |
+| `launchpad.observability.source.records_lost_total` | — | `destination`, `signal` | File-source records proven lost during this process; emitted for file-backed logs |
+| `launchpad.observability.source.unknown_gaps_total` | — | `destination`, `signal` | File-source gaps whose record count is unknown during this process; emitted for file-backed logs |
 
-The `_total` delivery observations are process-local gauges of current counters, not durable OTLP sums.
+The `_total` observations are process-local gauges of current counters, not durable OTLP sums. Parked or unavailable file-source status is exposed in the observability plugin's destination state and controller diagnostics. A loss total increases only when the exact number is known; otherwise the unknown-gap total increases.
 
 ## Content
 
@@ -63,4 +67,4 @@ Only configured jobs with scheduler state are emitted. Every scheduler observati
 
 Plugins can provide gauges through their `observe(state)` hook. Names must begin with a letter and contain only letters, digits, `_`, `.`, or `-`; values must be finite. Launchpad also bounds names, descriptions, and primitive attributes before delivery. Invalid observations are omitted so they cannot break a complete collection cycle.
 
-Launchpad does not currently export traces, histograms, percentiles, or automatic process CPU and memory measurements.
+Launchpad does not currently export traces, histograms, percentiles, or automatic process CPU and memory measurements. File-backed logs do not change this signal set.

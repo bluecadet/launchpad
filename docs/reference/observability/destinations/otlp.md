@@ -30,6 +30,8 @@ At least one signal is required and duplicates are rejected. The endpoint cannot
 
 Authentication, batching, resource attributes, partial-success handling, and retries work the same for both encodings. The destination accepts HTTP 200 as OTLP success and reads OTLP partial-success rejection counts. It marks HTTP 429, 502, 503, and 504 as retryable and honors `Retry-After`; other non-200 statuses are permanent failures. Requests still remain bounded by `delivery.deliveryTimeoutMs` and queue limits. Payload compression is not configured by `encoding`.
 
+With default file delivery, the destination derives its credential-free checkpoint key from the normalized endpoint. Token, headers, encoding, and signal selection do not affect that key. Changing only credentials preserves the checkpoint; changing the endpoint enrolls a new reader. If two accounts share one endpoint, change the destination `name` when switching accounts. Replayed OTLP records preserve their stored timestamps and resource snapshots. Confirm that the receiver accepts timestamps as old as the controller's retention window.
+
 Logs use the `@bluecadet/launchpad-observability` instrumentation scope. Metadata is bounded, normalized, and key-redacted before encoding. Every configured resource attribute is encoded in the OTLP resource for both logs and metrics. Metric-point attributes remain a separate scope and are not populated from the resource. Metrics are OTLP gauges. Invalid or non-finite records are rejected rather than sent.
 
 Backends differ in how they expose OTLP resource attributes as queryable labels. Configure resource-to-label mapping in your collector when dashboards or alerts depend on those labels.

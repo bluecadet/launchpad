@@ -33,6 +33,8 @@ resource: { 'service.name': 'my-launchpad-service' },
 
 You can add other flat primitive resource attributes when your deployment policy requires them.
 
+Once the endpoint is set, logs use the controller's retained canonical JSONL and per-destination checkpoints by default. The generated block includes a commented `logStorage: { type: 'memory' }` opt-out for ephemeral delivery. New destinations backfill from the oldest retained record, which can increase ingestion costs or encounter backend timestamp limits; see the [delivery reference](https://launchpad.bluecadet.com/reference/observability/observability-config). The plugin is still omitted unless `LAUNCHPAD_OBSERVABILITY_ENDPOINT` is set.
+
 ## Docs
 
 See [Creating a Project](https://bluecadet.github.io/launchpad/guides/creating-a-project) for full documentation.

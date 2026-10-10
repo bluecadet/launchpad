@@ -51,7 +51,7 @@ Log selection uses `include` and `exclude`; the default is `include: ['log:*']`.
 
 Gauges describe the state observed at collection time. They are not health checks, desired state, or evidence that every expected machine or app exists. In particular, Launchpad does not export an overall content-freshness or generated-at guarantee.
 
-Delivery is best effort. Queues are bounded in memory, requests have deadlines, and shutdown has a separate deadline. A process exit, full queue, expired deadline, or permanently rejected record can lose telemetry. Configure durable buffering in the collector when delivery guarantees matter.
+Configured destinations deliver logs from the controller-owned canonical JSONL with a durable checkpoint per destination by default. A new destination backfills from the oldest retained record, which can increase ingestion costs or encounter backend timestamp rejection. Set `logStorage: { type: 'memory' }` for ephemeral delivery or custom exporters without replay support. The default source contains canonical records only, not all raw custom bus events; event filters cannot recover events the controller did not record. An unavailable file source does not trigger a memory fallback. File delivery can replay retained logs after restart, but retention, disk failures, backend rejection, and ambiguous acknowledgements still prevent exactly-once or lossless guarantees. Metrics remain latest-state in-memory snapshots.
 
 ## Next steps
 

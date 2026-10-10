@@ -5,6 +5,12 @@
 			"@bluecadet/launchpad-testing/vitest.d.ts"
 		]
 	},
+	"include": [
+		"${configDir}/src/**/*.test.ts",
+		"${configDir}/src/**/__tests__",
+		"${configDir}/vitest.config.ts",
+		"${configDir}/src/core/fs-native-extensions.d.ts"
+	],
 	"references": [
 		{
 			"path": "./tsconfig.src.json"

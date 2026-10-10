@@ -706,17 +706,21 @@ class FileSourceState {
 		clearTimeout(this.maintenanceTimer);
 		this.maintenanceTimer = undefined;
 		this.closePromise ??= this.operations.enqueue(async () => {
+			let failure: Error | undefined;
 			try {
 				await this.sealActive();
 				await this.enforceRetention();
 			} catch (error) {
-				this.statusState.available = false;
-				this.statusState.lastError = `Log source close failed: ${errorMessage(error)}`;
-				safeDiagnostic(this.onDiagnostic, this.statusState.lastError);
-				throw error;
+				failure = ensureError(error);
 			} finally {
-				this.lock.release();
+				const released = this.lock.release();
+				if (released?.isErr()) failure ??= released.error;
 			}
+			if (!failure) return;
+			this.statusState.available = false;
+			this.statusState.lastError = `Log source close failed: ${failure.message}`;
+			safeDiagnostic(this.onDiagnostic, this.statusState.lastError);
+			throw failure;
 		});
 		return ResultAsync.fromPromise(awaitWithSignal(this.closePromise, signal), ensureError);
 	}
@@ -726,19 +730,21 @@ class FileSourceState {
 export function createLogFileSource(
 	options: LogFileSourceOptions,
 ): Result<LogFileSourceOwner, Error> {
-	return Result.fromThrowable(() => {
-		const directory = path.resolve(options.directory);
-		const lock = acquireLogDirectoryLock(directory);
-		try {
-			const state = new FileSourceState({ ...options, directory }, lock);
-			return {
-				source: state.source,
-				append: (record: NormalizedLogRecord, textLine?: string) => state.append(record, textLine),
-				close: (signal: AbortSignal) => state.close(signal),
-			};
-		} catch (error) {
-			lock.release();
-			throw error;
-		}
-	}, ensureError)();
+	return Result.fromThrowable(() => path.resolve(options.directory), ensureError)().andThen(
+		(directory) =>
+			acquireLogDirectoryLock(directory).andThen((lock) =>
+				Result.fromThrowable(() => {
+					const state = new FileSourceState({ ...options, directory }, lock);
+					return {
+						source: state.source,
+						append: (record: NormalizedLogRecord, textLine?: string) =>
+							state.append(record, textLine),
+						close: (signal: AbortSignal) => state.close(signal),
+					};
+				}, ensureError)().mapErr((error) => {
+					lock.release();
+					return error;
+				}),
+			),
+	);
 }

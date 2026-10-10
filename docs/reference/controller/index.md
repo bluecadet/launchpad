@@ -84,6 +84,18 @@ The controller only dispatches commands that have been explicitly registered. La
 
 The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
 
+### Process ownership
+
+Only one controller may be active for a configured project identity, whether it runs in task or persistent mode. Construction does not open files or acquire ownership. The first `registerPlugin()` or `start()` acquires an operating-system lease at `<resolved pidFile>.lock` before initializing file logging or running plugin setup. Contention, filesystem errors, and unavailable native locking return an error through the lifecycle method's `ResultAsync`; the constructor does not throw for these failures.
+
+Overlapping calls to `start()` share one startup attempt. If startup fails, the controller aborts its signal, waits for registered plugins to disconnect, and closes logging before releasing ownership. `stop()` performs the same resource cleanup even if plugins were registered before startup or registration failed. When startup is still pending, `stop()` waits for that attempt before shutting down. The `stop` workflow runs only for a started controller.
+
+Ownership is released only after plugin shutdown and physical logging I/O settle. Always call and await `stop()` when disposing a controller, including after failed registration. The logging-close wait is bounded: a timeout emits a warning and lets `stop()` finish, but any pending canonical or checkpoint I/O continues to hold both the project and log-directory leases. A successor's `start()` or `registerPlugin()` therefore returns a contention error until that I/O settles; shutdown does not cancel it or release ownership early. A stopped controller cannot be restarted or accept new plugins; construct a new controller for another run. If the process crashes, the operating system releases the leases automatically.
+
+The adjacent PID file is persistent-daemon discovery metadata, not the ownership authority. It remains absent for task runs. The lease file is permanent and must not be deleted, renamed, or replaced; its presence does not mean a controller is active.
+
+This closes startup races that a PID existence check cannot prevent. Concurrent task commands do not run a second local controller, and a task controller cannot overlap a persistent controller that uses the same resolved `pidFile` identity.
+
 ### Host-Owned Workflows
 
 Hosts declare startup and shutdown orchestration in config and hand it to the controller:
@@ -189,7 +201,7 @@ Ephemeral controller instances for one-off operations:
 5. Execute command(s)
 6. Stop controller
 
-This mode is used when no persistent controller is running, allowing the CLI to operate independently.
+This mode is used when no persistent controller is running. It uses the same project ownership lease as persistent mode, so overlapping task runs fail instead of mutating project resources concurrently.
 
 ### Persistent Mode
 
@@ -198,7 +210,7 @@ Long-running controller that stays active to handle multiple commands:
 - Started with `launchpad start` (optionally detached with `-d`)
 - Registers plugins, then runs the ready phase (`ready()`) once all of them are set up — this is where, for example, the content plugin's startup announcement feeds the HTTP/SSE transport's replay backlog
 - Opens IPC socket for inter-process communication
-- Stores PID in a file for tracking
+- Holds the project ownership lease and stores PID metadata for discovery
 - Handles multiple CLI commands without reinitializing
 - Gracefully shuts down with `launchpad stop`
 

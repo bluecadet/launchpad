@@ -1,83 +1,62 @@
 ---
-title: "@bluecadet/launchpad-observability"
+title: "Observability"
 ---
 
 [github](https://github.com/bluecadet/launchpad/tree/main/packages/observability) ·
 [npm](https://www.npmjs.com/package/@bluecadet/launchpad-observability) ·
 [changelog](https://github.com/bluecadet/launchpad/blob/main/packages/observability/CHANGELOG.md)
 
-The observability package forwards launchpad logs and lifecycle events to external log aggregation backends. It captures events from the controller event bus, normalizes them into structured log entries, and delivers them in batches to one or more configurable transports.
+The observability plugin exports structured logs and current-state gauges to endpoints you control. Launchpad does not provide a collector, storage service, fleet inventory, or dashboard.
 
-## Features
-
-- **Log forwarding**: Captures all `log:*` events — info, warn, error, debug, verbose — with module scoping preserved
-- **Lifecycle events**: Forwards command, workflow, monitor, and system events alongside logs for full operational visibility
-- **Grafana Loki transport**: Built-in HTTP push transport with stream label grouping, basic/bearer auth, and custom header support
-- **Configurable filtering**: Include/exclude events by name pattern with glob wildcard support (e.g. `log:*`, `monitor:app:*`)
-- **Resilient delivery**: Batched delivery with exponential backoff retries and a bounded in-memory buffer — data survives transient outages
-- **Custom transports**: Implement the `ObservabilityTransport` interface to send logs to any backend (Datadog, OpenTelemetry, Elasticsearch, etc.)
-
-## Installation
-
-```bash
-npm install @bluecadet/launchpad
-```
-
-## JS API Usage
+## Quick start: OTLP/HTTP
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
 import { observability } from '@bluecadet/launchpad/observability';
-import { createLokiTransport } from '@bluecadet/launchpad/observability/transports/loki';
+import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';
+
+const endpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
+const token = process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined;
+
+if (!endpoint) {
+  throw new Error('LAUNCHPAD_OBSERVABILITY_ENDPOINT is required');
+}
 
 export default defineConfig({
   plugins: [
     observability({
-      transports: [
-        createLokiTransport({
-          url: 'http://loki:3100',
-          defaultLabels: {
-            app: 'my-installation',
-            env: 'production',
-          },
-        }),
-      ],
+      // Optional. Omit resource to use service.name = 'launchpad'.
+      resource: { 'service.name': 'museum-kiosk' },
+      destinations: [createOtlpDestination({ endpoint, encoding: 'protobuf', token })],
     }),
   ],
 });
 ```
 
-## Configuration
+This setup sends logs and periodic gauges as binary OTLP/HTTP protobuf, not gRPC. The recipient must support the selected encoding. Omit `encoding` to use the default OTLP/HTTP JSON encoding. `resource` is optional; Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
 
-Observability is configured through an `ObservabilityConfig` object:
+## Choose a destination
 
-- **transports**: Array of transport instances to send logs to
-- **include / exclude**: Event name patterns controlling which events are forwarded
-- **batch**: Flush interval and maximum batch size
-- **buffer**: Retry count and in-memory buffer cap for failed batches
+| Destination | Signals | Use it when |
+|---|---|---|
+| [OTLP/HTTP](./destinations/otlp.md) | Logs and metrics | Your collector or vendor accepts OTLP JSON or protobuf over HTTP |
+| [Loki](./destinations/loki.md) | Logs only | You send logs directly to Grafana Loki |
+| [Custom](./custom-destinations.md) | Logs, metrics, or both | You need another protocol or backend |
 
-See the [Observability Config](./observability-config.md) section for all options.
+Traces, histograms, and percentiles are not implemented. A destination that requests an unsupported signal fails configuration validation rather than silently ignoring it.
 
-## Error Handling
+## How collection works
 
-The package uses `neverthrow` for reliable error handling. Push failures are retried with exponential backoff and emitted as `observability:push:error` events. When the retry buffer fills up, the oldest batches are dropped and `observability:push:dropped` is emitted. See [Events](./events.md) for the full event reference.
+Log selection uses `include` and `exclude`; the default is `include: ['log:*']`. Metric collection is independent of those event filters. Every observation cycle asks the controller and registered plugins for bounded gauges derived from their current state.
 
-## Custom Transports
+Gauges describe the state observed at collection time. They are not health checks, desired state, or evidence that every expected machine or app exists. In particular, Launchpad does not export an overall content-freshness or generated-at guarantee.
 
-Any backend can be supported by implementing `ObservabilityTransport`:
+Delivery is best effort. Queues are bounded in memory, requests have deadlines, and shutdown has a separate deadline. A process exit, full queue, expired deadline, or permanently rejected record can lose telemetry. Configure durable buffering in the collector when delivery guarantees matter.
 
-```typescript
-import type { ObservabilityTransport } from '@bluecadet/launchpad/observability';
+## Next steps
 
-const myTransport: ObservabilityTransport = {
-  name: 'my-backend',
-  push(batch) {
-    // send batch to your backend
-    return ResultAsync.fromPromise(sendToBackend(batch), (e) => e as Error);
-  },
-};
-
-observability({ transports: [myTransport] });
-```
-
-See [Transports](./transports/loki.md) for the built-in Loki transport.
+- [Configuration](./observability-config.md)
+- [Signal catalog](./signals.md)
+- [Custom destinations](./custom-destinations.md)
+- [Migrate from transports](./migration.md)
+- [Privacy and delivery limits](./privacy.md)

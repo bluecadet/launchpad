@@ -89,6 +89,10 @@ export async function main(): Promise<void> {
 				{ value: "content", label: "Content  – fetch & transform data from CMS/APIs" },
 				{ value: "monitor", label: "Monitor  – manage app processes via PM2" },
 				{ value: "scheduler", label: "Scheduler  – dispatch commands on a schedule" },
+				{
+					value: "observability",
+					label: "Observability  – send logs and metrics to your OTLP endpoint",
+				},
 			],
 			required: true,
 		}),
@@ -97,6 +101,7 @@ export async function main(): Promise<void> {
 	const useContent = plugins.includes("content");
 	const useMonitor = plugins.includes("monitor");
 	const useScheduler = plugins.includes("scheduler");
+	const useObservability = plugins.includes("observability");
 
 	let contentSources: ContentSource[] = [];
 	let contentTransforms: ContentTransform[] = [];
@@ -174,6 +179,7 @@ export async function main(): Promise<void> {
 		useContent,
 		useMonitor,
 		useScheduler,
+		useObservability,
 		contentSources,
 		contentTransforms,
 		monitorApps,

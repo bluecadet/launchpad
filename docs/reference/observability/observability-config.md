@@ -1,79 +1,120 @@
 ---
 title: "Observability Config"
 ---
-The `ObservabilityConfig` object is passed directly to the `observability()` plugin factory.
 
-## `transports`
+`observability()` accepts destination mode or the legacy transport mode. Do not configure `destinations` and `transports` together.
 
-**Type:** `ObservabilityTransport[]`  
+## Destination mode
+
+```typescript
+observability({
+  resource: {
+    'service.name': 'museum-kiosk',
+    'launchpad.client': 'museum',
+    'launchpad.project': 'west-wing',
+    'launchpad.installation': 'lobby-kiosk',
+    'deployment.environment.name': 'production',
+    region: 'us-east',
+  },
+  destinations: [destination],
+  include: ['log:*'],
+  exclude: [],
+  metrics: { intervalMs: 30_000 },
+  delivery: {
+    deliveryTimeoutMs: 5_000,
+    shutdownTimeoutMs: 3_000,
+    maxQueuedBatches: 50,
+  },
+});
+```
+
+### `resource`
+
+**Type:** `Readonly<Record<string, string | number | boolean>>`
+
+**Required:** No
+
+A flat set of resource attributes attached to every exported log and metric. Attribute names and meanings are caller-defined; Launchpad does not give special meaning to client, project, installation, organization, or environment attributes.
+
+Launchpad supplies only these defaults:
+
+| Resource attribute | Default | Configuration behavior |
+|---|---|---|
+| `service.name` | `'launchpad'` | May be replaced with a nonblank string |
+| `service.instance.id` | A runtime-generated UUID | Runtime-owned; configuring it is rejected |
+
+The runtime generates a new `service.instance.id` during each plugin setup. No other resource attributes are added automatically. The own key `__proto__` is rejected to prevent prototype-key data loss.
+
+A resource can contain at most 64 configured attributes. Keys must be nonempty and at most 128 characters. String values are limited to 1,024 characters, and number values must be finite. Nested objects, arrays, `null`, and `undefined` are not supported.
+
+Resource attributes and metric-point attributes are separate scopes. Resource attributes are attached to every signal but are not copied into each metric point. Metric points retain their own bounded `attributes`; only `service.name` and `service.instance.id` are reserved there.
+
+### `destinations`
+
+**Type:** `readonly ObservabilityDestination[]`
+
 **Required:** Yes
 
-Array of transport instances to forward log entries to. Create Loki transports with [`createLokiTransport()`](./transports/loki.md). Implement `ObservabilityTransport` directly for custom backends.
+At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics. The name `__proto__` is rejected.
 
-```typescript
-import { createLokiTransport } from '@bluecadet/launchpad/observability/transports/loki';
+### `include`
 
-observability({
-  transports: [
-    createLokiTransport({ url: 'http://loki:3100', defaultLabels: { app: 'kiosk' } }),
-  ],
-});
-```
+**Type:** `string[]`
 
-## `include`
+**Default:** `['log:*']`
 
-**Type:** `string[]`  
-**Default:** `["log:*"]`
+Event-name patterns to export as logs. `*` is a wildcard. An empty array includes all events.
 
-Event name patterns to forward. Supports `*` wildcards. An empty array forwards all events.
-
-```typescript
-// Also forward lifecycle events alongside logs
-observability({
-  transports: [...],
-  include: ['log:*', 'command:*', 'workflow:*', 'monitor:*', 'system:*'],
-});
-```
-
-## `exclude`
+### `exclude`
 
 **Type:** `string[]`  
 **Default:** `[]`
 
-Event name patterns to suppress. Takes precedence over `include`. Useful for silencing noisy events while keeping a broad include list.
+Event-name patterns to suppress. Exclusions take precedence over inclusions.
+
+`include` and `exclude` affect logs only. They do not enable, disable, or filter metrics.
+
+### `batch`
+
+| Field | Type | Default | Meaning |
+|---|---|---:|---|
+| `intervalMs` | `number` | `1000` | Maximum wait before flushing a log batch |
+| `maxEntries` | `number` | `100` | Log entries that force a flush |
+
+### `buffer`
+
+| Field | Type | Default | Meaning |
+|---|---|---:|---|
+| `maxBatches` | `number` | `50` | Failed-log batch limit in legacy transport mode |
+| `maxRetries` | `number` | `3` | Log retry limit in either mode |
+
+In destination mode, `delivery.maxQueuedBatches` bounds each signal queue. Metric batches coalesce to the latest queued observation and are not retried.
+
+### `metrics`
+
+**Type:** `false | { intervalMs?: number }`
+
+**Default:** `{ intervalMs: 30_000 }`
+
+Set `false` to disable gauge collection. `intervalMs` must be a positive integer no greater than `2_147_483_647`.
+
+### `delivery`
+
+| Field | Type | Default | Meaning |
+|---|---|---:|---|
+| `deliveryTimeoutMs` | `number` | `5000` | Deadline for one destination export request |
+| `shutdownTimeoutMs` | `number` | `3000` | Deadline used for queue flushes and destination shutdown work |
+| `maxQueuedBatches` | `number` | `50` | Maximum queued batches held in memory |
+
+All values must be positive integers. `maxQueuedBatches` cannot exceed 10,000.
+
+## Legacy transport mode
 
 ```typescript
-// Forward everything except verbose/debug logs
 observability({
-  transports: [...],
-  exclude: ['log:verbose', 'log:debug'],
+  transports: [createLokiTransport({ url: 'http://localhost:3100' })],
+  include: ['log:*'],
 });
 ```
 
-## `batch.intervalMs`
-
-**Type:** `number`  
-**Default:** `1000`
-
-How often (in milliseconds) to flush the batch buffer to transports, regardless of batch size. Lower values reduce latency; higher values reduce HTTP overhead.
-
-## `batch.maxEntries`
-
-**Type:** `number`  
-**Default:** `100`
-
-Maximum number of log entries to accumulate before a forced flush. When this threshold is hit, the batch is sent immediately without waiting for `intervalMs`.
-
-## `buffer.maxBatches`
-
-**Type:** `number`  
-**Default:** `50`
-
-Maximum number of failed batches to hold in memory while retrying. When this limit is exceeded, the oldest batch is dropped and `observability:buffer:full` is emitted.
-
-## `buffer.maxRetries`
-
-**Type:** `number`  
-**Default:** `3`
-
-Maximum number of retry attempts per failed batch. Retries use exponential backoff starting at 1 second. After all retries are exhausted, the batch is dropped and `observability:push:dropped` is emitted.
+Legacy mode is logs-only and preserves the existing batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, and `delivery` options belong to destination mode and are rejected in legacy mode. See [Migrate from transports](./migration.md) before switching an existing deployment.

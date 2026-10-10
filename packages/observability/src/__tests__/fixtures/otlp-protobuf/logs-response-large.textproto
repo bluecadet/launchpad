@@ -1,0 +1,4 @@
+partial_success {
+  rejected_log_records: 9223372036854775807
+  error_message: "large count"
+}

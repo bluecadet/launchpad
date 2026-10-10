@@ -43,6 +43,10 @@
     "./status-format": {
       "types": "./dist/status-format.d.ts",
       "default": "./dist/status-format.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "default": "./dist/telemetry.js"
     }
   },
   "files": [

@@ -1,2 +1,3 @@
 * text=auto
 * text eol=lf
+packages/observability/src/__tests__/fixtures/otlp-protobuf/*.bin binary

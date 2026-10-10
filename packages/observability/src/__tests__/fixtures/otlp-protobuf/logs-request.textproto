@@ -1,0 +1,49 @@
+resource_logs {
+  resource {
+    attributes {
+      key: "service.name"
+      value { string_value: "codec-test" }
+    }
+    attributes {
+      key: "signed"
+      value { int_value: -9007199254740993 }
+    }
+    dropped_attributes_count: 2
+  }
+  scope_logs {
+    scope {
+      name: "codec-scope"
+      version: "1.2.3"
+      attributes {
+        key: "scope.enabled"
+        value { bool_value: true }
+      }
+      dropped_attributes_count: 1
+    }
+    log_records {
+      time_unix_nano: 1718452800123000000
+      severity_number: SEVERITY_NUMBER_ERROR
+      severity_text: "ERROR"
+      body {
+        kvlist_value {
+          values {
+            key: "nested"
+            value {
+              array_value {
+                values { string_value: "alpha" }
+                values { int_value: -42 }
+                values { double_value: -0.0 }
+              }
+            }
+          }
+        }
+      }
+      attributes {
+        key: "event"
+        value { string_value: "codec:test" }
+      }
+    }
+    schema_url: "https://example.test/scope/1.0"
+  }
+  schema_url: "https://example.test/resource/1.0"
+}

@@ -1,11 +1,12 @@
 {
   "name": "@bluecadet/launchpad-observability",
   "version": "3.0.2",
-  "description": "Observability plugin for @bluecadet/launchpad — forwards logs and events to external aggregators",
+  "description": "Observability plugin for @bluecadet/launchpad — exports logs and metrics to external backends",
   "type": "module",
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts"
+    "dist/**/*.d.ts",
+    "THIRD_PARTY_LICENSES.txt"
   ],
   "exports": {
     ".": {
@@ -15,6 +16,14 @@
     "./transports/loki": {
       "types": "./dist/transports/loki.d.ts",
       "default": "./dist/transports/loki.js"
+    },
+    "./destinations/loki": {
+      "types": "./dist/destinations/loki.d.ts",
+      "default": "./dist/destinations/loki.js"
+    },
+    "./destinations/otlp": {
+      "types": "./dist/destinations/otlp.d.ts",
+      "default": "./dist/destinations/otlp.js"
     },
     "./config": {
       "types": "./dist/observability-config.d.ts",
@@ -51,6 +60,7 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~3.2.0",
     "neverthrow": "^8.2.0",
+    "protobufjs": "^8.8.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

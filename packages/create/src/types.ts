@@ -22,6 +22,7 @@ export interface Answers {
 	useContent: boolean;
 	useMonitor: boolean;
 	useScheduler: boolean;
+	useObservability?: boolean;
 	contentSources: ContentSource[];
 	contentTransforms: ContentTransform[];
 	monitorApps: MonitorAppAnswers[];

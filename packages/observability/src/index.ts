@@ -3,35 +3,99 @@ import {
 	definePlugin,
 	type PluginContext,
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
+import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import type { LaunchpadState, Section } from "@bluecadet/launchpad-utils/types";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { Batcher } from "./core/batcher.js";
+import { createDestinationRuntime } from "./core/destination-runtime.js";
 import { makeEventFilter } from "./core/event-filter.js";
 import { eventToLogEntry, type LogEntry } from "./core/log-entry.js";
 import { RetryBuffer } from "./core/retry-buffer.js";
+import type { ObservabilityTransport } from "./core/transport.js";
 import {
-	type ObservabilityCoreConfig,
-	observabilityCoreConfigSchema,
+	type ObservabilityConfig,
+	observabilityConfigSchema,
+	type ResolvedDestinationObservabilityConfig,
+	type ResolvedObservabilityConfig,
 } from "./observability-config.js";
 import "./observability-events.js";
 import { type ObservabilityCommand, observabilityCommandSchema } from "./observability-commands.js";
+import { projectObservabilityMetrics } from "./observability-metrics.js";
 import { type ObservabilityState, ObservabilityStateManager } from "./observability-state.js";
 import { buildObservabilitySection } from "./observability-summarize.js";
 
+export type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
+export type {
+	DestinationContext,
+	DestinationExporters,
+	ExportContext,
+	ExportFailure,
+	ExportResult,
+	LogExporter,
+	MetricBatch,
+	MetricExporter,
+	ObservabilityDestination,
+	ResourceAttributes,
+} from "./core/destination.js";
 export type { LogEntry, LogLevel } from "./core/log-entry.js";
 export type { ObservabilityTransport } from "./core/transport.js";
+export type {
+	LokiDestinationAuth,
+	LokiDestinationConfig,
+	ResolvedLokiDestinationConfig,
+} from "./destinations/loki.js";
+export {
+	createLokiDestination,
+	lokiDestinationConfigSchema,
+} from "./destinations/loki.js";
+export type {
+	OtlpDestinationConfig,
+	OtlpEncoding,
+	OtlpSignal,
+} from "./destinations/otlp.js";
+export { createOtlpDestination } from "./destinations/otlp.js";
 export type { ObservabilityCommand, ObservabilityFlushCommand } from "./observability-commands.js";
-export type { ObservabilityCoreConfig } from "./observability-config.js";
-export { observabilityCoreConfigSchema } from "./observability-config.js";
+export type {
+	DeliveryConfig,
+	DestinationObservabilityConfig,
+	LegacyObservabilityConfig,
+	ObservabilityConfig,
+	ObservabilityCoreConfig,
+	ObservationConfig,
+	ResolvedDeliveryConfig,
+	ResolvedDestinationObservabilityConfig,
+	ResolvedLegacyObservabilityConfig,
+	ResolvedObservabilityConfig,
+	ResolvedObservabilityCoreConfig,
+	ResolvedObservationConfig,
+} from "./observability-config.js";
+export {
+	deliveryConfigSchema,
+	destinationObservabilityConfigSchema,
+	legacyObservabilityConfigSchema,
+	observabilityConfigSchema,
+	observabilityCoreConfigSchema,
+	observabilityDestinationsSchema,
+	observationConfigSchema,
+	resourceAttributesSchema,
+} from "./observability-config.js";
 export type { ObservabilityEvents } from "./observability-events.js";
-export type { ObservabilityState, TransportState, TransportStatus } from "./observability-state.js";
+export type {
+	DestinationSignal,
+	DestinationSignalState,
+	DestinationSignalStatus,
+	DestinationState,
+	ObservabilityState,
+	TransportState,
+	TransportStatus,
+} from "./observability-state.js";
 export { createLokiTransport } from "./transports/loki.js";
 
-import type { ObservabilityTransport } from "./core/transport.js";
-
-export type ObservabilityConfig = ObservabilityCoreConfig & {
-	transports: ObservabilityTransport[];
-};
+function isDestinationConfig(
+	config: ResolvedObservabilityConfig,
+): config is ResolvedDestinationObservabilityConfig {
+	return config.destinations !== undefined;
+}
 
 export function observability(config: ObservabilityConfig) {
 	return definePlugin({
@@ -61,17 +125,45 @@ export function observability(config: ObservabilityConfig) {
 			return buildObservabilitySection(obsState);
 		},
 
+		observe(state: LaunchpadState): readonly MetricObservation[] {
+			return projectObservabilityMetrics(state.plugins.observability);
+		},
+
 		setup(ctx: PluginContext<ObservabilityState>) {
-			const coreConfigResult = observabilityCoreConfigSchema.safeParse(config);
-			if (!coreConfigResult.success) {
+			const configResult = observabilityConfigSchema.safeParse(config);
+			if (!configResult.success) {
 				return errAsync(
-					new Error("Invalid observability configuration", { cause: coreConfigResult.error }),
+					new Error(`Invalid observability configuration: ${configResult.error.message}`, {
+						cause: configResult.error,
+					}),
 				);
 			}
 
-			const resolved = coreConfigResult.data;
+			const resolvedConfig: ResolvedObservabilityConfig = configResult.data;
+			if (isDestinationConfig(resolvedConfig)) {
+				return createDestinationRuntime(resolvedConfig, ctx).map((runtime) => {
+					runtime.start();
+					return {
+						ready: () => runtime.ready(),
+						executeCommand(command: ObservabilityCommand): ResultAsync<void, Error> {
+							const parsed = observabilityCommandSchema.safeParse(command);
+							if (!parsed.success) {
+								return errAsync(
+									new Error(`Invalid observability command: ${parsed.error.message}`),
+								);
+							}
+							return runtime.flush();
+						},
+						disconnect(_reason: DisconnectReason): ResultAsync<void, Error> {
+							return runtime.disconnect();
+						},
+					};
+				});
+			}
+
+			const resolved = resolvedConfig;
 			const eventFilter = makeEventFilter(resolved.include, resolved.exclude);
-			const { transports } = config;
+			const transports = resolved.transports;
 
 			if (transports.length === 0) {
 				ctx.logger.warn("observability plugin configured with no transports");
@@ -200,6 +292,7 @@ export function observability(config: ObservabilityConfig) {
 			});
 
 			const eventHandler = (event: string, data: unknown) => {
+				if (event.startsWith("observability:")) return;
 				if (!eventFilter(event)) return;
 				// Skip log events emitted by this plugin itself to prevent a feedback loop
 				// where push failure warnings get captured, batched, and pushed (also failing).
@@ -212,6 +305,10 @@ export function observability(config: ObservabilityConfig) {
 			batcher.start();
 
 			return okAsync({
+				ready(): ResultAsync<void, Error> {
+					return okAsync();
+				},
+
 				executeCommand(command: ObservabilityCommand): ResultAsync<void, Error> {
 					const parsed = observabilityCommandSchema.safeParse(command);
 					if (!parsed.success) {

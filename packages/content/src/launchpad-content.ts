@@ -14,6 +14,7 @@ import {
 	type ResolvedContentConfig,
 } from "./content-config.js";
 import { buildVersionPromotedPayload } from "./content-events.js";
+import { projectContentMetrics } from "./content-metrics.js";
 import { type ContentState, ContentStateManager } from "./content-state.js";
 import { buildContentSection } from "./content-summarize.js";
 import { ContentError } from "./content-transform.js";
@@ -340,6 +341,8 @@ function announceActiveVersion(ctx: ContentActionContext): ResultAsync<void, nev
  * Use this in your launchpad config's plugins array.
  */
 export function content(config: ContentConfig) {
+	const configuredSourceIds = new Set<string>();
+
 	return definePlugin({
 		name: "content",
 		manifest: {
@@ -369,6 +372,9 @@ export function content(config: ContentConfig) {
 			if (!contentState) return null;
 			return buildContentSection(contentState);
 		},
+		observe(state: LaunchpadState) {
+			return projectContentMetrics(state.plugins.content, configuredSourceIds);
+		},
 		setup(ctx: PluginContext<ContentState>) {
 			return parseContentConfig(config)
 				.andTee((resolvedConfig) => {
@@ -394,6 +400,9 @@ export function content(config: ContentConfig) {
 						}
 						sourceRegistry.set(source.id, source);
 					}
+
+					configuredSourceIds.clear();
+					for (const sourceId of sourceRegistry.keys()) configuredSourceIds.add(sourceId);
 
 					const sourceIds = resolvedConfig.sources.map((s) => s.id);
 					stateManager.initializeSources(sourceIds);

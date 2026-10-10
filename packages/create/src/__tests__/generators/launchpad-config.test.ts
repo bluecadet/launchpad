@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { generateLaunchpadConfig } from "../../generators/launchpad-config.js";
 import type { Answers } from "../../types.js";
 
@@ -13,6 +13,61 @@ const baseAnswers: Answers = {
 	monitorApps: [],
 	addGitignore: false,
 };
+
+type OtlpDestinationOptions = {
+	endpoint: string;
+	token?: string;
+};
+
+function evaluateGeneratedObservabilityConfig(environment: Record<string, string | undefined>) {
+	const generated = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+	const executable = generated
+		.split("\n")
+		.filter((line) => !line.startsWith("import "))
+		.join("\n")
+		.replace("export default defineConfig(", "return defineConfig(");
+
+	const exporters = { logs: {}, metrics: {} };
+	const destination = {
+		name: "otlp",
+		create: vi.fn(() => exporters),
+	};
+	const createOtlpDestination = vi.fn((options: OtlpDestinationOptions) => {
+		if (
+			options.endpoint.trim().length === 0 ||
+			(options.token !== undefined && options.token.trim().length === 0)
+		) {
+			return undefined;
+		}
+		return destination;
+	});
+	const observability = vi.fn(
+		(config: { destinations: Array<typeof destination | undefined> }) => ({
+			name: "observability",
+			config,
+		}),
+	);
+	const defineConfig = <T>(config: T): T => config;
+	const evaluate = new Function(
+		"defineConfig",
+		"observability",
+		"createOtlpDestination",
+		"process",
+		executable,
+	) as (
+		defineConfigMock: typeof defineConfig,
+		observabilityMock: typeof observability,
+		createOtlpDestinationMock: typeof createOtlpDestination,
+		process: { env: Record<string, string | undefined> },
+	) => { plugins: ReturnType<typeof observability>[] };
+
+	return {
+		config: evaluate(defineConfig, observability, createOtlpDestination, { env: environment }),
+		createOtlpDestination,
+		destination,
+		exporters,
+	};
+}
 
 describe("generateLaunchpadConfig", () => {
 	it("does not link to the live content refresh recipe when scheduler and content are unused", () => {
@@ -118,6 +173,74 @@ describe("generateLaunchpadConfig", () => {
 		const result = generateLaunchpadConfig(baseAnswers);
 		expect(result).not.toContain("from '@bluecadet/launchpad/scheduler'");
 		expect(result).not.toContain("scheduler(");
+	});
+
+	it("does not scaffold remote observability by default", () => {
+		const result = generateLaunchpadConfig(baseAnswers);
+
+		expect(result).not.toContain("@bluecadet/launchpad/observability");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_ENDPOINT");
+		expect(result).not.toContain("observability(");
+	});
+
+	it("generates endpoint-backed OTLP observability when selected", () => {
+		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+
+		expect(result).toContain("import { observability } from '@bluecadet/launchpad/observability';");
+		expect(result).toContain(
+			"import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';",
+		);
+		expect(result).toContain("endpoint: observabilityEndpoint");
+		expect(result).toContain("// encoding: 'protobuf', // Optional; defaults to JSON.");
+		expect(result).toContain("token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined");
+		expect(result).toContain("// Optional: resource: { 'service.name': 'my-launchpad-service' },");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_CLIENT");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_PROJECT");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_INSTALLATION");
+		expect(result).not.toContain("LAUNCHPAD_OBSERVABILITY_ENVIRONMENT");
+		expect(result).not.toContain("your-token");
+		expect(result).not.toContain("production'");
+	});
+
+	it("enables observability with only the endpoint and otherwise omits the plugin", () => {
+		const result = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
+
+		expect(result).toContain("const observabilityPlugin = observabilityEndpoint");
+		expect(result).toContain("? observability({");
+		expect(result).toContain("...(observabilityPlugin ? [observabilityPlugin] : [])");
+	});
+
+	it("evaluates an endpoint-backed config with an empty token as undefined", () => {
+		const endpoint = "https://collector.example";
+		const { config, createOtlpDestination, destination, exporters } =
+			evaluateGeneratedObservabilityConfig({
+				LAUNCHPAD_OBSERVABILITY_ENDPOINT: endpoint,
+				LAUNCHPAD_OBSERVABILITY_TOKEN: "",
+			});
+
+		expect(createOtlpDestination).toHaveBeenCalledWith({ endpoint, token: undefined });
+		expect(config.plugins[0]?.config.destinations).toEqual([destination]);
+		expect(destination.create()).toBe(exporters);
+	});
+
+	it("preserves a nonempty observability token when evaluating the generated config", () => {
+		const endpoint = "https://collector.example";
+		const token = "secret-token";
+		const { createOtlpDestination } = evaluateGeneratedObservabilityConfig({
+			LAUNCHPAD_OBSERVABILITY_ENDPOINT: endpoint,
+			LAUNCHPAD_OBSERVABILITY_TOKEN: token,
+		});
+
+		expect(createOtlpDestination).toHaveBeenCalledWith({ endpoint, token });
+	});
+
+	it("keeps observability disabled when evaluating a config without an endpoint", () => {
+		const { config, createOtlpDestination } = evaluateGeneratedObservabilityConfig({
+			LAUNCHPAD_OBSERVABILITY_TOKEN: "secret-token",
+		});
+
+		expect(createOtlpDestination).not.toHaveBeenCalled();
+		expect(config.plugins).toEqual([]);
 	});
 
 	it("includes a commented-out versioning hint with the guide link when content is selected alone", () => {

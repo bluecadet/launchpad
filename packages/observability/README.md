@@ -1,19 +1,10 @@
 # @bluecadet/launchpad-observability
 
-Forwards launchpad logs and lifecycle events to external log aggregation backends. Built-in support for Grafana Loki; extensible with custom transports.
+Exports Launchpad logs and current-state gauges to endpoints you control. Built-in destinations support OTLP/HTTP JSON or protobuf and Grafana Loki; the legacy transport API remains available.
 
 ## Documentation
 
-For complete documentation, examples, and API reference, visit:
-<https://bluecadet.github.io/launchpad/reference/observability>
-
-## Features
-
-- Forward `log:*` events and lifecycle events to any backend
-- Built-in Grafana Loki transport with basic/bearer auth
-- Configurable include/exclude filtering with glob wildcards
-- Batched delivery with exponential backoff retries
-- Implement `ObservabilityTransport` for custom backends
+See the [observability documentation](https://launchpad.bluecadet.com/reference/observability/) for configuration, the signal catalog, privacy limits, delivery semantics, and migration guidance.
 
 ## Installation
 
@@ -21,26 +12,46 @@ For complete documentation, examples, and API reference, visit:
 npm install @bluecadet/launchpad
 ```
 
-## Basic Usage
+## OTLP quick start
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
 import { observability } from '@bluecadet/launchpad/observability';
-import { createLokiTransport } from '@bluecadet/launchpad/observability/transports/loki';
+import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';
+
+const endpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
+if (!endpoint) throw new Error('LAUNCHPAD_OBSERVABILITY_ENDPOINT is required');
 
 export default defineConfig({
   plugins: [
     observability({
-      transports: [
-        createLokiTransport({
-          url: 'http://loki:3100',
-          defaultLabels: { app: 'my-installation' },
+      // Optional. Omit resource to use service.name = 'launchpad'.
+      resource: { 'service.name': 'museum-kiosk' },
+      destinations: [
+        createOtlpDestination({
+          endpoint,
+          encoding: 'protobuf',
+          token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined,
         }),
       ],
     }),
   ],
 });
 ```
+
+`resource` is an optional flat record of string, finite number, and boolean attributes. Launchpad defaults `service.name` to `launchpad` and generates `service.instance.id` at runtime. Other attributes are caller-defined.
+
+The OTLP destination uses native `fetch` and sends logs and metrics to `/v1/logs` and `/v1/metrics`. The example selects binary OTLP/HTTP protobuf, not gRPC; the recipient must support that encoding. Omit `encoding` to use the default JSON encoding. JSON requests and responses use `Content-Type: application/json`, while protobuf requests and responses use `Content-Type: application/x-protobuf`. Both encodings use the same endpoint paths, authentication, batching, resources, partial-success handling, and retries. Selecting an encoding does not enable payload compression or configure global OpenTelemetry providers.
+
+The destination defaults to both signals. Metrics default to a 30-second observation interval and are independent of log event filters.
+
+No telemetry is sent to Bluecadet automatically. Delivery is bounded and best effort: queues are in memory, requests and shutdown have deadlines, and records can be dropped. Review application logs and destination retention before enabling export; key-based redaction cannot detect every secret.
+
+## Loki
+
+Use `createLokiDestination` from `@bluecadet/launchpad-observability/destinations/loki` for structured, versioned JSON log lines. It maps only `service.name` to the `service_name` stream label by default; configure `resourceLabels` to replace that map. Use `createLokiTransport` from `@bluecadet/launchpad-observability/transports/loki` to preserve the legacy plain-text format.
+
+Destination mode and legacy `{ transports }` mode cannot be combined in one plugin configuration.
 
 ## License
 

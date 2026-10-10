@@ -55,6 +55,13 @@ function buildImports(answers: Answers): string {
 		lines.push(`import { scheduler } from '@bluecadet/launchpad/scheduler';`);
 	}
 
+	if (answers.useObservability) {
+		lines.push(`import { observability } from '@bluecadet/launchpad/observability';`);
+		lines.push(
+			`import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';`,
+		);
+	}
+
 	if (answers.useContent) {
 		lines.push(
 			`// import { httpTransport } from '@bluecadet/launchpad/controller/transports/http';`,
@@ -198,6 +205,27 @@ function buildSchedulerPlugin(): string {
 	`;
 }
 
+function buildObservabilitySetup(): string {
+	return dedent`
+		// Observability stays disabled until the endpoint is set.
+		// It sends logs and metrics only to the OTLP endpoint you configure.
+		const observabilityEndpoint = process.env.LAUNCHPAD_OBSERVABILITY_ENDPOINT;
+
+		const observabilityPlugin = observabilityEndpoint
+			? observability({
+					// Optional: resource: { 'service.name': 'my-launchpad-service' },
+					destinations: [
+						createOtlpDestination({
+							endpoint: observabilityEndpoint,
+							// encoding: 'protobuf', // Optional; defaults to JSON.
+							token: process.env.LAUNCHPAD_OBSERVABILITY_TOKEN || undefined,
+						}),
+					],
+				})
+			: undefined;
+	`;
+}
+
 function buildWorkflows(answers: Answers): string[] {
 	const workflows: string[] = [];
 	const startSteps: string[] = [];
@@ -230,11 +258,15 @@ function buildWorkflows(answers: Answers): string[] {
 
 export function generateLaunchpadConfig(answers: Answers): string {
 	const importsBlock = buildImports(answers);
+	const setupBlock = answers.useObservability ? buildObservabilitySetup() : undefined;
 
 	const plugins: string[] = [];
 	if (answers.useContent) plugins.push(buildContentPlugin(answers));
 	if (answers.useMonitor) plugins.push(buildMonitorPlugin(answers));
 	if (answers.useScheduler) plugins.push(buildSchedulerPlugin());
+	if (answers.useObservability) {
+		plugins.push("...(observabilityPlugin ? [observabilityPlugin] : [])");
+	}
 	if (answers.useContent) {
 		plugins.push(
 			"// httpTransport(), // push refresh events to browsers/Unity — see /reference/controller/transports",
@@ -247,6 +279,7 @@ export function generateLaunchpadConfig(answers: Answers): string {
 	return [
 		importsBlock,
 		"",
+		...(setupBlock ? [setupBlock, ""] : []),
 		"export default defineConfig({",
 		"\tplugins: [",
 		pluginsBlock,

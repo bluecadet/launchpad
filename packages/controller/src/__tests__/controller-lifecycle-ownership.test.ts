@@ -64,6 +64,15 @@ it("returns native contention through start and registration, without constructo
 it("shares overlapping persistent startup and retains ownership while the IPC server is active", async () => {
 	const { directory, config } = await project();
 	const controller = new LaunchpadController(config, directory, "persistent");
+	const messages: string[] = [];
+	const clientAccepted = new Promise<void>((resolve) => {
+		controller.getEventBus().on("log:verbose", (payload) => {
+			messages.push(payload.message);
+			if (payload.message === "IPC client connected") resolve();
+		});
+	});
+	controller.getEventBus().on("log:info", (payload) => messages.push(payload.message));
+	let client: net.Socket | undefined;
 	let contender: LaunchpadController | undefined;
 	try {
 		const firstStart = controller.start();
@@ -73,19 +82,26 @@ it("shares overlapping persistent startup and retains ownership while the IPC se
 		expect(results.every((result) => result.isOk())).toBe(true);
 		expect(controller.isStarted()).toBe(true);
 		await new Promise<void>((resolve, reject) => {
-			const socket = net.createConnection(getOSSocketPath(path.join(directory, config.socketPath)));
-			socket.once("error", reject);
-			socket.once("connect", () => {
-				socket.destroy();
-				resolve();
-			});
+			client = net.createConnection(getOSSocketPath(path.join(directory, config.socketPath)));
+			client.once("error", reject);
+			client.once("connect", resolve);
 		});
+		// Client-side connect can precede server-side acceptance (notably for named pipes).
+		// Wait until the transport tracks the socket before exercising its shutdown drain.
+		await clientAccepted;
 		contender = new LaunchpadController(config, directory);
 		expect((await contender.start()).isErr()).toBe(true);
 	} finally {
 		await contender?.stop();
 		await controller.stop();
+		client?.destroy();
 	}
+	// Socket close handlers must finish before the transport disconnect resolves
+	// and the controller closes its canonical source.
+	const clientDisconnected = messages.indexOf("IPC client disconnected");
+	expect(clientDisconnected).toBeGreaterThanOrEqual(0);
+	expect(clientDisconnected).toBeLessThan(messages.indexOf("IPC transport closed"));
+	expect(clientDisconnected).toBeLessThan(messages.indexOf("All plugins disconnected"));
 });
 
 it("aborts and awaits pre-start plugins on occupied IPC startup before releasing ownership", async () => {

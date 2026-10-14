@@ -2,6 +2,7 @@ import * as fsPromises from "node:fs/promises";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { expectLoggingDiagnostic } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { expect, it, vi } from "vitest";
 
 vi.unmock("fs");
@@ -27,6 +28,9 @@ function gate() {
 it.each(["open", "sync"])(
 	"retains project ownership after bounded shutdown while physical %s is pending",
 	async (operation) => {
+		expectLoggingDiagnostic(
+			"File-backed logging did not close cleanly: The operation was aborted due to timeout",
+		);
 		const directory = await mkdtemp(path.join(tmpdir(), "launchpad-close-settle-"));
 		const entered = gate();
 		const resume = gate();

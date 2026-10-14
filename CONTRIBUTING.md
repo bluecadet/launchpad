@@ -232,6 +232,21 @@ We use **Vitest** for testing. Custom setup is in `packages/testing/src/setup.ts
 
 Content plugin tests have specialized utilities in `packages/content/src/plugins/__tests__/plugins.test-utils.ts`.
 
+### Expected logging diagnostics
+
+Shared setup automatically captures only `console.warn` messages with the `[launchpad logging] ` prefix. Declare deliberate diagnostics before triggering them:
+
+```ts
+import { expectLoggingDiagnostic } from "@bluecadet/launchpad-testing/test-utils.ts";
+
+expectLoggingDiagnostic("File-backed logging is unavailable: directory is locked");
+// Trigger the intentional source failure here.
+```
+
+Pass the message without the prefix. Strings match exactly; regular expressions are supported for variable details. The optional second argument is the expected count (default: one). Verification runs after test cleanup and fails on missing, extra, or undeclared diagnostics. Unexpected diagnostics are also forwarded to the original console. Other warnings and all errors remain unchanged. Event-bus diagnostics are not intercepted; keep assertions on their payloads where relevant.
+
+Each test gets a console copy, restored at test finish even if logger console overriding freezes it. Do not replace `console.warn` with a silent mock for deliberate Launchpad diagnostics. Await owned asynchronous work and cleanup before the test finishes: callbacks that outlive the test are forwarded rather than silently captured. This console fixture is for sequential tests, not `test.concurrent`.
+
 ## Code Quality
 
 ### TypeScript

@@ -83,6 +83,7 @@ export function createIPCTransport(options: IPCTransportOptions) {
 			}
 
 			return safeCreateServer(socketPath, ctx.logger).andThen((server) => {
+				const pendingSocketCloses = new Set<Promise<void>>();
 				const clients = createClientHub<net.Socket>({
 					logger: ctx.logger,
 					label: "IPC client",
@@ -124,10 +125,15 @@ export function createIPCTransport(options: IPCTransportOptions) {
 						}
 					});
 
-					socket.on("close", () => {
-						clients.remove(socket);
-						ctx.logger.verbose("IPC client disconnected");
+					const closed = new Promise<void>((resolve) => {
+						socket.on("close", () => {
+							clients.remove(socket);
+							ctx.logger.verbose("IPC client disconnected");
+							pendingSocketCloses.delete(closed);
+							resolve();
+						});
 					});
+					pendingSocketCloses.add(closed);
 
 					socket.on("error", (error) => {
 						ctx.logger.error(`IPC client error: ${error.message}`);
@@ -172,10 +178,14 @@ export function createIPCTransport(options: IPCTransportOptions) {
 					unsubscribePatch();
 					clients.closeAll();
 
-					return closeServerAsResult(server, "Failed to close IPC server").map(() => {
-						cleanupUnixSocketPath(socketPath, ctx.logger);
-						ctx.logger.info("IPC transport closed");
-					});
+					// Node can finish server.close() before destroyed sockets emit close.
+					// Drain those handlers while the controller's log source is still open.
+					return closeServerAsResult(server, "Failed to close IPC server")
+						.andThen(() => ResultAsync.fromSafePromise(Promise.all(pendingSocketCloses)))
+						.map(() => {
+							cleanupUnixSocketPath(socketPath, ctx.logger);
+							ctx.logger.info("IPC transport closed");
+						});
 				});
 
 				return ok({ disconnect: gate.disconnect });

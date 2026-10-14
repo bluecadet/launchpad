@@ -55,6 +55,11 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
+# Monitor native Zig build outputs (prebuilds remain checked in)
+/packages/monitor/native/.zig-cache/
+/packages/monitor/native/zig-out/
+/packages/monitor/native/zig-pkg/
+
 # Dependency directories
 node_modules/
 jspm_packages/

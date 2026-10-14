@@ -37,7 +37,7 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "build:native": "node native/build.mjs",
+    "build:native": "zig build --build-file native/build.zig",
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },

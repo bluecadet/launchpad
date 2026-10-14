@@ -67,7 +67,8 @@ export async function startWindowsWindowFixture(): Promise<WindowsWindowFixture>
 			cwd: dirname(script),
 			env: { ...process.env, LAUNCHPAD_WINDOW_FIXTURE_TITLE: title },
 			shell: false,
-			windowsHide: true,
+			// windowsHide also hides the first GUI window, not just the PowerShell console.
+			windowsHide: false,
 			stdio: ["pipe", "pipe", "pipe"],
 		},
 	);

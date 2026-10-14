@@ -1,121 +1,55 @@
 # Windows window-management addon
 
-Launchpad Monitor uses a C addon built against Node-API version 8 to enumerate and manage Windows application windows. The npm package includes these binaries:
+Launchpad Monitor uses a C addon targeting Node-API 8 to enumerate and manage Windows application windows. The package bundles `prebuilds/win32-x64/windows.node` and `prebuilds/win32-arm64/windows.node`.
 
-- `prebuilds/win32-x64/windows.node`
-- `prebuilds/win32-arm64/windows.node`
+Installation requires no Python, MSVC, Zig, or `node-gyp`. There is no install script, binary download, or source-build fallback. Non-Windows platforms skip window management but retain PM2 process management and logging.
 
-Both binaries are cross-compiled. A previous arm64 prebuild passed a manual native-addon smoke check in a clean Windows arm64 VM on Node v24.22.0, before the switch to generated Node import libraries. The current prebuilds still need Windows runtime validation; cross-compilation alone does not establish runtime compatibility.
+## Rebuild
 
-The loader uses Node's built-in `createRequire`. There is no install script, binary download, or source-build fallback. Users do not need Python, MSVC, Zig, or `node-gyp` to install the package. Non-Windows platforms skip window management and retain PM2 process management and logging.
-
-Window actions use asynchronous native work rather than blocking Node's main event loop. Bringing a window to the foreground remains subject to Windows focus restrictions. Native library policies on managed machines may require signing or allowlisting the `.node` files before they can load.
-
-## Rebuild the binaries
-
-The build requires **official stable Zig 0.17.0**. No separate `curl`, `tar`, LLVM tools, or Windows SDK is required. HTTPS access to `nodejs.org` is needed when the Node headers are not already cached. Install Zig from the [official downloads](https://ziglang.org/download/) and put its executable directory on `PATH`. Check that `zig version` reports `0.17.0`; the build rejects other versions. Rebuilding is a maintainer task; it is never part of package installation.
-
-From the repository root, build both architectures and write them to the monitor's checked-in `prebuilds` directory:
+Maintainers need official stable Zig **0.17.0** on `PATH`; other versions are rejected. No Windows SDK or separate LLVM tools are needed. Run from the repository root:
 
 ```sh
 zig build --build-file packages/monitor/native/build.zig
-```
-
-The package also exposes an explicit maintainer command that runs `zig build --build-file native/build.zig` from the monitor workspace:
-
-```sh
-npm run build:native --workspace @bluecadet/launchpad-monitor
-```
-
-`build.zig` is the only native build script. Both commands use `zig` from `PATH`, including on PowerShell. `build:native` is not an install or release lifecycle script.
-
-Use `-Darch=x64`, `-Darch=arm64`, or `-Darch=all` to select targets; the default is both. For example, from the repository root:
-
-```sh
-zig build --build-file packages/monitor/native/build.zig -Darch=x64
-```
-
-`-Doutput-dir=PATH` selects an alternative prebuild destination. Absolute output paths are accepted; relative output paths use the native build root; the default is `../prebuilds`, or `packages/monitor/prebuilds` in this repository. All requested architectures must compile successfully before any prebuild is staged. Rebuild both architectures into the default destination before committing a native change.
-
-To validate the headers and import definitions without replacing prebuilds, run:
-
-```sh
+# Cross-compile and link without replacing prebuilds:
 zig build --build-file packages/monitor/native/build.zig test
 ```
 
-This step cross-compiles and links both addons by default, or the target selected with `-Darch`. Missing Node-API imports fail at link time. It does not load or execute Windows binaries.
+Alternatively, `npm run build:native --workspace @bluecadet/launchpad-monitor` rebuilds both architectures. These commands are never run during package installation or release.
 
-### Build inputs and cache
+The default build replaces both checked-in prebuilds only after both compile successfully. Use `-Darch=x64` or `-Darch=arm64` for one target. Commit native changes with both rebuilt binaries; cross-compilation does not validate Windows runtime behavior. CI checks for prebuild drift.
 
-`build.zig.zon` pins the official Node 22.16.0 headers as a normal Zig dependency, with Zig's package content hash. The C source still targets Node-API 8; the header version does not change the package's supported Node runtime baseline. Zig's built-in `dlltool` generates each architecture's `node.lib` from the checked-in text file `node-api.def`. No import-library binaries are downloaded or vendored. When the C source starts calling another Node-API function, add its name to `node-api.def`; keep `LIBRARY node.exe` and do not list addon registration exports there.
+`build.zig.zon` pins Node 22.16.0 headers without changing the supported Node runtime baseline. Zig generates import libraries from `node-api.def`; add newly used Node-API functions there, retain `LIBRARY node.exe`, and exclude addon registration exports.
 
-Zig manages downloading, hash verification, extraction, and caching. With Zig 0.17.0, extracted dependencies default to `packages/monitor/native/zig-pkg`; package archives use Zig's global cache (shown by `zig env`). Use `--pkg-dir PATH` or `ZIG_LOCAL_PKG_DIR` to relocate the extracted packages, and `ZIG_GLOBAL_CACHE_DIR` to relocate the global cache. These are standard Zig controls, not monitor-specific options. A cold-cache invocation can fetch headers even with `--help`, because Zig resolves the dependency before configuring the build.
-
-For an explicitly offline build, first populate the packages with an online build, then use Zig 0.17.0's `--system` mode with the extracted package directory:
+Zig fetches and verifies headers from `nodejs.org`, then caches them. After an online build, rebuild without fetching from the repository root:
 
 ```sh
 zig build --build-file packages/monitor/native/build.zig --system packages/monitor/native/zig-pkg
 ```
 
-The path passed to `--system` is relative to the shell's working directory (this example runs from the repository root). This disables package fetching and fails if a required package is missing. A normal build also reuses cached inputs, but it may fetch missing packages; Zig 0.17.0 does not provide a `--offline` flag.
+Remove obsolete `-Dnode-cache` arguments and unset `MONITOR_NATIVE_CACHE`; the old cache is not reused.
 
-**Migration:** remove `-Dnode-cache` from build commands; it is no longer accepted. Unset `MONITOR_NATIVE_CACHE`, which is no longer read. The old `$HOME/.cache/launchpad-monitor-native/node-v22.16.0` cache is not reused and can be deleted once no older checkout needs it. Run an online build to populate Zig's package cache before relying on offline rebuilds.
+## Windows tests
 
-Review and commit native build-input or `windows.c` changes together with both rebuilt `.node` files. Generated import libraries deliberately change the prebuild hashes; cross-compilation verifies that binaries can be produced for each target, not that they work at runtime. Run the Windows checks below before release.
+On Windows x64 or arm64 with matching Node architecture, run from the repository root:
 
-## Verify the release package
+```sh
+npx vitest run packages/monitor/src/utils/__tests__/windows-native.windows.test.ts
+```
 
-From the repository root, build TypeScript and inspect the package manifest:
+The tests load the real bundled addon and create a disposable Windows Forms window. They require built-in Windows PowerShell 5.1 and .NET, with policies allowing Windows Forms and `Add-Type`; no native build tools are needed.
+
+Coverage includes enumeration, exact titles, independently observed minimize/hide state, mismatched owner PIDs, and stale descriptors. Non-Windows platforms skip; addon-load or fixture failures on supported Windows fail. Windows CI covers x64; arm64 needs a separate run.
+
+## Before release
 
 ```sh
 npm run build
 npm pack --workspace @bluecadet/launchpad-monitor --dry-run --json
-```
-
-Check that both `prebuilds/win32-x64/windows.node` and `prebuilds/win32-arm64/windows.node` appear in the file list alongside the compiled `dist` JavaScript and declarations. Then create the tarball:
-
-```sh
 npm pack --workspace @bluecadet/launchpad-monitor
 ```
 
-### Clean Windows installation
+- Confirm the tarball contains both prebuilds and compiled `dist` JavaScript/declarations. Install it on clean Windows without build tools, with normal npm scripts enabled; verify addon loading and enumeration. Hosted CI does not prove toolchain-free installation.
+- On an interactive desktop, use a disposable app with multiple visible top-level windows owned by the actual PM2 PID, not a GUI child PID. Check flags off, each action separately, combined hide/minimize/foreground order, and stale/no-window cases; leave unrelated windows unchanged. Restart between cases and wait for `windowsApi.debounceDelay` (default 3000 ms). If safe, verify Node stays responsive with an unresponsive test app.
+- Foreground activation is best-effort under Windows focus restrictions; denied focus alone is not failure. Managed machines may require addon signing or allowlisting. Record Node/Windows versions, architecture, PIDs, and results.
 
-Use a fresh Windows x64 machine or VM with a supported Node version and npm, but without Python, MSVC/Visual Studio Build Tools, Zig, or a global `node-gyp`. Keep this separate from the hosted Windows CI runner, which has build tools preinstalled. Copy the packed tarball to the machine and run in PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Path monitor-install-check
-Set-Location monitor-install-check
-npm init -y
-npm config get ignore-scripts
-# Must report false: do not use --ignore-scripts for this acceptance check.
-npm install C:\artifacts\bluecadet-launchpad-monitor-VERSION.tgz
-```
-
-Replace the tarball path and `VERSION` with the artifact being tested. Installation must succeed with normal scripts enabled, without a compiler invocation, native build, or addon download. Keep the npm output and Node version/architecture with the verification results.
-
-Verify that the installed addon loads and enumerates windows:
-
-```powershell
-node -e "const path = require('node:path'); const root = path.dirname(require.resolve('@bluecadet/launchpad-monitor/package.json')); const addon = require(path.join(root, 'prebuilds', 'win32-' + process.arch, 'windows.node')); console.log({ node: process.version, arch: process.arch, windows: addon.listVisibleWindows() });"
-```
-
-Before the switch to generated import libraries, a manual smoke check passed in a clean Windows arm64 VM without Python or MSVC, using Node installed through nvm. Installation from local npm tarballs succeeded. The Node REPL reported `process.version` as `v24.22.0` and `process.arch` as `arm64`; the addon loaded and `listVisibleWindows()` returned a nonempty array. Checks against a disposable blank Notepad window passed: enumeration, title lookup with `getWindowTitle`, minimize (followed by manual restore), best-effort foreground, hide, and a stale-window no-op after terminating Notepad.
-
-This check did not cover physical ARM hardware, all apps or Windows environments, or full Launchpad/PM2 integration. Repeat the clean installation and native smoke checks for other platforms and Node versions; use the interactive checks below to verify Launchpad/PM2 integration. Foreground activation remains subject to Windows focus restrictions, so denial alone is not a failure.
-
-### Interactive window behavior
-
-Use an interactive Windows desktop session, not a service or headless runner. Test with Launchpad managing an app whose actual PM2 process ID owns multiple visible top-level windows. An app that spawns a separate GUI child process is not a substitute for this PID-matching check.
-
-1. Record the Node version, Windows version, CPU architecture, PM2 PID, and the test app's window titles. Start with all window flags `false`; windows should be left alone.
-2. Enable only `foreground`. Restart the app and wait for the configured `windowsApi.debounceDelay` (default 3000 ms). Confirm that all visible top-level windows for that PID are targeted. Windows may refuse activation; a denied focus request alone is not a failure.
-3. Repeat separately for `minimize` and `hide`. Confirm that all matched windows minimize or disappear, and that another app's windows are unaffected. Restart the app between cases so hidden windows do not contaminate later checks.
-4. Enable all three flags together and verify the existing action sequence: hide, minimize, then foreground. Do not assume the final visibility or focus is guaranteed by Windows.
-5. Close or terminate an app before the delayed window pass to exercise a stale PID/no-window case. Launchpad should continue without a crash. Restart it and confirm window management still works.
-6. If safe in your test environment, repeat with a deliberately unresponsive app. Confirm that Launchpad's Node event loop remains responsive during native window actions. Terminate the test app afterward.
-
-Record unexpected errors and results, including any Windows policy restrictions. Do not test against production installation apps.
-
-CI rebuilds both Windows binaries on Ubuntu with the official Zig 0.17.0 Linux x86_64 compiler, downloaded and SHA-256-verified before extraction or execution. It invokes the same `build.zig` file and fails if rebuilding changes the checked-in prebuilds. The native drift job does not install npm dependencies or add compilation to consumer installation or release scripts.
-
-CI also checks tarball contents and runs Windows-gated native smoke tests through the normal Vitest suite. These checks do not replace the clean installation or interactive desktop verification above.
+A previous ARM64 prebuild passed a clean Windows ARM64 VM smoke check on Node v24.22.0 before generated import libraries were adopted. That historical check does not validate the current artifacts; both architectures still need Windows runtime validation.

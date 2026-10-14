@@ -4,6 +4,8 @@ Scaffolding CLI for [Launchpad](https://bluecadet.github.io/launchpad/) projects
 
 ## Usage
 
+Use Node.js 24.x or 26 and newer (`^24 || >=26`). Generated `package.json` files declare this requirement. When updating an existing project, the scaffolder adds it if missing and preserves any explicit Node engine declaration; make sure your project's range matches the supported runtime.
+
 ```bash
 npm create @bluecadet/launchpad
 ```

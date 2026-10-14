@@ -4,7 +4,7 @@
   "description": "CLI for @bluecadet/launchpad utilities",
   "engines": {
     "npm": ">=8.5.1",
-    "node": ">=23"
+    "node": "^24 || >=26"
   },
   "type": "module",
   "bin": {

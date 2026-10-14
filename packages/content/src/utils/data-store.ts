@@ -407,10 +407,11 @@ export class DataStore {
 	#namespaces = new Map<string, Namespace>();
 	#directory: string;
 
+	/**
+	 * Configure the store without filesystem I/O. createNamespace initializes directories on demand.
+	 */
 	constructor(directory: string) {
 		this.#directory = directory;
-		// create the directory if it doesn't exist
-		fs.mkdir(this.#directory, { recursive: true });
 	}
 
 	/**

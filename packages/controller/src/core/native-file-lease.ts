@@ -2,5 +2,4 @@
 export {
 	acquireNativeFileLease,
 	type NativeFileLease,
-	type NativeFileLeaseMessages,
 } from "@bluecadet/launchpad-utils/native-file-lease";

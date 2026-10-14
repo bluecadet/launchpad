@@ -2,11 +2,10 @@ import path from "node:path";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
+import { type ArtifactCache, createArtifactCache } from "../../cache/artifact-cache.js";
 import mediaDownloader, {
-	checkCacheStatus,
-	downloadFile,
 	findMediaUrls,
 	localFilePathFromUrl,
 	mediaDownloaderConfigSchema,
@@ -19,11 +18,28 @@ function getMediaDownloaderConfig(config: z.input<typeof mediaDownloaderConfigSc
 
 describe("mediaDownloader", () => {
 	const server = setupServer();
+	const caches: ArtifactCache[] = [];
+	async function createMediaContext() {
+		const ctx = await createTestPluginContext();
+		const cache = await createArtifactCache({
+			databasePath: ":memory:",
+			previousRoot: ctx.paths.getBackupPath,
+			stagedRoot: ctx.paths.getDownloadPath,
+		});
+		// memfs closes FileHandle read streams even with autoClose:false; real-byte
+		// capture and reuse are covered by the real-filesystem HTTP cache tests.
+		vi.spyOn(cache, "storeHttp").mockResolvedValue(undefined);
+		caches.push(cache);
+		return { ...ctx, cache };
+	}
 
 	beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 	afterAll(() => server.close());
 	beforeEach(() => vol.reset());
-	afterEach(() => server.resetHandlers());
+	afterEach(async () => {
+		server.resetHandlers();
+		for (const cache of caches.splice(0)) await cache.close();
+	});
 
 	describe("localFilePathFromUrl", () => {
 		it("should strip protocol and domain", () => {
@@ -43,149 +59,18 @@ describe("mediaDownloader", () => {
 		});
 	});
 
-	describe("checkCacheStatus", () => {
-		it("should indicate download needed when file does not exist", async () => {
-			const result = await checkCacheStatus(
-				"https://example.com/new.jpg",
-				"/downloads/new.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({
-					enableIfModifiedSinceCheck: true,
-					enableContentLengthCheck: true,
-				}),
-			);
-
-			expect(result).toBeOk();
-			expect(result._unsafeUnwrap().shouldDownload).toBe(true);
-		});
-
-		it("should check modified date when file exists", async () => {
-			// Setup existing file
-			vol.mkdirSync("/downloads", { recursive: true });
-			vol.writeFileSync("/downloads/cached.jpg", "existing data");
-
-			server.use(
-				http.head("https://example.com/cached.jpg", ({ request }) => {
-					const ifModifiedSince = request.headers.get("If-Modified-Since");
-					return new HttpResponse(null, {
-						status: ifModifiedSince ? 304 : 200,
-					});
-				}),
-			);
-
-			const result = await checkCacheStatus(
-				"https://example.com/cached.jpg",
-				"/downloads/cached.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({
-					enableIfModifiedSinceCheck: true,
-					enableContentLengthCheck: false,
-				}),
-			);
-
-			expect(result).toBeOk();
-			expect(result._unsafeUnwrap().shouldDownload).toBe(false);
-		});
-
-		it("should check content length when enabled", async () => {
-			// Setup existing file with known size
-			vol.mkdirSync("/downloads", { recursive: true });
-			vol.writeFileSync("/downloads/size.jpg", "data");
-
-			server.use(
-				http.head("https://example.com/size.jpg", () => {
-					return new HttpResponse(null, {
-						headers: {
-							"Content-Length": "10", // Different from actual file size
-						},
-					});
-				}),
-				http.head("https://example.com/size-match.jpg", () => {
-					return new HttpResponse(null, {
-						headers: {
-							"Content-Length": "4", // Matches file size
-						},
-					});
-				}),
-			);
-
-			// Test different content length
-			const differentResult = await checkCacheStatus(
-				"https://example.com/size.jpg",
-				"/downloads/size.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({
-					enableIfModifiedSinceCheck: false,
-					enableContentLengthCheck: true,
-				}),
-			);
-
-			expect(differentResult).toBeOk();
-			expect(differentResult._unsafeUnwrap().shouldDownload).toBe(true);
-
-			// Test matching content length
-			vol.writeFileSync("/downloads/size-match.jpg", "data");
-			const matchingResult = await checkCacheStatus(
-				"https://example.com/size-match.jpg",
-				"/downloads/size-match.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({
-					enableIfModifiedSinceCheck: false,
-					enableContentLengthCheck: true,
-				}),
-			);
-
-			expect(matchingResult).toBeOk();
-			expect(matchingResult._unsafeUnwrap().shouldDownload).toBe(false);
-		});
-	});
-
-	describe("downloadFile", () => {
-		it("should download and save file", async () => {
-			server.use(
-				http.get("https://example.com/test.jpg", () => {
-					return new HttpResponse("image data", {
-						headers: { "Content-Type": "image/jpeg" },
-					});
-				}),
-			);
-
-			vol.mkdirSync("/downloads", { recursive: true });
-
-			const result = await downloadFile(
-				"https://example.com/test.jpg",
-				"/downloads/test.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({ maxTimeout: 1000 }),
-			);
-
-			expect(result).toBeOk();
-			expect(vol.readFileSync("/downloads/test.jpg", "utf8")).toBe("image data");
-		});
-
-		it("should handle network errors", async () => {
-			server.use(
-				http.get("https://example.com/error.jpg", () => {
-					return new HttpResponse(null, { status: 404 });
-				}),
-			);
-
-			const result = await downloadFile(
-				"https://example.com/error.jpg",
-				"/downloads/error.jpg",
-				new AbortController().signal,
-				getMediaDownloaderConfig({ maxTimeout: 1000 }),
-			);
-
-			expect(result).toBeErr();
-			const error = result._unsafeUnwrapErr();
-			expect(error.name).toBe("NetworkError");
-		});
+	describe("configuration", () => {
+		it.each(["enableIfModifiedSinceCheck", "enableContentLengthCheck"])(
+			"rejects removed %s configuration at runtime",
+			(option) => {
+				expect(() => mediaDownloader({ [option]: false })).toThrow(`${option} has been removed`);
+			},
+		);
 	});
 
 	describe("findMediaUrls", () => {
 		it("should find URLs using mediaPattern", async () => {
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",
@@ -214,7 +99,7 @@ describe("mediaDownloader", () => {
 		});
 
 		it("should find URLs using matchPath", async () => {
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",
@@ -240,7 +125,7 @@ describe("mediaDownloader", () => {
 		});
 
 		it("should support multiple query paths", async () => {
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",
@@ -271,7 +156,7 @@ describe("mediaDownloader", () => {
 		});
 
 		it("should update document paths when updatePaths is true", async () => {
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",
@@ -325,7 +210,7 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",
@@ -353,6 +238,96 @@ describe("mediaDownloader", () => {
 			}
 		});
 
+		it.each([200, 404])(
+			"does not access transform temp files during an ordinary download (HTTP %s)",
+			async (status) => {
+				server.use(
+					http.get("https://example.com/image.jpg", () => new HttpResponse("body", { status })),
+				);
+				const ctx = await createMediaContext();
+				const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+				await namespace.insert("doc", Promise.resolve({ image: "https://example.com/image.jpg" }));
+				const tempRoot = ctx.paths.getTempPath();
+				vol.mkdirSync(tempRoot, { recursive: true });
+				vol.writeFileSync(path.join(tempRoot, "orphan"), "unrelated temporary file");
+				const tempPath = vi.spyOn(ctx.paths, "getTempPath").mockImplementation(() => {
+					throw new Error("The downloader must not access its unused transform temp tree");
+				});
+				tempPath.mockClear();
+				const execution = mediaDownloader().apply(ctx);
+				if (status === 200) await execution;
+				else await expect(execution).rejects.toThrow("Queue encountered");
+				expect(tempPath).not.toHaveBeenCalled();
+				expect(vol.readFileSync(path.join(tempRoot, "orphan"), "utf8")).toBe(
+					"unrelated temporary file",
+				);
+			},
+		);
+
+		it("forceClearTempFiles clears only transform temp staging and still consults HTTP metadata", async () => {
+			server.use(http.get("https://example.com/image.jpg", () => new HttpResponse("new body")));
+			const ctx = await createMediaContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert("doc", Promise.resolve({ image: "https://example.com/image.jpg" }));
+			vol.mkdirSync(ctx.paths.getTempPath(), { recursive: true });
+			vol.writeFileSync(path.join(ctx.paths.getTempPath(), "orphan"), "temporary");
+			vol.mkdirSync(ctx.paths.getBackupPath("test"), { recursive: true });
+			vol.writeFileSync(path.join(ctx.paths.getBackupPath("test"), "image.jpg"), "published");
+			const lookup = vi.spyOn(ctx.cache, "lookupHttp");
+			const tempRoot = ctx.paths.getTempPath();
+			const tempPath = vi.spyOn(ctx.paths, "getTempPath").mockClear();
+			await mediaDownloader({ forceClearTempFiles: true }).apply(ctx);
+			expect(lookup).toHaveBeenCalled();
+			expect(tempPath).toHaveBeenCalledTimes(1);
+			expect(vol.existsSync(tempRoot)).toBe(false);
+			expect(
+				vol.readFileSync(path.join(ctx.paths.getBackupPath("test"), "image.jpg"), "utf8"),
+			).toBe("published");
+		});
+
+		it("waits for active downloads to settle before rejecting a failed queue", async () => {
+			let releaseSlow: () => void = () => {};
+			let reportError: () => void = () => {};
+			const slowGate = new Promise<void>((resolve) => {
+				releaseSlow = resolve;
+			});
+			const errorSeen = new Promise<void>((resolve) => {
+				reportError = resolve;
+			});
+			server.use(
+				http.get("https://example.com/slow.jpg", async () => {
+					await slowGate;
+					return new HttpResponse("slow body");
+				}),
+				http.get("https://example.com/error.jpg", () => {
+					reportError();
+					return new HttpResponse(null, { status: 404 });
+				}),
+			);
+			const ctx = await createMediaContext();
+			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
+			await namespace.insert(
+				"doc",
+				Promise.resolve({
+					images: ["https://example.com/slow.jpg", "https://example.com/error.jpg"],
+				}),
+			);
+			let settled = false;
+			const execution = mediaDownloader({ maxConcurrent: 2 })
+				.apply(ctx)
+				.finally(() => {
+					settled = true;
+				});
+			await errorSeen;
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(settled).toBe(false);
+			releaseSlow();
+			await expect(execution).rejects.toThrow("Queue encountered");
+			expect(
+				vol.readFileSync(path.join(ctx.paths.getDownloadPath("test"), "slow.jpg"), "utf8"),
+			).toBe("slow body");
+		});
+
 		it("should handle errors based on abortOnError setting", async () => {
 			server.use(
 				http.get("https://example.com/success.jpg", () => {
@@ -363,7 +338,7 @@ describe("mediaDownloader", () => {
 				}),
 			);
 
-			const ctx = await createTestPluginContext();
+			const ctx = await createMediaContext();
 			const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 			await namespace.insert(
 				"doc1",

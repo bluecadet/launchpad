@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -5,15 +6,20 @@ import chalk from "chalk";
 import PQueue from "p-queue";
 import type { Sharp } from "sharp";
 import { z } from "zod";
+import type { ArtifactResult } from "../cache/artifact-cache.js";
+import { safeOutput } from "../cache/fingerprints.js";
+import {
+	prepareSharpRecipe,
+	type SharpRecipe,
+	sharpInputDiagnostic,
+} from "../cache/sharp-recipe.js";
+import { ContentProgressLogger } from "../content-progress-logger.js";
 import { type ContentTransformContext, defineContentTransform } from "../content-transform.js";
-import { getMatchingDocuments, regexToJSONPathQuery } from "../utils/content-transform-utils.js";
+import { regexToJSONPathQuery } from "../utils/content-transform-utils.js";
 import { dataKeysSchema } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
-import {
-	CacheProgressLogger,
-	parseTransformConfig,
-	queryOrUpdate,
-} from "./content-transform-helpers.js";
+import { FilesystemIdentity } from "../utils/filesystem-identity.js";
+import { parseTransformConfig, queryOrUpdate } from "./content-transform-helpers.js";
 
 const DEFAULT_IMAGE_PATTERN = /\.(jpe?g|png|webp|tiff|gif|svg)$/i;
 
@@ -47,6 +53,8 @@ const sharpPluginSchema = z.object({
 			output: z.custom<Sharp>(),
 		})
 		.describe("The sharp transform to apply to the images."),
+	/** Additional cache identity. Does not replace automatic recipe or input fingerprinting. */
+	cacheKey: z.string().optional(),
 	/** The number of images to transform concurrently. Defaults to 4. */
 	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
 });
@@ -65,60 +73,153 @@ async function transformImage(
 	sharpTransform: Sharp,
 	sourceImagePath: string,
 	outputImagePath: string,
-	backupImagePath: string,
+	tempImagePath: string,
 ) {
-	await FileUtils.ensureDir(path.dirname(outputImagePath)).mapErr((err) => {
-		throw new Error(`Error creating directory '${path.dirname(outputImagePath)}'`, err);
-	});
+	await fs.promises.mkdir(path.dirname(tempImagePath), { recursive: true });
+	await fs.promises.mkdir(path.dirname(outputImagePath), { recursive: true });
+	await pipeline(
+		fs.createReadStream(sourceImagePath),
+		sharpTransform,
+		fs.createWriteStream(tempImagePath),
+	);
+	await fs.promises.rename(tempImagePath, outputImagePath);
+}
 
-	const backupExists = await FileUtils.pathExists(backupImagePath).match(
-		(val) => val,
-		(err) => {
-			throw new Error(`Error checking if file '${backupImagePath}' exists`, err);
+async function requireInput(sourceImagePath: string) {
+	const exists = await FileUtils.pathExists(sourceImagePath).match(
+		(value) => value,
+		(error) => {
+			throw new Error(`Error checking if file '${sourceImagePath}' exists`, error);
 		},
 	);
-
-	if (backupExists) {
-		await FileUtils.copyFile(backupImagePath, outputImagePath).match(
-			() => {},
-			(err) => {
-				throw new Error(`Error copying file '${backupImagePath}' to '${outputImagePath}'`, err);
-			},
-		);
-		return { output: outputImagePath, fromCache: true };
-	}
-
-	const result = await FileUtils.pathExists(sourceImagePath).match(
-		(val) => val,
-		(err) => {
-			throw new Error(`Error checking if file '${sourceImagePath}' exists`, err);
-		},
-	);
-
-	if (!result) {
+	if (!exists) {
 		throw new Error(
 			`Input file '${sourceImagePath}' does not exist or is not readable. Make sure it's been downloaded via the 'mediaDownloader' plugin prior to using the 'sharp' plugin.`,
 		);
 	}
-
-	await pipeline(
-		fs.createReadStream(sourceImagePath),
-		sharpTransform.clone(),
-		fs.createWriteStream(outputImagePath),
-	);
-
-	return { output: outputImagePath, fromCache: false };
 }
 
-async function publishTransformedImages(ctx: ContentTransformContext) {
-	await FileUtils.copy(ctx.paths.getTempPath(), ctx.paths.getDownloadPath(), {
-		preserveTimestamps: true,
-	}).match(
-		() => {},
-		(err) => {
-			throw new Error("Failed to publish transformed images", { cause: err });
-		},
+type ImageTask = {
+	inputPath: string;
+	outputPath: string;
+	tempPath: string;
+	sourceId: string;
+	relativeOutput: string;
+};
+
+type PreparedImageTask = ImageTask & { inPlace: boolean };
+
+type PipelineContext = {
+	context: ContentTransformContext;
+	recipe: SharpRecipe;
+	snapshots: ReadonlyMap<string, string>;
+	dependencyDiagnostic: string | undefined;
+	uncachedClaimKey: string;
+	warnUncached: (reason: string) => void;
+};
+
+async function runImageTask(
+	task: PreparedImageTask,
+	config: PipelineContext,
+): Promise<ArtifactResult> {
+	const { inputPath, outputPath, tempPath, sourceId, relativeOutput, inPlace } = task;
+	const { recipe, snapshots } = config;
+	const originalInput = snapshots.get(inputPath) ?? inputPath;
+	await requireInput(originalInput);
+	const diagnostic = recipe.cacheable
+		? (config.dependencyDiagnostic ?? (await sharpInputDiagnostic([originalInput])))
+		: recipe.reason;
+	if (!recipe.cacheable || diagnostic || inPlace) {
+		config.warnUncached(diagnostic ?? "input and output paths are identical");
+		if (!inPlace) {
+			await config.context.cache.claimOutputs({
+				sourceId,
+				key: JSON.stringify([config.uncachedClaimKey, sourceId, path.resolve(inputPath)]),
+				outputs: [relativeOutput],
+			});
+		}
+		await transformImage(recipe.createPipeline(snapshots), originalInput, outputPath, tempPath);
+		return { reused: false };
+	}
+	return config.context.cache.derive({
+		sourceId,
+		namespace: "sharp",
+		version: "1",
+		inputs: [originalInput, ...recipe.dependencies.map((input) => snapshots.get(input) ?? input)],
+		options: recipe.fingerprint,
+		outputs: [relativeOutput],
+		generate: () =>
+			transformImage(recipe.createPipeline(snapshots), originalInput, outputPath, tempPath),
+	});
+}
+
+/** Classify physical aliases and freeze overlapping inputs before any cache restores or writes. */
+async function prepareImageBatch(
+	tasks: readonly ImageTask[],
+	dependencies: readonly string[],
+	paths: ContentTransformContext["paths"],
+): Promise<{ tasks: PreparedImageTask[]; snapshots: ReadonlyMap<string, string> }> {
+	if (tasks.length === 0) return { tasks: [], snapshots: new Map() };
+	await Promise.all(
+		tasks.map(async (task) => {
+			const destination = await safeOutput(
+				paths.getDownloadPath(task.sourceId),
+				task.relativeOutput,
+			);
+			if (destination !== task.outputPath)
+				throw new Error("Sharp output differs from its declared destination");
+		}),
 	);
+	const identity = new FilesystemIdentity();
+	const [resolvedTasks, resolvedDependencies] = await Promise.all([
+		Promise.all(
+			tasks.map(async (task) => {
+				const [input, output] = await Promise.all([
+					identity.resolve(task.inputPath),
+					identity.resolve(task.outputPath),
+				]);
+				return { task, input, output };
+			}),
+		),
+		Promise.all(
+			dependencies.map(async (filename) => ({
+				filename,
+				identity: await identity.resolve(filename),
+			})),
+		),
+	]);
+	const dependencyIdentities = new Set(resolvedDependencies.map((input) => input.identity));
+	const preparedTasks = resolvedTasks.map(({ task, input, output }) => ({
+		...task,
+		inPlace: input === output || dependencyIdentities.has(output),
+	}));
+	const outputs = new Set(resolvedTasks.map(({ output }) => output));
+	const inputs = [
+		...resolvedTasks.map(({ task, input }) => ({ filename: task.inputPath, identity: input })),
+		...resolvedDependencies,
+	];
+	const overlapping = [
+		...new Set(
+			inputs.filter((input) => outputs.has(input.identity)).map((input) => input.filename),
+		),
+	];
+	if (overlapping.length === 0) return { tasks: preparedTasks, snapshots: new Map() };
+	const tempRoot = paths.getTempPath();
+	await fs.promises.mkdir(tempRoot, { recursive: true });
+	const snapshotRoot = await fs.promises.mkdtemp(path.join(tempRoot, "inputs-"));
+	const copies = await Promise.allSettled(
+		overlapping.map(async (input, index) => {
+			const snapshot = path.join(snapshotRoot, `${index}-${path.basename(input)}`);
+			await fs.promises.copyFile(input, snapshot);
+			return [input, snapshot] as const;
+		}),
+	);
+	const snapshots = new Map<string, string>();
+	for (const copy of copies) {
+		if (copy.status === "rejected") throw copy.reason;
+		snapshots.set(...copy.value);
+	}
+	return { tasks: preparedTasks, snapshots };
 }
 
 export default function sharp(options: z.input<typeof sharpPluginSchema>) {
@@ -129,20 +230,10 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 		async apply(ctx) {
 			const { default: Sharp } = await tryImportSharp();
 
-			const matchingDocuments = getMatchingDocuments(ctx.data, resolvedConfig.keys);
-
-			if (matchingDocuments.isErr()) {
-				throw matchingDocuments.error;
-			}
-
-			const documents = matchingDocuments.value;
-
 			const queryJsonPath =
 				resolvedConfig.matchPath ?? regexToJSONPathQuery(resolvedConfig.mediaPattern);
 
 			const transform = resolvedConfig.buildTransform(Sharp());
-
-			transform.setMaxListeners(0);
 
 			// make sure we don't transform the same image multiple times
 			const sourceUrls = new Set<string>();
@@ -153,15 +244,11 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 				throw filteredDocuments.error;
 			}
 
-			const mediaTransformTasks = [] as Array<{
-				inputPath: string;
-				outputPath: string;
-				backupPath: string;
-			}>;
+			const mediaTransformTasks: ImageTask[] = [];
 
 			for (const source of filteredDocuments.value) {
 				const queryResult = await queryOrUpdate({
-					documents,
+					documents: source.documents,
 					queryJsonPath,
 					update: resolvedConfig.updateURLs,
 					callback: async (val: unknown) => {
@@ -171,26 +258,18 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 
 						const newLocalPath = getOutputFilename(val, transform);
 
-						if (!sourceUrls.has(val)) {
-							sourceUrls.add(val);
-
-							const fullInputPath = path.resolve(
-								ctx.paths.getDownloadPath(source.namespaceId),
-								val,
-							);
-							const fullOutputPath = path.resolve(
-								ctx.paths.getTempPath(source.namespaceId),
-								newLocalPath,
-							);
-							const fullBackupPath = path.resolve(
-								ctx.paths.getBackupPath(source.namespaceId),
-								newLocalPath,
-							);
-
+						const fullInputPath = path.resolve(ctx.paths.getDownloadPath(source.namespaceId), val);
+						if (!sourceUrls.has(fullInputPath)) {
+							sourceUrls.add(fullInputPath);
 							mediaTransformTasks.push({
 								inputPath: fullInputPath,
-								outputPath: fullOutputPath,
-								backupPath: fullBackupPath,
+								outputPath: path.resolve(
+									ctx.paths.getDownloadPath(source.namespaceId),
+									newLocalPath,
+								),
+								tempPath: path.resolve(ctx.paths.getTempPath(source.namespaceId), newLocalPath),
+								sourceId: source.namespaceId,
+								relativeOutput: newLocalPath,
 							});
 						}
 
@@ -204,29 +283,61 @@ export default function sharp(options: z.input<typeof sharpPluginSchema>) {
 
 			const queue = new PQueue({ concurrency: resolvedConfig.concurrency });
 
-			const progressLogger = new SharpProgressLogger(ctx.eventBus, mediaTransformTasks.length);
-
-			await queue.addAll(
-				mediaTransformTasks.map(({ inputPath, outputPath, backupPath }) => async () => {
-					const { fromCache } = await transformImage(transform, inputPath, outputPath, backupPath);
-
-					if (fromCache) {
-						progressLogger.addCached();
-					} else {
-						progressLogger.addFresh();
-					}
-				}),
+			const recipe = prepareSharpRecipe(
+				transform,
+				Sharp.versions,
+				() => Sharp(),
+				resolvedConfig.cacheKey,
 			);
+			const { tasks, snapshots } = await prepareImageBatch(
+				mediaTransformTasks,
+				recipe.dependencies,
+				ctx.paths,
+			);
+			const dependencyDiagnostic =
+				recipe.cacheable && mediaTransformTasks.length > 0
+					? await sharpInputDiagnostic(
+							recipe.loaderInputs.map((input) => snapshots.get(input) ?? input),
+						)
+					: undefined;
+			const progressLogger = new ContentProgressLogger({
+				eventBus: ctx.eventBus,
+				total: mediaTransformTasks.length,
+				label: "Transforming Images",
+				freshLabel: "Transformed",
+			});
 
-			progressLogger.close();
+			const diagnostics = new Set<string>();
+			const warnUncached = (reason: string) => {
+				if (diagnostics.has(reason)) return;
+				diagnostics.add(reason);
+				ctx.logger.warn(`Sharp artifact cache bypassed: ${reason}`);
+			};
+
+			const pipelineContext: PipelineContext = {
+				context: ctx,
+				recipe,
+				snapshots,
+				dependencyDiagnostic,
+				uncachedClaimKey: `sharp:uncached:${randomUUID()}`,
+				warnUncached,
+			};
+			try {
+				await queue.addAll(
+					tasks.map((task) => async () => {
+						progressLogger.complete(await runImageTask(task, pipelineContext));
+					}),
+				);
+			} finally {
+				await queue.onIdle();
+				progressLogger.close();
+			}
 
 			ctx.logger.info(
 				`Of the ${chalk.cyan(mediaTransformTasks.length)} transform images files, ${chalk.green(
 					progressLogger.fresh,
 				)} were transformed and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
 			);
-
-			await publishTransformedImages(ctx);
 
 			await FileUtils.remove(ctx.paths.getTempPath()).match(
 				() => {},
@@ -311,14 +422,4 @@ function getOutputFilename(inputPath: string, sharpTransform: Sharp) {
 	}
 
 	return path.join(dir, `${name}${suffix}${newExt}`);
-}
-
-class SharpProgressLogger extends CacheProgressLogger {
-	override getFixedConsoleMessage(): string {
-		const prefix = "Transforming Images: ";
-		return (
-			`${prefix}${super.renderProgressBar(prefix.length)}\n` +
-			`Transformed: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
-		);
-	}
 }

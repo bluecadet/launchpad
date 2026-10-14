@@ -1,9 +1,11 @@
+import "./mock-project-lease.js";
+import * as fsPromises from "node:fs/promises";
 import path from "node:path";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { content } from "../launchpad-content.js";
 import jsonSource from "../sources/json-source.js";
 import sanitySource from "../sources/sanity-source.js";
@@ -14,10 +16,41 @@ import sanityToHtml from "../transforms/sanity-to-html.js";
 describe("Content Integration", () => {
 	const server = setupServer();
 
+	const originalOpen = fsPromises.open;
+	const openFile = vi.spyOn(fsPromises, "open").mockImplementation(async (...arguments_) => {
+		const file = await originalOpen(...arguments_);
+		const createReadStream = file.createReadStream.bind(file);
+		file.createReadStream = (options) => {
+			// memfs destroys streams at EOF even when autoClose is false, closing the
+			// descriptor before fingerprinting can stat it again. Keep the handle
+			// caller-owned, as Node does, without changing the bytes or stat results.
+			if (options?.autoClose !== false) return createReadStream(options);
+			const streamOptions = { ...options, autoDestroy: false };
+			return createReadStream(streamOptions);
+		};
+		return file;
+	});
+
 	beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-	afterAll(() => server.close());
+	afterAll(() => {
+		server.close();
+		openFile.mockRestore();
+	});
 	beforeEach(() => vol.reset());
 	afterEach(() => server.resetHandlers());
+
+	it("keeps caller-owned file handles open after reading a stream", async () => {
+		vol.writeFileSync("/stream-fixture.txt", "fixture bytes");
+		const file = await fsPromises.open("/stream-fixture.txt", "r");
+		try {
+			const chunks: Buffer[] = [];
+			for await (const chunk of file.createReadStream({ autoClose: false })) chunks.push(chunk);
+			expect(Buffer.concat(chunks).toString()).toBe("fixture bytes");
+			expect((await file.stat()).size).toBe(Buffer.byteLength("fixture bytes"));
+		} finally {
+			await file.close();
+		}
+	});
 
 	describe("JSON Source with Markdown and Media", () => {
 		it("should fetch JSON, convert markdown to HTML, and download media", async () => {

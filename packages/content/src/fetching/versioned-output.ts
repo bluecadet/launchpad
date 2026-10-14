@@ -8,17 +8,13 @@
  * nothing after it can roll back the active version. That's why the manifest write, not the
  * directory move, is what "committing" a version means.
  *
- * `FetchStageContext.attemptedVersionPath` is the handoff between `promoteVersioned` and
- * `errorRecoveryStage` (via `cleanupOrphanedVersion`) for that half-committed window: it's set to
- * the version directory's absolute path right before the move, and cleared once `writeManifest`
- * succeeds. If a later, unrelated stage fails after that point, the marker is already `undefined`
- * so error recovery won't delete the now-active, manifest-referenced version. If the run fails
- * before the marker is cleared, `cleanupOrphanedVersion` best-effort deletes the orphaned
- * directory; the retention sweep is the backstop for anything a failed delete leaves behind.
+ * During promotion, PublicationState carries the attempted version path for orphan cleanup.
+ * A successful manifest swap replaces that attempt with a publication receipt containing
+ * explicit final roots. Later cleanup failures cannot delete a manifest-committed version.
+ * The retention sweep retries any orphan whose best-effort removal failed.
  *
- * `readActiveVersionManifest` and `resolveVersionedSeedPath` serve the other half of versioned output:
- * seeding a fresh staged directory from the *active* version (per the manifest), never from
- * "newest dir on disk", so a never-promoted orphan can't be used as a seed.
+ * snapshotVersionedRoots validates and resolves the active manifest once for both keep-file
+ * seeding and artifact reuse. Unpromoted orphan directories never become seed candidates.
  */
 
 import path from "node:path";
@@ -30,13 +26,14 @@ import * as ManifestUtils from "../manifest.js";
 import { REMOVE_MAX_RETRIES, REMOVE_RETRY_DELAY_MS } from "../retention-sweep.js";
 import * as FileUtils from "../utils/file-utils.js";
 import type { FetchStageContext } from "./fetch-context.js";
+import type { PublicationReceipt } from "./output-strategy.js";
 
 /**
  * Reads `manifest.json` once per `clearOldDataStage` call under versioning, warning a single
  * time if it's missing or unreadable so per-source seeding can degrade to empty without
  * repeating the warning for every source.
  */
-export function readActiveVersionManifest(
+function readActiveVersionManifest(
 	context: FetchStageContext,
 ): ResultAsync<Manifest | undefined, never> {
 	const publishedRoot = context.paths.getPublishedDownloadPath();
@@ -60,42 +57,40 @@ export function readActiveVersionManifest(
 	});
 }
 
-/**
- * Resolves the directory `clearOldDataStage` should seed keep-matching files from under
- * versioning: the active version's directory for this source, resolved via the manifest's
- * `sources[].path`.
- */
-export function resolveVersionedSeedPath(
+/** Snapshot all manifest roots once, validating physical separation before any seed copies. */
+export function snapshotVersionedRoots(
 	context: FetchStageContext,
-	sourceId: string,
-	activeManifest: Manifest | undefined,
-): ResultAsync<string | undefined, FileUtils.FileUtilsError> {
-	if (!activeManifest) {
-		return okAsync(undefined);
-	}
-
-	const manifestSource = activeManifest.sources.find((source) => source.sourceId === sourceId);
-	if (!manifestSource) {
-		context.logger.warn(
-			`Active version ${activeManifest.versionId} has no entry for source ${sourceId}; seeding staged directory empty.`,
+): ResultAsync<ReadonlyMap<string, string>, FileUtils.FileUtilsError> {
+	return readActiveVersionManifest(context).andThen((manifest) => {
+		if (!manifest) return okAsync(new Map<string, string>());
+		return ResultAsync.fromPromise(
+			ManifestUtils.resolveManifestSourceRoots(context.paths.getPublishedDownloadPath(), manifest),
+			(error) => new FileUtils.FileUtilsError("Unsafe manifest source roots", { cause: error }),
+		).andThen((roots) =>
+			ResultAsync.combine(
+				context.sources.map((source) => {
+					const root = roots.get(source.id);
+					if (!root) {
+						context.logger.warn(
+							`Active version ${manifest.versionId} has no entry for source ${source.id}; seeding staged directory empty.`,
+						);
+						return okAsync({ sourceId: source.id, root: undefined });
+					}
+					return FileUtils.pathExists(root).map((exists) => {
+						if (!exists)
+							context.logger.warn(
+								`Active version directory not found at ${root}; seeding staged directory for ${source.id} empty.`,
+							);
+						return { sourceId: source.id, root: exists ? root : undefined };
+					});
+				}),
+			).map(
+				(sources) =>
+					new Map(
+						sources.flatMap(({ sourceId, root }) => (root ? [[sourceId, root] as const] : [])),
+					),
+			),
 		);
-		return okAsync(undefined);
-	}
-
-	const versionSourcePath = path.join(
-		context.paths.getPublishedDownloadPath(),
-		activeManifest.versionPath,
-		manifestSource.path,
-	);
-
-	return FileUtils.pathExists(versionSourcePath).andThen((exists) => {
-		if (!exists) {
-			context.logger.warn(
-				`Active version directory not found at ${versionSourcePath}; seeding staged directory for ${sourceId} empty.`,
-			);
-			return okAsync(undefined);
-		}
-		return okAsync(versionSourcePath);
 	});
 }
 
@@ -141,16 +136,18 @@ function resolveFreeVersionId(
 /**
  * Promotes the entire staged downloads root into a fresh `versions/<versionId>/` directory
  * in a single move, then atomically swaps the manifest to point at it. See the module doc
- * comment for the commit-point and `attemptedVersionPath` handoff contract.
+ * comment for the commit-point and `orphanedVersionPath` handoff contract.
  */
-export function promoteVersioned(context: FetchStageContext): ResultAsync<void, ContentError> {
+export function promoteVersioned(
+	context: FetchStageContext,
+): ResultAsync<PublicationReceipt, ContentError> {
 	const stagedRoot = context.paths.getStagedDownloadPath();
 	const publishedRoot = context.paths.getPublishedDownloadPath();
 
 	return FileUtils.pathExists(stagedRoot)
 		.andThen((exists) => {
 			if (!exists) {
-				return okAsync(undefined);
+				return errAsync(new ContentError("Staged root missing before version promotion"));
 			}
 
 			return resolveFreeVersionId(publishedRoot, ManifestUtils.mintVersionId()).andThen(
@@ -161,7 +158,7 @@ export function promoteVersioned(context: FetchStageContext): ResultAsync<void, 
 					// Mark the chosen path as this run's attempt only after resolving a free id, so
 					// error recovery can only ever delete the directory this run is about to create --
 					// never a pre-existing, manifest-referenced version that minted the same base id.
-					context.attemptedVersionPath = versionAbsolutePath;
+					context.publication = { status: "promoting", orphanedVersionPath: versionAbsolutePath };
 
 					return FileUtils.move(stagedRoot, versionAbsolutePath).andThen(() => {
 						const generatedAt = new Date().toISOString();
@@ -173,15 +170,21 @@ export function promoteVersioned(context: FetchStageContext): ResultAsync<void, 
 							sources: context.sources.map((source) => ({ sourceId: source.id, path: source.id })),
 						};
 
-						return ManifestUtils.writeManifest(publishedRoot, manifest).andTee(() => {
-							// Committed: clear the attempt marker so a later, unrelated stage failure
-							// (e.g. cleanupStage) can't cause error recovery to delete the now-active,
-							// manifest-referenced version.
-							context.attemptedVersionPath = undefined;
+						const receipt: PublicationReceipt = {
+							finalRoots: new Map(
+								context.sources.map((source) => [
+									source.id,
+									path.join(versionAbsolutePath, source.id),
+								]),
+							),
+						};
+						return ManifestUtils.writeManifest(publishedRoot, manifest).map(() => {
+							context.publication = { status: "published", receipt };
 							context.eventBus?.emit(
 								"content:version:promoted",
 								buildVersionPromotedPayload(manifest),
 							);
+							return receipt;
 						});
 					});
 				},
@@ -192,10 +195,13 @@ export function promoteVersioned(context: FetchStageContext): ResultAsync<void, 
 
 /**
  * Best-effort delete of the version dir this run tried to create, for the versioned-output
- * error path. See the module doc comment for the `attemptedVersionPath` handoff contract.
+ * error path. See the module doc comment for the `orphanedVersionPath` handoff contract.
  */
 export function cleanupOrphanedVersion(context: FetchStageContext): ResultAsync<void, never> {
-	const versionPath = context.attemptedVersionPath;
+	const versionPath =
+		context.publication.status === "promoting"
+			? context.publication.orphanedVersionPath
+			: undefined;
 	if (!versionPath) {
 		return okAsync(undefined);
 	}

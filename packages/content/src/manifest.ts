@@ -3,6 +3,8 @@ import path from "node:path";
 import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { z } from "zod";
 import { ensureDir, move, pad, remove, scratchName } from "./utils/file-utils.js";
+import { FilesystemIdentity } from "./utils/filesystem-identity.js";
+import { isSafeSourceId } from "./utils/paths-helper.js";
 
 export const MANIFEST_FILENAME = "manifest.json";
 export const MANIFEST_SCHEMA_VERSION = 1;
@@ -21,14 +23,16 @@ export class ManifestError extends Error {
 	}
 }
 
-const relativePosixPathSchema = z
-	.string()
-	.refine((value) => !value.startsWith("/") && !value.includes("\\"), {
-		message: "must be a relative, forward-slash path",
-	});
+function isBoundedRelativePath(value: string): boolean {
+	return value.split("/").every(isSafeSourceId);
+}
+
+const relativePosixPathSchema = z.string().refine(isBoundedRelativePath, {
+	message: "must contain only relative, forward-slash directory names (no dot segments)",
+});
 
 const manifestSourceSchema = z.object({
-	sourceId: z.string().min(1),
+	sourceId: z.string().refine(isSafeSourceId),
 	path: relativePosixPathSchema,
 });
 
@@ -40,9 +44,31 @@ const manifestSourceSchema = z.object({
 const manifestSchema = z.object({
 	schemaVersion: z.literal(MANIFEST_SCHEMA_VERSION),
 	versionId: z.string().min(1),
-	versionPath: relativePosixPathSchema,
+	versionPath: relativePosixPathSchema.refine(
+		(value) => {
+			const segments = value.split("/");
+			return segments.length === 2 && segments[0] === "versions";
+		},
+		{ message: "must name a directory directly under versions/" },
+	),
 	generatedAt: z.string(),
-	sources: z.array(manifestSourceSchema),
+	sources: z.array(manifestSourceSchema).refine(
+		(sources) => {
+			const sourceIds = new Set(sources.map((source) => source.sourceId));
+			if (sourceIds.size !== sources.length) return false;
+			return sources.every((source, index) =>
+				sources
+					.slice(index + 1)
+					.every(
+						(other) =>
+							source.path !== other.path &&
+							!source.path.startsWith(`${other.path}/`) &&
+							!other.path.startsWith(`${source.path}/`),
+					),
+			);
+		},
+		{ message: "source entries must be unique and their paths must not overlap" },
+	),
 });
 
 export type Manifest = z.output<typeof manifestSchema>;
@@ -51,6 +77,68 @@ export type ManifestReadResult =
 	| { status: "ok"; manifest: Manifest }
 	| { status: "missing" }
 	| { status: "invalid"; error: ManifestError };
+
+async function walkManifestSourcePath(
+	downloadRoot: string,
+	manifest: Manifest,
+	source: Manifest["sources"][number],
+): Promise<string> {
+	let resolved = path.resolve(downloadRoot);
+	for (const segment of [...manifest.versionPath.split("/"), ...source.path.split("/")]) {
+		resolved = path.join(resolved, segment);
+		try {
+			const entry = await fs.promises.lstat(resolved);
+			if (entry.isSymbolicLink()) {
+				throw new ManifestError(`Manifest source path contains a symlink: ${resolved}`);
+			}
+		} catch (error) {
+			if (error instanceof Error && "code" in error && error.code === "ENOENT") continue;
+			throw error;
+		}
+	}
+	return resolved;
+}
+
+/** Validate manifest source separation on the actual filesystem, including case aliases. */
+export async function resolveManifestSourceRoots(
+	downloadRoot: string,
+	manifest: Manifest,
+): Promise<ReadonlyMap<string, string>> {
+	const validated = manifestSchema.safeParse(manifest);
+	if (!validated.success) throw new ManifestError("Cannot resolve unsafe manifest source roots");
+	const identity = new FilesystemIdentity();
+	const settled = await Promise.allSettled(
+		manifest.sources.map(async (source) => {
+			const root = await walkManifestSourcePath(downloadRoot, manifest, source);
+			return { sourceId: source.sourceId, root, identity: await identity.resolve(root) };
+		}),
+	);
+	const roots = settled.map((result) => {
+		if (result.status === "rejected") throw result.reason;
+		return result.value;
+	});
+	for (const [index, source] of roots.entries()) {
+		for (const other of roots.slice(index + 1)) {
+			if (
+				containsPath(source.identity, other.identity) ||
+				containsPath(other.identity, source.identity)
+			) {
+				throw new ManifestError(
+					`Manifest sources overlap on this filesystem: ${source.sourceId} and ${other.sourceId}`,
+				);
+			}
+		}
+	}
+	return new Map(roots.map(({ sourceId, root }) => [sourceId, root]));
+}
+
+function containsPath(parent: string, child: string): boolean {
+	const relative = path.relative(parent, child);
+	return (
+		relative === "" ||
+		(relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+	);
+}
 
 const DEFAULT_RENAME_MAX_RETRIES = 4;
 const DEFAULT_RENAME_RETRY_DELAY_MS = 50;

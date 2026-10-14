@@ -230,7 +230,7 @@ function copyDir(
 /**
  * Copies a file from `src` to `dest`.
  */
-export function copyFile(src: string, dest: string): ResultAsync<void, FileUtilsError> {
+function copyFile(src: string, dest: string): ResultAsync<void, FileUtilsError> {
 	return ensureDir(path.dirname(dest)).andThen(() =>
 		ResultAsync.fromPromise(
 			fs.promises.copyFile(src, dest),

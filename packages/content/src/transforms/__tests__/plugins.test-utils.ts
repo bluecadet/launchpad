@@ -3,6 +3,7 @@ import { createMockEventBus, createMockLogger } from "@bluecadet/launchpad-testi
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import { vol } from "memfs";
 import { afterEach, vi } from "vitest";
+import { createArtifactCache } from "../../cache/artifact-cache.js";
 import { contentConfigSchema } from "../../content-config.js";
 import type { ContentTransformContext } from "../../content-transform.js";
 import { DataStore } from "../../utils/data-store.js";
@@ -16,11 +17,13 @@ afterEach(() => {
  */
 export async function createTestPluginContext({
 	logger = createMockLogger(),
+	dataDirectory = "/",
 }: {
 	namespaces?: string[];
 	logger?: Logger;
+	dataDirectory?: string;
 } = {}): Promise<ContentTransformContext> {
-	const data = new DataStore("/");
+	const data = new DataStore(dataDirectory);
 
 	const paths = {
 		getDownloadPath: vi
@@ -45,6 +48,12 @@ export async function createTestPluginContext({
 	} as ContentTransformContext["paths"];
 
 	return {
+		cache: await createArtifactCache({
+			databasePath: "/.launchpad/cache/artifacts.sqlite",
+			previousRoot: paths.getPublishedDownloadPath,
+			stagedRoot: paths.getStagedDownloadPath,
+			enabled: false,
+		}),
 		data,
 		logger,
 		abortSignal: new AbortController().signal,

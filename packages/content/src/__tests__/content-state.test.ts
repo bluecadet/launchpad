@@ -1,3 +1,4 @@
+import "./mock-project-lease.js";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { produce } from "immer";
 import { vol } from "memfs";

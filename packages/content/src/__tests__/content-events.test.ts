@@ -1,3 +1,4 @@
+import "./mock-project-lease.js";
 import { createMockPluginCtx, type MockEventBus } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { vol } from "memfs";
 import { HttpResponse, http } from "msw";

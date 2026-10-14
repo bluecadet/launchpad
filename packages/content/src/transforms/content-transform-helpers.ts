@@ -1,6 +1,3 @@
-import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
-import { FixedTTYLogger } from "@bluecadet/launchpad-utils/fixed-tty-logger";
-import chalk from "chalk";
 import { ResultAsync } from "neverthrow";
 import type { z } from "zod";
 import { DataStoreError, type Document } from "../utils/data-store.js";
@@ -69,63 +66,4 @@ export function queryOrUpdate<T>({
 				),
 		),
 	).map((nestedResults) => nestedResults.flat());
-}
-
-export class CacheProgressLogger extends FixedTTYLogger {
-	#total: number;
-	#fresh = 0;
-	#cached = 0;
-
-	get fresh() {
-		return this.#fresh;
-	}
-
-	get cached() {
-		return this.#cached;
-	}
-
-	get total() {
-		return this.#total;
-	}
-
-	constructor(eventBus: EventBus, total: number) {
-		super(eventBus);
-		this.#total = total;
-	}
-
-	addFresh() {
-		this.#fresh++;
-		this.update();
-	}
-
-	addCached() {
-		this.#cached++;
-		this.update();
-	}
-
-	protected renderProgressBar(additionalCharCount = 0): string {
-		const total = this.#total;
-		const fresh = this.#fresh;
-		const cached = this.#cached;
-		const BAR_LENGTH = Math.min(
-			60,
-			process.stdout.columns ? Math.floor(process.stdout.columns - additionalCharCount) : 60,
-		);
-
-		// Calculate exact segments
-		const freshLength = Math.round((fresh / total) * BAR_LENGTH);
-		const cachedLength = Math.round((cached / total) * BAR_LENGTH);
-		// Ensure remaining is never negative
-		const remainingLength = Math.max(0, BAR_LENGTH - freshLength - cachedLength);
-
-		const fetchedBar = chalk.green("=".repeat(freshLength));
-		const cachedBar = chalk.yellow("=".repeat(cachedLength));
-		const remainingBar = chalk.gray("=".repeat(remainingLength));
-
-		return `${fetchedBar}${cachedBar}${remainingBar}`;
-	}
-
-	override getFixedConsoleMessage(): string {
-		return `${this.renderProgressBar()}`;
-	}
 }

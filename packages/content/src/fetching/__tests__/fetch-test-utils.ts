@@ -6,6 +6,7 @@ import {
 } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { ok, okAsync } from "neverthrow";
 import { vi } from "vitest";
+import { ArtifactCache } from "../../cache/artifact-cache.js";
 import type { ResolvedContentConfig } from "../../content-config.js";
 import type { ContentTransform } from "../../content-transform.js";
 import type { FetchStageContext } from "../fetch-context.js";
@@ -80,6 +81,16 @@ export const createMockFetchContext = (overrides: Partial<FetchStageContext> = {
 	const runId = "test-run";
 	const mockLogger = createMockLogger();
 	const mockEventBus = createMockEventBus();
+	const paths = createMockPathsHelper(config, cwd, runId);
+	const cache = new ArtifactCache(
+		{
+			databasePath: "/project/.launchpad/cache/artifacts.sqlite",
+			previousRoot: paths.getPublishedDownloadPath,
+			stagedRoot: paths.getStagedDownloadPath,
+		},
+		undefined,
+	);
+	vi.spyOn(cache, "beginPublication").mockResolvedValue(undefined);
 	return {
 		config,
 		output: resolveOutputStrategy(config),
@@ -90,7 +101,11 @@ export const createMockFetchContext = (overrides: Partial<FetchStageContext> = {
 		eventBus: mockEventBus,
 		transforms: [] as ContentTransform[],
 		dataStore: createMockDataStore(),
-		paths: createMockPathsHelper(config, cwd, runId),
+		paths,
+		cache,
+		seedRoots: new Map(),
+		publication: { status: "preparing" },
+		dataStoreClosed: false,
 		sources: [],
 		...overrides,
 	} as unknown as FetchStageContext & {

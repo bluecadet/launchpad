@@ -38,6 +38,16 @@ The monitor package manages and supervises processes for media installations. It
 npm install @bluecadet/launchpad
 ```
 
+### Windows window management
+
+The monitor package ships a precompiled Node-API addon for Windows x64 and arm64. Installation does not require Python, MSVC, or `node-gyp`; there is no install-time native build or binary download. The arm64 binary is cross-compiled, but Windows arm64 runtime behavior has not yet been verified.
+
+Window management runs only on Windows. Other platforms retain PM2 process management and logging without window operations. Native window actions run asynchronously so they do not block Node's main event loop. Windows can deny requests to bring an application to the foreground, so `foreground: true` is best-effort, not a focus guarantee.
+
+On managed Windows systems, native library policies may require signing or allowlisting the bundled `.node` file. Check with your administrator if loading it is blocked. There is no source-build fallback.
+
+Maintainers can find rebuild instructions and release verification steps in the [native addon README](https://github.com/bluecadet/launchpad/blob/main/packages/monitor/native/README.md).
+
 ## JS API Usage
 
 ```typescript

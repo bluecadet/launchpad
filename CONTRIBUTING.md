@@ -15,6 +15,16 @@ cd launchpad
 npm install
 ```
 
+The monitor's Windows window-management addon is checked in as precompiled x64 and arm64 binaries, so installing dependencies or building TypeScript does not require Python, MSVC, or Zig. The arm64 binary is cross-compiled and has not yet been runtime-verified on Windows arm64.
+
+### Rebuilding and verifying the Windows addon
+
+Only maintainers changing the native addon need the pinned Zig toolchain. Native binaries are rebuilt manually, not during `npm install`. Follow the [native addon README](./packages/monitor/native/README.md) for the exact build command, toolchain version, and Windows verification procedure. Commit both the source changes and rebuilt prebuilds.
+
+The **Native binary drift** CI job rebuilds when changes touch `packages/monitor/native/**`, `packages/monitor/prebuilds/**`, or `.github/workflows/ci.yml`; unrelated changes skip it. Manual workflow dispatches and change-detection failures always rebuild. Ordinary lint, CI, and native packaging checks remain unchanged and run regardless of the native path filter.
+
+Before release, verify that the monitor tarball includes both Windows binaries, install that tarball with normal npm install scripts enabled on a Windows machine without Python or MSVC, and test real window behavior in an interactive desktop session. Hosted Windows CI verifies packaging and addon smoke tests, but its preinstalled build tools mean it does not prove a toolchain-free install.
+
 ### Project Structure
 
 Launchpad is organized as an npm workspaces monorepo:

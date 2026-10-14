@@ -8,18 +8,46 @@ import {
 } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import type { LaunchpadEvents } from "@bluecadet/launchpad-utils/types";
 import { err, errAsync, okAsync, ResultAsync } from "neverthrow";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { controllerConfigSchema } from "../controller-config.js";
 import { LaunchpadController } from "../launchpad-controller.js";
+import { createControllerLogSource } from "./controller-log-source-test-utils.js";
 
 describe("LaunchpadController", () => {
 	const config = controllerConfigSchema.parse({ pidFile: "./pid", socketPath: "./socket" });
 
+	const resources: Array<{
+		controller: LaunchpadController;
+		owner: ReturnType<typeof createControllerLogSource>;
+		release: ReturnType<typeof vi.fn>;
+	}> = [];
+
 	function createController(mode?: "task" | "persistent") {
-		return new LaunchpadController(config, "/test", mode, {
-			acquireInstanceLease: () => ({ release: vi.fn() }),
+		const owner = createControllerLogSource();
+		const release = vi.fn();
+		const controller = new LaunchpadController(config, "/test", mode, {
+			acquireInstanceLease: () => ({ release }),
+			// Keep the real logger/event transport, but never lock memfs descriptors.
+			createSource: owner.createSource,
 		});
+		resources.push({ controller, owner, release });
+		return controller;
 	}
+
+	afterEach(async () => {
+		for (const { controller, owner, release } of resources.splice(0)) {
+			await controller.stop();
+			expect(controller.isStarted()).toBe(false);
+			expect(controller.getAbortSignal().aborted).toBe(true);
+			if (owner.createSource.mock.calls.length === 0) {
+				expect(owner.close).not.toHaveBeenCalled();
+				expect(release).not.toHaveBeenCalled();
+				continue;
+			}
+			expect(owner.close).toHaveBeenCalledOnce();
+			expect(release).toHaveBeenCalledOnce();
+		}
+	});
 
 	function makePlugin(name: string, inner: InstantiatedPlugin = {}) {
 		return definePlugin({ name, setup: () => okAsync(inner) });
@@ -85,11 +113,27 @@ describe("LaunchpadController", () => {
 				},
 			});
 
-			expect(order).toEqual([]);
-			await controller.start();
-			expect(order).toEqual(["lease", "logging"]);
-			await controller.stop();
-			expect(release).toHaveBeenCalledOnce();
+			const warning = "File-backed logging is unavailable: Logging intentionally unavailable";
+			const warnings = vi.fn();
+			controller.getEventBus().on("log:warn", warnings);
+			const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				expect(order).toEqual([]);
+				expect((await controller.start()).isOk()).toBe(true);
+				expect(controller.isStarted()).toBe(true);
+				expect(order).toEqual(["lease", "logging"]);
+				expect((await controller.stop()).isOk()).toBe(true);
+				expect(release).toHaveBeenCalledOnce();
+				expect(consoleWarn).toHaveBeenCalledExactlyOnceWith(`[launchpad logging] ${warning}`);
+				expect(warnings).toHaveBeenCalledExactlyOnceWith({
+					message: warning,
+					args: [warning],
+					module: "logging",
+				});
+			} finally {
+				await controller.stop();
+				consoleWarn.mockRestore();
+			}
 		});
 	});
 
@@ -802,7 +846,6 @@ describe("LaunchpadController", () => {
 				}),
 			);
 
-			warnings.length = 0; // Ignore initialization diagnostics; this assertion covers metric failures.
 			expect(failedRegistration).toBeErr();
 			expect(collectMetrics?.()).toEqual([{ name: "launchpad_test_healthy", value: 1 }]);
 			expect(warnings).toEqual([

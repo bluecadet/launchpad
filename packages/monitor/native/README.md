@@ -5,7 +5,7 @@ Launchpad Monitor uses a C addon built against Node-API version 8 to enumerate a
 - `prebuilds/win32-x64/windows.node`
 - `prebuilds/win32-arm64/windows.node`
 
-The arm64 binary is cross-compiled. Its runtime behavior has not yet been verified on Windows arm64; do not treat the presence of that binary as a runtime compatibility guarantee.
+Both binaries are cross-compiled. A previous arm64 prebuild passed a manual native-addon smoke check in a clean Windows arm64 VM on Node v24.22.0, before the switch to generated Node import libraries. The current prebuilds still need Windows runtime validation; cross-compilation alone does not establish runtime compatibility.
 
 The loader uses Node's built-in `createRequire`. There is no install script, binary download, or source-build fallback. Users do not need Python, MSVC, Zig, or `node-gyp` to install the package. Non-Windows platforms skip window management and retain PM2 process management and logging.
 
@@ -99,7 +99,9 @@ Verify that the installed addon loads and enumerates windows:
 node -e "const path = require('node:path'); const root = path.dirname(require.resolve('@bluecadet/launchpad-monitor/package.json')); const addon = require(path.join(root, 'prebuilds', 'win32-' + process.arch, 'windows.node')); console.log({ node: process.version, arch: process.arch, windows: addon.listVisibleWindows() });"
 ```
 
-Loading and enumeration are only a smoke check. Repeat on real Windows arm64 before claiming arm64 runtime verification.
+Before the switch to generated import libraries, a manual smoke check passed in a clean Windows arm64 VM without Python or MSVC, using Node installed through nvm. Installation from local npm tarballs succeeded. The Node REPL reported `process.version` as `v24.22.0` and `process.arch` as `arm64`; the addon loaded and `listVisibleWindows()` returned a nonempty array. Checks against a disposable blank Notepad window passed: enumeration, title lookup with `getWindowTitle`, minimize (followed by manual restore), best-effort foreground, hide, and a stale-window no-op after terminating Notepad.
+
+This check did not cover physical ARM hardware, all apps or Windows environments, or full Launchpad/PM2 integration. Repeat the clean installation and native smoke checks for other platforms and Node versions; use the interactive checks below to verify Launchpad/PM2 integration. Foreground activation remains subject to Windows focus restrictions, so denial alone is not a failure.
 
 ### Interactive window behavior
 

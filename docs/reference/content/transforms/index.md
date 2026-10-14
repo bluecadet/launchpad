@@ -1,6 +1,6 @@
 # Content Transforms
 
-Content transforms are used to transform, analyze, or enhance content after all sources have been fetched. Transforms run sequentially, each receiving a context object with access to the data store, logger, resolved config, and path helpers.
+Content transforms are used to transform, analyze, or enhance content after all sources have been fetched. Transforms run sequentially, each receiving a context object with access to the data store, shared artifact cache, logger, resolved config, and path helpers.
 
 ## Type Reference
 
@@ -12,6 +12,7 @@ type ContentTransform = {
 
 type ContentTransformContext = {
   data: DataStore;
+  cache: ArtifactCache;
   logger: Logger;
   contentOptions: ResolvedContentConfig;
   paths: {
@@ -34,6 +35,12 @@ type ContentTransformContext = {
 
 Access to the data store where content and metadata can be stored and retrieved. This data store is a proxy to the file-system, and exposes some helpers for easily modifying the data that was fetched during the source-fetch step.
 
+### `cache`
+
+The run-owned `ArtifactCache`, shared by downloads and derived transforms. Use `cache.derive()` to restore or generate source-scoped files in staging. Launchpad owns publication and database cleanup; transforms must not close, abort, or commit this cache themselves. Await every cache operation and generation task before `apply()` returns.
+
+See the [artifact cache reference](../artifact-cache.md) for declarations, file verification, clearing, and failure behavior, or the [custom transform recipe](../../../recipes/custom-content-transform.md#cache-generated-files) for an example.
+
 ### `contentOptions`
 
 The resolved content configuration object. See [Content Config Reference](../content-config.md) for more info.
@@ -50,6 +57,12 @@ Helpers for retrieving staged, published, temp, backup, and run-scoped paths. `g
 ### `logger`
 
 A transform-specific logger.
+
+### `eventBus` and task progress
+
+Use `ContentProgressLogger` from `@bluecadet/launchpad/content` with `eventBus` to report completed tasks, with or without caching. It counts successful fresh and reused tasks, not bytes. The built-in media downloader and Sharp transforms use this shared class.
+
+See the [progress logging reference](../progress-logging.md) for constructor options, counters, events, and cleanup rules, or [add progress to a custom transform](../../../recipes/custom-content-transform.md#report-progress-without-caching) for a sequential example.
 
 ## Built-in Transforms
 

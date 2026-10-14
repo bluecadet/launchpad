@@ -58,18 +58,9 @@ All packages, including `@bluecadet/launchpad`, follow Semantic Versioning (SemV
 
 The umbrella's public API includes the APIs it re-exports. An upgrade that breaks those APIs requires an umbrella major, as do breaking changes to its import paths, module layout, package composition, integration contracts, or supported runtime baseline. A dependency's major release alone does not automatically require an umbrella major when the umbrella's public contract remains compatible.
 
-The upcoming release uses this policy:
+The runtime packages and scaffolder support Node.js 24.x or 26 and later (`^24 || >=26`).
 
-| Package | Current version | Upcoming version |
-|---|---|---|
-| `@bluecadet/launchpad-controller` | `3.2.0` | `4.0.0` |
-| `@bluecadet/launchpad-observability` | `3.0.2` | `4.0.0` |
-| `@bluecadet/launchpad` | `3.0.8` | `4.0.0` |
-| `@bluecadet/launchpad-content` | `3.3.0` | `3.4.0` |
-
-Controller 4 and observability 4 will be available through umbrella 4 because their re-exported public APIs have breaking changes. These versions are not yet published. Content and other packages continue on their independent 3.x release lines.
-
-Read the changelogs and migration notes for the packages you use before upgrading. For this upcoming release, review the [observability migration notes](../reference/observability/migration.md), including the controller logging changes. Commit your lockfile and review dependency updates before deployment. If you need to prevent automatic version updates, pin an exact umbrella version and keep the lockfile committed to hold the resolved implementation dependencies.
+Read the changelogs and migration notes for the packages you use before upgrading. Review the [observability migration notes](../reference/observability/migration.md), including the controller logging changes. Commit your lockfile and review dependency updates before deployment. If you need to prevent automatic version updates, pin an exact umbrella version and keep the lockfile committed to hold the resolved implementation dependencies.
 
 ## Peer dependencies
 

@@ -51,6 +51,10 @@
     "./telemetry": {
       "types": "./dist/telemetry.d.ts",
       "default": "./dist/telemetry.js"
+    },
+    "./native-file-lease": {
+      "types": "./dist/native-file-lease.d.ts",
+      "default": "./dist/native-file-lease.js"
     }
   },
   "files": [
@@ -63,7 +67,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=23"
+    "node": "^24 || >=26"
   },
   "repository": {
     "type": "git",
@@ -75,6 +79,7 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
+    "fs-native-extensions": "1.5.1",
     "immer": "^11.1.4",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"

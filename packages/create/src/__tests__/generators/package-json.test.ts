@@ -31,6 +31,12 @@ describe("generatePackageJson", () => {
 		expect(pkg.type).toBe("module");
 	});
 
+	it("declares the supported Node runtime", () => {
+		const result = generatePackageJson(baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as { engines: Record<string, string> };
+		expect(pkg.engines.node).toBe("^24 || >=26");
+	});
+
 	it("always includes @bluecadet/launchpad", () => {
 		const result = generatePackageJson(baseAnswers, makeDeps(baseAnswers));
 		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
@@ -138,6 +144,27 @@ describe("getRequiredPackages", () => {
 });
 
 describe("mergePackageJson", () => {
+	it("adds the supported Node runtime when no engines are declared", () => {
+		const existing = JSON.stringify({ name: "existing-app" });
+		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as { engines: Record<string, string> };
+		expect(pkg.engines.node).toBe("^24 || >=26");
+	});
+
+	it("adds the Node runtime without replacing other engine declarations", () => {
+		const existing = JSON.stringify({ engines: { npm: ">=11" } });
+		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as { engines: Record<string, string> };
+		expect(pkg.engines).toEqual({ npm: ">=11", node: "^24 || >=26" });
+	});
+
+	it("preserves an existing project's explicit Node engine declaration", () => {
+		const existing = JSON.stringify({ engines: { node: "^24", npm: ">=11" } });
+		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as { engines: Record<string, string> };
+		expect(pkg.engines).toEqual({ node: "^24", npm: ">=11" });
+	});
+
 	it("preserves existing name and other fields", () => {
 		const existing = JSON.stringify({ name: "existing-app", version: "1.2.3", type: "module" });
 		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));

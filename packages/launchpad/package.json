@@ -3,7 +3,7 @@
   "version": "3.0.8",
   "description": "Suite of tools to manage media installations",
   "engines": {
-    "node": ">=23"
+    "node": "^24 || >=26"
   },
   "type": "module",
   "scripts": {

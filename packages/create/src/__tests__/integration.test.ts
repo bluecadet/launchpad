@@ -38,6 +38,11 @@ describe("applyGenerators", () => {
 		expect(result.created).toContain("launchpad.config.ts");
 		expect(result.created).toContain(".gitignore");
 		expect(result.updated).toHaveLength(0);
+
+		const pkg = JSON.parse(vol.readFileSync("/project/package.json", "utf-8") as string) as {
+			engines: Record<string, string>;
+		};
+		expect(pkg.engines.node).toBe("^24 || >=26");
 	});
 
 	it("creates a valid launchpad.config.ts", async () => {
@@ -84,10 +89,12 @@ describe("applyGenerators", () => {
 		const pkg = JSON.parse(vol.readFileSync("/project/package.json", "utf-8") as string) as {
 			name: string;
 			version: string;
+			engines: Record<string, string>;
 			scripts: Record<string, string>;
 		};
 		expect(pkg.name).toBe("existing-project");
 		expect(pkg.version).toBe("2.0.0");
+		expect(pkg.engines.node).toBe("^24 || >=26");
 		expect(pkg.scripts.build).toBe("tsc");
 	});
 

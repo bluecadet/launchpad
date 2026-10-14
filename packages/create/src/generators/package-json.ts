@@ -1,6 +1,7 @@
 import type { Answers, ContentSource, ContentTransform } from "../types.js";
 
 const LAUNCHPAD_PACKAGE = "@bluecadet/launchpad";
+const NODE_ENGINE = "^24 || >=26";
 
 const SOURCE_PEER_DEPS: Partial<Record<ContentSource, string[]>> = {
 	sanity: ["@sanity/client"],
@@ -53,6 +54,7 @@ export function generatePackageJson(answers: Answers, deps: Record<string, strin
 		name: answers.packageName,
 		version: "0.1.0",
 		type: "module",
+		engines: { node: NODE_ENGINE },
 		scripts,
 		dependencies: deps,
 	};
@@ -66,6 +68,9 @@ export function mergePackageJson(
 	deps: Record<string, string>,
 ): string {
 	const pkg = JSON.parse(existing) as Record<string, unknown>;
+
+	const existingEngines = (pkg.engines as Record<string, string> | undefined) ?? {};
+	pkg.engines = { node: NODE_ENGINE, ...existingEngines };
 
 	const existingDeps = (pkg.dependencies as Record<string, string> | undefined) ?? {};
 	const mergedDeps: Record<string, string> = { ...existingDeps };

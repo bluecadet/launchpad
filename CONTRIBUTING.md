@@ -15,7 +15,7 @@ cd launchpad
 npm install
 ```
 
-The monitor's Windows window-management addon is checked in as precompiled x64 and arm64 binaries, so installing dependencies or building TypeScript does not require Python, MSVC, or Zig. The arm64 binary is cross-compiled and has not yet been runtime-verified on Windows arm64.
+The monitor's Windows window-management addon is checked in as precompiled x64 and arm64 binaries, so installing dependencies or building TypeScript does not require Python, MSVC, or Zig. A previous arm64 prebuild passed a manual Windows arm64 smoke check before the switch to generated Node import libraries; the current prebuilds still need Windows runtime validation.
 
 ### Rebuilding and verifying the Windows addon
 
@@ -23,7 +23,17 @@ Only maintainers changing the native addon need the pinned Zig toolchain. Native
 
 The **Native binary drift** CI job rebuilds when changes touch `packages/monitor/native/**`, `packages/monitor/prebuilds/**`, or `.github/workflows/ci.yml`; unrelated changes skip it. Manual workflow dispatches and change-detection failures always rebuild. Ordinary lint, CI, and native packaging checks remain unchanged and run regardless of the native path filter.
 
-Before release, verify that the monitor tarball includes both Windows binaries, install that tarball with normal npm install scripts enabled on a Windows machine without Python or MSVC, and test real window behavior in an interactive desktop session. Hosted Windows CI verifies packaging and addon smoke tests, but its preinstalled build tools mean it does not prove a toolchain-free install.
+Run the Windows-only smoke tests against the real bundled addon from the repository root:
+
+```sh
+npx vitest run packages/monitor/src/utils/__tests__/windows-native.windows.test.ts
+```
+
+They use a disposable PowerShell/.NET Windows Forms window, without addon mocks or added consumer dependencies. Prerequisites are Windows x64 or arm64 with a matching Node architecture, built-in Windows PowerShell 5.1, and policies allowing .NET Windows Forms and `Add-Type`. No Python, MSVC, or Zig is needed to run the tests. The suite checks enumeration, the exact title, minimize and hide independently observed through Win32 state, live mismatched-PID no-ops, and stale descriptors after fixture termination. Non-Windows platforms skip; addon-load or fixture failures on supported Windows fail rather than skip.
+
+The existing `windows-latest` CI job discovers the tests normally through Vitest and currently covers x64 only; arm64 needs a separate Windows arm64 run. Foreground remains a manual/best-effort check because of Windows focus restrictions.
+
+Before release, verify that the monitor tarball includes both Windows binaries, install that tarball with normal npm install scripts enabled on a Windows machine without Python, MSVC, or Zig, and test real window behavior in an interactive desktop session. Hosted Windows CI verifies packaging and addon smoke tests, but its preinstalled build tools mean it does not prove a toolchain-free install or full Launchpad/PM2 integration. See the native addon README for the manual checks.
 
 ### Project Structure
 

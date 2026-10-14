@@ -4,6 +4,8 @@
 
 ### Setup
 
+Repository development requires Node.js 24 or 26 and later (`^24 || >=26`), including for the Changesets release tooling. This development requirement does not change the supported runtime baseline of published packages.
+
 ```bash
 # Clone the repository
 git clone git@github.com:bluecadet/launchpad.git
@@ -375,6 +377,12 @@ Don't create changesets for:
 - Development tooling changes
 
 ## Releases
+
+### Versioning policy
+
+All packages, including the umbrella, follow SemVer and are versioned independently. Breaking public API changes require a major release of the affected package. The umbrella's public API includes its re-exports, so breaking those APIs requires an umbrella major too. A dependency major alone does not automatically require an umbrella major if the umbrella's public contract remains compatible. Choose changeset types based on each package's public contract, not automatic dependency bumps or matching major numbers.
+
+See [Versioning and upgrades](./docs/guides/packages.md#versioning-and-upgrades) for the consumer policy and upcoming release versions.
 
 ### Release Process
 

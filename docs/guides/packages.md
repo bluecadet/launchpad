@@ -46,11 +46,30 @@ import { content } from '@bluecadet/launchpad/content';
 import { content } from '@bluecadet/launchpad-content';
 ```
 
-The umbrella is a thin re-export layer — there's no extra code, no version drift, no runtime overhead. It's purely a convenience for installation and imports.
+The umbrella is a thin re-export layer for installation and imports. The implementation versions it exposes are determined by its package dependencies.
 
 **Use the umbrella when** you want a single install and don't need fine-grained control over which packages are installed.
 
 **Use individual packages when** you're building a custom plugin, writing library code that depends on only one Launchpad feature, or managing versions independently.
+
+## Versioning and upgrades
+
+All packages, including `@bluecadet/launchpad`, follow Semantic Versioning (SemVer): breaking public API changes require a major release of the affected package. Packages are versioned independently; their major numbers do not need to align, and matching major numbers do not guarantee compatibility between packages.
+
+The umbrella's public API includes the APIs it re-exports. An upgrade that breaks those APIs requires an umbrella major, as do breaking changes to its import paths, module layout, package composition, integration contracts, or supported runtime baseline. A dependency's major release alone does not automatically require an umbrella major when the umbrella's public contract remains compatible.
+
+The upcoming release uses this policy:
+
+| Package | Current version | Upcoming version |
+|---|---|---|
+| `@bluecadet/launchpad-controller` | `3.2.0` | `4.0.0` |
+| `@bluecadet/launchpad-observability` | `3.0.2` | `4.0.0` |
+| `@bluecadet/launchpad` | `3.0.8` | `4.0.0` |
+| `@bluecadet/launchpad-content` | `3.3.0` | `3.4.0` |
+
+Controller 4 and observability 4 will be available through umbrella 4 because their re-exported public APIs have breaking changes. These versions are not yet published. Content and other packages continue on their independent 3.x release lines.
+
+Read the changelogs and migration notes for the packages you use before upgrading. For this upcoming release, review the [observability migration notes](../reference/observability/migration.md), including the controller logging changes. Commit your lockfile and review dependency updates before deployment. If you need to prevent automatic version updates, pin an exact umbrella version and keep the lockfile committed to hold the resolved implementation dependencies.
 
 ## Peer dependencies
 

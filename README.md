@@ -7,6 +7,8 @@ Launchpad is a suite of tools for managing interactive installations. It provide
 For complete documentation, configuration options, and guides, visit:
 [Launchpad Documentation](https://bluecadet.github.io/launchpad/)
 
+Before upgrading, read the [versioning and upgrade policy](./docs/guides/packages.md#versioning-and-upgrades). Packages are versioned independently, including the umbrella package.
+
 ## Core Packages
 
 - [@bluecadet/launchpad-cli](./packages/cli): Command line interface and configuration management

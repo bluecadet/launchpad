@@ -96,6 +96,8 @@ sidebar:
         link: reference/content
         items:
           - reference/content/content-config
+          - reference/content/artifact-cache
+          - reference/content/progress-logging
           - reference/content/versioning
           - reference/content/version-manifest
           - reference/content/refetch-checker

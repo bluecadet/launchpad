@@ -2,7 +2,7 @@
 title: "Migrate Observability APIs and Transports"
 ---
 
-These notes cover the upcoming controller 4 and observability 4 releases, available through `@bluecadet/launchpad` 4. These versions are not yet published. The umbrella also requires a major release because its re-exported public APIs have breaking changes. See [Versioning and upgrades](../../guides/packages.md#versioning-and-upgrades) for the independent package policy.
+Use these notes when upgrading to controller 4 and observability 4 through `@bluecadet/launchpad` 4. The umbrella also requires a major release because its re-exported public APIs have breaking changes. See [Versioning and upgrades](../../guides/packages.md#versioning-and-upgrades) for the independent package policy.
 
 ## API changes when upgrading
 

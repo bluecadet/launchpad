@@ -56,6 +56,26 @@ Deletion is best-effort. A locked directory, including one partially deleted on 
 
 Fresh ack leases only extend retention. They do not make a version permanent: once a lease exceeds `ackTimeout`, it is ignored by the sweep. See [acknowledging a version](./version-manifest.md#acknowledging-a-version) for the consumer-side protocol.
 
+## Failure and clear behavior
+
+A failure before publication leaves the published content untouched. After a version's manifest is replaced, a later cleanup failure does not remove that active version. Cache metadata remains unsafe until a subsequent successful fetch settles it.
+
+In flat mode, with `backupAndRestore` enabled, a publication or temporary-file cleanup failure can restore the previous source files. Launchpad prepares the restore in the run directory before replacing published files. If recovery fails, it retains the run files and backups for manual recovery. Once backup deletion begins, those backups are no longer eligible for rollback: a deletion failure reports an error but leaves the complete newly published files in place.
+
+`content.clear` resolves and validates all requested deletion targets before changing files or cache metadata. Download clearing and versioned seeding also reject manifest source roots that overlap on the actual filesystem, including case aliases on case-insensitive volumes. A clear with `downloads: false` does not read the active manifest, so cache-only, temporary-file, and backup clears still work when that manifest is invalid.
+
+A source-filtered temporary clear removes source leaves in the run layout and the currently configured transforms' temporary namespaces. Source names matching `runs`, `downloads`, or a transform name do not authorize deletion of the containing namespace. Unknown historical transform namespaces are preserved. A direct temporary source directory with subdirectories is ambiguous without a layout record, so a filtered clear refuses it rather than risk deleting another source's files. Use an all-source temporary clear to remove these historical or ambiguous files:
+
+```typescript
+await controller.dispatchCommand({
+  type: "content.clear",
+  downloads: false,
+  temp: true,
+});
+```
+
+This preserves published downloads and artifact metadata. Copy any files retained for manual recovery elsewhere before clearing their temporary or backup directories.
+
 ## Switching modes
 
 Versioned and normal output modes do not migrate or clean up one another's artifacts. Turning versioning on leaves existing flat output alone; turning it off leaves `manifest.json`, `versions/`, and `acks/` alone. Artifacts from the inactive mode are inert.

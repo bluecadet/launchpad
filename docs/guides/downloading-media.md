@@ -1,6 +1,6 @@
 # Downloading Media
 
-Media downloading is a crucial part of the Launchpad content pipeline. This guide will walk you through downloading and transforming media files from your content sources.
+Add media downloading and image processing to a configured content source. Run Launchpad on Node.js 24.x or 26 and later; the shared artifact cache uses `node:sqlite`.
 
 ## Overview
 
@@ -18,7 +18,7 @@ First, add the `mediaDownloader` plugin to your configuration:
 ```ts {3,12-14}
 import { defineConfig } from '@bluecadet/launchpad/cli';
 import { content } from '@bluecadet/launchpad/content';
-import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms';
 
 export default defineConfig({
   plugins: [
@@ -53,16 +53,16 @@ After downloading media, you can transform images using the `sharp` plugin. This
 
 Add the sharp plugin *after* the media downloader:
 
-```ts {4,11-15}
+```ts
 import { defineConfig } from '@bluecadet/launchpad/cli';
 import { content } from '@bluecadet/launchpad/content';
-import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
-import { sharp } from '@bluecadet/launchpad/content/transforms/sharp';
+import { mediaDownloader, sharp } from '@bluecadet/launchpad/content/transforms';
 
 export default defineConfig({
   plugins: [
     content({
-      plugins: [
+      sources: [ /* ... */ ],
+      transforms: [
         mediaDownloader(),
         sharp({
           buildTransform: (transform) => transform
@@ -103,10 +103,40 @@ sharp({
 })
 ```
 
+## Fetch and Reuse Media
+
+Run a content update after adding the transforms:
+
+```bash
+npx launchpad content fetch
+```
+
+Downloads and generated images go into the current run's staging tree. Launchpad publishes that tree only after the run succeeds.
+
+On subsequent fetches, downloaded media can skip the network while an explicit server freshness lifetime is valid. Otherwise Launchpad contacts the server, using conditional GET with its validators when available. Servers without an explicit freshness lifetime are contacted every run; caching does not promise offline availability.
+
+Supported Sharp recipes automatically reuse outputs when local input bytes, resolved options, supported dependencies, and engine versions match. You do not need to maintain a version token for ordinary image resizing. Unsupported or unresolved dependencies run uncached with a diagnostic.
+
+Metadata is stored at `.launchpad/cache/artifacts.sqlite`; the bodies are the previously published files, not a separate blob store. Existing files without trusted metadata may be downloaded or generated again on the first run after upgrading.
+
+## Force a New Download
+
+To bypass HTTP reuse and cached validators, set `ignoreCache` for the downloader:
+
+```typescript
+mediaDownloader({ ignoreCache: true })
+```
+
+Run a fetch, then remove the flag to resume normal HTTP policy. Sharp may still reuse a derived image if the newly downloaded bytes and recipe have not changed.
+
+`forceClearTempFiles` only removes temporary staging files. To invalidate metadata while leaving published files available to applications, use `content.clear` with `downloads: false, cache: true` between runs. See the [clearing reference](../reference/content/artifact-cache.md#clearing) for a dispatch example.
+
 ## Best Practices
 
-- **Enable Caching**: Launchpad automatically caches downloaded and transformed files
-- **Order Plugins Correctly**: Always put `mediaDownloader` before `sharp` plugins
+- Put `mediaDownloader` before Sharp or custom transforms that read downloaded files.
+- Keep `updatePaths` enabled when Sharp needs local image paths.
+- Use distinct output destinations for different URLs or recipes; conflicting cache identities are rejected rather than overwritten.
+- Leave publication ownership and cache cleanup to Launchpad. Parallel tasks within a run are supported, but concurrent project writers are not.
 
 ## Troubleshooting
 
@@ -129,3 +159,4 @@ If transformations aren't working:
 - Learn more about [content transforms](../reference/content/transforms/index.md)
 - Explore [sharp plugin options](../reference/content/transforms/sharp.md)
 - See [media downloader configuration](../reference/content/transforms/media-downloader.md)
+- Read the [artifact cache reference](../reference/content/artifact-cache.md)

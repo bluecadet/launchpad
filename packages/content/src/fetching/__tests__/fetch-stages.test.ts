@@ -6,6 +6,7 @@ import { ContentError } from "../../content-transform.js";
 import * as ManifestUtils from "../../manifest.js";
 import { defineSource } from "../../source.js";
 import * as FileUtils from "../../utils/file-utils.js";
+import type { FetchStageContext } from "../fetch-context.js";
 import {
 	backupStage,
 	ContentFetchError,
@@ -23,6 +24,13 @@ import {
 	createMockDataStore,
 	createMockFetchContext,
 } from "./fetch-test-utils.js";
+
+function getOrphanedVersionPath(context: FetchStageContext): string {
+	if (context.publication.status !== "promoting" || !context.publication.orphanedVersionPath) {
+		throw new Error("Expected an orphaned version path");
+	}
+	return context.publication.orphanedVersionPath;
+}
 
 describe("Fetch Stages", () => {
 	beforeEach(() => {
@@ -631,7 +639,7 @@ describe("Fetch Stages", () => {
 					const recovery = await errorRecoveryStage(context, error);
 					expect(recovery).toBeOk();
 					expect(recovery._unsafeUnwrap().restoredSourceIds).toEqual([]);
-					expect(vol.existsSync(context.attemptedVersionPath as string)).toBe(false);
+					expect(vol.existsSync(getOrphanedVersionPath(context))).toBe(false);
 				} finally {
 					moveSpy.mockRestore();
 				}
@@ -674,7 +682,7 @@ describe("Fetch Stages", () => {
 					);
 
 					// The move completed (orphan dir left behind); recovery never ran
-					const orphanPath = context.attemptedVersionPath as string;
+					const orphanPath = getOrphanedVersionPath(context);
 					expect(vol.existsSync(orphanPath)).toBe(true);
 					expect(vol.existsSync(path.join(orphanPath, "source1", "file.json"))).toBe(true);
 
@@ -732,7 +740,7 @@ describe("Fetch Stages", () => {
 					expect(manifest.versionId < "20260714T153046Z").toBe(true);
 
 					// Committed, so the attempt marker is cleared.
-					expect(context.attemptedVersionPath).toBeUndefined();
+					expect(context.publication.status).toBe("published");
 				} finally {
 					mintSpy.mockRestore();
 				}
@@ -778,7 +786,7 @@ describe("Fetch Stages", () => {
 					expect(result).toBeErr();
 
 					// This run's orphan is the suffixed dir, never the live one.
-					expect(context.attemptedVersionPath).toBe(
+					expect(getOrphanedVersionPath(context)).toBe(
 						path.join("/downloads/versions", "20260714T153045Z-01"),
 					);
 
@@ -852,6 +860,7 @@ describe("Fetch Stages", () => {
 			vol.writeFileSync("/backups/test/file.json", '{"backup":"data"}');
 
 			const context = createMockFetchContext({
+				publication: { status: "promoting", orphanedVersionPath: undefined },
 				config: createMockContentConfig({ backupAndRestore: true }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
@@ -866,6 +875,7 @@ describe("Fetch Stages", () => {
 
 		it("should warn when no backup exists", async () => {
 			const context = createMockFetchContext({
+				publication: { status: "promoting", orphanedVersionPath: undefined },
 				config: createMockContentConfig({ backupAndRestore: true }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
@@ -884,7 +894,7 @@ describe("Fetch Stages", () => {
 
 			const originalCopy = FileUtils.copy;
 			const copySpy = vi.spyOn(FileUtils, "copy").mockImplementation((src, dest, options) => {
-				if (src === "/backups/test" && dest === "/downloads/test") {
+				if (src === "/backups/test" && dest === "/temp/runs/test-run/.recovery/test") {
 					return errAsync(new FileUtils.FileUtilsError("restore failed"));
 				}
 				return originalCopy(src, dest, options);
@@ -892,6 +902,7 @@ describe("Fetch Stages", () => {
 
 			try {
 				const context = createMockFetchContext({
+					publication: { status: "promoting", orphanedVersionPath: undefined },
 					config: createMockContentConfig({ backupAndRestore: true }),
 					sources: [defineSource({ id: "test", fetch: () => [] })],
 				});
@@ -914,7 +925,10 @@ describe("Fetch Stages", () => {
 				config: createMockContentConfig({ versioning: { keepVersions: 3, ackTimeout: 1_800_000 } }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
-			context.attemptedVersionPath = "/downloads/versions/newVersion";
+			context.publication = {
+				status: "promoting",
+				orphanedVersionPath: "/downloads/versions/newVersion",
+			};
 
 			const error = new ContentError("Test error");
 			const result = await errorRecoveryStage(context, error);
@@ -929,7 +943,10 @@ describe("Fetch Stages", () => {
 				config: createMockContentConfig({ versioning: { keepVersions: 3, ackTimeout: 1_800_000 } }),
 				sources: [defineSource({ id: "test", fetch: () => [] })],
 			});
-			context.attemptedVersionPath = "/downloads/versions/newVersion";
+			context.publication = {
+				status: "promoting",
+				orphanedVersionPath: "/downloads/versions/newVersion",
+			};
 
 			const removeSpy = vi
 				.spyOn(FileUtils, "remove")

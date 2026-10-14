@@ -13,33 +13,26 @@ import {
 	type ContentTransform,
 	type ContentTransformContext,
 } from "../content-transform.js";
-import type { Manifest } from "../manifest.js";
 import type { SweepResult } from "../retention-sweep.js";
 import type { ContentSource } from "../source.js";
+import { RUN_LAYOUT } from "../utils/content-layout.js";
 import { FetchLogger } from "../utils/fetch-logger.js";
 import * as FileUtils from "../utils/file-utils.js";
+import { beginCachePublication } from "./cache-lifecycle.js";
 import type { FetchStageContext } from "./fetch-context.js";
 
 function prepareStagedSourceDirectory(
 	context: FetchStageContext,
 	sourceId: string,
-	activeManifest: Manifest | undefined,
 ): ResultAsync<void, ContentError> {
 	const stagedPath = context.paths.getStagedDownloadPath(sourceId);
-
-	return context.output
-		.resolveSeedPath(context, sourceId, activeManifest)
-		.andThen((seedPath) =>
-			FileUtils.clearDir(stagedPath, {
-				ignoreKeep: true,
-				removeIfEmpty: true,
-			})
-				.andThen(() => FileUtils.ensureDir(stagedPath))
-				.andThen(() =>
-					seedPath
-						? FileUtils.copyMatchingFiles(seedPath, stagedPath, context.config.keep)
-						: okAsync(undefined),
-				),
+	const seedPath = context.seedRoots.get(sourceId);
+	return FileUtils.clearDir(stagedPath, { ignoreKeep: true, removeIfEmpty: true })
+		.andThen(() => FileUtils.ensureDir(stagedPath))
+		.andThen(() =>
+			seedPath
+				? FileUtils.copyMatchingFiles(seedPath, stagedPath, context.config.keep)
+				: okAsync(undefined),
 		)
 		.mapErr(
 			(error) =>
@@ -132,10 +125,13 @@ export function clearOldDataStage(context: FetchStageContext): ResultAsync<void,
 	}
 
 	return context.output
-		.readSeedManifest(context)
-		.andThen((manifest) =>
+		.snapshot(context)
+		.andTee((roots) => {
+			context.seedRoots = roots;
+		})
+		.andThen(() =>
 			ResultAsync.combine(
-				context.sources.map((source) => prepareStagedSourceDirectory(context, source.id, manifest)),
+				context.sources.map((source) => prepareStagedSourceDirectory(context, source.id)),
 			).map(() => undefined),
 		);
 }
@@ -203,39 +199,43 @@ function _fetchSource(source: ContentSource, context: FetchStageContext, fetchLo
 	});
 
 	return context.dataStore.namespace(source.id).asyncAndThen((namespace) => {
-		const fetchResult = source.fetch(context);
-		const fetchArray = Array.isArray(fetchResult) ? fetchResult : [fetchResult];
+		return ResultAsync.fromPromise(
+			Promise.resolve().then(() => source.fetch(context)),
+			(error) => new ContentError(`Source "${source.id}" failed`, { cause: ensureError(error) }),
+		).andThen((fetchResult) => {
+			const fetchArray = Array.isArray(fetchResult) ? fetchResult : [fetchResult];
 
-		const insertResults = fetchArray.map((req) => {
-			const insertResultAsync = namespace
-				.insert(req.id, req.data)
-				.andTee(() => {
-					// Emit document:write event on success
-					// Construct the file path (Documents don't expose their path)
-					const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
-					const filePath = `${context.paths.getStagedDownloadPath(source.id)}/${filename}`;
-					context.eventBus?.emit("content:document:write", {
-						sourceId: source.id,
-						documentId: req.id,
-						path: filePath,
+			const insertResults = fetchArray.map((req) => {
+				const insertResultAsync = namespace
+					.insert(req.id, req.data)
+					.andTee(() => {
+						// Emit document:write event on success
+						// Construct the file path (Documents don't expose their path)
+						const filename = req.id.includes(".") ? req.id : `${req.id}.json`;
+						const filePath = `${context.paths.getStagedDownloadPath(source.id)}/${filename}`;
+						context.eventBus?.emit("content:document:write", {
+							sourceId: source.id,
+							documentId: req.id,
+							path: filePath,
+						});
+					})
+					.mapErr((e) => {
+						// Emit document:error event on failure
+						context.eventBus?.emit("content:document:error", {
+							sourceId: source.id,
+							documentId: req.id,
+							error: e,
+						});
+						return new ContentError(`Failed to write data for ${req.id}`, e);
 					});
-				})
-				.mapErr((e) => {
-					// Emit document:error event on failure
-					context.eventBus?.emit("content:document:error", {
-						sourceId: source.id,
-						documentId: req.id,
-						error: e,
-					});
-					return new ContentError(`Failed to write data for ${req.id}`, e);
-				});
 
-			fetchLogger.addFetch(source.id, req.id, insertResultAsync);
+				fetchLogger.addFetch(source.id, req.id, insertResultAsync);
 
-			return insertResultAsync;
+				return insertResultAsync;
+			});
+
+			return ResultAsync.combine(insertResults);
 		});
-
-		return ResultAsync.combine(insertResults);
 	});
 }
 
@@ -252,6 +252,7 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 
 	const baseCtx = {
 		data: context.dataStore,
+		cache: context.cache,
 		logger: context.logger,
 		contentOptions: context.config,
 		eventBus: context.eventBus,
@@ -275,7 +276,7 @@ export function runTransformsStage(context: FetchStageContext): ResultAsync<void
 				};
 
 				return ResultAsync.fromPromise(
-					transform.apply(transformCtx),
+					Promise.resolve().then(() => transform.apply(transformCtx)),
 					(e) =>
 						new ContentError(`Transform "${transform.name}" failed`, {
 							cause: ensureError(e),
@@ -307,13 +308,24 @@ export function finalizingStage(context: FetchStageContext): ResultAsync<void, C
 
 	return context.dataStore
 		.close()
+		.andTee(() => {
+			context.dataStoreClosed = true;
+		})
 		.mapErr((e) => new ContentError("Failed to close data store", { cause: e }))
 		.andThen(() => {
 			if (!context.sources) {
 				return okAsync(undefined);
 			}
 
-			return context.output.promote(context);
+			return ResultAsync.fromPromise(
+				beginCachePublication(context),
+				(error) => new ContentError("Failed to prepare cache publication", { cause: error }),
+			).andThen(() => {
+				context.publication = { status: "promoting", orphanedVersionPath: undefined };
+				return context.output.promote(context).map((receipt) => {
+					context.publication = { status: "published", receipt };
+				});
+			});
 		})
 		.andTee(() => {
 			context.eventBus?.emit("content:fetch:done", {
@@ -354,7 +366,11 @@ export const errorRecoveryStage = (
 	const restoreRequired = context.config.backupAndRestore && context.output.backupsSupported;
 
 	return context.output.cleanupFailedRun(context).andThen(() => {
-		if (!restoreRequired) {
+		if (
+			!restoreRequired ||
+			context.publication.status === "preparing" ||
+			context.publication.status === "cleaning-backups"
+		) {
 			return okAsync({ restoredSourceIds: [] });
 		}
 
@@ -380,10 +396,12 @@ function restoreSourcesFromBackup(
 					}
 
 					context.logger.info(`Restoring ${chalk.white(source.id)} from backup`);
-					return FileUtils.remove(downloadPath)
+					const recoveryPath = context.paths.getRunPath(RUN_LAYOUT.recovery, source.id);
+					return FileUtils.copy(backupPath, recoveryPath, { preserveTimestamps: true })
 						.andThen(() =>
-							FileUtils.copy(backupPath, downloadPath, {
+							FileUtils.replacePath(recoveryPath, downloadPath, {
 								preserveTimestamps: true,
+								rollbackDir: context.paths.getRunPath(RUN_LAYOUT.recoveryRollback),
 							}),
 						)
 						.map(() => source.id)
@@ -418,6 +436,10 @@ export const cleanupStage = (
 	}
 
 	if (cleanup.backups) {
+		// No rollback may consume backups after the first destructive cleanup mutation.
+		if (context.publication.status === "published") {
+			context.publication = { status: "cleaning-backups", receipt: context.publication.receipt };
+		}
 		dirPaths.push(...context.sources.map((source) => context.paths.getBackupPath(source.id)));
 	}
 
@@ -425,13 +447,9 @@ export const cleanupStage = (
 		return okAsync(undefined);
 	}
 
-	return ResultAsync.combine(
-		dirPaths.map((dirPath) =>
-			FileUtils.clearDir(dirPath, {
-				keepPatterns: undefined,
-				ignoreKeep: true,
-				removeIfEmpty: true,
-			}),
-		),
-	).map(() => undefined);
+	// These whole trees are run-owned and have no keep policy. Recursive removal also
+	// avoids the glob/rmdir ordering race that can leave empty run directories behind.
+	return ResultAsync.combine(dirPaths.map((dirPath) => FileUtils.remove(dirPath))).map(
+		() => undefined,
+	);
 };

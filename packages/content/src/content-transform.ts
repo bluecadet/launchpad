@@ -1,5 +1,6 @@
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import type { ArtifactCacheCapability } from "./cache/artifact-cache.js";
 import type { ResolvedContentConfig } from "./content-config.js";
 import type { DataStore } from "./utils/data-store.js";
 import type { PathsHelper } from "./utils/paths-helper.js";
@@ -13,6 +14,8 @@ export class ContentError extends Error {
 
 export type ContentTransformContext = {
 	data: DataStore;
+	/** Shared run cache. Outputs are relative to the source staged download directory. */
+	cache: ArtifactCacheCapability;
 	logger: Logger;
 	contentOptions: ResolvedContentConfig;
 	/**

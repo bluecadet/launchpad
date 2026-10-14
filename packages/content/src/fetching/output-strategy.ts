@@ -11,55 +11,32 @@
 import { okAsync, ResultAsync } from "neverthrow";
 import type { ResolvedContentConfig } from "../content-config.js";
 import { ContentError } from "../content-transform.js";
-import type { Manifest } from "../manifest.js";
 import { type SweepResult, sweepVersions } from "../retention-sweep.js";
+import { RUN_LAYOUT } from "../utils/content-layout.js";
 import * as FileUtils from "../utils/file-utils.js";
 import type { FetchStageContext } from "./fetch-context.js";
 import {
 	cleanupOrphanedVersion,
 	promoteVersioned,
-	readActiveVersionManifest,
-	resolveVersionedSeedPath,
+	snapshotVersionedRoots,
 } from "./versioned-output.js";
 
+/** Final roots are supplied by the publisher, never reconstructed through a mutable manifest. */
+export type PublicationReceipt = { readonly finalRoots: ReadonlyMap<string, string> };
+export type PublicationState =
+	| { status: "preparing" }
+	| { status: "promoting"; orphanedVersionPath: string | undefined }
+	| { status: "published"; receipt: PublicationReceipt }
+	| { status: "cleaning-backups"; receipt: PublicationReceipt };
+
 export type OutputStrategy = {
-	/**
-	 * Whether the backup/restore pathway (`backupStage` and the restore half of
-	 * `errorRecoveryStage`) applies to this mode. Versioned output supersedes it:
-	 * retained version dirs are strictly better backups, and the active version is
-	 * never touched mid-fetch, so there is nothing to protect or restore.
-	 */
 	readonly backupsSupported: boolean;
-
-	/**
-	 * Reads the manifest that seeding should resolve source paths against, once per
-	 * `clearOldDataStage` call. Resolves `undefined` when the mode has no manifest.
-	 */
-	readSeedManifest(context: FetchStageContext): ResultAsync<Manifest | undefined, never>;
-
-	/**
-	 * Resolves the directory `clearOldDataStage` should seed keep-matching files from
-	 * for one source, or `undefined` to seed empty.
-	 */
-	resolveSeedPath(
+	/** Resolve previous roots exactly once for both seeding and cache lookup. */
+	snapshot(
 		context: FetchStageContext,
-		sourceId: string,
-		activeManifest: Manifest | undefined,
-	): ResultAsync<string | undefined, FileUtils.FileUtilsError>;
-
-	/** Publishes the staged output on the success path of `finalizingStage`. */
-	promote(context: FetchStageContext): ResultAsync<void, ContentError>;
-
-	/**
-	 * Runs the mode's post-promotion retention sweep. Resolves `undefined` when the
-	 * mode has no retention. Never fails the fetch.
-	 */
+	): ResultAsync<ReadonlyMap<string, string>, FileUtils.FileUtilsError>;
+	promote(context: FetchStageContext): ResultAsync<PublicationReceipt, ContentError>;
 	sweep(context: FetchStageContext): ResultAsync<SweepResult | undefined, never>;
-
-	/**
-	 * Best-effort cleanup of this run's partial output on the error path, before any
-	 * backup restore is considered.
-	 */
 	cleanupFailedRun(context: FetchStageContext): ResultAsync<void, never>;
 };
 
@@ -70,7 +47,7 @@ function promoteStagedSourceDirectory(
 	const stagedPath = context.paths.getStagedDownloadPath(sourceId);
 	const publishedPath = context.paths.getPublishedDownloadPath(sourceId);
 	const publishedParentPath = context.paths.getPublishedDownloadPath();
-	const rollbackDir = context.paths.getRunPath(".promotion-rollback");
+	const rollbackDir = context.paths.getRunPath(RUN_LAYOUT.promotionRollback);
 
 	return FileUtils.pathExists(stagedPath)
 		.andThen((exists) => {
@@ -94,7 +71,7 @@ function promoteStagedSourceDirectory(
 function promoteStagedRootEntries(context: FetchStageContext): ResultAsync<void, ContentError> {
 	const stagedRoot = context.paths.getStagedDownloadPath();
 	const publishedRoot = context.paths.getPublishedDownloadPath();
-	const rollbackDir = context.paths.getRunPath(".promotion-rollback");
+	const rollbackDir = context.paths.getRunPath(RUN_LAYOUT.promotionRollback);
 	const sourceIds = new Set(context.sources.map((source) => source.id));
 
 	return FileUtils.pathExists(stagedRoot)
@@ -113,7 +90,7 @@ function promoteStagedRootEntries(context: FetchStageContext): ResultAsync<void,
 					ResultAsync.combine(
 						rootEntries.map((entry) =>
 							FileUtils.replacePath(
-								context.paths.getRunPath("downloads", entry),
+								context.paths.getRunPath(RUN_LAYOUT.downloads, entry),
 								context.paths.getPublishedDownloadPath(entry),
 								{
 									preserveTimestamps: true,
@@ -137,12 +114,15 @@ function promoteStagedRootEntries(context: FetchStageContext): ResultAsync<void,
 const flatOutputStrategy: OutputStrategy = {
 	backupsSupported: true,
 
-	readSeedManifest() {
-		return okAsync(undefined);
-	},
-
-	resolveSeedPath(context, sourceId) {
-		return okAsync(context.paths.getPublishedDownloadPath(sourceId));
+	snapshot(context) {
+		return okAsync(
+			new Map(
+				context.sources.map((source) => [
+					source.id,
+					context.paths.getPublishedDownloadPath(source.id),
+				]),
+			),
+		);
 	},
 
 	promote(context) {
@@ -150,7 +130,15 @@ const flatOutputStrategy: OutputStrategy = {
 			context.sources.map((source) => promoteStagedSourceDirectory(context, source.id)),
 		)
 			.map(() => undefined)
-			.andThen(() => promoteStagedRootEntries(context));
+			.andThen(() => promoteStagedRootEntries(context))
+			.map(() => ({
+				finalRoots: new Map(
+					context.sources.map((source) => [
+						source.id,
+						context.paths.getPublishedDownloadPath(source.id),
+					]),
+				),
+			}));
 	},
 
 	sweep() {
@@ -173,12 +161,8 @@ function createVersionedOutputStrategy(versioning: ResolvedVersioningOptions): O
 	return {
 		backupsSupported: false,
 
-		readSeedManifest(context) {
-			return readActiveVersionManifest(context);
-		},
-
-		resolveSeedPath(context, sourceId, activeManifest) {
-			return resolveVersionedSeedPath(context, sourceId, activeManifest);
+		snapshot(context) {
+			return snapshotVersionedRoots(context);
 		},
 
 		promote(context) {

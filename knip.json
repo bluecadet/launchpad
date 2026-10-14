@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "tags": [
     "-lintignore"
   ],
@@ -13,7 +13,7 @@
       ]
     },
     "packages/content": {
-      "ignoreDependencies": ["@portabletext/markdown"]
+      "ignoreDependencies": ["@portabletext/markdown", "@types/http-cache-semantics"]
     },
     "packages/cli": {},
     "packages/monitor": {

@@ -26,6 +26,7 @@ export type ContentClearCommand = BaseCommand & {
 	temp?: boolean; // Clear temp directory
 	backups?: boolean; // Clear backup directory
 	downloads?: boolean; // Clear downloads directory
+	cache?: boolean; // Invalidate artifact metadata without removing downloads
 };
 
 /**
@@ -109,6 +110,7 @@ export const contentClearCommandSchema = z
 		temp: z.boolean().optional(),
 		backups: z.boolean().optional(),
 		downloads: z.boolean().optional(),
+		cache: z.boolean().optional(),
 	})
 	.strict();
 

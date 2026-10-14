@@ -270,6 +270,22 @@ Biome checks for:
 - Inconsistent naming
 - Code style and formatting
 
+### Unused Dependencies and Exports
+
+Run the same Knip check used in CI:
+
+```bash
+npm run knip
+```
+
+The content workspace has a narrow `ignoreDependencies` exception for
+`@types/http-cache-semantics`. `http-cache-semantics@4.2.0` advertises
+`"types": "index.js"` but ships no TypeScript declarations. Knip treats that
+metadata as bundled types and incorrectly reports the separate typings as unused;
+TypeScript resolves the adapter's policy types through `@types/http-cache-semantics`.
+Keep this dependency and remove the exception when upstream metadata or Knip's
+bundled-type detection is corrected.
+
 ### Building
 
 ```bash

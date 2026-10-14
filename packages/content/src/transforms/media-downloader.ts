@@ -1,20 +1,15 @@
 import { setMaxListeners } from "node:events";
-import fs from "node:fs";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import chalk from "chalk";
-import { errAsync, ok, okAsync, ResultAsync } from "neverthrow";
+import { type Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
+import { downloadHttpArtifact } from "../cache/http-cache.js";
+import { ContentProgressLogger } from "../content-progress-logger.js";
 import { defineContentTransform } from "../content-transform.js";
 import type { DataStore } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import ResultAsyncQueue from "../utils/result-async-queue.js";
-import { safeKy } from "../utils/safe-ky.js";
-import {
-	CacheProgressLogger,
-	parseTransformConfig,
-	queryOrUpdate,
-} from "./content-transform-helpers.js";
+import { parseTransformConfig, queryOrUpdate } from "./content-transform-helpers.js";
 
 const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)?$/i;
 
@@ -45,24 +40,12 @@ export const mediaDownloaderConfigSchema = z.object({
 		.boolean()
 		.describe("Will always download files regardless of whether they've been cached.")
 		.default(false),
-	/** Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
-	enableIfModifiedSinceCheck: z
-		.boolean()
-		.describe(
-			"Enables the HTTP if-modified-since check. Disabling this will assume that the local file is the same as the remote file if it already exists.",
-		)
-		.default(true),
-	/** Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists. Defaults to true. */
-	enableContentLengthCheck: z
-		.boolean()
-		.describe(
-			"Compares the HTTP header content-length with the local file size. Disabling this will assume that the local file is the same as the remote file if it already exists.",
-		)
-		.default(true),
-	/** Clear the temp dir before starting downloads. This means the cache will be ignored. Defaults to false. */
+	/** Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache. Defaults to false. */
 	forceClearTempFiles: z
 		.boolean()
-		.describe("Clear the temp dir before starting downloads. This means the cache will be ignored.")
+		.describe(
+			"Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache.",
+		)
 		.default(false),
 	/** Function to transform the local path of the downloaded file. */
 	transformLocalPath: z
@@ -103,129 +86,6 @@ export function localFilePathFromUrl(url: string) {
 	return urlPath.replace(/\//g, path.sep);
 }
 
-export function checkCacheStatus(
-	url: string,
-	backupPath: string,
-	abortSignal: AbortSignal,
-	config: Pick<
-		MediaDownloaderConfigWithDefaults,
-		"ignoreCache" | "enableIfModifiedSinceCheck" | "enableContentLengthCheck" | "maxTimeout"
-	>,
-) {
-	return FileUtils.pathExists(backupPath)
-		.mapErr((err) => new FileSystemError("Failed to check if file exists", err))
-		.andThen((exists) =>
-			exists
-				? ResultAsync.fromPromise(
-						fs.promises.lstat(backupPath),
-						(err) => new FileSystemError(`Failed to get file stats for ${backupPath}`, err),
-					)
-				: okAsync(null),
-		)
-		.map((stats) => {
-			if (config.ignoreCache || !stats || !stats.isFile()) {
-				return { shouldDownload: true };
-			}
-
-			if (!config.enableIfModifiedSinceCheck && !config.enableContentLengthCheck) {
-				return { shouldDownload: true };
-			}
-
-			return { shouldDownload: false, existingFile: backupPath, stats };
-		})
-		.andThen((result) => {
-			if (result.shouldDownload || !result.stats) {
-				return okAsync(result);
-			}
-
-			return safeKy(url, {
-				method: "HEAD",
-				signal: abortSignal,
-				timeout: config.maxTimeout,
-				throwHttpErrors: false,
-				headers: {
-					"If-Modified-Since": result.stats.mtime.toUTCString(),
-				},
-			})
-				.mapErr((err) => new NetworkError(`Failed to check cache status for ${url}`, err))
-				.map((res) => {
-					let isRemoteNew = true;
-
-					if (config.enableIfModifiedSinceCheck) {
-						isRemoteNew = res.status !== 304;
-					}
-
-					// only check content length if the response says it's new
-					if (isRemoteNew && config.enableContentLengthCheck) {
-						const remoteSize = Number.parseInt(res.headers.get("content-length") ?? "", 10);
-						const localSize = result.stats.size;
-						isRemoteNew = remoteSize !== localSize;
-					}
-
-					return {
-						shouldDownload: isRemoteNew,
-						existingFile: result.existingFile,
-						stats: result.stats,
-					};
-				});
-		});
-}
-
-export function downloadFile(
-	url: string,
-	filePath: string,
-	abortSignal: AbortSignal,
-	config: MediaDownloaderConfigWithDefaults,
-): ResultAsync<void, FileSystemError | NetworkError> {
-	return safeKy(url, {
-		signal: abortSignal,
-		timeout: config.maxTimeout,
-	})
-		.mapErr((err) => new NetworkError(`Failed to download ${url}`, err))
-		.andThen((res) => {
-			if (!res.body) {
-				return errAsync(new Error("No response body"));
-			}
-
-			const writer = fs.createWriteStream(filePath);
-			return ResultAsync.fromPromise(
-				pipeline(res.body, writer),
-				(err) => new FileSystemError(`Failed to write file: ${err}`, err),
-			);
-		});
-}
-
-function downloadMedia(
-	url: string,
-	destPath: string,
-	backupPath: string,
-	abortSignal: AbortSignal,
-	config: MediaDownloaderConfigWithDefaults,
-): ResultAsync<
-	{ cacheHit: boolean; destPath: string },
-	FileSystemError | NetworkError | CacheError
-> {
-	const destPathDir = path.dirname(destPath);
-
-	return FileUtils.ensureDir(destPathDir)
-		.mapErr((err) => new FileSystemError("Failed to create dest dir", err))
-		.andThen(() => checkCacheStatus(url, backupPath, abortSignal, config))
-		.andThen((cacheStatus) => {
-			if (!cacheStatus.shouldDownload && cacheStatus.existingFile) {
-				return FileUtils.copy(cacheStatus.existingFile, destPath)
-					.mapErr((e) => new FileSystemError("Failed to copy existing file to dest dir", e))
-					.map(() => ({
-						cacheHit: true,
-						destPath,
-					}));
-			}
-
-			return downloadFile(url, destPath, abortSignal, config).map(() => ({
-				cacheHit: false,
-				destPath,
-			}));
-		});
-}
 type MediaDownload = {
 	url: string;
 	sourceId: string;
@@ -281,38 +141,14 @@ export async function findMediaUrls(
 	return returnUrls;
 }
 
-type TransformPaths = {
-	getTempPath: (sourceId?: string) => string;
-	getBackupPath: (sourceId?: string) => string;
-	getDownloadPath: (sourceId?: string) => string;
-};
-
-function setupDownloadDirectories(
-	paths: TransformPaths,
-	config: MediaDownloaderConfigWithDefaults,
-): ResultAsync<void, FileSystemError> {
-	return (
-		config.forceClearTempFiles
-			? FileUtils.remove(paths.getTempPath()).andThen(() =>
-					FileUtils.ensureDir(paths.getTempPath()),
-				)
-			: FileUtils.ensureDir(paths.getTempPath())
-	).mapErr((err) => new FileSystemError("Failed to setup download directories", err));
-}
-
-function publishDownloadedFiles(paths: TransformPaths): ResultAsync<void, FileSystemError> {
-	return FileUtils.copy(paths.getTempPath(), paths.getDownloadPath(), {
-		preserveTimestamps: true,
-	}).mapErr((err) => new FileSystemError("Failed to publish downloaded files", err));
-}
-
-function cleanupAfterDownload(paths: TransformPaths): ResultAsync<void, FileSystemError> {
-	return FileUtils.remove(paths.getTempPath()).mapErr(
-		(err) => new FileSystemError("Failed to cleanup after download", err),
-	);
-}
-
 export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
+	for (const removedOption of ["enableIfModifiedSinceCheck", "enableContentLengthCheck"]) {
+		if (Object.hasOwn(config, removedOption)) {
+			throw new MediaDownloaderError(
+				`${removedOption} has been removed. mediaDownloader now follows server HTTP cache policy; use ignoreCache: true to force full downloads.`,
+			);
+		}
+	}
 	const configWithDefaults = parseTransformConfig(
 		"mediaDownloader",
 		mediaDownloaderConfigSchema,
@@ -321,128 +157,83 @@ export default function mediaDownloader(config: z.input<typeof mediaDownloaderCo
 
 	return defineContentTransform({
 		name: "media-downloader",
-		apply(ctx) {
-			if (
-				!configWithDefaults.ignoreCache &&
-				!configWithDefaults.enableIfModifiedSinceCheck &&
-				!configWithDefaults.enableContentLengthCheck
-			) {
-				ctx.logger.warn(
-					chalk.yellow(
-						"Both enableIfModifiedSinceCheck and enableContentLengthCheck are disabled. The cache will be ignored.",
-					),
+		async apply(ctx) {
+			setMaxListeners(0, ctx.abortSignal);
+			if (configWithDefaults.forceClearTempFiles) {
+				await FileUtils.remove(ctx.paths.getTempPath()).match(
+					() => {},
+					(error) => {
+						throw new FileSystemError("Failed to clear transform temp files", error);
+					},
 				);
 			}
 
-			setMaxListeners(0, ctx.abortSignal);
-
 			const queryJsonPath =
 				configWithDefaults.matchPath ?? `$..[?(@.match(${configWithDefaults.mediaPattern}))]`;
-
-			const queryJsonPathArray = Array.isArray(queryJsonPath) ? queryJsonPath : [queryJsonPath];
-
-			return (
-				setupDownloadDirectories(ctx.paths, configWithDefaults)
-					.andThen(() =>
+			const queryJsonPaths = Array.isArray(queryJsonPath) ? queryJsonPath : [queryJsonPath];
+			const mediaItems = await findMediaUrls(
+				ctx.data,
+				configWithDefaults,
+				ctx.contentOptions.encodeChars,
+				queryJsonPaths,
+			).catch((error: unknown) => {
+				throw new MediaDownloaderError("Failed to find media urls", error);
+			});
+			const queue = new ResultAsyncQueue({ concurrency: configWithDefaults.maxConcurrent });
+			ctx.logger.info(`Syncing ${chalk.cyan(mediaItems.length)} files`);
+			const progressLogger = new ContentProgressLogger({
+				eventBus: ctx.eventBus,
+				total: mediaItems.length,
+				label: "Syncing Media",
+				freshLabel: "Fetched",
+			});
+			const tasks = mediaItems.map(
+				(mediaItem) =>
+					({ signal }: { signal?: AbortSignal }) =>
 						ResultAsync.fromPromise(
-							findMediaUrls(
-								ctx.data,
-								configWithDefaults,
-								ctx.contentOptions.encodeChars,
-								queryJsonPathArray,
-							),
-							(err) => new MediaDownloaderError("Failed to find media urls", err),
-						),
-					)
-					.andThen((mediaItems) => {
-						const queue = new ResultAsyncQueue({
-							concurrency: configWithDefaults.maxConcurrent,
-						});
-
-						ctx.logger.info(`Syncing ${chalk.cyan(mediaItems.length)} files`);
-
-						const progressLogger = new MediaDownloaderProgressLogger(
-							ctx.eventBus,
-							mediaItems.length,
-						);
-
-						const tasks = mediaItems.map((mediaItem) => {
-							const destDir = ctx.paths.getTempPath(mediaItem.sourceId);
-							const backupDir = ctx.paths.getBackupPath(mediaItem.sourceId);
-							const destPath = path.resolve(destDir, mediaItem.localPath);
-							const backupPath = path.resolve(backupDir, mediaItem.localPath);
-
-							const task = ({ signal }: { signal?: AbortSignal }) =>
-								downloadMedia(
-									mediaItem.url,
-									destPath,
-									backupPath,
-									signal ?? ctx.abortSignal,
-									configWithDefaults,
-								).andTee(({ cacheHit }) => {
-									if (cacheHit) {
-										ctx.logger.debug(`Cache hit for ${mediaItem.url}`);
-										progressLogger.addCached();
-									} else {
-										progressLogger.addFresh();
-									}
-								});
-							return task;
-						});
-
-						return queue
-							.addAll(tasks, {
-								abortOnError: configWithDefaults.abortOnError,
-								logger: ctx.logger,
-							})
-							.andTee(() => {
-								progressLogger.close();
-
-								ctx.logger.info(
-									`Finished downloading ${chalk.cyan(tasks.length)} files to ${chalk.cyan(
-										ctx.paths.getDownloadPath(),
-									)}`,
-								);
-
-								ctx.logger.info(
-									`Of the ${chalk.cyan(tasks.length)} media files, ${chalk.green(
-										progressLogger.fresh,
-									)} were downloaded and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
-								);
-							})
-							.orElse((queueErrors) => {
-								progressLogger.close();
-
-								ctx.logger.error(
-									`Encountered ${chalk.red(`${queueErrors.length} error(s)`)} while downloading ${chalk.cyan(tasks.length)} files`,
-								);
-
-								for (const error of queueErrors) {
-									ctx.logger.error(chalk.red(error));
-								}
-
-								if (configWithDefaults.abortOnError) {
-									return FileUtils.remove(ctx.paths.getTempPath())
-										.mapErr((err) => new FileSystemError("Failed to remove temp dir", err))
-										.andThen(() => errAsync(new QueueError(queueErrors)));
-								}
-
-								return ok(undefined);
-							});
-					})
-					.andThen(() => {
-						ctx.logger.verbose('Publishing downloaded media files to "download" directory');
-						return publishDownloadedFiles(ctx.paths);
-					})
-					.andThen(() => cleanupAfterDownload(ctx.paths))
-					// effectively cast to Promise<void>
-					// TODO: we should probably update the type signature of the apply function to allow for ResultAsync
-					.match(
-						() => {},
-						(e) => {
-							throw e;
-						},
-					)
+							downloadHttpArtifact({
+								cache: ctx.cache,
+								sourceId: mediaItem.sourceId,
+								outputPath: mediaItem.localPath,
+								url: mediaItem.url,
+								signal: signal ?? ctx.abortSignal,
+								timeout: configWithDefaults.maxTimeout,
+								ignoreCache: configWithDefaults.ignoreCache,
+							}),
+							(error) =>
+								error instanceof Error
+									? error
+									: new MediaDownloaderError("Failed to download media", error),
+						).andTee(({ cacheHit }) => {
+							if (cacheHit) ctx.logger.debug("HTTP media cache hit");
+							progressLogger.complete({ reused: cacheHit });
+						}),
+			);
+			let result: Result<{ cacheHit: boolean }[], Error[]>;
+			try {
+				result = await queue.addAll(tasks, {
+					abortOnError: configWithDefaults.abortOnError,
+					logger: ctx.logger,
+				});
+			} finally {
+				await queue.queue.onIdle();
+				progressLogger.close();
+			}
+			if (result.isErr()) {
+				ctx.logger.error(
+					`Encountered ${chalk.red(`${result.error.length} error(s)`)} while downloading ${chalk.cyan(tasks.length)} files`,
+				);
+				for (const error of result.error) {
+					ctx.logger.error(chalk.red(`Media request failed (${error.name})`));
+				}
+				if (configWithDefaults.abortOnError) throw new QueueError(result.error);
+				return;
+			}
+			ctx.logger.info(
+				`Finished downloading ${chalk.cyan(tasks.length)} files to ${chalk.cyan(ctx.paths.getDownloadPath())}`,
+			);
+			ctx.logger.info(
+				`Of the ${chalk.cyan(tasks.length)} media files, ${chalk.green(progressLogger.fresh)} were downloaded and ${chalk.yellow(progressLogger.cached)} were pulled from cache`,
 			);
 		},
 	});
@@ -471,20 +262,6 @@ class FileSystemError extends MediaDownloaderError {
 	}
 }
 
-class NetworkError extends MediaDownloaderError {
-	constructor(message: string, cause?: unknown) {
-		super(message, cause);
-		this.name = "NetworkError";
-	}
-}
-
-class CacheError extends MediaDownloaderError {
-	constructor(message: string, cause?: unknown) {
-		super(message, cause);
-		this.name = "CacheError";
-	}
-}
-
 class QueueError extends MediaDownloaderError {
 	errors: Error[];
 
@@ -495,15 +272,5 @@ class QueueError extends MediaDownloaderError {
 		super(`Queue encountered ${errors.length} errors`);
 		this.name = "QueueError";
 		this.errors = errors;
-	}
-}
-
-class MediaDownloaderProgressLogger extends CacheProgressLogger {
-	override getFixedConsoleMessage(): string {
-		const prefix = "Syncing Media: ";
-		return (
-			`${prefix}${super.renderProgressBar(prefix.length)}\n` +
-			`Fetched: ${chalk.green(this.fresh)}, Cached: ${chalk.yellow(this.cached)}, Remaining: ${this.total - this.fresh - this.cached} \n`
-		);
 	}
 }

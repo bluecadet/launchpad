@@ -1,33 +1,14 @@
-/**
- * Minimal context passed to fetch stages.
- * Contains only what's needed for a specific fetch operation.
- * Everything should be traceable back to LaunchpadContent for clarity.
- */
-
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
+import type { ArtifactCache } from "../cache/artifact-cache.js";
 import type { ResolvedContentConfig } from "../content-config.js";
 import type { ContentTransform } from "../content-transform.js";
 import type { ContentSource } from "../source.js";
 import type { DataStore } from "../utils/data-store.js";
 import type { PathsHelper } from "../utils/paths-helper.js";
-import type { OutputStrategy } from "./output-strategy.js";
+import type { OutputStrategy, PublicationState } from "./output-strategy.js";
 
-/**
- * Lightweight context for fetch pipeline stages.
- *
- * This context is created fresh for each fetch operation:
- * - config, logger, cwd: Come from LaunchpadContent.constructor
- * - transforms: From resolved config
- * - dataStore: Created fresh for each fetch in LaunchpadContent.start()
- * - Path functions: Bound methods from LaunchpadContent
- * - eventBus: Injected via setEventBus()
- * - sources: Set by LaunchpadContent._executeFetchPipeline()
- * - abortSignal: From LaunchpadContent._abortController
- *
- * Stages do NOT manage state - that's the pipeline's job.
- * Stages only do work and return results.
- */
+/** Fresh run-owned resources and publication state; plugin status belongs to fetch-run. */
 export type FetchStageContext = {
 	// Immutable configuration
 	readonly config: ResolvedContentConfig;
@@ -38,23 +19,21 @@ export type FetchStageContext = {
 	readonly abortSignal: AbortSignal;
 	readonly runId: string;
 
-	// Optional event bus (injected by controller)
+	// Controller infrastructure
 	readonly eventBus: EventBus;
 
 	// Mutable during fetch - created fresh for each fetch
-	transforms: ContentTransform[];
-	dataStore: DataStore;
+	readonly cache: ArtifactCache;
+	/** One immutable root snapshot shared by keep-file seeding and cache reuse. */
+	seedRoots: ReadonlyMap<string, string>;
+	publication: PublicationState;
+	dataStoreClosed: boolean;
+	readonly transforms: readonly ContentTransform[];
+	readonly dataStore: DataStore;
 
 	// Path resolution functions
-	paths: PathsHelper;
+	readonly paths: PathsHelper;
 
 	// Resolved sources to fetch (set by pipeline orchestrator)
-	sources: Array<ContentSource>;
-
-	/**
-	 * Absolute path of the version directory this run attempted to promote into, under
-	 * versioned output mode. Set by `finalizingStage` before the move so that
-	 * `errorRecoveryStage` can best-effort delete an orphaned version dir on failure.
-	 */
-	attemptedVersionPath?: string;
+	readonly sources: readonly ContentSource[];
 };

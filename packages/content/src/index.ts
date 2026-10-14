@@ -1,8 +1,24 @@
+export type {
+	ArtifactCacheCapability,
+	ArtifactCacheCapability as ArtifactCache,
+	ArtifactCacheOptions,
+	ArtifactRecord,
+	ArtifactResult,
+	DerivedArtifact,
+	HttpArtifact,
+	JsonValue,
+	OutputClaim,
+} from "./cache/artifact-cache.js";
 export * from "./content-commands.js";
 export { type ContentConfig, defineContentConfig } from "./content-config.js";
 export type { ContentEvents } from "./content-events.js";
 export {
+	ContentProgressLogger,
+	type ContentProgressLoggerOptions,
+} from "./content-progress-logger.js";
+export {
 	type ContentTransform,
+	type ContentTransformContext,
 	defineContentTransform,
 } from "./content-transform.js";
 export { content } from "./launchpad-content.js";

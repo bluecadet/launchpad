@@ -1,0 +1,13 @@
+.{
+    .name = .launchpad_monitor_native,
+    .version = "0.0.0",
+    .fingerprint = 0x6a9b1028fbb7ed1d,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .node_headers = .{
+            .url = "https://nodejs.org/dist/v22.16.0/node-v22.16.0-headers.tar.gz",
+            .hash = "N-V-__8AANYCCQPRn__yKD4r0kVb6SuiSPM5JpJ_KX_vJDWK",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "windows.c", "node-api.def" },
+}

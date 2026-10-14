@@ -13,25 +13,55 @@ Window actions use asynchronous native work rather than blocking Node's main eve
 
 ## Rebuild the binaries
 
-The build requires **official stable Zig 0.15.2**, `tar`, and HTTPS access to `nodejs.org`. Install Zig from the [official downloads](https://ziglang.org/download/). The script rejects other compiler versions. Rebuilding is a maintainer task; it is never part of package installation.
+The build requires **official stable Zig 0.17.0**. No separate `curl`, `tar`, LLVM tools, or Windows SDK is required. HTTPS access to `nodejs.org` is needed when the Node headers are not already cached. Install Zig from the [official downloads](https://ziglang.org/download/) and put its executable directory on `PATH`. Check that `zig version` reports `0.17.0`; the build rejects other versions. Rebuilding is a maintainer task; it is never part of package installation.
 
-From the repository root, build both architectures:
-
-```sh
-ZIG=/path/to/zig-0.15.2 node packages/monitor/native/build.mjs
-```
-
-The package also exposes an explicit maintainer command:
+From the repository root, build both architectures and write them to the monitor's checked-in `prebuilds` directory:
 
 ```sh
-ZIG=/path/to/zig-0.15.2 npm run build:native --workspace @bluecadet/launchpad-monitor
+zig build --build-file packages/monitor/native/build.zig
 ```
 
-`ZIG` points to the compiler executable, not its containing directory. If Zig 0.15.2 is already on `PATH`, omit the environment variable. On PowerShell, set `$env:ZIG = 'C:\\path\\to\\zig-0.15.2\\zig.exe'` before running either command. `build:native` is not an install or release lifecycle script.
+The package also exposes an explicit maintainer command that runs `zig build --build-file native/build.zig` from the monitor workspace:
 
-Use `--arch x64`, `--arch arm64`, or `--arch all` to select targets; the default is both. The script uses official Node 22.16.0 headers and Windows import libraries to build the Node-API 8 addon. This build-input version does not change the package's supported Node runtime baseline. Inputs are verified against pinned SHA-256 hashes and the official Node checksum manifest. `MONITOR_NATIVE_CACHE` optionally selects the download cache; cached inputs are also verified before use. These downloads happen only when maintainers invoke the rebuild command.
+```sh
+npm run build:native --workspace @bluecadet/launchpad-monitor
+```
 
-Review and commit both `windows.c` changes and rebuilt `.node` files. Cross-compilation verifies that binaries can be produced for each target, not that they work at runtime; run the Windows checks below before release.
+`build.zig` is the only native build script. Both commands use `zig` from `PATH`, including on PowerShell. `build:native` is not an install or release lifecycle script.
+
+Use `-Darch=x64`, `-Darch=arm64`, or `-Darch=all` to select targets; the default is both. For example, from the repository root:
+
+```sh
+zig build --build-file packages/monitor/native/build.zig -Darch=x64
+```
+
+`-Doutput-dir=PATH` selects an alternative prebuild destination. Absolute output paths are accepted; relative output paths use the native build root; the default is `../prebuilds`, or `packages/monitor/prebuilds` in this repository. All requested architectures must compile successfully before any prebuild is staged. Rebuild both architectures into the default destination before committing a native change.
+
+To validate the headers and import definitions without replacing prebuilds, run:
+
+```sh
+zig build --build-file packages/monitor/native/build.zig test
+```
+
+This step cross-compiles and links both addons by default, or the target selected with `-Darch`. Missing Node-API imports fail at link time. It does not load or execute Windows binaries.
+
+### Build inputs and cache
+
+`build.zig.zon` pins the official Node 22.16.0 headers as a normal Zig dependency, with Zig's package content hash. The C source still targets Node-API 8; the header version does not change the package's supported Node runtime baseline. Zig's built-in `dlltool` generates each architecture's `node.lib` from the checked-in text file `node-api.def`. No import-library binaries are downloaded or vendored. When the C source starts calling another Node-API function, add its name to `node-api.def`; keep `LIBRARY node.exe` and do not list addon registration exports there.
+
+Zig manages downloading, hash verification, extraction, and caching. With Zig 0.17.0, extracted dependencies default to `packages/monitor/native/zig-pkg`; package archives use Zig's global cache (shown by `zig env`). Use `--pkg-dir PATH` or `ZIG_LOCAL_PKG_DIR` to relocate the extracted packages, and `ZIG_GLOBAL_CACHE_DIR` to relocate the global cache. These are standard Zig controls, not monitor-specific options. A cold-cache invocation can fetch headers even with `--help`, because Zig resolves the dependency before configuring the build.
+
+For an explicitly offline build, first populate the packages with an online build, then use Zig 0.17.0's `--system` mode with the extracted package directory:
+
+```sh
+zig build --build-file packages/monitor/native/build.zig --system packages/monitor/native/zig-pkg
+```
+
+The path passed to `--system` is relative to the shell's working directory (this example runs from the repository root). This disables package fetching and fails if a required package is missing. A normal build also reuses cached inputs, but it may fetch missing packages; Zig 0.17.0 does not provide a `--offline` flag.
+
+**Migration:** remove `-Dnode-cache` from build commands; it is no longer accepted. Unset `MONITOR_NATIVE_CACHE`, which is no longer read. The old `$HOME/.cache/launchpad-monitor-native/node-v22.16.0` cache is not reused and can be deleted once no older checkout needs it. Run an online build to populate Zig's package cache before relying on offline rebuilds.
+
+Review and commit native build-input or `windows.c` changes together with both rebuilt `.node` files. Generated import libraries deliberately change the prebuild hashes; cross-compilation verifies that binaries can be produced for each target, not that they work at runtime. Run the Windows checks below before release.
 
 ## Verify the release package
 
@@ -84,6 +114,6 @@ Use an interactive Windows desktop session, not a service or headless runner. Te
 
 Record unexpected errors and results, including any Windows policy restrictions. Do not test against production installation apps.
 
-CI rebuilds both Windows binaries on Ubuntu with the official Zig 0.15.2 Linux x86_64 compiler, downloaded and SHA-256-verified before use. The native drift job fails if rebuilding changes the checked-in prebuilds. This job uses only Node's built-in modules; it does not install npm dependencies or add compilation to consumer installation or release scripts.
+CI rebuilds both Windows binaries on Ubuntu with the official Zig 0.17.0 Linux x86_64 compiler, downloaded and SHA-256-verified before extraction or execution. It invokes the same `build.zig` file and fails if rebuilding changes the checked-in prebuilds. The native drift job does not install npm dependencies or add compilation to consumer installation or release scripts.
 
 CI also checks tarball contents and runs Windows-gated native smoke tests through the normal Vitest suite. These checks do not replace the clean installation or interactive desktop verification above.

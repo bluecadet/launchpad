@@ -21,6 +21,7 @@ export class AppManager {
 	#config: ResolvedMonitorConfig;
 	#cwd: string;
 	#eventBus?: EventBus;
+	#windowSettingsQueue: Promise<void> = Promise.resolve();
 
 	constructor(
 		logger: Logger,
@@ -177,6 +178,21 @@ export class AppManager {
 		void,
 		InvalidAppNamesError | AppNotFoundError | ProcessNotFoundError | WindowsApiError
 	> {
+		const operation = this.#windowSettingsQueue.then(() => this.#applyWindowSettings(appNames));
+		// A failed batch must not prevent subsequent batches from applying their settings.
+		this.#windowSettingsQueue = operation.then(
+			() => undefined,
+			() => undefined,
+		);
+		return new ResultAsync(operation);
+	}
+
+	#applyWindowSettings(
+		appNames: string[],
+	): ResultAsync<
+		void,
+		InvalidAppNamesError | AppNotFoundError | ProcessNotFoundError | WindowsApiError
+	> {
 		return this.validateAppNames(appNames)
 			.asyncAndThen((names) =>
 				ResultAsync.combine(
@@ -196,7 +212,10 @@ export class AppManager {
 			.andThen((apps) =>
 				ResultAsync.fromPromise(
 					sortWindows(apps, this.#logger),
-					(e) => new WindowsApiError({ cause: e as Error }),
+					(cause) =>
+						new WindowsApiError({
+							cause: cause instanceof Error ? cause : new Error(String(cause)),
+						}),
 				),
 			);
 	}

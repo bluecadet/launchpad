@@ -1,42 +1,26 @@
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import chalk from "chalk";
-import { windowManager } from "node-window-manager";
-import semver from "semver";
 import type { ResolvedAppConfig } from "../monitor-config.js";
+import { getWindowsNative, type WindowAction } from "./windows-native.js";
 
 type SortApp = {
 	options: ResolvedAppConfig;
 	pid?: number;
 };
 
-/**
- * The minimum major node version to support window ordering. Node versions < 17 seem to have a fatal
- * bug with the native API, which will intermittently cause V8 to crash hard. Defaults to '>=17.4.0'.
- */
-export const MIN_NODE_VERSION = ">=17.4.0";
+const windowActions: { action: WindowAction; label: string }[] = [
+	{ action: "hide", label: "Hiding" },
+	{ action: "minimize", label: "Minimizing" },
+	{ action: "foreground", label: "Foregrounding" },
+];
 
 const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
-	const currNodeVersion = process.version;
-	if (!semver.satisfies(currNodeVersion, MIN_NODE_VERSION)) {
-		return Promise.reject(
-			new Error(
-				`Can't sort windows because the current node version '${currNodeVersion}' doesn't satisfy the required version '${MIN_NODE_VERSION}'. Please upgrade node to apply window settings like foreground/minimize/hide.`,
-			),
-		);
-	}
-
 	logger.verbose(
 		`Applying window settings to ${apps.length} ${apps.length === 1 ? "app" : "apps"}`,
 	);
 
-	const fgPids = new Set();
-	const minPids = new Set();
-	const hidePids = new Set();
-
-	windowManager.requestAccessibility();
-	const visibleWindows = windowManager.getWindows().filter((win) => win.isVisible());
-	const visiblePids = new Set(visibleWindows.map((win) => win.processId));
-
+	const actionsByPid = new Map<number, Set<WindowAction>>();
+	const managedApps: { options: ResolvedAppConfig; pid: number }[] = [];
 	for (const app of apps) {
 		if (!app.pid) {
 			logger.warn(
@@ -45,46 +29,45 @@ const sortWindows = async (apps: SortApp[], logger: Logger): Promise<void> => {
 			continue;
 		}
 
-		const shouldManageWindow =
-			app.options.windows.hide || app.options.windows.minimize || app.options.windows.foreground;
-
-		if (!shouldManageWindow) {
+		const actions = windowActions.filter(({ action }) => app.options.windows[action]);
+		if (actions.length === 0) {
 			continue;
 		}
+		managedApps.push({ options: app.options, pid: app.pid });
+		const pidActions = actionsByPid.get(app.pid) ?? new Set<WindowAction>();
+		for (const { action } of actions) {
+			pidActions.add(action);
+		}
+		actionsByPid.set(app.pid, pidActions);
+	}
 
+	// Empty and unflagged batches need neither the addon nor a window snapshot.
+	const native = actionsByPid.size > 0 ? getWindowsNative() : undefined;
+	if (!native) {
+		logger.verbose("Done applying window settings.");
+		return;
+	}
+
+	const visibleWindows = native.listVisibleWindows();
+	const visiblePids = new Set(visibleWindows.map((window) => window.processId));
+	for (const app of managedApps) {
 		if (!visiblePids.has(app.pid)) {
 			logger.warn(
 				`No window found for ${chalk.blue(app.options.pm2.name)} with pid ${chalk.blue(app.pid)}.`,
 			);
-			continue;
-		}
-
-		if (app.options.windows.hide) {
-			hidePids.add(app.pid);
-		}
-		if (app.options.windows.minimize) {
-			minPids.add(app.pid);
-		}
-		if (app.options.windows.foreground) {
-			fgPids.add(app.pid);
 		}
 	}
 
-	for (const win of visibleWindows) {
-		if (hidePids.has(win.processId)) {
-			logger.info(`Hiding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
-			win.hide();
-		}
-
-		if (minPids.has(win.processId)) {
-			logger.info(`Minimizing ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`);
-			win.minimize();
-		}
-		if (fgPids.has(win.processId)) {
+	for (const window of visibleWindows) {
+		const actions = actionsByPid.get(window.processId);
+		for (const { action, label } of windowActions) {
+			if (!actions?.has(action)) {
+				continue;
+			}
 			logger.info(
-				`Foregrounding ${chalk.blue(win.getTitle())} (pid: ${chalk.blue(win.processId)})`,
+				`${label} ${chalk.blue(native.getWindowTitle(window))} (pid: ${chalk.blue(window.processId)})`,
 			);
-			win.bringToTop();
+			await native.applyWindowAction(window, action);
 		}
 	}
 

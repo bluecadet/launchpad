@@ -77,13 +77,6 @@ vi.mock("cross-spawn", () => {
 	};
 });
 
-vi.mock("node-window-manager", () => ({
-	windowManager: {
-		requestAccessibility: vi.fn(),
-		getWindows: vi.fn().mockReturnValue([]),
-	},
-}));
-
 vi.mock("winston-daily-rotate-file", async () => {
 	const { default: winston } = await import("winston");
 	const { default: Transport } = await import("winston-transport");

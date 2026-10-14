@@ -1,10 +1,14 @@
 import path from "node:path";
 import { createMockLogger } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { okAsync } from "neverthrow";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WindowsApiError } from "../../errors.js";
 import type { ResolvedMonitorConfig } from "../../monitor-config.js";
+import sortWindows from "../../utils/sort-windows.js";
 import { AppManager } from "../app-manager.js";
 import { ProcessManager } from "../process-manager.js";
+
+vi.mock("../../utils/sort-windows.js", () => ({ default: vi.fn(async () => undefined) }));
 
 function setupTestAppManager(
 	apps: ResolvedMonitorConfig["apps"] = [
@@ -84,6 +88,23 @@ describe("AppManager", () => {
 			});
 		});
 
+		it.each([false, true])(
+			"passes windowsHide=%s to PM2 without changing other flags",
+			async (hide) => {
+				const { appManager, processManager, mockConfig } = setupTestAppManager();
+				const app = mockConfig.apps[0];
+				if (!app) {
+					throw new Error("Test app is missing");
+				}
+				app.windows.hide = hide;
+				await appManager.startApp("test-app");
+				expect(processManager.startProcess).toHaveBeenCalledWith(
+					expect.objectContaining({ windowsHide: hide }),
+				);
+				expect(app.windows).toEqual({ foreground: false, minimize: false, hide });
+			},
+		);
+
 		it("should handle non-existent app names", async () => {
 			const { appManager } = setupTestAppManager();
 
@@ -93,6 +114,85 @@ describe("AppManager", () => {
 			expect(result._unsafeUnwrapErr().message).toContain(
 				"No app found with the name 'non-existent-app'",
 			);
+		});
+	});
+
+	describe("applyWindowSettings", () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+			vi.mocked(sortWindows).mockReset().mockResolvedValue(undefined);
+		});
+
+		afterEach(() => vi.useRealTimers());
+
+		it("serializes batches after debounce fires while an earlier native action is pending", async () => {
+			const { appManager, processManager } = setupTestAppManager();
+			let finishFirst: () => void = () => {
+				throw new Error("First batch has not started");
+			};
+			vi.mocked(sortWindows).mockImplementationOnce(
+				() =>
+					new Promise<void>((resolve) => {
+						finishFirst = resolve;
+					}),
+			);
+			const first = appManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(sortWindows).toHaveBeenCalledTimes(1);
+			const second = appManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(sortWindows).toHaveBeenCalledTimes(1);
+			expect(processManager.getProcess).toHaveBeenCalledTimes(1);
+			finishFirst();
+			expect(await first).toBeOk();
+			expect(await second).toBeOk();
+			expect(sortWindows).toHaveBeenCalledTimes(2);
+		});
+
+		it("preserves WindowsApiError and recovers the queue after a failed native batch", async () => {
+			const { appManager } = setupTestAppManager();
+			const cause = new Error("Native action failed");
+			let failFirst: (error: Error) => void = () => {
+				throw new Error("First batch has not started");
+			};
+			vi.mocked(sortWindows).mockImplementationOnce(
+				() =>
+					new Promise<void>((_resolve, reject) => {
+						failFirst = reject;
+					}),
+			);
+			const first = appManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			const second = appManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(sortWindows).toHaveBeenCalledTimes(1);
+			failFirst(cause);
+			const result = await first;
+			expect(result).toBeErr();
+			expect(result._unsafeUnwrapErr()).toBeInstanceOf(WindowsApiError);
+			expect(result._unsafeUnwrapErr().cause).toBe(cause);
+			expect(await second).toBeOk();
+			expect(sortWindows).toHaveBeenCalledTimes(2);
+		});
+
+		it("keeps queues local to each AppManager", async () => {
+			const firstManager = setupTestAppManager().appManager;
+			const secondManager = setupTestAppManager().appManager;
+			let finishFirst: () => void = () => undefined;
+			vi.mocked(sortWindows).mockImplementationOnce(
+				() =>
+					new Promise<void>((resolve) => {
+						finishFirst = resolve;
+					}),
+			);
+			const first = firstManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			const second = secondManager.applyWindowSettings(["test-app"]);
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(sortWindows).toHaveBeenCalledTimes(2);
+			expect(await second).toBeOk();
+			finishFirst();
+			expect(await first).toBeOk();
 		});
 	});
 

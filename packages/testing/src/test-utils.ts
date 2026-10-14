@@ -8,6 +8,8 @@ import type {
 import { okAsync } from "neverthrow";
 import { vi } from "vitest";
 
+export { expectLoggingDiagnostic } from "./logging-diagnostics.js";
+
 export type MockLogger = {
 	children: Map<string, MockLogger>;
 	// biome-ignore lint/suspicious/noExplicitAny: not actually relevant, just a mock

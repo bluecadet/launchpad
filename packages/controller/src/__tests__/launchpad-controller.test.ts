@@ -1,4 +1,5 @@
 import path from "node:path";
+import { expectLoggingDiagnostic } from "@bluecadet/launchpad-testing/test-utils.ts";
 import type { PluginContext } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import {
 	type BaseCommand,
@@ -116,7 +117,7 @@ describe("LaunchpadController", () => {
 			const warning = "File-backed logging is unavailable: Logging intentionally unavailable";
 			const warnings = vi.fn();
 			controller.getEventBus().on("log:warn", warnings);
-			const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+			expectLoggingDiagnostic(warning);
 			try {
 				expect(order).toEqual([]);
 				expect((await controller.start()).isOk()).toBe(true);
@@ -124,7 +125,6 @@ describe("LaunchpadController", () => {
 				expect(order).toEqual(["lease", "logging"]);
 				expect((await controller.stop()).isOk()).toBe(true);
 				expect(release).toHaveBeenCalledOnce();
-				expect(consoleWarn).toHaveBeenCalledExactlyOnceWith(`[launchpad logging] ${warning}`);
 				expect(warnings).toHaveBeenCalledExactlyOnceWith({
 					message: warning,
 					args: [warning],
@@ -132,7 +132,6 @@ describe("LaunchpadController", () => {
 				});
 			} finally {
 				await controller.stop();
-				consoleWarn.mockRestore();
 			}
 		});
 	});

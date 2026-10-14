@@ -1,8 +1,15 @@
 import path from "node:path";
 import { fs } from "memfs";
 import { err, ok, type Result } from "neverthrow";
-import { expect, vi } from "vitest";
+import { beforeEach, expect, onTestFinished, vi } from "vitest";
 import type { LogEntry } from "winston";
+import { installLoggingDiagnosticCapture } from "./logging-diagnostics.js";
+
+beforeEach(() => {
+	const finish = installLoggingDiagnosticCapture();
+	// Run after test-owned cleanup, including afterEach hooks.
+	onTestFinished(finish);
+});
 
 vi.mock("fs", () => ({
 	...fs,

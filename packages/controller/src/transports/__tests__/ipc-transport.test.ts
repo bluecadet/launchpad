@@ -162,6 +162,39 @@ describe("ipc-transport", () => {
 	});
 
 	describe("stop", () => {
+		it.each([false, true])(
+			"drains socket close handlers after server close, including errors (%s)",
+			async (socketError) => {
+				const { transport, context } = createTestIPCTransport();
+				const result = await transport.setup(context);
+				if (result.isErr()) throw result.error;
+				const socket = createMockSocket();
+				connectionCallback?.(socket);
+				if (socketError) socket.emit("error", new Error("connection reset"));
+				const stopping = result.value.disconnect({ type: "manual" });
+				let settled = false;
+				void stopping.then(() => {
+					settled = true;
+				});
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				expect(mockServer.close).toHaveBeenCalled();
+				expect(settled).toBe(false);
+				socket.emit("close");
+				expect((await stopping).isOk()).toBe(true);
+				expect(context.logger.verbose).toHaveBeenCalledWith("IPC client disconnected");
+				expect(context.logger.info).toHaveBeenCalledWith("IPC transport closed");
+			},
+		);
+
+		it("does not wait again for a socket that closed abruptly before shutdown", async () => {
+			const { transport, context } = createTestIPCTransport();
+			const result = await transport.setup(context);
+			if (result.isErr()) throw result.error;
+			const socket = createMockSocket();
+			connectionCallback?.(socket);
+			socket.emit("close");
+			expect((await result.value.disconnect({ type: "manual" })).isOk()).toBe(true);
+		});
 		it("should stop the IPC transport", async () => {
 			const { transport, context } = createTestIPCTransport();
 

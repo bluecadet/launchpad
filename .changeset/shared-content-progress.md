@@ -3,4 +3,4 @@
 "@bluecadet/launchpad": minor
 ---
 
-Export `ContentProgressLogger` for completed-task progress with or without cache reuse. Media downloads, Sharp transforms, and custom transforms share counting, terminal rendering, and idempotent cleanup through the same logger.
+Report completed tasks in custom transforms with the exported `ContentProgressLogger`, with or without cache reuse. It shares progress counting and terminal rendering with media downloads and Sharp transforms.

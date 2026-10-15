@@ -3,7 +3,6 @@
 "@bluecadet/launchpad-content": major
 "@bluecadet/launchpad-controller": major
 "@bluecadet/create-launchpad": major
-"@bluecadet/launchpad": major
 "@bluecadet/launchpad-monitor": major
 "@bluecadet/launchpad-observability": major
 "@bluecadet/launchpad-scheduler": major

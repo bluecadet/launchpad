@@ -1,6 +1,5 @@
 ---
 "@bluecadet/launchpad-content": major
-"@bluecadet/launchpad": major
 ---
 
 Reuse HTTP downloads, supported Sharp transforms, and custom `cache.derive()` recipes through a shared artifact cache. HTTP reuse follows explicit server freshness and conditional GET validation.

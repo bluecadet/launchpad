@@ -5,7 +5,6 @@
 "@bluecadet/launchpad-monitor": minor
 "@bluecadet/launchpad-scheduler": minor
 "@bluecadet/launchpad-observability": major
-"@bluecadet/launchpad": major
 "@bluecadet/create-launchpad": minor
 ---
 

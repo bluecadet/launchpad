@@ -86,7 +86,7 @@ Monitor operations are configured through a `MonitorConfig` object that specifie
 - **Window Management**: Window behavior settings
 - **Logging Options**: Log handling preferences
 
-See the [Monitor Config](./monitor-config.md) section for detailed configuration options.
+See the [Monitor Config](/reference/monitor/monitor-config/) section for detailed configuration options.
 
 ## License Note
 

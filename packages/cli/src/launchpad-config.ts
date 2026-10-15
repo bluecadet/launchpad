@@ -5,9 +5,17 @@ import z from "zod";
 
 export const launchpadConfigSchema = z
 	.object({
-		controller: controllerConfigSchema.prefault({}),
-		plugins: z.array(z.custom<PluginConfig>()).prefault([]),
-		workflows: z.record(z.string(), z.array(workflowStepSchema).readonly()).prefault({}),
+		controller: controllerConfigSchema
+			.prefault({})
+			.describe("Controller process and logging settings."),
+		plugins: z
+			.array(z.custom<PluginConfig>().meta({ configDocs: { inputType: "PluginConfig" } }))
+			.prefault([])
+			.describe("Plugins to initialize, in registration order."),
+		workflows: z
+			.record(z.string(), z.array(workflowStepSchema).readonly())
+			.prefault({})
+			.describe("Named command sequences, including optional start and stop workflows."),
 	})
 	.prefault({});
 

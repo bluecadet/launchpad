@@ -395,4 +395,4 @@ eventBus.on('monitor:window:error', (data) => {
 
 - [Controller Events Reference](../controller/events.md) - Complete event system documentation
 - [Content Events](../content/events.md) - Content subsystem events
-- [Monitor Configuration](./monitor-config.md) - Monitor configuration options
+- [Monitor Configuration](/reference/monitor/monitor-config/) - Monitor configuration options

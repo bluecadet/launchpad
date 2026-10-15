@@ -3,14 +3,22 @@
   "tags": [
     "-lintignore"
   ],
+  "compilers": {
+    "mdx": true
+  },
   "workspaces": {
     ".": {
       "ignoreDependencies": ["@emnapi/core", "@emnapi/runtime"]
     },
     "docs": {
       "entry": [
-        "recipes/*-examples/*.ts"
-      ]
+        "recipes/*-examples/*.ts",
+        "**/*.mdx",
+        "components/**/*.astro"
+      ],
+      "paths": {
+        "@docs-src/*": ["./*"]
+      }
     },
     "packages/content": {
       "ignoreDependencies": ["@portabletext/markdown", "@types/http-cache-semantics"]

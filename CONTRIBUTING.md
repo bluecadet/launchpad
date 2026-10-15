@@ -91,9 +91,38 @@ Shared foundational utilities:
 
 All config schemas use Zod for validation and are defined in:
 - `packages/cli/src/launchpad-config.ts` - Top-level config schema
-- `packages/controller/src/core/controller-config.ts` - Controller system schema
+- `packages/controller/src/controller-config.ts` - Controller system schema
 - `packages/content/src/content-config.ts` - Content system schema
 - `packages/monitor/src/monitor-config.ts` - Monitor system schema
+
+### Schema-backed configuration references
+
+Configuration reference tables in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';` and render it with `<ConfigReference id="content-options" />`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated tables to update.
+
+When changing a configuration field:
+
+1. Change its runtime schema and add a concise `.describe()` for its meaning. Ordinary input types, optionality, and `.default()` / `.prefault()` values come from Zod, not a separate documentation model.
+2. Use `.meta({ configDocs: { inputType, defaultLabel, propertiesFrom } })` only where needed: `inputType` labels opaque public types, `defaultLabel` describes contextual or nonserializable defaults, and `propertiesFrom: "output"` exposes downstream fields of a preprocess or pipe without replacing the accepted input type. Do not duplicate ordinary field types or defaults in metadata.
+3. Keep transform/runtime defaults and conditional rules in schema descriptions or surrounding prose. The renderer documents structural requiredness; it does not infer arbitrary refinement rules.
+4. Build the docs to verify the rendered reference. Update surrounding operational notes, examples, and property headings when the behavior changes.
+
+Schema descriptions are rendered as literal plain text, not interpreted as Markdown or HTML. Keep formatted notes, links, and examples in the MDX page around the component.
+
+MDX pages need explicit `title` frontmatter and no leading H1, because the docs layout renders the title. Unlike Markdown pages, MDX pages do not receive source-relative link rewriting; use published routes such as `/reference/content/content-config/` instead of `./content-config.md`.
+
+The references import built workspace packages, so their schema dependencies must be compiled with `tsc --build` before Astro starts. The docs workspace's `prebuild` and `predev` scripts handle this prerequisite.
+
+From the repository root:
+
+```bash
+# Compile the schema dependencies, then build the documentation site
+npm run docs:build
+
+# Compile the schema dependencies, then start the documentation dev server
+npm run dev -w @bluecadet/launchpad-docs
+```
+
+For schema-source edits during docs development, also run `npm run dev` from the repository root in a separate terminal. This TypeScript watcher rebuilds the workspace packages that the references import; the docs server alone does not compile schema source changes. This docs-only tooling does not require create-package scaffolding changes.
 
 ### Plugin System
 

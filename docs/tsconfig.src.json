@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"composite": true,
 		// The docs site builds to ./dist, and Astro clears that directory on every build, so
-		// tsc's output has to live somewhere else.
+		// tsc's output has to live somewhere else. Astro components and MDX are
+		// compiled by the docs build; shared data modules are typechecked here.
 		"rootDir": ".",
 		"outDir": "./.tsbuild",
 		"tsBuildInfoFile": "./.tsbuild/tsconfig.src.tsbuildinfo",
@@ -11,5 +12,13 @@
 		// so these examples typecheck against DOM globals as well as Node's.
 		"lib": ["es2025", "dom"]
 	},
-	"include": ["recipes/live-content-refresh-examples/**/*.ts"]
+	"include": ["recipes/live-content-refresh-examples/**/*.ts", "lib/**/*.ts"],
+	"references": [
+		{ "path": "../packages/cli/tsconfig.src.json" },
+		{ "path": "../packages/content/tsconfig.src.json" },
+		{ "path": "../packages/controller/tsconfig.src.json" },
+		{ "path": "../packages/monitor/tsconfig.src.json" },
+		{ "path": "../packages/observability/tsconfig.src.json" },
+		{ "path": "../packages/scheduler/tsconfig.src.json" }
+	]
 }

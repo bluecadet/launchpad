@@ -2,6 +2,8 @@
 title: "Controller Logging"
 ---
 
+import ConfigReference from '@docs-src/components/ConfigReference.astro';
+
 The controller owns one local logging pipeline. It writes a canonical structured log and, by default, a human-readable text view to the configured logging directory. Configured observability destinations read the canonical log directly by default; they do not create a second archive or spool.
 
 ## Configuration
@@ -20,16 +22,9 @@ export default defineConfig({
 });
 ```
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `dirname` | `string` | `'.logs'` | Logging directory, resolved from the project working directory |
-| `text.enabled` | `boolean` | `true` | Write the human-readable `.log` view |
-| `text.level` | `'error' \| 'warn' \| 'info' \| 'debug' \| 'verbose'` | `'info'` | Least severe level written to the text view |
-| `overrideConsole` | `boolean` | `true` outside tests | Route console methods through the controller logger |
-| `maxSize` | `string` | `'8m'` | Legacy-compatible target size for each new segment |
-| `maxFiles` | `string` | `'28d'` | A positive day-based value sets maximum age; count-based and non-day values fail configuration validation |
-| `format` | Winston `Format` | Built-in text format | Legacy-compatible formatter for the text view only |
-| `datePattern` | `string` | `'YYYY-MM-DD'` | Accepted for compatibility; a nondefault value is ignored with one deprecation warning because segment names are owner-managed |
+<ConfigReference id="controller-logging-options" />
+
+Input defaults are schema defaults, not the transformed runtime values. For example, `maxSize` and `maxFiles` accept strings and resolve to numeric limits. The console default depends on `NODE_ENV`; see [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 `format` and `text.level` never change the canonical JSONL schema. There are no observability-side directory, maximum-byte, or maximum-age options. The logging owner applies one rotation and retention policy to the files and checkpoints in this directory. `maxSize` must parse as a byte size of at least 1,024 bytes (for example, `8m` or `12mb`); invalid or smaller values fail configuration validation.
 
@@ -70,4 +65,4 @@ A corrupt checkpoint, including an unknown segment identity or a position ahead 
 
 Complete malformed or oversized canonical lines produce corruption gaps. Oversized lines are scanned in bounded chunks and skipped only after their terminating newline is found; records after the damaged line remain replayable. An incomplete final line is never delivered or acknowledged as a complete record.
 
-See [Observability configuration](../observability/observability-config.md) for default checkpointed file delivery and the explicit memory opt-out.
+See [Observability configuration](/reference/observability/observability-config/) for default checkpointed file delivery and the explicit memory opt-out.

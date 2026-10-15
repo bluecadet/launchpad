@@ -308,4 +308,4 @@ export const slowTransform = defineContentTransform({
 
 - See [Built-in Transforms](../reference/content/transforms/index.md) for implementation examples
 - Learn about the [Media Downloader Transform](../reference/content/transforms/media-downloader.md)
-- Read the [Content Configuration Reference](../reference/content/content-config.md) for all config options
+- Read the [Content Configuration Reference](/reference/content/content-config/) for all config options

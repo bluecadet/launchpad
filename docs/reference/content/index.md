@@ -71,7 +71,7 @@ Content operations are configured through a `ContentConfig` object that specifie
 - **Paths**: Various path configurations for content storage
 - **Backup Options**: Settings for content backup and restoration
 
-See the [Content Config](./content-config.md) section for detailed configuration options.
+See the [Content Config](/reference/content/content-config/) section for detailed configuration options.
 
 ## Transforms
 

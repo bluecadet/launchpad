@@ -55,7 +55,7 @@ Configured destinations deliver logs from the controller-owned canonical JSONL w
 
 ## Next steps
 
-- [Configuration](./observability-config.md)
+- [Configuration](/reference/observability/observability-config/)
 - [Signal catalog](./signals.md)
 - [Custom destinations](./custom-destinations.md)
 - [Migrate from transports](./migration.md)

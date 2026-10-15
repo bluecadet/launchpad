@@ -31,7 +31,7 @@ export default defineConfig({
 });
 ```
 
-See the [Content Configuration Reference](../reference/content/content-config.md) for all options.
+See the [Content Configuration Reference](/reference/content/content-config/) for all options.
 
 ## Running Content Updates
 
@@ -92,7 +92,7 @@ Learn more in the [Transforms Reference](../reference/content/transforms/index.m
 
 ## Next Steps
 
-- Read about [Content Configuration](../reference/content/content-config.md)
+- Read about [Content Configuration](/reference/content/content-config/)
 - Learn about [Content Sources](../reference/content/sources/index.md)
 - Explore [Transforms](../reference/content/transforms/index.md)
 - Understanding [Error Handling](../reference/content/index.md#error-handling)

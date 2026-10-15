@@ -1,0 +1,99 @@
+---
+title: "Config Loading"
+---
+
+import ConfigReference from '@docs-src/components/ConfigReference.astro';
+
+The Launchpad CLI uses a flexible configuration system that automatically searches for and loads your project configuration. The CLI supports Javascript config files.
+
+## Config File Search
+
+The CLI searches for config files with the following names:
+
+1. `launchpad.config.js`
+2. `launchpad.config.mjs`
+3. `launchpad.config.ts`
+4. `launchpad.config.cjs`
+5. `launchpad.config.mts`
+6. `launchpad.config.cts`
+
+The search starts in the current working directory and recursively searches up parent directories (up to 64 levels) until a config file is found.
+
+## Config File Format
+
+### JavaScript/TypeScript Config (Recommended)
+
+```js
+import { defineConfig } from '@bluecadet/launchpad/cli';
+
+export default defineConfig({
+  plugins: [
+    // Your plugin configurations here
+  ]
+});
+```
+
+## Configuration Structure
+
+<ConfigReference id="launchpad-options" />
+
+The top-level config selects controller settings, plugins, and named workflows. For details, see [Controller configuration](/reference/controller/#configuration) and [Host-Owned Workflows](/reference/controller/#host-owned-workflows).
+
+Plugin configuration is passed to each plugin factory:
+
+- `content()` - Content management settings ([Content Config Reference](/reference/content/content-config/))
+- `monitor()` - Process monitoring settings ([Monitor Config Reference](/reference/monitor/monitor-config/))
+
+### Configuration reference conventions
+
+Configuration references render directly from the runtime Zod schemas. **Input default** is the value supplied by `.default()` or `.prefault()` when a field is omitted. A prefault is passed through validation and transforms; it is not necessarily the resolved value. Defaults filled by transforms or runtime setup are described in the surrounding prose rather than presented as input defaults. For example, scheduler retry policy is resolved by a transform, and observability resource identity is added during setup.
+
+Requiredness describes the schema structure, including optional fields and defaults. Union branches may have different requirements. Cross-field rules still apply: a scheduler job needs exactly one of `interval` and `cron`, even though each field is individually optional. The reference renderer does not infer conditional requiredness or arbitrary refinement rules; consult the property notes and validation constraints.
+
+## Environment Variables
+
+Config files can reference environment variables using the `process.env` object in JavaScript configs. For managing environment variables, see the [Environment Variables](/reference/cli/env/) documentation.
+
+## Type Safety
+
+When using TypeScript or an editor with TypeScript support (like VS Code), the `defineConfig` helper provides:
+
+- Full IntelliSense for all configuration options
+- Type checking for configuration values
+- Auto-completion suggestions
+- Documentation hints
+
+## Example
+
+```js
+import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
+import { monitor } from '@bluecadet/launchpad/monitor';
+import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
+
+export default defineConfig({
+  plugins: [
+    content({
+      sources: [
+        jsonSource({
+          id: "api-data",
+          files: {
+            "data.json": process.env.API_ENDPOINT
+          }
+        })
+      ],
+      downloadPath: "./content"
+    }),
+    monitor({
+      apps: [
+        {
+          pm2: {
+            name: "exhibit-app",
+            script: "./app.exe"
+          }
+        }
+      ]
+    })
+  ],
+});
+```

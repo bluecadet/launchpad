@@ -56,7 +56,8 @@ export const contentSourceSchema = z.object({
 		})
 		.describe(
 			"Fetches the documents from the source. Returns either an array of documents or a single document.",
-		),
+		)
+		.meta({ configDocs: { inputType: 'ContentSource["fetch"]' } }),
 });
 
 export type ContentSource = z.infer<typeof contentSourceSchema>;

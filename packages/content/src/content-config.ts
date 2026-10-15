@@ -14,13 +14,13 @@ const versioningOptionsSchema = z.object({
 		.int()
 		.min(0)
 		.describe(
-			"Number of versions to retain, in addition to the active version and fresh acks. 0 relies solely on those backstops. Defaults to 3.",
+			"Number of versions to retain, in addition to the active version and fresh acks. 0 relies solely on those backstops.",
 		)
 		.default(3),
 	/** How long an ack lease (`acks/<consumerId>.json`) stays fresh before it's ignored by the retention sweep. Accepts duration shorthand (e.g. `"30m"`) or a raw millisecond number. Defaults to 30 minutes. */
 	ackTimeout: durationSchema
 		.describe(
-			"How long an ack lease stays fresh before it's ignored by the retention sweep. Accepts duration shorthand (e.g. '30m') or a raw millisecond number. Defaults to 30 minutes.",
+			"How long an ack lease stays fresh before the retention sweep ignores it. Accepts duration shorthand or milliseconds.",
 		)
 		.prefault("30m"),
 });
@@ -46,60 +46,61 @@ export const contentConfigSchema = z.object({
 			return Promise.all(sources);
 		})
 		.describe(
-			"A list of content source options. This defines which content is downloaded from where.",
+			"Content sources to download from; accepts source objects or promises resolving to sources.",
 		)
 		.prefault([]),
 	/** A list of content transforms to run after fetching. */
 	transforms: z
-		.array(z.custom<ContentTransform>())
+		.array(z.custom<ContentTransform>().meta({ configDocs: { inputType: "ContentTransform" } }))
 		.describe("A list of content transforms to run after fetching.")
 		.default([]),
 	/** The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'. */
 	downloadPath: z
 		.string()
 		.describe(
-			"The path where successfully promoted content is published. Fetch runs stage work in an isolated temp run directory before promotion. Defaults to '.downloads/'.",
+			"Published content directory. Fetch runs stage work separately before promotion; relative paths resolve from the config directory.",
 		)
 		.default(".downloads/"),
 	/** Temp file directory path. Defaults to '.launchpad/tmp/'. */
 	tempPath: z
 		.string()
-		.describe("Temp file directory path. Defaults to '.launchpad/tmp/'.")
+		.describe(
+			"Temporary directory for per-run staged workspaces; relative paths resolve from the config directory.",
+		)
 		.default(".launchpad/tmp/"),
 	/** Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'. */
 	backupPath: z
 		.string()
 		.describe(
-			"Temp directory path where all downloaded content will be backed up before removal. Defaults to '.launchpad/backup/'.",
+			"Backup directory for compatibility recovery flows; relative paths resolve from the config directory.",
 		)
 		.default(".launchpad/backup/"),
-	/** Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']` */
+	/** Glob patterns for files to preserve when clearing directories. */
 	keep: z
 		.array(z.string())
-		.describe(
-			"Which files to keep in `dest` if `clearOldFilesOnSuccess` or `clearOldFilesOnStart` are `true`. E.g. `['*.json', '** /*.csv', '*.xml', '*.git*']`",
-		)
+		.describe("Glob patterns for files to preserve when clearing directories.")
 		.default([]),
 	/** Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true. */
 	backupAndRestore: z
 		.boolean()
 		.describe(
-			"Compatibility recovery mode. When enabled, published files are backed up before a fetch run and can be restored if promotion or recovery fails. Normal fetch rollback does not rely on backups because runs stage output before promotion. Defaults to true.",
+			"Back up published files before fetching for compatibility recovery. Normal fetch failures discard staged output without restoring backups.",
 		)
 		.default(true),
 	/** Max request timeout in ms. Defaults to 30000. */
-	maxTimeout: z.number().describe("Max request timeout in ms. Defaults to 30000.").default(30000),
+	maxTimeout: z
+		.number()
+		.describe("Maximum network request timeout in milliseconds.")
+		.default(30000),
 	/** Characters to encode in the path when saving files locally. Defaults to `<>:\"|?*`. Applies to both content source paths and media download paths. */
 	encodeChars: z
 		.string()
-		.describe(
-			'Characters to encode in the path when saving files locally. Defaults to `<>:"|?*`. Applies to both content source paths and media download paths.',
-		)
+		.describe("Characters to encode in local file paths for content and media downloads.")
 		.default('<>:"|?*'),
 	/** Enables versioned output mode: each successful fetch is promoted into an immutable `versions/<versionId>/` directory with an atomically-swapped `manifest.json` pointer, instead of writing directly into `downloadPath`. Pass `true` for defaults, or an object to override `keepVersions`/`ackTimeout`. Defaults to `false` (today's flat `downloadPath` layout). */
 	versioning: versioningSchema
 		.describe(
-			"Enables versioned output mode: each successful fetch is promoted into an immutable `versions/<versionId>/` directory with an atomically-swapped `manifest.json` pointer, instead of writing directly into `downloadPath`. Pass `true` for defaults, or an object to override `keepVersions`/`ackTimeout`. Defaults to `false` (today's flat `downloadPath` layout).",
+			"Enable immutable versioned output with an atomic manifest pointer. Pass true for resolved defaults, an object for overrides, or false for flat output.",
 		)
 		.default(false),
 });

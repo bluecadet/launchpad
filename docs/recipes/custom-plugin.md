@@ -324,5 +324,5 @@ If you are updating an older plugin:
 ## Next Steps
 
 - Explore [Built-in Plugins](../reference/content/index.md) for real-world examples
-- See the [Controller Reference](../reference/controller/index.md) for plugin contract details
+- See the [Controller Reference](/reference/controller/) for plugin contract details
 - Learn about [Content Sources](../reference/content/sources/index.md) and [Content Transforms](../reference/content/transforms/index.md) for content-specific extension points

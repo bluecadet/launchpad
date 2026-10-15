@@ -2,11 +2,19 @@
 title: "@bluecadet/launchpad-controller"
 ---
 
+import ConfigReference from '@docs-src/components/ConfigReference.astro';
+
 [github](https://github.com/bluecadet/launchpad/tree/main/packages/controller) ·
 [npm](https://www.npmjs.com/package/@bluecadet/launchpad-controller) ·
 [changelog](https://github.com/bluecadet/launchpad/blob/main/packages/controller/CHANGELOG.md)
 
 The controller package is the orchestration layer every other subsystem plugs into. It owns the plugin lifecycle, routes commands, and carries the event bus that content, monitor, scheduler, and observability all communicate over.
+
+## Configuration
+
+<ConfigReference id="controller-options" />
+
+These are input defaults; logging has its own nested defaults. See [Controller Logging](/reference/controller/logging/) for the full logging reference and [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions) for default and requiredness notation.
 
 ## Integration with Subsystems
 
@@ -82,7 +90,7 @@ The controller only dispatches commands that have been explicitly registered. La
 
 ### Logging
 
-The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](./logging.md) for configuration, file-layout migration, locking, and failure behavior.
+The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](/reference/controller/logging/) for configuration, file-layout migration, locking, and failure behavior.
 
 ### Process ownership
 
@@ -164,7 +172,7 @@ definePlugin({
 
 ### Transports
 
-Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](./transports.md) for browsers and Unity/.NET consumers. See [Transports](./transports.md) for the HTTP/SSE surface.
+Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](/reference/controller/transports/) for browsers and Unity/.NET consumers. See [Transports](/reference/controller/transports/) for the HTTP/SSE surface.
 
 ### Readyable
 

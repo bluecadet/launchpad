@@ -10,7 +10,9 @@ export const observabilityCoreConfigSchema = z.object({
 	include: z
 		.array(z.string())
 		.default(["log:*"])
-		.describe("Event name patterns to include. Supports * wildcards."),
+		.describe(
+			"Event-name patterns to export as logs. Supports * wildcards; an empty array includes all available events.",
+		),
 	/**
 	 * Event name patterns to exclude. Takes precedence over include patterns.
 	 */
@@ -24,22 +26,35 @@ export const observabilityCoreConfigSchema = z.object({
 	batch: z
 		.object({
 			/** Flush interval in milliseconds. Default: 1000. */
-			intervalMs: z.number().default(1000),
+			intervalMs: z
+				.number()
+				.default(1000)
+				.describe("Maximum wait in milliseconds before flushing a log batch."),
 			/** Maximum entries per batch before a forced flush. Default: 100. */
-			maxEntries: z.number().default(100),
+			maxEntries: z.number().default(100).describe("Log entries that force a batch flush."),
 		})
-		.default({ intervalMs: 1000, maxEntries: 100 }),
+		.default({ intervalMs: 1000, maxEntries: 100 })
+		.describe("Log batching settings."),
 	/**
 	 * Retry buffer configuration.
 	 */
 	buffer: z
 		.object({
 			/** Maximum number of failed batches to keep in memory. Default: 50. */
-			maxBatches: z.number().default(50),
+			maxBatches: z
+				.number()
+				.default(50)
+				.describe("Failed-log batch limit in legacy transport mode."),
 			/** Maximum number of retry attempts per batch. Default: 3. */
-			maxRetries: z.number().default(3),
+			maxRetries: z
+				.number()
+				.default(3)
+				.describe(
+					"Log retry limit in memory delivery and retry attempt limit per file-backed batch.",
+				),
 		})
-		.default({ maxBatches: 50, maxRetries: 3 }),
+		.default({ maxBatches: 50, maxRetries: 3 })
+		.describe("Log retry buffer settings."),
 });
 
 export type ObservabilityCoreConfig = z.input<typeof observabilityCoreConfigSchema>;
@@ -103,11 +118,18 @@ export const resourceAttributesSchema: z.ZodType<ResourceAttributes> = z
 			});
 		}
 	})
-	.pipe(resourceAttributesRecordSchema);
+	.pipe(resourceAttributesRecordSchema)
+	.meta({ configDocs: { inputType: "ResourceAttributes", propertiesFrom: "output" } });
 
 /** Gauge observation cadence. */
 export const observationConfigSchema = z.object({
-	intervalMs: z.number().int().positive().max(MAX_TIMER_MS).default(30_000),
+	intervalMs: z
+		.number()
+		.int()
+		.positive()
+		.max(MAX_TIMER_MS)
+		.default(30_000)
+		.describe("Gauge observation interval in milliseconds."),
 });
 
 export type ObservationConfig = z.input<typeof observationConfigSchema>;
@@ -115,9 +137,27 @@ export type ResolvedObservationConfig = z.output<typeof observationConfigSchema>
 
 /** Bounded destination delivery and shutdown behavior. */
 export const deliveryConfigSchema = z.object({
-	deliveryTimeoutMs: z.number().int().positive().max(MAX_TIMER_MS).default(5_000),
-	shutdownTimeoutMs: z.number().int().positive().max(MAX_TIMER_MS).default(3_000),
-	maxQueuedBatches: z.number().int().positive().max(10_000).default(50),
+	deliveryTimeoutMs: z
+		.number()
+		.int()
+		.positive()
+		.max(MAX_TIMER_MS)
+		.default(5_000)
+		.describe("Deadline in milliseconds for one destination export request."),
+	shutdownTimeoutMs: z
+		.number()
+		.int()
+		.positive()
+		.max(MAX_TIMER_MS)
+		.default(3_000)
+		.describe("Deadline in milliseconds for queue flushes and destination shutdown work."),
+	maxQueuedBatches: z
+		.number()
+		.int()
+		.positive()
+		.max(10_000)
+		.default(50)
+		.describe("Maximum queued batches held in each in-memory signal queue."),
 });
 
 export type DeliveryConfig = z.input<typeof deliveryConfigSchema>;
@@ -198,14 +238,25 @@ export const observabilityDestinationsSchema = z
 			}
 			names.add(normalizedName);
 		}
-	});
+	})
+	.describe(
+		"Nonempty list of destination factories with nonblank, unique names; __proto__ is reserved.",
+	)
+	.meta({ configDocs: { inputType: "readonly ObservabilityDestination[]" } });
 
-const transportsSchema = z.custom<ObservabilityTransport[]>((value) => Array.isArray(value), {
-	error: "Observability transports must be an array",
-});
+const transportsSchema = z
+	.custom<ObservabilityTransport[]>((value) => Array.isArray(value), {
+		error: "Observability transports must be an array",
+	})
+	.describe("Legacy logs-only transports using in-memory delivery.")
+	.meta({ configDocs: { inputType: "ObservabilityTransport[]" } });
 
 function forbiddenConfigField(message: string) {
-	return z.custom<never>(() => false, { error: message }).optional();
+	return z
+		.custom<never>(() => false, { error: message })
+		.optional()
+		.describe(message)
+		.meta({ configDocs: { inputType: "never" } });
 }
 
 const removedDeploymentGuardSchema = z
@@ -245,12 +296,25 @@ export const legacyObservabilityConfigSchema = removedDeploymentGuardSchema.and(
 /** Configuration schema for the destination-based observability mode. */
 export const destinationObservabilityConfigSchema = removedDeploymentGuardSchema.and(
 	observabilityCoreConfigSchema.extend({
-		resource: resourceAttributesSchema.prefault({}),
+		resource: resourceAttributesSchema
+			.prefault({})
+			.describe(
+				"Flat primitive attributes attached to every log and metric. Runtime supplies service.name and service.instance.id; the latter cannot be configured.",
+			),
 		destinations: observabilityDestinationsSchema,
-		metrics: z.union([z.literal(false), observationConfigSchema]).prefault({}),
-		delivery: deliveryConfigSchema.prefault({}),
+		metrics: z
+			.union([z.literal(false), observationConfigSchema])
+			.prefault({})
+			.describe("Gauge collection settings; false disables metrics."),
+		delivery: deliveryConfigSchema
+			.prefault({})
+			.describe("Bounded destination delivery and shutdown behavior."),
 		/** Defaults to file-backed delivery. Select memory for live-only queues. */
-		logStorage: logStorageConfigSchema.prefault({ type: "file" }),
+		logStorage: logStorageConfigSchema
+			.prefault({ type: "file" })
+			.describe(
+				"Log delivery source: retained controller-owned file replay or live-only in-memory batching.",
+			),
 		transports: forbiddenConfigField(
 			"Observability destinations and transports cannot be combined",
 		),

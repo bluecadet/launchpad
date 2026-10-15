@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
 	type ConfigReferenceRow,
 	getConfigReferenceRows,
+	selectConfigFieldRows,
 	selectConfigReferenceRows,
 } from "../config-reference.js";
 
@@ -190,5 +191,53 @@ describe("selectConfigReferenceRows", () => {
 				exclude: ["app.name"],
 			}),
 		).toThrow("Invalid configuration exclusion: app.name is not a descendant of app");
+	});
+});
+
+describe("selectConfigFieldRows", () => {
+	it("selects local object fields and keeps metadata without mutating the source rows", () => {
+		const original = [...rows];
+		const fields = selectConfigFieldRows(rows, { property: "apps[].pm2.env" });
+		expect(fields).toEqual([
+			{ ...rows.find((row) => row.name === "apps[].pm2.env.name"), name: "name" },
+		]);
+		expect(rows).toEqual(original);
+	});
+
+	it("describes one array item's fields without retaining its item marker", () => {
+		const itemRows = getConfigReferenceRows(
+			z.object({ sources: z.array(z.object({ id: z.string(), enabled: z.boolean() })) }),
+		);
+		expect(names(selectConfigFieldRows(itemRows, { property: "sources" }))).toEqual([
+			"id",
+			"enabled",
+		]);
+	});
+
+	it("rejects deeper descendants rather than flattening object shapes", () => {
+		expect(() => selectConfigFieldRows(rows, { property: "apps[].pm2" })).toThrow(
+			"Nested configuration field apps[].pm2.env.name",
+		);
+		expect(
+			names(
+				selectConfigFieldRows(rows, {
+					property: "apps[].pm2",
+					exclude: ["apps[].pm2.env"],
+				}),
+			),
+		).toEqual(["enabled"]);
+	});
+
+	it("rejects record entries, empty shapes, and synthetic roots as compact object tables", () => {
+		expect(() => selectConfigFieldRows(rows, { property: "resource" })).toThrow(
+			"Nested configuration field resource[key]",
+		);
+		expect(() => selectConfigFieldRows(rows, { property: "appsExtra" })).toThrow(
+			"No configuration fields for: appsExtra",
+		);
+		const rootRows = getConfigReferenceRows(z.record(z.string(), z.object({ id: z.string() })));
+		expect(() => selectConfigFieldRows(rootRows, { property: "(root)" })).toThrow(
+			"Nested configuration field",
+		);
 	});
 });

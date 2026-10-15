@@ -3,6 +3,7 @@ title: "Content Config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
+import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
 Configuration for managing content sources, transforms, and file handling settings.
 
@@ -12,11 +13,28 @@ Input defaults come from the schema, before transforms and runtime setup. See [c
 
 ### `sources`
 
-<ConfigReference id="content-options" property="sources" includeChildren />
+<ConfigReference id="content-options" property="sources" />
 
-A list of content source options that defines where content is downloaded from. You can configure multiple sources and use different source types simultaneously. Each source can be either a direct ContentSource object or a Promise that resolves to a ContentSource.
+A list of content source options that defines where content is downloaded from. You can configure multiple sources and use different source types simultaneously. Each item accepts `ContentSource | Promise<ContentSource>`: either a source object or a Promise that resolves to one.
 
 For detailed source configuration options, see [Sources Reference](/reference/content/sources/).
+
+```typescript
+content({
+  sources: [
+    defineSource({
+      id: 'installation',
+      fetch: () => ({ id: 'settings', data: fetchSettings() }),
+    }),
+  ],
+});
+```
+
+#### `ContentSource`
+
+Each item has the following fields after its Promise, if any, resolves. Names are relative to one `sources[]` item, not the array itself.
+
+<ConfigFieldTable id="content-options" property="sources" caption="ContentSource fields" />
 
 ### `transforms`
 
@@ -87,8 +105,18 @@ Special characters to encode in file paths for both content and media downloads.
 
 ### `versioning`
 
-<ConfigReference id="content-options" property="versioning" includeChildren />
+<ConfigReference id="content-options" property="versioning" />
 
-Enables immutable versioned output. Pass `true` to use the defaults, or an object to override `keepVersions` and `ackTimeout`.
+Enables immutable versioned output. Pass `false` to disable versioning, `true` to enable it with the object-field defaults below, or an object to enable it and override individual fields. The parent input default is not a resolved settings object.
+
+```typescript
+content({
+  versioning: { keepVersions: 5, ackTimeout: '20m' },
+});
+```
+
+`keepVersions` must be a non-negative integer; active and freshly leased versions remain protected. `ackTimeout` accepts duration shorthand or milliseconds.
+
+<ConfigFieldTable id="content-options" property="versioning" caption="Object fields (relative to versioning)" />
 
 See [Versioning](/reference/content/versioning/) for configuration defaults, publishing, retention, mode-switch behavior, and status output. Applications that consume versioned content must follow the [Version Manifest](/reference/content/version-manifest/) contract.

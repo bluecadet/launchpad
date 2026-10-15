@@ -1,0 +1,81 @@
+---
+import { getConfigReferenceRows, selectConfigFieldRows } from "../lib/config-reference.js";
+import { configReferences } from "../lib/config-references.js";
+
+interface Props {
+	id: string;
+	property: string;
+	caption: string;
+	exclude?: readonly string[];
+}
+
+const { id, property, caption, exclude } = Astro.props;
+const reference = configReferences.find((entry) => entry.id === id);
+if (!reference) throw new Error(`Unknown configuration reference: ${id}`);
+const fields = selectConfigFieldRows(
+	getConfigReferenceRows(reference.schema, { nested: reference.nested }),
+	{ property, exclude },
+);
+---
+
+<div class="table-wrap config-field-table" tabindex="0" role="region" aria-label={caption}>
+	<table>
+		<caption>{caption}</caption>
+		<thead>
+			<tr>
+				<th scope="col">Field</th>
+				<th scope="col">Input type</th>
+				<th scope="col">Required</th>
+				<th scope="col">Input default</th>
+				<th scope="col">Meaning</th>
+			</tr>
+		</thead>
+		<tbody>
+			{fields.map((row) => (
+				<tr>
+					<th scope="row"><code>{row.name}</code></th>
+					<td data-label="Input type"><code>{row.type}</code></td>
+					<td data-label="Required">{row.required ? "Yes" : "No"}</td>
+					<td data-label="Input default">{row.defaultValue === undefined ? "—" : <code>{row.defaultValue}</code>}</td>
+					<td data-label="Meaning" class="description">{row.description}</td>
+				</tr>
+			))}
+		</tbody>
+	</table>
+</div>
+
+<style>
+	/* The framework owns table-wrap and the data-label mobile card layout. */
+	/* Keep the table's accessible name without taking space in either table layout. */
+	.config-field-table caption {
+		position: absolute;
+		inline-size: 1px;
+		block-size: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+	/* Article column headings are uppercase/tracked; field identifiers are not. */
+	.config-field-table th[scope="row"] {
+		text-transform: none;
+		letter-spacing: normal;
+		font: inherit;
+		white-space: normal;
+		vertical-align: top;
+	}
+	@media (max-width: 767px) {
+		.config-field-table th[scope="row"] {
+			display: block;
+			padding: 0.25rem 0;
+			border-block-end: none;
+		}
+	}
+	code,
+	.description {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+</style>

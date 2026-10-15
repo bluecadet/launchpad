@@ -204,6 +204,7 @@ describe("ConfigReference", () => {
 			expect.stringMatching(/^<strong[^>]*>Input default:<\/strong> —$/),
 		]);
 		expect(html).not.toContain("Schema-owned process settings.");
+		expect(html).toMatch(/class="compact"/);
 		expect(html).not.toContain("apps[].pm2");
 		expect(html).not.toMatch(/<(?:dl|dt|dd)\b|\bid=/);
 		expectStaticMarkup(html);

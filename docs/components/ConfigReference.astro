@@ -22,7 +22,7 @@ const definitions = property === undefined ? rows : rows.slice(1);
 ---
 
 <div class="config-reference">
-	{selected && <div class="selected"><ConfigPropertyMetadata row={selected} /></div>}
+	{selected && <div class="selected"><ConfigPropertyMetadata row={selected} compact /></div>}
 	{definitions.length > 0 && (
 		<dl>
 			{definitions.map((row) => (

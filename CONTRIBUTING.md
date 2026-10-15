@@ -99,16 +99,37 @@ All config schemas use Zod for validation and are defined in:
 
 Configuration references in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.
 
-When a page has handwritten property headings, embed metadata under each heading with an exact path, such as `<ConfigReference id="content-options" property="sources" includeChildren />`. The selected property renders only **Input type**, **Required**, and **Input default**. It does not generate a property name, heading, anchor, or schema description: the MDX heading and authored prose own that explanation. Preserve the authored behavior notes, caveats, examples, and links; a concise schema description is not a replacement for them.
+When a page has handwritten property headings, embed metadata under each heading with an exact path, such as `<ConfigReference id="content-options" property="sources" />`. The selected property renders only **Input type**, **Required**, and **Input default**, in a compact wrapping metadata row. It does not generate a property name, heading, anchor, or schema description: the MDX heading and authored prose own that explanation. Preserve the authored behavior notes, caveats, examples, and links; a concise schema description is not a replacement for them.
 
-The contributor API is:
+The `ConfigReference` contributor API is:
 
 - `id`: a registry id (required).
 - `property`: the exact extracted property path, such as `sources` or `apps[].pm2`. Use `(root)` to select a synthetic root row. Omit `property` on pages without individual property sections to render the complete vertical definition list, including schema descriptions.
 - `includeChildren`: render the selected property's descendants as vertical definitions with names, metadata, and schema descriptions. Omit it when those fields have their own authored sections.
 - `exclude`: exact descendant paths to delegate to another section, such as `exclude={["retry.backoff"]}` on the `retry` selection. Requires `property` and `includeChildren`; each exclusion removes that row and its subtree.
 
-Description rendering follows the mode automatically; there is no separate description-policy prop. Unknown ids, property paths, and invalid exclusions fail the docs build. Do not repeat a full reference before individual property sections. Each schema row must appear exactly once per reference id; `docs/lib/__tests__/config-reference-coverage.test.ts` checks the authored MDX calls against the registry.
+For small object shapes, put the parent metadata first, then an explanation and input example, then a compact schema-backed field table:
+
+```mdx
+import ConfigReference from '@docs-src/components/ConfigReference.astro';
+import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
+
+### `versioning`
+
+<ConfigReference id="content-options" property="versioning" />
+
+Explain shorthand and object forms here, followed by an example.
+
+<ConfigFieldTable id="content-options" property="versioning" caption="Object fields (relative to versioning)" />
+```
+
+`ConfigFieldTable` requires `id`, `property`, and a plain-text `caption`. It renders descendants only, never the parent metadata. Field names are local to the selected object; an array selection describes one item (`sources[].id` becomes `id`). Introduce array items as a named shape, such as `ContentSource`, and state the item context in prose or the caption. Types, requiredness, defaults, and descriptions still come directly from the schema. Keep the parent input default separate from object-field defaults; do not invent a resolved default object or copy field types/defaults into MDX tables.
+
+Tables accept `exclude` with the same exact-subtree semantics as `ConfigReference`, without `includeChildren`. Only immediate fields of an object or one array-item shape are supported. Deeper paths, record entries, synthetic roots, and empty selections fail the build: delegate a nested object to its own section/table and exclude its subtree from the outer table. This prevents an evolving schema from silently becoming an ambiguous flattened table. Use authored child sections for behavior-heavy objects such as Monitor window and logging settings.
+
+Do not use a merged field table to imply that mutually exclusive union fields can be combined. Document policies/branches explicitly, with valid input examples and conditional requiredness. Scheduler's `maxAttempts` is required only for `forever: false`, while `backoff` belongs only to the forever policy. The shared metadata reports structural requiredness across the input schema, not branch-specific requirements. Runtime fallbacks belong in descriptions or prose, not the **Input default** column.
+
+Description rendering follows the mode automatically; there is no separate description-policy prop. Unknown ids, property paths, and invalid exclusions fail the docs build. Do not repeat a full reference before individual property sections. Each schema row must appear exactly once per reference id across parent metadata, authored child sections, and field tables; `docs/lib/__tests__/config-reference-coverage.test.ts` checks the authored MDX calls against the registry.
 
 When changing a configuration field:
 

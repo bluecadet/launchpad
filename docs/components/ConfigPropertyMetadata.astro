@@ -3,16 +3,24 @@ import type { ConfigReferenceRow } from "../lib/config-reference.js";
 
 interface Props {
 	row: ConfigReferenceRow;
+	compact?: boolean;
 }
 
-const { row } = Astro.props;
+const { row, compact = false } = Astro.props;
 ---
 
-<p><strong>Input type:</strong> <code>{row.type}</code></p>
-<p><strong>Required:</strong> {row.required ? "Yes" : "No"}</p>
-<p><strong>Input default:</strong> {row.defaultValue === undefined ? "—" : <code>{row.defaultValue}</code>}</p>
+<div class:list={{ compact }}>
+	<p><strong>Input type:</strong> <code>{row.type}</code></p>
+	<p><strong>Required:</strong> {row.required ? "Yes" : "No"}</p>
+	<p><strong>Input default:</strong> {row.defaultValue === undefined ? "—" : <code>{row.defaultValue}</code>}</p>
+</div>
 
 <style>
+	.compact {
+		display: flex;
+		flex-wrap: wrap;
+		column-gap: 1.25rem;
+	}
 	p {
 		margin: 0.375rem 0;
 	}

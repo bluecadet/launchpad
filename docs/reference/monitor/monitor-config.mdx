@@ -3,6 +3,7 @@ title: "Monitor Config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
+import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
 Configuration for managing process monitoring, window management, and logging settings.
 
@@ -48,9 +49,17 @@ Each app in the `apps` array can have the following configuration:
 
 ### `pm2`
 
-<ConfigReference id="monitor-options" property="apps[].pm2" includeChildren />
+<ConfigReference id="monitor-options" property="apps[].pm2" />
 
-PM2 configuration for the app. See [PM2 documentation](https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available) for available options.
+PM2 configuration for the app. See [PM2 documentation](https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available) for the full `StartOptions` API. The table below covers only the fields Launchpad declares explicitly, not every option accepted by PM2.
+
+```typescript
+monitor({
+  apps: [{ pm2: { script: './app.js', out_file: './app-out.log' } }],
+});
+```
+
+<ConfigFieldTable id="monitor-options" property="apps[].pm2" caption="Launchpad-declared fields (relative to pm2)" />
 
 ### `windows`
 

@@ -476,11 +476,25 @@ describe("artifact cache publication lifecycle (real files and SQLite)", () => {
 		{ versionPath: "versions/safe", sourcePath: "." },
 	])("rejects malicious manifest clear paths: %j", async ({ versionPath, sourcePath }) => {
 		const { instance } = await setup({ versioning: { keepVersions: 3 } });
-		expect(await instance.executeCommand({ type: "content.fetch" })).toBeOk();
-		expect(await instance.executeCommand({ type: "content.fetch" })).toBeOk();
+		// Clear needs real version roots and a manifest, not the fetch/publication pipeline.
+		for (const version of ["historical", "active"]) {
+			const sourceRoot = path.join(directory, "downloads/versions", version, "a");
+			await mkdir(sourceRoot, { recursive: true });
+			await writeFile(path.join(sourceRoot, "result.txt"), "generated");
+		}
+		expect(
+			await writeManifest(path.join(directory, "downloads"), {
+				schemaVersion: 1,
+				versionId: "active",
+				versionPath: "versions/active",
+				generatedAt: new Date(0).toISOString(),
+				sources: [{ sourceId: "a", path: "a" }],
+			}),
+		).toBeOk();
 		await mkdir(path.join(directory, "outside"));
 		await writeFile(path.join(directory, "outside/sentinel"), "untouched");
 		const versions = await readdir(path.join(directory, "downloads/versions"));
+		expect(versions).toHaveLength(2);
 		const active = await readManifest(path.join(directory, "downloads"));
 		if (active.status !== "ok") throw new Error("Missing manifest");
 		await writeFile(
@@ -668,6 +682,14 @@ describe("artifact cache publication lifecycle (real files and SQLite)", () => {
 			const { instance } = await setup();
 			expect(await instance.executeCommand({ type: "content.fetch" })).toBeOk();
 			const protectedPaths = getProjectCachePaths(directory);
+			const database = new DatabaseSync(protectedPaths.database);
+			try {
+				expect(
+					database.prepare("SELECT source_id FROM artifacts ORDER BY source_id").all(),
+				).toEqual([{ source_id: "a" }, { source_id: "b" }]);
+			} finally {
+				database.close();
+			}
 			const lockBefore = await stat(protectedPaths.lock);
 			const databaseBefore = await readFile(protectedPaths.database);
 			const unsafe = await content({

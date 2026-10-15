@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import SharpFactory, { type Sharp } from "sharp";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createEmptyArtifactDatabase } from "../../cache/__tests__/empty-artifact-database.js";
 import { type ArtifactCache, createArtifactCache } from "../../cache/artifact-cache.js";
 import * as sharpRecipes from "../../cache/sharp-recipe.js";
 import type { ContentTransformContext } from "../../content-transform.js";
@@ -24,6 +25,13 @@ describe("sharp", () => {
 	let databaseDirectory: string;
 	const instances: ArtifactCache[] = [];
 	const dataStores: DataStore[] = [];
+	let emptyDatabase: Awaited<ReturnType<typeof createEmptyArtifactDatabase>>;
+	beforeAll(async () => {
+		emptyDatabase = await createEmptyArtifactDatabase();
+	});
+	afterAll(async () => {
+		await emptyDatabase.close();
+	});
 	beforeEach(() => {
 		databaseDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "launchpad-sharp-cache-"));
 	});
@@ -61,8 +69,10 @@ describe("sharp", () => {
 				getTempPath: (sourceId?: string) => filePath(path.join("temp", sourceId ?? "")),
 			},
 		};
+		const databasePath = path.join(databaseDirectory, "cache.sqlite");
+		if (instances.length === 0) await emptyDatabase.copyTo(databasePath);
 		const cache = await createArtifactCache({
-			databasePath: path.join(databaseDirectory, "cache.sqlite"),
+			databasePath,
 			previousRoot: (sourceId) => filePath(path.join("published", sourceId)),
 			stagedRoot: (sourceId) => ctx.paths.getDownloadPath(sourceId),
 		});
@@ -104,10 +114,9 @@ describe("sharp", () => {
 		sources = ["test"],
 	) {
 		await ctx.cache.beginPublication(sources);
+		fs.mkdirSync(filePath("published"), { recursive: true });
 		for (const source of sources) {
-			fs.cpSync(filePath(`/download/${source}`), filePath(`/published/${source}`), {
-				recursive: true,
-			});
+			fs.renameSync(filePath(`/download/${source}`), filePath(`/published/${source}`));
 		}
 		await ctx.cache.commitPublication((sourceId) => filePath(`/published/${sourceId}`));
 	}
@@ -228,7 +237,6 @@ describe("sharp", () => {
 			await publish(first);
 			const generated = files.readFileSync("/published/test/image@sharp.jpeg");
 			const next = await imageContext();
-			files.unlinkSync("/download/test/image@sharp.jpeg");
 			const derive = vi.spyOn(next.cache, "derive");
 			await sharp(options).apply(next);
 			expect(await derive.mock.results[0]?.value).toEqual({ reused: true });
@@ -385,7 +393,6 @@ describe("sharp", () => {
 			await publish(first);
 			const next = await localImagesContext(images);
 			files.writeFileSync("/download/test/image@sharp.png", overlay);
-			files.unlinkSync("/download/test/other@sharp.png");
 			const derive = vi.spyOn(next.cache, "derive");
 			await sharp(options).apply(next);
 			expect(derive).toHaveBeenCalledTimes(1);
@@ -469,7 +476,6 @@ describe("sharp", () => {
 			const next = await imageContext();
 			next.paths.getDownloadPath = (sourceId) =>
 				filePath(path.join("download-alias", sourceId ?? ""));
-			files.unlinkSync("/download/test/image@sharp.png");
 			const derive = vi.spyOn(next.cache, "derive");
 			await sharp(options).apply(next);
 			expect(await derive.mock.results[0]?.value).toEqual({ reused: true });
@@ -760,16 +766,38 @@ describe("sharp", () => {
 				.insert("other", Promise.resolve({ image: "other.jpg" }));
 			inserted._unsafeUnwrap();
 			const originalDerive = ctx.cache.derive.bind(ctx.cache);
+			const started = Promise.withResolvers<void>();
+			const failureReached = Promise.withResolvers<void>();
+			const release = Promise.withResolvers<void>();
 			vi.spyOn(ctx.cache, "derive").mockImplementation(async (artifact) => {
 				if (artifact.inputs[0] !== filePath("/download/test/other.jpg")) {
+					failureReached.resolve();
 					throw new Error("first job failed");
 				}
-				await new Promise((resolve) => setTimeout(resolve, 25));
+				started.resolve();
+				await release.promise;
 				return originalDerive(artifact);
 			});
-			await expect(
-				sharp({ buildTransform: (pipeline) => pipeline.resize(20), concurrency: 2 }).apply(ctx),
-			).rejects.toThrow("first job failed");
+			let settled = false;
+			const completion = sharp({
+				buildTransform: (pipeline) => pipeline.resize(20),
+				concurrency: 2,
+			})
+				.apply(ctx)
+				.finally(() => {
+					settled = true;
+				});
+			const failure = expect(completion).rejects.toThrow("first job failed");
+			try {
+				// An early failure also escapes this wait, so the gate is always released.
+				await Promise.race([Promise.all([started.promise, failureReached.promise]), completion]);
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				expect(settled).toBe(false);
+				expect(files.existsSync("/download/test/other@sharp.jpg")).toBe(false);
+			} finally {
+				release.resolve();
+				await failure;
+			}
 			expect(files.existsSync("/download/test/other@sharp.jpg")).toBe(true);
 		});
 

@@ -2,12 +2,13 @@ import { cp, link, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	type ArtifactCache,
 	createArtifactCache,
 	type DerivedArtifact,
 } from "../artifact-cache.js";
+import { createEmptyArtifactDatabase } from "./empty-artifact-database.js";
 
 vi.unmock("node:fs");
 vi.unmock("node:fs/promises");
@@ -21,6 +22,15 @@ describe("artifact publication and filesystem safety", () => {
 	let input: string;
 	let databasePath: string;
 	const instances: ArtifactCache[] = [];
+	let emptyDatabase: Awaited<ReturnType<typeof createEmptyArtifactDatabase>>;
+
+	beforeAll(async () => {
+		emptyDatabase = await createEmptyArtifactDatabase();
+	});
+
+	afterAll(async () => {
+		await emptyDatabase.close();
+	});
 
 	beforeEach(async () => {
 		directory = await mkdtemp(path.join(os.tmpdir(), "launchpad-artifact-safety-"));
@@ -37,7 +47,11 @@ describe("artifact publication and filesystem safety", () => {
 		await rm(directory, { recursive: true, force: true });
 	});
 
-	async function openCache(overrides: Partial<Parameters<typeof createArtifactCache>[0]> = {}) {
+	async function openCache(
+		overrides: Partial<Parameters<typeof createArtifactCache>[0]> = {},
+		useEmptyTemplate = true,
+	) {
+		if (instances.length === 0 && useEmptyTemplate) await emptyDatabase.copyTo(databasePath);
 		const cache = await createArtifactCache({
 			databasePath,
 			previousRoot: () => published,
@@ -76,6 +90,29 @@ describe("artifact publication and filesystem safety", () => {
 			database.close();
 		}
 	}
+
+	it("keeps initialized fixture copies empty and independent after durable publication", async () => {
+		const cache = await openCache();
+		expect(cache.available).toBe(true);
+		expect(count("artifacts")).toBe(0);
+		expect(count("unsafe_sources")).toBe(0);
+		await writeFile(path.join(staged, "output"), "http bytes");
+		const request = { sourceId: "source", key: "url", outputPath: "output" };
+		await cache.storeHttp({ ...request, metadata: null });
+		await cache.beginPublication(["source"]);
+		await promote(cache);
+		expect(count("artifacts")).toBe(1);
+		await cache.close();
+		const reopened = await openCache();
+		expect(await reopened.lookupHttp(request)).toBeDefined();
+
+		const independentPath = path.join(directory, "independent/artifacts.sqlite");
+		await emptyDatabase.copyTo(independentPath);
+		const independent = await openCache({ databasePath: independentPath });
+		expect(independent.available).toBe(true);
+		expect(await independent.lookupHttp(request)).toBeUndefined();
+		await expect(emptyDatabase.copyTo(independentPath)).rejects.toMatchObject({ code: "EEXIST" });
+	});
 
 	it.each([false, true])(
 		"begin drains background generation before journaling (inPlace=%s)",
@@ -173,7 +210,8 @@ describe("artifact publication and filesystem safety", () => {
 				await mkdir(path.dirname(databasePath), { recursive: true });
 				await writeFile(databasePath, "corrupt SQLite");
 			}
-			const cache = await openCache(mode === "disabled" ? { enabled: false } : {});
+			// Preserve the absent/invalid database setup for fallback coverage.
+			const cache = await openCache(mode === "disabled" ? { enabled: false } : {}, false);
 			expect(cache.available).toBe(false);
 			const started = Promise.withResolvers<void>();
 			const release = Promise.withResolvers<void>();

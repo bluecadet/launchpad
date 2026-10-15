@@ -346,6 +346,28 @@ export function selectConfigReferenceRows(
 	];
 }
 
+/** Select a compact, single-level object shape (or one array item's fields).
+ * Deeper objects must be delegated to their own section, never flattened into a table.
+ */
+export function selectConfigFieldRows(
+	rows: readonly ConfigReferenceRow[],
+	options: { property: string; exclude?: readonly string[] },
+): ConfigReferenceRow[] {
+	const { property } = options;
+	const fields = selectConfigReferenceRows(rows, { ...options, includeChildren: true }).slice(1);
+	if (!fields.length) throw new Error(`No configuration fields for: ${property}`);
+	return fields.map((row) => {
+		// Array tables describe one item. Keep only the immediate local field name.
+		const name = row.name.slice(property.length).replace(/^(\[\])?\./, "");
+		if (property === "(root)" || /[.[\]]/.test(name)) {
+			throw new Error(
+				`Nested configuration field ${row.name}: delegate its parent to a separate section and exclude that subtree from the table`,
+			);
+		}
+		return { ...row, name };
+	});
+}
+
 /** Describe accepted configuration input as plain text, without parsing values. */
 export function getConfigReferenceRows(
 	schema: z.ZodType,

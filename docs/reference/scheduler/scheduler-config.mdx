@@ -3,6 +3,7 @@ title: "Scheduler Config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
+import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
 Pass a command-keyed record to `scheduler()`. Each key identifies the command to dispatch; one command id can have one schedule.
 
@@ -80,11 +81,23 @@ Supply a duration to set a fixed maximum jitter for either schedule type, or `fa
 
 ### `retry`
 
-<ConfigReference id="scheduler-options" property="retry" includeChildren exclude={["retry.backoff"]} />
+<ConfigReference id="scheduler-options" property="retry" />
 
-Failed dispatches retry before the normal schedule resumes. By default, retries continue forever with exponential backoff: 15 seconds initially, doubled each attempt, and capped at five minutes. A successful dispatch resets the failure count and backoff.
+Failed dispatches retry before the normal schedule resumes. A successful dispatch resets the failure count and backoff. Choose one of two policies:
 
-To stop after a fixed number of failed attempts, opt out of the default policy:
+- **Forever:** omit `retry`, use `{}`, or set `forever: true`. Only this policy accepts `backoff` overrides; it does not accept `maxAttempts`.
+- **Limited:** set `forever: false` and supply `maxAttempts`. This policy uses the default backoff curve and does not accept `backoff` overrides.
+
+```typescript
+scheduler({
+  'content.fetch': {
+    interval: '5m',
+    retry: { forever: true, backoff: { initial: '10s', max: '2m', factor: 2 } },
+  },
+});
+```
+
+To stop after a fixed number of failed attempts instead:
 
 ```typescript
 scheduler({
@@ -95,15 +108,36 @@ scheduler({
 });
 ```
 
-`maxAttempts` must be a positive integer. Limited-retry jobs use the default backoff curve and cannot customize it.
-
 A command rejected because it is already running is an overlap skip, not a failure. It does not consume an attempt or begin backoff.
 
-#### `backoff`
+#### `forever`
 
-<ConfigReference id="scheduler-options" property="retry.backoff" includeChildren />
+<ConfigReference id="scheduler-options" property="retry.forever" />
 
-Available only with the default `forever: true` retry policy. `initial` and `max` are durations; `factor` must be positive. Omitted fields retain their defaults.
+Selects the retry policy. Omitting this field selects forever retries; `false` selects limited retries and requires `maxAttempts`. The field metadata describes all accepted inputs together; conditional requirements are specified in each policy above.
+
+#### `maxAttempts` (limited policy)
+
+<ConfigReference id="scheduler-options" property="retry.maxAttempts" />
+
+Required when `forever: false`, even though it is not required across the combined input schema. Must be a positive integer. Not accepted with `forever: true` or an omitted `forever` field; it cannot be combined with `backoff`.
+
+#### `backoff` (forever policy)
+
+<ConfigReference id="scheduler-options" property="retry.backoff" />
+
+Available only with the forever policy. Omitted fields use the runtime defaults described in the table, not schema input defaults. `initial` and `max` accept duration shorthand or milliseconds; `factor` must be positive.
+
+```typescript
+scheduler({
+  'content.fetch': {
+    interval: '5m',
+    retry: { backoff: { initial: '10s' } },
+  },
+});
+```
+
+<ConfigFieldTable id="scheduler-options" property="retry.backoff" caption="Backoff override fields (relative to retry.backoff)" />
 
 ### `command`
 

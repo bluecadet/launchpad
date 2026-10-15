@@ -358,7 +358,42 @@ it.each([
 				],
 				{ cwd: fixture },
 			);
-			const overviewSource = await readFile(join(source, "umbrella-4-overview.md"), "utf8");
+			// Pending changesets are consumed on release; keep the test input inline.
+			const overviewSource = [
+				"---",
+				'"@bluecadet/launchpad": major',
+				"---",
+				"",
+				"Example major release overview",
+				"",
+				"<!-- changeset: overview -->",
+				"",
+				"A standalone introduction with [a link](https://example.com) and #42.",
+				"",
+				"#### Feature details",
+				"",
+				"A paragraph before a code sample.",
+				"",
+				"```markdown",
+				"## Not a release boundary",
+				"",
+				"- A list inside code",
+				"```",
+				"",
+				"- First improvement",
+				"  - Nested detail",
+				"- Second improvement",
+				"",
+				"#### Other improvements",
+				"",
+				"Another paragraph between sections.",
+				"",
+				"#### Before upgrading",
+				"",
+				"- **Configuration:** Update the example option.",
+				"- **API:** Update callers. Final overview detail.",
+				"",
+			].join("\n");
 			await write(".changeset/overview.md", overviewSource);
 			await write(
 				".changeset/umbrella-only.md",
@@ -393,12 +428,12 @@ it.each([
 			const current = extractRelease(umbrella, "4.0.0");
 			const overviewSummary = overviewSource.replace(/^---\n[\s\S]*?\n---\n\n/, "").trim();
 			const [summary, body] = overviewSummary.split(`\n\n${marker}\n\n`);
-			// Includes the ENTIRE real overview, especially the Before upgrading tail.
+			// Includes the entire overview fixture, especially the Before upgrading tail.
 			expect(current).toContain(
 				`### Major Changes\n\n**${summary}**${newline}${newline}${body.replace(/\n/g, newline)}`,
 			);
 			expect(current).toContain("#### Before upgrading");
-			expect(current).toContain("These changes also apply through umbrella exports.");
+			expect(current).toContain("Final overview detail.");
 			expect(current).not.toContain(`- **${summary}**`);
 			expect(current).not.toMatch(
 				/changeset: overview|Previous|Ancient|Feature-only|Thanks|\/commit\//,

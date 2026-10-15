@@ -43,11 +43,11 @@ observability({
 });
 ```
 
-Input defaults below precede transforms and runtime setup; for example, resource identity is supplied at runtime. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
-
-<ConfigReference id="observability-destination-options" />
+Input defaults precede transforms and runtime setup; for example, resource identity is supplied at runtime. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `resource`
+
+<ConfigReference id="observability-destination-options" property="resource" includeChildren />
 
 A flat set of resource attributes attached to every exported log and metric. Attribute names and meanings are caller-defined; Launchpad does not give special meaning to client, project, installation, organization, or environment attributes.
 
@@ -66,11 +66,15 @@ Resource attributes and metric-point attributes are separate scopes. Resource at
 
 ### `destinations`
 
+<ConfigReference id="observability-destination-options" property="destinations" />
+
 At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics and file-delivery checkpoints.
 
 The name `__proto__` is reserved because destination health is stored in ordinary objects; this name would change the object's prototype and break state updates or serialization. Names such as `constructor`, `prototype`, and `toString` remain supported. All names are validated during setup before any destination exporter factories run.
 
 ### `logStorage`
+
+<ConfigReference id="observability-destination-options" property="logStorage" includeChildren />
 
 Selects the log delivery source. Omitted or `{ type: 'file' }` uses checkpointed delivery from the controller-owned canonical JSONL. Explicit `{ type: 'memory' }` uses bounded in-memory batching without replay, suitable for tests, ephemeral delivery, or custom log exporters that do not support replay. This opt-out does not disable controller logging.
 
@@ -88,11 +92,15 @@ File delivery preserves each record's original timestamp and resource snapshot. 
 
 ### `include`
 
+<ConfigReference id="observability-destination-options" property="include" />
+
 Event-name patterns to export as logs. `*` is a wildcard. An empty array includes all available events.
 
 In default file delivery, these filters select only [canonical records captured by the controller](/reference/controller/logging/#recorded-events), not every raw custom bus event. Use explicit memory delivery if you need the legacy live-bus capture behavior for custom events; changing `include` cannot add unrecorded events to the canonical source.
 
 ### `exclude`
+
+<ConfigReference id="observability-destination-options" property="exclude" />
 
 Event-name patterns to suppress. Exclusions take precedence over inclusions.
 
@@ -100,19 +108,33 @@ Event-name patterns to suppress. Exclusions take precedence over inclusions.
 
 ### `batch`
 
+<ConfigReference id="observability-destination-options" property="batch" includeChildren />
+
 Batching controls how often logs are flushed and how many entries force a flush.
 
 ### `buffer`
+
+<ConfigReference id="observability-destination-options" property="buffer" includeChildren />
 
 In destination mode, `delivery.maxQueuedBatches` bounds each in-memory signal queue. Metric batches coalesce to the latest queued observation and are not retried. File-backed logs remain available from the canonical log until their checkpoint advances or controller retention removes them. Queue limits do not create a second sidecar or spool.
 
 ### `metrics`
 
+<ConfigReference id="observability-destination-options" property="metrics" includeChildren />
+
 Set `false` to disable gauge collection. `intervalMs` must be a positive integer no greater than `2_147_483_647`.
 
 ### `delivery`
 
+<ConfigReference id="observability-destination-options" property="delivery" includeChildren />
+
 All values must be positive integers. `maxQueuedBatches` cannot exceed 10,000.
+
+### `transports`
+
+<ConfigReference id="observability-destination-options" property="transports" />
+
+For existing transport configurations, see [Legacy transport mode](#legacy-transport-mode).
 
 ## Legacy transport mode
 

@@ -8,11 +8,11 @@ Configuration for managing content sources, transforms, and file handling settin
 
 ## Options
 
-<ConfigReference id="content-options" />
-
-Input defaults above come from the schema, before transforms and runtime setup. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+Input defaults come from the schema, before transforms and runtime setup. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `sources`
+
+<ConfigReference id="content-options" property="sources" includeChildren />
 
 A list of content source options that defines where content is downloaded from. You can configure multiple sources and use different source types simultaneously. Each source can be either a direct ContentSource object or a Promise that resolves to a ContentSource.
 
@@ -20,11 +20,15 @@ For detailed source configuration options, see [Sources Reference](/reference/co
 
 ### `transforms`
 
+<ConfigReference id="content-options" property="transforms" />
+
 A list of content transforms that process content after download. Transforms can modify, analyze, or enhance content before final output.
 
 See [Content Transforms Reference](/reference/content/transforms/) for available transforms and usage.
 
 ### `downloadPath`
+
+<ConfigReference id="content-options" property="downloadPath" />
 
 Base directory path where successfully promoted content is published. Fetch runs write into an isolated staged run directory first, then replace the published source directory only after the run succeeds. Can be absolute or relative path.
 
@@ -32,17 +36,23 @@ Relative paths are resolved against the directory of the launchpad configuration
 
 ### `tempPath`
 
+<ConfigReference id="content-options" property="tempPath" />
+
 Temporary directory path used during content processing. Launchpad creates per-run staged workspaces under this directory and removes them after the run completes.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
 ### `backupPath`
 
+<ConfigReference id="content-options" property="backupPath" />
+
 Directory path where existing published content can be backed up before processing new downloads. This remains available for compatibility and recovery flows, but normal fetch failure handling now relies on staged output never being promoted.
 
 Relative paths are resolved against the directory of the launchpad configuration.
 
 ### `keep`
+
+<ConfigReference id="content-options" property="keep" />
 
 Glob patterns for files to preserve when clearing directories.
 
@@ -52,6 +62,8 @@ Example:
 - `["**/*.csv", "*.git*"]` - Keep all CSV files in any subdirectory, and any git related files.
 
 ### `backupAndRestore`
+
+<ConfigReference id="content-options" property="backupAndRestore" />
 
 When enabled:
 
@@ -63,13 +75,19 @@ Normal fetch failures do not require backup restoration because staged output is
 
 ### `maxTimeout`
 
+<ConfigReference id="content-options" property="maxTimeout" />
+
 Maximum time in milliseconds to wait for network requests before timing out.
 
 ### `encodeChars`
 
+<ConfigReference id="content-options" property="encodeChars" />
+
 Special characters to encode in file paths for both content and media downloads. Ensures valid filenames across systems.
 
 ### `versioning`
+
+<ConfigReference id="content-options" property="versioning" includeChildren />
 
 Enables immutable versioned output. Pass `true` to use the defaults, or an object to override `keepVersions` and `ackTimeout`.
 

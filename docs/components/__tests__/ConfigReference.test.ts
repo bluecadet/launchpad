@@ -28,6 +28,33 @@ vi.mock("../../lib/config-references.js", async () => {
 				}),
 			},
 			{
+				id: "nested-fixture",
+				schema: z.object({
+					apps: z.array(
+						z.object({
+							pm2: z
+								.object({
+									enabled: z.boolean().default(false).describe("Enable process management."),
+									env: z.object({ name: z.string() }).describe("Process environment."),
+								})
+								.describe("Schema-owned process settings."),
+							pm2Extra: z.string().describe("Separate setting."),
+						}),
+					),
+				}),
+			},
+			{
+				id: "root-fixture",
+				schema: z
+					.record(z.string(), z.object({ enabled: z.boolean().describe("Enable a resource.") }))
+					.describe("Schema-owned root description."),
+			},
+			{
+				id: "shallow-fixture",
+				nested: false,
+				schema: z.object({ app: z.object({ enabled: z.boolean() }) }),
+			},
+			{
 				id: "defaults-fixture",
 				schema: z.object({
 					zero: z.number().default(0),
@@ -72,11 +99,20 @@ function properties(html: string) {
 		).toEqual(["Input type:", "Required:", "Input default:", undefined]);
 		expect(paragraphs[1]).toMatch(/<\/strong> (?:Yes|No)$/);
 	}
+	expectStaticMarkup(html);
+	return entries;
+}
+
+function expectStaticMarkup(html: string): void {
 	expect(html).not.toMatch(
 		/<(?:table|thead|tbody|tr|th|td|h[1-6]|a|astro-island|astro-server-island|script)\b/i,
 	);
 	expect(html).not.toContain("table-wrap");
-	return entries;
+}
+
+function selectedParagraphs(html: string): string[] {
+	const metadata = html.split(/<dl\b/)[0] ?? "";
+	return [...metadata.matchAll(/<p\b[^>]*>(.*?)<\/p>/gs)].map((match) => match[1] ?? "");
 }
 
 function metadataValue(paragraph: string | undefined): string | undefined {
@@ -154,6 +190,138 @@ describe("ConfigReference", () => {
 			fixture.longDefault,
 		]);
 		expect(metadataValue(entries[5]?.paragraphs[2])).toBe("—");
+	});
+
+	it("renders only metadata for one selected property without its name, anchor, or schema description", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: "nested-fixture", property: "apps[].pm2" },
+		});
+
+		expect(selectedParagraphs(html)).toEqual([
+			expect.stringMatching(/^<strong[^>]*>Input type:<\/strong> <code[^>]*>object<\/code>$/),
+			expect.stringMatching(/^<strong[^>]*>Required:<\/strong> Yes$/),
+			expect.stringMatching(/^<strong[^>]*>Input default:<\/strong> —$/),
+		]);
+		expect(html).not.toContain("Schema-owned process settings.");
+		expect(html).not.toContain("apps[].pm2");
+		expect(html).not.toMatch(/<(?:dl|dt|dd)\b|\bid=/);
+		expectStaticMarkup(html);
+	});
+
+	it("renders descendants as vertical definitions and excludes delegated subtrees", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: {
+				id: "nested-fixture",
+				property: "apps[].pm2",
+				includeChildren: true,
+				exclude: ["apps[].pm2.env"],
+			},
+		});
+		const entries = properties(html);
+
+		expect(entries.map((entry) => entry.name)).toEqual(["apps[].pm2.enabled"]);
+		expect(entries[0]?.paragraphs[3]).toBe("Enable process management.");
+		expect(codeText(metadataValue(entries[0]?.paragraphs[2]))).toBe("false");
+		expect(selectedParagraphs(html)).toHaveLength(3);
+		expect(html).not.toContain("Schema-owned process settings.");
+		expect(html).not.toContain("Process environment.");
+		expect(html).not.toContain("pm2Extra");
+	});
+
+	it("omits a selected synthetic root description but retains unprefixed record descendants", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: "root-fixture", property: "(root)", includeChildren: true },
+		});
+		const entries = properties(html);
+
+		expect(entries.map((entry) => entry.name)).toEqual(["[key]", "[key].enabled"]);
+		expect(entries[1]?.paragraphs[3]).toBe("Enable a resource.");
+		expect(selectedParagraphs(html)).toHaveLength(3);
+		expect(html).not.toContain("Schema-owned root description.");
+		expect(html).not.toContain("(root)");
+	});
+
+	it("retains the root and descendant summaries in the id-only fallback", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: "root-fixture" },
+		});
+		const entries = properties(html);
+
+		expect(entries.map((entry) => entry.name)).toEqual(["(root)", "[key]", "[key].enabled"]);
+		expect(entries[0]?.paragraphs[3]).toBe("Schema-owned root description.");
+		expect(entries[2]?.paragraphs[3]).toBe("Enable a resource.");
+		expect(html.match(/Schema-owned root description\./g)).toHaveLength(1);
+	});
+
+	it.each([
+		{ property: "zero", defaultValue: "<code>0</code>" },
+		{ property: "disabled", defaultValue: "<code>false</code>" },
+		{ property: "nullable", defaultValue: "<code>null</code>" },
+		{ property: "emptyString", defaultValue: "<code>&quot;&quot;</code>" },
+		{ property: "emptyLabel", defaultValue: "<code></code>" },
+		{ property: "absent", defaultValue: "—" },
+	])("preserves the selected input default for $property", async ({ property, defaultValue }) => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: "defaults-fixture", property },
+		});
+		const paragraphs = selectedParagraphs(html);
+
+		expect(paragraphs).toHaveLength(3);
+		expect(metadataValue(paragraphs[2])?.replace(/<code\b[^>]*>/, "<code>")).toBe(defaultValue);
+		expect(html).not.toMatch(/<(?:dl|dt|dd)\b/);
+		expectStaticMarkup(html);
+	});
+
+	it("escapes selected metadata and defaults just as in the full reference", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: fixture.id, property: "__proto__" },
+		});
+		const paragraphs = selectedParagraphs(html);
+		expect(codeText(metadataValue(paragraphs[0]))).toBe(
+			"&lt;iframe src=javascript:alert(2)&gt; | type\nnext",
+		);
+		expect(paragraphs).toHaveLength(3);
+		expect(html).not.toContain("description");
+		expect(html).not.toContain("__proto__");
+		expectStaticMarkup(html);
+
+		const defaultHtml = await container.renderToString(ConfigReference, {
+			props: { id: fixture.id, property: fixture.name },
+		});
+		expect(codeText(metadataValue(selectedParagraphs(defaultHtml)[2]))).toBe(
+			"&quot;&lt;svg onload=alert(3)&gt; | default\\nnext&quot;",
+		);
+		expect(defaultHtml).not.toContain("&lt;img");
+		expectStaticMarkup(defaultHtml);
+	});
+
+	it("respects the registry's shallow extraction setting", async () => {
+		const container = await AstroContainer.create();
+		const html = await container.renderToString(ConfigReference, {
+			props: { id: "shallow-fixture", property: "app", includeChildren: true },
+		});
+		expect(selectedParagraphs(html)).toHaveLength(3);
+		expect(html).not.toMatch(/<(?:dl|dt|dd)\b/);
+		expect(html).not.toContain("enabled");
+	});
+
+	it.each([
+		{ property: "missing" },
+		{ exclude: ["apps[].pm2"] },
+		{ property: "apps", exclude: ["apps[].pm2"] },
+		{ property: "apps", includeChildren: true, exclude: ["apps"] },
+		{ property: "apps", includeChildren: true, exclude: ["apps[].missing"] },
+	])("rejects invalid property selections: %j", async (selection) => {
+		const container = await AstroContainer.create();
+		await expect(
+			container.renderToString(ConfigReference, { props: { id: "nested-fixture", ...selection } }),
+		).rejects.toThrow(/configuration (?:property|exclusion)/i);
 	});
 
 	it("rejects an unknown registry ID instead of rendering an empty reference", async () => {

@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-utils",
-  "version": "3.2.0",
+  "version": "4.0.0",
   "description": "Common utilities used by multiple launchpad modules",
   "type": "module",
   "exports": {

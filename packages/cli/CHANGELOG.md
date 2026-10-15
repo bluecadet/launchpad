@@ -1,5 +1,21 @@
 # @bluecadet/launchpad-cli
 
+## 4.0.0
+
+### Major Changes
+
+- Run Launchpad and the scaffolder on Node.js 24.x or 26 and later (`^24 || >=26`), now required for the content cache's built-in `node:sqlite`. Check your project's Node range: generated projects declare it, but updates preserve existing declarations. ([#322](https://github.com/bluecadet/launchpad/pull/322))
+  
+  The shared file lease is also exported at `@bluecadet/launchpad-utils/native-file-lease`.
+
+### Patch Changes
+
+- Prevent task and persistent controllers from running simultaneously for the same configured project identity, while keeping PID-file discovery for persistent daemons.
+- Updated dependencies:
+  - @bluecadet/launchpad-controller@4.0.0
+  - @bluecadet/launchpad-monitor@4.0.0
+  - @bluecadet/launchpad-utils@4.0.0
+
 ## 3.0.6
 
 ### Patch Changes

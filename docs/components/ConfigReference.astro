@@ -12,36 +12,47 @@ if (!reference) throw new Error(`Unknown configuration reference: ${id}`);
 const rows = getConfigReferenceRows(reference.schema, { nested: reference.nested });
 ---
 
-<div class="table-wrap">
-	<table>
-		<thead>
-			<tr>
-				<th>Option</th>
-				<th>Input type</th>
-				<th>Required</th>
-				<th>Input default</th>
-				<th>Description</th>
-			</tr>
-		</thead>
-		<tbody>
-			{rows.map((row) => (
-				<tr>
-					<td data-label="Option"><code>{row.name}</code></td>
-					<td data-label="Input type"><code>{row.type}</code></td>
-					<td data-label="Required">{row.required ? "Yes" : "No"}</td>
-					<td data-label="Input default">{row.defaultValue === undefined ? "—" : <code>{row.defaultValue}</code>}</td>
-					<td data-label="Description">{row.description}</td>
-				</tr>
-			))}
-		</tbody>
-	</table>
-</div>
+<dl class="config-reference">
+	{rows.map((row) => (
+		<div class="property">
+			<dt><code>{row.name}</code></dt>
+			<dd>
+				<p><strong>Input type:</strong> <code>{row.type}</code></p>
+				<p><strong>Required:</strong> {row.required ? "Yes" : "No"}</p>
+				<p><strong>Input default:</strong> {row.defaultValue === undefined ? "—" : <code>{row.defaultValue}</code>}</p>
+				<p class="description">{row.description}</p>
+			</dd>
+		</div>
+	))}
+</dl>
 
 <style>
-	td {
+	dl {
+		margin-block: 1.5rem;
+		overflow-wrap: anywhere;
+	}
+	.property + .property {
+		margin-block-start: 2rem;
+	}
+	dt {
+		margin-block-end: 0.75rem;
+	}
+	dt code {
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	dd {
+		margin: 0;
+	}
+	dd p {
+		margin: 0.375rem 0;
+	}
+	dd .description {
+		margin-block-start: 0.75rem;
 		white-space: pre-wrap;
 	}
 	code {
 		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 </style>

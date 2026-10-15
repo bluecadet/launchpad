@@ -9,6 +9,7 @@ on:
     paths:
       - "packages/**"
       - "docs/**"
+      - ".github/workflows/ci.yml"
   merge_group:
 
 concurrency:
@@ -48,6 +49,64 @@ jobs:
       - name: Knip
         run: npm run knip
 
+  native-changes:
+    name: Detect native changes
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      native: ${{ steps.filter.outputs.native }}
+    steps:
+      # Only inspect git data; never install dependencies or execute checked-out code.
+      # On PRs, checkout's merge commit includes the entire PR, not just its latest push.
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          # Use git even for fork PRs: contents: read is sufficient, and unlike the
+          # PR files API, git has no 3,000-file limit. Renames include both paths.
+          token: ''
+          # PR: base -> merge commit; push: before -> sha; queue: base -> head.
+          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.ref }}
+          # Matching base/ref on push lets paths-filter use event.before, including
+          # the zero-SHA initial-push fallback. Checkout pins this ref to event.sha.
+          ref: ${{ github.event_name == 'push' && github.ref || github.sha }}
+          filters: |
+            native:
+              - 'packages/monitor/native/**'
+              - 'packages/monitor/prebuilds/**'
+              - '.github/workflows/ci.yml'
+
+  native-drift:
+    name: Native binary drift
+    needs: native-changes
+    # Skipped jobs satisfy required checks. If detection fails, run conservatively
+    # rather than silently skipping the drift check. Dispatch always rebuilds.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.native-changes.result == 'failure' || needs.native-changes.outputs.native == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and verify Zig 0.17.0
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/zig-x86_64-linux-0.17.0.tar.xz"
+          curl --fail --silent --show-error --location \
+            https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz \
+            --output "$archive"
+          # Pinned from https://ziglang.org/download/index.json.
+          printf '%s  %s\n' \
+            '1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026' \
+            "$archive" | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          printf '%s\n' "$RUNNER_TEMP/zig-x86_64-linux-0.17.0" >> "$GITHUB_PATH"
+
+      - name: Rebuild and compare checked-in native binaries
+        shell: bash
+        run: |
+          zig build --build-file packages/monitor/native/build.zig
+          git diff --exit-code -- packages/monitor/prebuilds
+
   ci:
     name: CI
     strategy:
@@ -75,6 +134,21 @@ jobs:
 
       - name: Validate types
         run: npm run build
+
+      - name: Verify monitor native binaries are packaged
+        shell: bash
+        run: |
+          npm pack --workspace @bluecadet/launchpad-monitor --dry-run --json > monitor-pack.json
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const [monitorPackage] = JSON.parse(readFileSync('monitor-pack.json', 'utf8'));
+          const files = new Set(monitorPackage.files.map(({ path }) => path));
+          for (const arch of ['x64', 'arm64']) {
+            const binary = `prebuilds/win32-${arch}/windows.node`;
+            assert(files.has(binary), `Monitor package is missing ${binary}`);
+          }
+          NODE
 
       - name: Run tests
         run: npm run test

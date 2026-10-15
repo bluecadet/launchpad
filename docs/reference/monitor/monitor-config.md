@@ -25,7 +25,7 @@ When enabled, deletes existing PM2 processes before connecting. Useful for volat
 - **Type:** `WindowsApiConfig`
 - **Default:** `{}`
 
-Advanced configuration for the Windows API, used for managing foreground/minimized/hidden windows.
+Advanced configuration for the Windows API, used for managing foreground/minimized/hidden windows. Window operations are Windows-only; PM2 process management and logging work independently of them. See [Windows window management](./index.md#windows-window-management) for platform and installation details.
 
 #### `debounceDelay`
 
@@ -56,11 +56,13 @@ PM2 configuration for the app. See [PM2 documentation](https://pm2.keymetrics.io
 - **Type:** `WindowConfig`
 - **Default:** `{}`
 
-Settings for window management:
+Settings for window management on Windows. All flags default to `false` and apply to the app's visible top-level windows matched by its PM2 process ID:
 
-- `foreground`: Move to foreground after launch
-- `minimize`: Minimize windows after launch
-- `hide`: Hide windows after launch
+- `foreground`: Request foreground placement after launch. Windows focus restrictions can prevent activation.
+- `minimize`: Minimize windows after launch.
+- `hide`: Hide windows after launch. Hidden windows may interfere with GUI-based apps.
+
+Window operations are scheduled after launch using `windowsApi.debounceDelay`. They run asynchronously; the existing PM2 configuration and launch ordering are unchanged. On non-Windows platforms these settings do not perform window operations.
 
 ### `logging`
 

@@ -15,6 +15,9 @@
     "packages/content": {
       "ignoreDependencies": ["@portabletext/markdown", "@types/http-cache-semantics"]
     },
-    "packages/cli": {}
+    "packages/cli": {},
+    "packages/monitor": {
+      "ignoreBinaries": ["zig"]
+    }
   }
 }

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { expectLoggingDiagnostic } from "@bluecadet/launchpad-testing/test-utils.ts";
 import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type {
 	LoggerSource,
@@ -226,6 +227,9 @@ describe("createFileLogger", () => {
 	);
 
 	it("warns once when a custom date pattern can no longer control filenames", () => {
+		expectLoggingDiagnostic(
+			"logging.datePattern is deprecated and no longer controls owner-managed log filenames",
+		);
 		const source = createSourceStub();
 		const eventBus = new EventBus();
 		const warnings: string[] = [];
@@ -283,6 +287,7 @@ describe("createFileLogger", () => {
 	});
 
 	it("keeps the in-process logger available when durable source creation fails", () => {
+		expectLoggingDiagnostic("File-backed logging is unavailable: directory is locked");
 		const eventBus = new EventBus();
 		const warnings: string[] = [];
 		const infos: string[] = [];
@@ -296,6 +301,36 @@ describe("createFileLogger", () => {
 		expect(() => fileLogger.logger.info("Controller still starts")).not.toThrow();
 		expect(infos).toEqual(["Controller still starts"]);
 		expect(warnings).toEqual([expect.stringContaining("directory is locked")]);
+	});
+
+	it("captures source diagnostics even when console overriding freezes the test console", async () => {
+		const source = createSourceStub();
+		const eventBus = new EventBus();
+		const warnings = vi.fn();
+		eventBus.on("log:warn", warnings);
+		let reportDiagnostic: ((message: string) => void) | undefined;
+		expectLoggingDiagnostic("injected source diagnostic");
+		const fileLogger = createFileLogger(
+			resolvedConfig({ overrideConsole: true }),
+			"/installation",
+			eventBus,
+			{
+				createSource(options) {
+					reportDiagnostic = options.onDiagnostic;
+					return source.createSource();
+				},
+			},
+		);
+
+		expect(Object.isFrozen(console)).toBe(true);
+		reportDiagnostic?.("injected source diagnostic");
+		reportDiagnostic?.("injected source diagnostic");
+		expect(warnings).toHaveBeenCalledExactlyOnceWith({
+			message: "injected source diagnostic",
+			args: ["injected source diagnostic"],
+			module: "logging",
+		});
+		await fileLogger.close();
 	});
 
 	it("closes the owner once while bounding the caller's wait", async () => {

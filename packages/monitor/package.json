@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts"
+    "dist/**/*.d.ts",
+    "prebuilds/**/*.node"
   ],
   "exports": {
     ".": {
@@ -36,6 +37,7 @@
   },
   "scripts": {
     "build": "tsc --build",
+    "build:native": "zig build --build-file native/build.zig",
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
@@ -57,9 +59,7 @@
     "chalk": "^5.6.2",
     "cross-spawn": "^7.0.6",
     "neverthrow": "^8.2.0",
-    "node-window-manager": "^2.2.4",
     "pm2": "^7.0.1",
-    "semver": "^7.7.4",
     "tail": "^2.2.6",
     "zod": "^4.3.6"
   },
@@ -68,7 +68,6 @@
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "@types/axon": "2.0",
     "@types/cross-spawn": "^6.0.6",
-    "@types/semver": "^7.7.1",
     "@types/tail": "2.2",
     "axon": "^2.0.3",
     "immer": "^11.1.4",

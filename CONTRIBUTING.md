@@ -587,9 +587,23 @@ See [Versioning and upgrades](./docs/guides/packages.md#versioning-and-upgrades)
 1. **Create changeset**: Include with your PR when adding user-facing changes
 2. **Open PR**: Open a PR against `main`
 3. **Merge PR**: Once approved, merge the PR into `main`
-4. **Wait for Version PR**: The [Changesets GitHub action](https://github.com/changesets/action#with-publishing) automatically creates a "Version Packages" PR
+4. **Wait for Version PR**: The [Changesets GitHub action](https://github.com/changesets/action#usage) automatically creates a "Version Packages" PR
 5. **Review and merge**: Review the version bumps and changelog, then merge the PR
 6. **Automatic publish**: npm packages are automatically published to the npm registry
+
+#### Release automation contract
+
+The workflow pairs Changesets action v2 with Changesets CLI v3. The action supplies a `CHANGESETS_OUTPUT` file path; the CLI appends structured NDJSON events that the action uses to push tags and create GitHub releases. Action v1 parsed human-readable `New tag:` output instead, which CLI v3 no longer emits. Keep the action and CLI compatible when upgrading either.
+
+The action's `publish-script` input runs `npm run release`, which must pass the inherited `CHANGESETS_OUTPUT` environment variable through to the CLI unchanged. Keep the build and publish stages joined with `&&` and propagate failures; don't swallow a nonzero exit status or replace the structured output with stdout parsing. `push-with-git-cli: true` preserves Git-based pushing, and non-cancelling concurrency serializes release runs for the same workflow and ref.
+
+Run the offline release-tooling tests with `npx vitest run --project changesets`. They check the workflow contract and exercise CLI `git-tag` in temporary repositories with local remotes, without publishing packages or writing to GitHub.
+
+#### If npm succeeds but GitHub tags or releases are missing
+
+Treat this as **GitHub-only recovery**, not another npm publish. Verify the published package versions and their npm `gitHead` metadata against the original release commit. For each missing package tag, use that verified commit and the package's exact `name@version` tag; create the missing GitHub release with the exact corresponding version section from that package's `CHANGELOG.md` at the same commit. Don't substitute the latest `main` or summarize the changelog notes.
+
+Check existing tags and releases before creating anything. Never republish an already-published npm version or force-move an existing tag. If a tag points elsewhere, or published packages disagree about the release commit, stop and investigate rather than overwriting it. Fixing the workflow protects future releases; it does not repair a previous run's missing GitHub artifacts automatically.
 
 ### Branch Management
 

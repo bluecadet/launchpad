@@ -9,7 +9,9 @@ on:
     paths:
       - "packages/**"
       - "docs/**"
+      - ".changeset/**"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/release.yml"
   merge_group:
 
 concurrency:

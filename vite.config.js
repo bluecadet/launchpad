@@ -9,7 +9,7 @@ export default defineConfig({
 				test: {
 					name: "changesets",
 					environment: "node",
-					include: [".changeset/changelog.test.mjs"],
+					include: [".changeset/*.test.mjs"],
 				},
 			},
 		],

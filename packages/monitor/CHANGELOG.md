@@ -1,5 +1,25 @@
 # @bluecadet/launchpad-monitor
 
+## 4.0.0
+
+### Major Changes
+
+- Run Launchpad and the scaffolder on Node.js 24.x or 26 and later (`^24 || >=26`), now required for the content cache's built-in `node:sqlite`. Check your project's Node range: generated projects declare it, but updates preserve existing declarations. ([#322](https://github.com/bluecadet/launchpad/pull/322))
+  
+  The shared file lease is also exported at `@bluecadet/launchpad-utils/native-file-lease`.
+
+### Minor Changes
+
+- Send logs and current-state gauges to endpoints you choose, with optional resource attributes and OTLP/HTTP JSON or protobuf encoding. Generated projects keep export opt-in and endpoint-gated; legacy log transports remain supported.
+  
+  Breaking public types: `LogEntry` fields are readonly, and `ObservabilityConfig` is now a union. Stop mutating entries and narrow the config variant before accessing `transports`, which isn't present in destination mode. These changes also apply through the umbrella exports.
+
+### Patch Changes
+
+- Install Windows window management without building native dependencies. Bundled binaries cover x64 and cross-compiled arm64; arm64 runtime behavior isn't yet verified. Window flags, debounce settings, and PM2 behavior are unchanged. ([#320](https://github.com/bluecadet/launchpad/pull/320))
+- Updated dependencies:
+  - @bluecadet/launchpad-utils@4.0.0
+
 ## 3.0.4
 
 ### Patch Changes

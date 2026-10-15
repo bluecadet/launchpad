@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-observability",
-  "version": "3.0.2",
+  "version": "4.0.0",
   "description": "Observability plugin for @bluecadet/launchpad — exports logs and metrics to external backends",
   "type": "module",
   "files": [
@@ -58,7 +58,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/observability",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~3.2.0",
+    "@bluecadet/launchpad-utils": "~4.0.0",
     "neverthrow": "^8.2.0",
     "protobufjs": "^8.8.0",
     "zod": "^4.3.6"

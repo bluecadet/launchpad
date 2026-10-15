@@ -1,8 +1,8 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
   "changelog": [
-    "@changesets/changelog-github",
-    { "repo": "bluecadet/launchpad", "disableThanks": true }
+    "./changelog.cjs",
+    { "repo": "bluecadet/launchpad" }
   ],
   "commit": false,
   "fixed": [],

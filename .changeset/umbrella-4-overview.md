@@ -4,9 +4,11 @@
 
 Reuse content work and replay retained logs
 
+<!-- changeset: overview -->
+
 Content runs can now reuse downloads and generated files, while observability destinations can resume retained log delivery after a restart. This update also adds current-state gauges, shared progress reporting, and Windows binaries that don't need a native build during installation. Upgrading requires a supported Node.js version and some configuration/API changes below.
 
-## Skip repeated downloads and transforms
+#### Skip repeated downloads and transforms
 
 HTTP media downloads, supported Sharp transforms, and custom `ContentTransformContext.cache.derive()` recipes share one artifact cache. SQLite stores metadata; reusable files stay in the published output tree. Existing files without trusted metadata are misses, so the first run after upgrading may download or generate them again.
 
@@ -29,7 +31,7 @@ Add `sources: ['videos']` to limit clearing to a configured source. Clearing dow
 
 Cache failures fall back to uncached work only when stale metadata can be safely invalidated or isolated; otherwise publication fails. Don't edit the database or remove lease files to force a refresh.
 
-## Resume log delivery after restarts
+#### Resume log delivery after restarts
 
 The controller writes canonical JSONL segments plus an optional, default-on human-readable text view. Configured destinations read retained JSONL by default, preserving original timestamps and resource snapshots. Each destination has a checkpoint: restarting with the same destination identity and controller source resumes from that position. The controller owns directory and retention policy.
 
@@ -48,13 +50,13 @@ Memory delivery has bounded queues and no replay; it doesn't disable local loggi
 
 Remote export remains optional and endpoint-gated in generated projects. Choose OTLP/HTTP JSON or protobuf for logs and gauges; Loki remains logs-only. Resource attributes are optional. `metrics: false` disables gauges; otherwise they remain latest, coalesced in-memory observations, not replayed history. There's no default Bluecadet telemetry endpoint or hosted dashboard. Review sensitive log data before export: key-based redaction can't catch every secret.
 
-## Other improvements
+#### Other improvements
 
 - `ContentProgressLogger` brings the downloader and Sharp's completed-task reporting to custom transforms, with or without cache reuse.
 - Task and persistent controllers can't overlap for the same configured project identity. PID-file daemon discovery remains; separate leases protect log storage and content publishing. Leases require local filesystems, not NFS or SMB. Don't remove lease files to take ownership. The shared API is exported at `@bluecadet/launchpad-utils/native-file-lease`.
 - Windows window management ships x64 and cross-compiled arm64 binaries instead of building native dependencies during installation. Arm64 runtime behavior isn't yet verified. Window flags, debounce settings, and PM2 behavior are unchanged.
 
-## Before upgrading
+#### Before upgrading
 
 - **Node.js:** Use 24.x or 26 and later (`^24 || >=26`) for runtime packages and the scaffolder; caching requires built-in `node:sqlite`. Node.js 23 and 25 are unsupported. Generated projects declare the range, but updates preserve existing declarations: check yours.
 - **Downloader:** Remove rejected `enableIfModifiedSinceCheck` and `enableContentLengthCheck` options. Exported `checkCacheStatus` and `downloadFile` helpers are removed. Use `ignoreCache: true` for unconditional downloads; `forceClearTempFiles` clears staging only.

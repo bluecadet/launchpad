@@ -1,10 +1,17 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
 		projects: [
-			'packages/*/vitest.config.ts',
-			'docs/vitest.config.ts'
-		]
-	}
+			"packages/*/vitest.config.ts",
+			"docs/vitest.config.ts",
+			{
+				test: {
+					name: "changesets",
+					environment: "node",
+					include: [".changeset/changelog.test.mjs"],
+				},
+			},
+		],
+	},
 });

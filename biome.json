@@ -8,6 +8,9 @@
 	"files": {
 		"ignoreUnknown": false,
 		"includes": [
+			".changeset/*.cjs",
+			".changeset/*.mjs",
+			"vite.config.js",
 			"packages/**/src/**/*.ts",
 			"packages/**/scripts/**/*.ts",
 			"docs/**/*.ts",

@@ -472,13 +472,70 @@ Follow the prompts to:
 
 ### Changeset Guidelines
 
-- **What to include**: User-facing changes, bug fixes, new features, breaking changes
-- **What to skip**: test-only changes, documentation updates (usually)
-- **Format**: Use markdown. First line must be plain text (no headings—GitHub release notes don't support this)
-- **Examples**:
-  - ✅ "Fix content pipeline crash when source timeout occurs"
-  - ✅ "Add `maxRetries` config option to content sources"
-  - ❌ "Fix typo in variable name"
+Changelogs are for users upgrading, not a log of commits. Explain what changed, who it affects, and any action they need to take. Include user-facing fixes, features, and breaking changes; skip internal refactors, test-only changes, and documentation-only updates.
+
+Use Markdown with a plain-text summary on the first line, not a heading. For example:
+
+- "Fix content pipeline crash when source timeout occurs"
+- "Add `maxRetries` config option to content sources"
+
+Avoid implementation-only summaries such as "Fix typo in variable name."
+
+#### Ordinary changesets (the default)
+
+Use an ordinary changeset for all packages, including the umbrella `@bluecadet/launchpad` alone or alongside subpackages. Keep the entry compact: a concise summary, with a short explanation or upgrade note when needed.
+
+The body is shared by every package listed in the frontmatter. Group affected packages when the same explanation applies; use separate changesets when their explanations differ. Choose package membership and bump types based on actual public API impact, including umbrella re-exports, not simply because one package depends on another. See the [versioning policy](#versioning-policy) below.
+
+Multiple changesets for one package produce one version bump per release, with the highest requested bump winning. You don't need to combine unrelated explanations to avoid multiple bumps.
+
+Ordinary entries get an unobtrusive PR-link suffix when an associated PR is found. Generated commit hashes and contributor prefixes are omitted. Author-written links remain intact.
+
+#### Release overviews (rare, explicit opt-in)
+
+Use an overview for a substantial major or breaking release that needs a cross-package narrative: how the changes fit together, what upgrading requires, and important limitations. Neither targeting the umbrella nor writing a long body makes a changeset an overview automatically.
+
+Opt in with the exact marker `<!-- changeset: overview -->` immediately after the plain-text summary and a blank line, followed by another blank line:
+
+```md
+---
+'@bluecadet/launchpad': major
+---
+
+Reuse content work and replay retained logs
+
+<!-- changeset: overview -->
+
+Content runs can reuse downloads and generated files. Log destinations can resume
+retained delivery after a restart. Upgrading requires configuration changes.
+
+#### Before upgrading
+
+- Check the supported Node.js versions.
+- Update downloader and logging configuration.
+
+#### Limitations
+
+Retained log delivery isn't lossless or exactly once.
+```
+
+The formatter removes the marker and renders a bold summary followed by normal paragraphs, headings, lists, and code blocks, rather than one large bullet. Overviews don't get automatic PR or commit references; links you write yourself are preserved. For extensive upgrade instructions, link to a migration guide.
+
+Use H4–H6 (`####` through `######`) for overview sections. Changesets already generates the `##` version heading and `### Major/Minor/Patch Changes` headings. The GitHub release extractor stops at the next H2, which can truncate the current release. The formatter rejects H1–H3 outside backtick code fences both to prevent truncation and to preserve the hierarchy below the generated H3 bump heading. Use backtick fences for code containing those headings; tilde fences don't protect them from the current extractor.
+
+A long overview usually belongs only in the umbrella changelog, keeping subpackage entries focused. Keep shared subpackage changesets compact. Remove the umbrella from those entries only when its overview already covers the changes, so the umbrella doesn't repeat the same summaries. An overview may deliberately target multiple packages if the full narrative is useful to each audience.
+
+Package membership controls changelog scope and version bumps; the marker controls presentation only. There's no need to split an overview solely for formatting. It still appears under Changesets' bump heading: the supported formatter callbacks can't remove that wrapper.
+
+#### Formatter maintenance
+
+The local formatter is `.changeset/changelog.cjs`. This policy applies to newly generated entries; it doesn't rewrite historical changelogs. Test formatter changes from the repository root:
+
+```bash
+npx vitest run --project changesets
+```
+
+Local versioning (`npm run changeset -- version`) still needs `GITHUB_TOKEN` for automatic PR lookup on committed ordinary changesets, using the same GitHub helper as the previous formatter. Overviews and dependency-update lines don't query GitHub. No compare link is generated because the formatter doesn't receive the package's old and new versions; add a known full-changelog link manually when useful.
 
 ### Non-Packages
 

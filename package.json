@@ -5,6 +5,7 @@
   "description": "monorepo for @bluecadet/launchpad and friends",
   "scripts": {
     "changeset": "changeset",
+    "check": "npm run lint && npm run sherif && npm run knip && npm run docs:build && npm run typecheck && npm run test -- --run",
     "lint": "npx @biomejs/biome check",
     "lint:fix": "npx @biomejs/biome check --fix",
     "build": "tsc --build",
@@ -13,7 +14,8 @@
     "docs:build": "npm run build -w @bluecadet/launchpad-docs",
     "release": "npm run build && changeset publish",
     "test": "vitest",
-    "knip": "knip"
+    "knip": "knip",
+    "sherif": "sherif -i \"@bluecadet/launchpad*\""
   },
   "repository": {
     "type": "git",

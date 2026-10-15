@@ -44,7 +44,7 @@ jobs:
       - name: Lint dependency versions
         # ignore internal launchpad dependency mismatches. These versions
         # are handled by changesets.
-        run: npx sherif -i @bluecadet/launchpad*
+        run: npm run sherif
 
       - name: Knip
         run: npm run knip

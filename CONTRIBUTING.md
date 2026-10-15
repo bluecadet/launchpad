@@ -216,6 +216,15 @@ Each app is configured with:
 ### Common Commands
 
 ```bash
+# Run the local maintainer checks (fail-fast, no watch mode)
+npm run check
+
+# Check workspace dependency consistency
+npm run sherif
+
+# Check unused dependencies and exports
+npm run knip
+
 # Build all packages
 npm run build
 
@@ -228,7 +237,7 @@ npm run lint
 # Fix linting issues
 npm run lint:fix
 
-# Run all tests
+# Run all tests in watch mode
 npm test
 
 # Run tests for specific package
@@ -310,6 +319,18 @@ Each test gets a console copy, restored at test finish even if logger console ov
 
 ## Code Quality
 
+### Local Maintainer Checks
+
+```bash
+npm run check
+```
+
+Runs Biome lint/format checks, Sherif, Knip, the docs build, root typecheck, and tests in that order. Stops at the first failure; tests run once without watch mode. It does not autofix formatting; use `npm run lint:fix` separately.
+
+The docs build runs before the root typecheck to approximate CI's independent docs build. The typecheck uses `tsc --build` for production and test projects and emits build artifacts needed by tests; this is not a read-only check.
+
+This command does not reproduce clean-checkout or multi-OS CI, the pinned-Zig native binary drift check, or package-content assertions. CI retains its independent jobs and platform matrix.
+
 ### TypeScript
 
 - Use strict mode (enabled by default in `tsconfig.src.json`)
@@ -330,6 +351,14 @@ Biome checks for:
 - Unreachable code
 - Inconsistent naming
 - Code style and formatting
+
+### Workspace Consistency
+
+```bash
+npm run sherif
+```
+
+Sherif checks workspace package and dependency consistency. Like CI, it ignores `@bluecadet/launchpad*` dependency version mismatches because Changesets manages those versions. Knip separately checks for unused dependencies and exports.
 
 ### Unused Dependencies and Exports
 

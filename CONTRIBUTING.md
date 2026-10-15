@@ -97,7 +97,7 @@ All config schemas use Zod for validation and are defined in:
 
 ### Schema-backed configuration references
 
-Configuration reference tables in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';` and render it with `<ConfigReference id="content-options" />`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated tables to update.
+Configuration property lists in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';` and render it with `<ConfigReference id="content-options" />`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.
 
 When changing a configuration field:
 

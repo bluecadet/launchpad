@@ -303,6 +303,49 @@ export type ConfigReferenceRow = {
 	description: string;
 };
 
+/** Whether a row belongs to a property's subtree, without matching similarly named siblings. */
+function isDescendant(name: string, property: string): boolean {
+	if (property === "(root)") return name !== property;
+	return name.startsWith(`${property}.`) || name.startsWith(`${property}[`);
+}
+
+/** Select metadata for a handwritten property section, or the full reference as a fallback. */
+export function selectConfigReferenceRows(
+	rows: readonly ConfigReferenceRow[],
+	options: {
+		property?: string;
+		includeChildren?: boolean;
+		exclude?: readonly string[];
+	} = {},
+): readonly ConfigReferenceRow[] {
+	const { property, includeChildren = false, exclude } = options;
+	if (property === undefined) {
+		if (exclude !== undefined) throw new Error("Configuration exclusions require a property");
+		return rows;
+	}
+	const selected = rows.find((row) => row.name === property);
+	if (!selected) throw new Error(`Unknown configuration property: ${property}`);
+	if (exclude !== undefined && !includeChildren) {
+		throw new Error("Configuration exclusions require includeChildren");
+	}
+	for (const path of exclude ?? []) {
+		if (!isDescendant(path, property) || !rows.some((row) => row.name === path)) {
+			throw new Error(
+				`Invalid configuration exclusion: ${path} is not a descendant of ${property}`,
+			);
+		}
+	}
+	if (!includeChildren) return [selected];
+	return [
+		selected,
+		...rows.filter(
+			(row) =>
+				isDescendant(row.name, property) &&
+				!exclude?.some((path) => row.name === path || isDescendant(row.name, path)),
+		),
+	];
+}
+
 /** Describe accepted configuration input as plain text, without parsing values. */
 export function getConfigReferenceRows(
 	schema: z.ZodType,

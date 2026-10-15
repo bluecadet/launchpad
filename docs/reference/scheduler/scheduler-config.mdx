@@ -49,19 +49,25 @@ scheduler({
 
 The schema reference covers each record value. Input defaults do not include values filled by transforms or the scheduler at runtime; those behaviors are explained below. Requiredness is structural, so read the conditional rules for `interval`, `cron`, and retry branches. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
-<ConfigReference id="scheduler-options" />
+<ConfigReference id="scheduler-options" property="(root)" />
 
 ### `interval`
+
+<ConfigReference id="scheduler-options" property="interval" />
 
 A duration between interval runs. The next interval is computed when the previous dispatch completes, so interval jobs cannot overlap themselves.
 
 ### `cron`
+
+<ConfigReference id="scheduler-options" property="cron" />
 
 A five-field cron expression. Cron schedules stay anchored to wall-clock occurrences. The next occurrence is armed before the current dispatch completes; a command already in progress is skipped rather than queued.
 
 Exactly one of `interval` and `cron` is required.
 
 ### `jitter`
+
+<ConfigReference id="scheduler-options" property="jitter" />
 
 Adds a fresh, positive random delay to every scheduled run and retry, spreading a fleet of kiosks out so they don't all fire at once.
 
@@ -73,6 +79,8 @@ The `true` default resolves differently by schedule type:
 Supply a duration to set a fixed maximum jitter for either schedule type, or `false` to disable jitter.
 
 ### `retry`
+
+<ConfigReference id="scheduler-options" property="retry" includeChildren exclude={["retry.backoff"]} />
 
 Failed dispatches retry before the normal schedule resumes. By default, retries continue forever with exponential backoff: 15 seconds initially, doubled each attempt, and capped at five minutes. A successful dispatch resets the failure count and backoff.
 
@@ -93,11 +101,15 @@ A command rejected because it is already running is an overlap skip, not a failu
 
 #### `backoff`
 
+<ConfigReference id="scheduler-options" property="retry.backoff" includeChildren />
+
 Available only with the default `forever: true` retry policy. `initial` and `max` are durations; `factor` must be positive. Omitted fields retain their defaults.
 
 ### `command`
 
-Overrides the command dispatched for this job. This is useful when the command needs a payload.
+<ConfigReference id="scheduler-options" property="command" />
+
+Overrides the command dispatched for this job. This is useful when the command needs a payload. When omitted, the scheduler dispatches `{ type: <record key> }`.
 
 ```typescript
 scheduler({
@@ -110,9 +122,13 @@ scheduler({
 
 ### `runOnStart`
 
+<ConfigReference id="scheduler-options" property="runOnStart" />
+
 Dispatches the job immediately when the scheduler starts. When `false`, the first dispatch occurs after the scheduled delay.
 
 ### `enabled`
+
+<ConfigReference id="scheduler-options" property="enabled" />
 
 When `false`, the job is never scheduled or dispatched and does not appear in the Scheduler status section. A disabled job is invisible to the runtime commands too: `scheduler.pause`, `scheduler.resume`, and `scheduler.trigger` treat its id as unknown, and a broadcast `scheduler.pause`/`scheduler.resume` (no `job` given) skips it entirely.
 

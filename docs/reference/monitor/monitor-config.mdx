@@ -8,11 +8,11 @@ Configuration for managing process monitoring, window management, and logging se
 
 ## Options
 
-<ConfigReference id="monitor-options" />
-
-Input defaults above are applied by the schema. Nested defaults are shown separately from their parent object. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+Input defaults are applied by the schema. Nested defaults are shown separately from their parent object. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `apps`
+
+<ConfigReference id="monitor-options" property="apps" />
 
 A list of apps to launch and monitor. Each app can be configured with PM2 settings, window management options, and logging preferences.
 
@@ -20,17 +20,25 @@ For detailed app configuration options, see [App Config](#app-config).
 
 ### `deleteExistingBeforeConnect`
 
+<ConfigReference id="monitor-options" property="deleteExistingBeforeConnect" />
+
 When enabled, deletes existing PM2 processes before connecting. Useful for volatile apps or when node processes might quit unexpectedly, ensuring a clean slate on startup.
 
 ### `windowsApi`
+
+<ConfigReference id="monitor-options" property="windowsApi" />
 
 Advanced configuration for the Windows API, used for managing foreground/minimized/hidden windows. Window operations are Windows-only; PM2 process management and logging work independently of them. See [Windows window management](/reference/monitor/#windows-window-management) for platform and installation details.
 
 #### `debounceDelay`
 
+<ConfigReference id="monitor-options" property="windowsApi.debounceDelay" />
+
 The delay (in milliseconds) until windows are ordered after launch. If your app takes a long time to open all of its windows, set this to a higher value to ensure it can be on top of the launchpad terminal window. Higher values also reduce CPU load if apps relaunch frequently.
 
 ### `shutdownOnExit`
+
+<ConfigReference id="monitor-options" property="shutdownOnExit" />
 
 When enabled, listens for exit events to handle graceful shutdown.
 
@@ -40,23 +48,62 @@ Each app in the `apps` array can have the following configuration:
 
 ### `pm2`
 
+<ConfigReference id="monitor-options" property="apps[].pm2" includeChildren />
+
 PM2 configuration for the app. See [PM2 documentation](https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available) for available options.
 
 ### `windows`
 
-Settings for window management on Windows. All flags default to `false` and apply to the app's visible top-level windows matched by its PM2 process ID:
+<ConfigReference id="monitor-options" property="apps[].windows" />
 
-- `foreground`: Request foreground placement after launch. Windows focus restrictions can prevent activation.
-- `minimize`: Minimize windows after launch.
-- `hide`: Hide windows after launch. Hidden windows may interfere with GUI-based apps.
+Settings for window management on Windows. All flags default to `false` and apply to the app's visible top-level windows matched by its PM2 process ID.
 
 Window operations are scheduled after launch using `windowsApi.debounceDelay`. They run asynchronously; the existing PM2 configuration and launch ordering are unchanged. On non-Windows platforms these settings do not perform window operations.
 
+#### `foreground`
+
+<ConfigReference id="monitor-options" property="apps[].windows.foreground" />
+
+Request foreground placement after launch. Windows focus restrictions can prevent activation.
+
+#### `minimize`
+
+<ConfigReference id="monitor-options" property="apps[].windows.minimize" />
+
+Minimize windows after launch.
+
+#### `hide`
+
+<ConfigReference id="monitor-options" property="apps[].windows.hide" />
+
+Hide windows after launch. Hidden windows may interfere with GUI-based apps.
+
 ### `logging`
+
+<ConfigReference id="monitor-options" property="apps[].logging" />
 
 Settings for log management:
 
-- `logToLaunchpadDir`: Route logs to launchpad's directory
-- `mode`: Log capture method ('bus' or 'file')
-- `showStdout`: Include stdout output
-- `showStderr`: Include stderr output
+#### `logToLaunchpadDir`
+
+<ConfigReference id="monitor-options" property="apps[].logging.logToLaunchpadDir" />
+
+Route logs to launchpad's directory
+
+#### `mode`
+
+<ConfigReference id="monitor-options" property="apps[].logging.mode" />
+
+Log capture method ('bus' or 'file')
+
+#### `showStdout`
+
+<ConfigReference id="monitor-options" property="apps[].logging.showStdout" />
+
+Include stdout output
+
+#### `showStderr`
+
+<ConfigReference id="monitor-options" property="apps[].logging.showStderr" />
+
+Include stderr output

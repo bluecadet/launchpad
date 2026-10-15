@@ -97,7 +97,18 @@ All config schemas use Zod for validation and are defined in:
 
 ### Schema-backed configuration references
 
-Configuration property lists in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';` and render it with `<ConfigReference id="content-options" />`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.
+Configuration references in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.
+
+When a page has handwritten property headings, embed metadata under each heading with an exact path, such as `<ConfigReference id="content-options" property="sources" includeChildren />`. The selected property renders only **Input type**, **Required**, and **Input default**. It does not generate a property name, heading, anchor, or schema description: the MDX heading and authored prose own that explanation. Preserve the authored behavior notes, caveats, examples, and links; a concise schema description is not a replacement for them.
+
+The contributor API is:
+
+- `id`: a registry id (required).
+- `property`: the exact extracted property path, such as `sources` or `apps[].pm2`. Use `(root)` to select a synthetic root row. Omit `property` on pages without individual property sections to render the complete vertical definition list, including schema descriptions.
+- `includeChildren`: render the selected property's descendants as vertical definitions with names, metadata, and schema descriptions. Omit it when those fields have their own authored sections.
+- `exclude`: exact descendant paths to delegate to another section, such as `exclude={["retry.backoff"]}` on the `retry` selection. Requires `property` and `includeChildren`; each exclusion removes that row and its subtree.
+
+Description rendering follows the mode automatically; there is no separate description-policy prop. Unknown ids, property paths, and invalid exclusions fail the docs build. Do not repeat a full reference before individual property sections. Each schema row must appear exactly once per reference id; `docs/lib/__tests__/config-reference-coverage.test.ts` checks the authored MDX calls against the registry.
 
 When changing a configuration field:
 
@@ -106,7 +117,7 @@ When changing a configuration field:
 3. Keep transform/runtime defaults and conditional rules in schema descriptions or surrounding prose. The renderer documents structural requiredness; it does not infer arbitrary refinement rules.
 4. Build the docs to verify the rendered reference. Update surrounding operational notes, examples, and property headings when the behavior changes.
 
-Schema descriptions are rendered as literal plain text, not interpreted as Markdown or HTML. Keep formatted notes, links, and examples in the MDX page around the component.
+Keep schema descriptions concise: summarize the field's meaning for generated descendant and fallback definitions. They are rendered as literal plain text, not interpreted as Markdown or HTML. Keep richer explanations, formatted notes, caveats, links, and examples in the MDX page around the component, including for selected properties whose schema descriptions are not rendered. Do not shorten or remove authored prose just because a schema description covers the same topic.
 
 MDX pages need explicit `title` frontmatter and no leading H1, because the docs layout renders the title. Unlike Markdown pages, MDX pages do not receive source-relative link rewriting; use published routes such as `/reference/content/content-config/` instead of `./content-config.md`.
 

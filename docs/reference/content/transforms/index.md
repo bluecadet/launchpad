@@ -43,7 +43,7 @@ See the [artifact cache reference](../artifact-cache.md) for declarations, file 
 
 ### `contentOptions`
 
-The resolved content configuration object. See [Content Config Reference](../content-config.md) for more info.
+The resolved content configuration object. See [Content Config Reference](/reference/content/content-config/) for more info.
 
 ### `paths`
 

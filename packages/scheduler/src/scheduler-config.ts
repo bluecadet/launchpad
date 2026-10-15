@@ -14,23 +14,33 @@ const cronSchema = z.string().refine(isCronExpression, {
 
 const backoffOverrideSchema = z
 	.object({
-		initial: durationSchema.optional(),
-		max: durationSchema.optional(),
-		factor: z.number().positive().optional(),
+		initial: durationSchema
+			.optional()
+			.describe("Initial retry delay; omitted values use 15 seconds."),
+		max: durationSchema
+			.optional()
+			.describe("Maximum retry delay; omitted values use five minutes."),
+		factor: z
+			.number()
+			.positive()
+			.optional()
+			.describe("Positive backoff multiplier; omitted values use 2."),
 	})
 	.strict();
 
 const retryForeverInputSchema = z
 	.object({
-		forever: z.literal(true).optional(),
-		backoff: backoffOverrideSchema.optional(),
+		forever: z.literal(true).optional().describe("Retry indefinitely (the default retry policy)."),
+		backoff: backoffOverrideSchema
+			.optional()
+			.describe("Override individual exponential backoff settings."),
 	})
 	.strict();
 
 const retryLimitedInputSchema = z
 	.object({
-		forever: z.literal(false),
-		maxAttempts: z.number().int().positive(),
+		forever: z.literal(false).describe("Stop retrying after maxAttempts failures."),
+		maxAttempts: z.number().int().positive().describe("Positive integer limit on failed attempts."),
 	})
 	.strict();
 
@@ -58,10 +68,12 @@ const retrySchema = z
 
 const jitterSchema = z.union([z.boolean(), durationSchema]).default(true);
 
-const commandOverrideSchema = z.custom<BaseCommand>((value) => {
-	if (typeof value !== "object" || value === null) return false;
-	return "type" in value && typeof value.type === "string";
-});
+const commandOverrideSchema = z
+	.custom<BaseCommand>((value) => {
+		if (typeof value !== "object" || value === null) return false;
+		return "type" in value && typeof value.type === "string";
+	})
+	.meta({ configDocs: { inputType: "BaseCommand" } });
 
 /** Bare strings are unambiguous: cron expressions always contain whitespace, durations never do. */
 function isCronLike(value: string): boolean {
@@ -70,13 +82,31 @@ function isCronLike(value: string): boolean {
 
 const scheduleObjectSchema = z
 	.object({
-		interval: durationSchema.optional(),
-		cron: cronSchema.optional(),
-		jitter: jitterSchema,
-		retry: retrySchema,
-		command: commandOverrideSchema.optional(),
-		runOnStart: z.boolean().default(false),
-		enabled: z.boolean().default(true),
+		interval: durationSchema
+			.optional()
+			.describe("Delay between completed dispatches. Required when cron is absent."),
+		cron: cronSchema
+			.optional()
+			.describe("Five-field wall-clock cron schedule. Required when interval is absent."),
+		jitter: jitterSchema.describe(
+			"Positive random delay on runs and retries. true uses up to 10% for intervals/backoff or 60 seconds for cron; false disables jitter.",
+		),
+		retry: retrySchema.describe(
+			"Failed dispatch retry policy. Omission resolves at runtime to indefinite retries with 15-second initial delay, five-minute cap, and factor 2.",
+		),
+		command: commandOverrideSchema
+			.optional()
+			.describe(
+				"Command payload override. When omitted, the scheduler dispatches { type: <record key> }.",
+			),
+		runOnStart: z
+			.boolean()
+			.default(false)
+			.describe("Dispatch immediately when the scheduler starts."),
+		enabled: z
+			.boolean()
+			.default(true)
+			.describe("Whether this job is scheduled and exposed to scheduler commands and status."),
 	})
 	.superRefine((value, ctx) => {
 		const hasInterval = value.interval !== undefined;
@@ -91,11 +121,17 @@ const scheduleObjectSchema = z
 	});
 
 /** A schedule spec: a bare duration/cron string, or the full options object. */
-export const scheduleSpecSchema = z.preprocess(
-	(value) =>
-		typeof value === "string" ? (isCronLike(value) ? { cron: value } : { interval: value }) : value,
-	scheduleObjectSchema,
-);
+export const scheduleSpecSchema = z
+	.preprocess(
+		(value) =>
+			typeof value === "string"
+				? isCronLike(value)
+					? { cron: value }
+					: { interval: value }
+				: value,
+		scheduleObjectSchema,
+	)
+	.meta({ configDocs: { inputType: "ScheduleSpec", propertiesFrom: "output" } });
 
 // z.preprocess widens the schema's input type to `unknown` (its first argument accepts
 // anything before the inner schema validates), so z.input<typeof scheduleSpecSchema> would

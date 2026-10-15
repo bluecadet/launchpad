@@ -1,0 +1,14 @@
+{
+	"extends": "@bluecadet/launchpad-tsconfig/test.json",
+	"compilerOptions": {
+		"types": ["@bluecadet/launchpad-testing/vitest.d.ts"],
+		"tsBuildInfoFile": "./.tsbuild/tsconfig.test.tsbuildinfo"
+	},
+	"include": [
+		"lib/**/*.test.ts",
+		"lib/**/__tests__",
+		"components/**/__tests__",
+		"vitest.config.ts"
+	],
+	"references": [{ "path": "./tsconfig.src.json" }]
+}

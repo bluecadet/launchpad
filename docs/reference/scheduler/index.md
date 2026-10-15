@@ -28,4 +28,4 @@ export default defineConfig({
 
 The first run is one interval after startup. Set `runOnStart: true` for a job that should also run immediately.
 
-See [Scheduler Config](./scheduler-config.md) for all scheduling options and [Commands & Events](./commands.md) for runtime control and status output.
+See [Scheduler Config](/reference/scheduler/scheduler-config/) for all scheduling options and [Commands & Events](./commands.md) for runtime control and status output.

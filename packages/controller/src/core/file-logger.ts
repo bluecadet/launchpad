@@ -69,9 +69,17 @@ export const logConfigSchema = z
 		format: z
 			.any()
 			.default(DEFAULT_FILE_LOG_FORMAT)
-			.describe("The Winston format for the human-readable log view."),
+			.describe(
+				"The Winston format for the human-readable log view; canonical JSONL is unaffected.",
+			)
+			.meta({ configDocs: { inputType: "Format", defaultLabel: "Built-in text format" } }),
 		/** The directory where controller-owned log files are stored. */
-		dirname: z.string().default(".logs").describe("The directory where log files are stored."),
+		dirname: z
+			.string()
+			.default(".logs")
+			.describe(
+				"The directory where log files are stored, resolved from the project working directory.",
+			),
 		/** Legacy segment size setting, now applied to the canonical source when it can be parsed. */
 		maxSize: parsedLimitSchema(
 			parseByteSize,
@@ -87,19 +95,26 @@ export const logConfigSchema = z
 			"logging.maxFiles must be an age in days such as '28d'",
 		)
 			.prefault("28d")
-			.describe("How long retained log segments are kept."),
+			.describe(
+				"Maximum age of retained log segments; accepts positive day-based values, not counts.",
+			),
 		/** Retained for configuration compatibility; source segment names are owner-managed. */
 		datePattern: z
 			.string()
 			.default(DEFAULT_DATE_PATTERN)
-			.describe("Legacy human log filename date pattern."),
+			.describe(
+				"Legacy human log filename date pattern. Nondefault values are ignored with a deprecation warning.",
+			),
 		/** Optional human-readable view. Canonical JSONL remains enabled. */
-		text: textLogConfigSchema,
+		text: textLogConfigSchema.describe(
+			"Optional human-readable log view; canonical JSONL remains enabled.",
+		),
 		/** Whether to override the console methods. */
 		overrideConsole: z
 			.boolean()
 			.default(process.env.NODE_ENV !== "test")
-			.describe("Whether to override the console methods."),
+			.describe("Route console methods through the controller logger.")
+			.meta({ configDocs: { defaultLabel: "true outside tests; false when NODE_ENV is test" } }),
 	})
 	.prefault({});
 

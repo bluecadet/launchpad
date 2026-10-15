@@ -100,6 +100,6 @@ eventBus.on('observability:buffer:full', (data) => {
 
 ## See Also
 
-- [Observability Config](./observability-config.md) — configure retry limits and buffer size
+- [Observability Config](/reference/observability/observability-config/) — configure retry limits and buffer size
 - [Controller Events](../controller/events.md) — core system events also forwarded by default
 - [Monitor Events](../monitor/events.md) — add `monitor:*` to `include` to forward monitor events

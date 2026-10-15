@@ -17,6 +17,7 @@
 		{ "path": "../packages/cli/tsconfig.src.json" },
 		{ "path": "../packages/content/tsconfig.src.json" },
 		{ "path": "../packages/controller/tsconfig.src.json" },
+		{ "path": "../packages/launchpad/tsconfig.src.json" },
 		{ "path": "../packages/monitor/tsconfig.src.json" },
 		{ "path": "../packages/observability/tsconfig.src.json" },
 		{ "path": "../packages/scheduler/tsconfig.src.json" }

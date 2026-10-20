@@ -1,3 +1,4 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import type { MetricObservation } from "@bluecadet/launchpad-utils/telemetry";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
@@ -28,58 +29,75 @@ const MAX_UINT64 = 18_446_744_073_709_551_615n;
 export type OtlpSignal = (typeof DEFAULT_SIGNALS)[number];
 export type OtlpEncoding = "json" | "protobuf";
 
-/** Local OTLP configuration validation, applied by the destination's create() method. */
-export const otlpDestinationConfigSchema = z
-	.object({
-		/** OTLP/HTTP base URL. Signal paths are appended automatically. */
-		endpoint: z
-			.string()
-			.trim()
-			.min(1)
-			.refine((value) => {
-				const url = URL.parse(value);
-				return (
-					url !== null &&
-					(url.protocol === "http:" || url.protocol === "https:") &&
-					!url.username &&
-					!url.password &&
-					!url.search &&
-					!url.hash
-				);
-			}, "OTLP endpoint must be an HTTP(S) URL without credentials, query, or fragment"),
-		name: z
-			.string()
-			.refine((value) => value.trim().length > 0)
-			.default("otlp"),
-		token: z
-			.string()
-			.refine((value) => value.trim().length > 0)
-			.optional(),
-		headers: z
-			.record(
-				z.string().min(1),
-				z.string().refine((value) => value.trim().length > 0),
-			)
-			.optional(),
-		signals: z
-			.array(z.enum(DEFAULT_SIGNALS))
-			.nonempty()
-			.readonly()
-			.refine((signals) => new Set(signals).size === signals.length, "OTLP signals must be unique")
-			.default(DEFAULT_SIGNALS),
-		/** OTLP/HTTP request and response encoding. Defaults to JSON. */
-		encoding: z.enum(["json", "protobuf"]).default("json"),
-	})
-	.refine(
-		(config) =>
-			Result.fromThrowable(
-				() => createHeaders(config),
-				() => false,
-			)().isOk(),
-		"OTLP headers and token must contain valid header values",
-	);
+/** Configuration for the OTLP/HTTP destination. */
+export interface OtlpDestinationConfig {
+	/** OTLP/HTTP base URL. Signal paths are appended automatically. */
+	endpoint: string;
+	/** Destination name used by delivery state and diagnostics. Defaults to `"otlp"`. */
+	name?: string;
+	/** Bearer token sent in the Authorization header. */
+	token?: string;
+	/** Extra request headers. */
+	headers?: Record<string, string>;
+	/** Unique, nonempty list of signals to export. Defaults to `["logs", "metrics"]`. */
+	signals?: readonly OtlpSignal[];
+	/** OTLP/HTTP request and response encoding. Defaults to `"json"`. */
+	encoding?: OtlpEncoding;
+}
 
-export type OtlpDestinationConfig = z.input<typeof otlpDestinationConfigSchema>;
+export const otlpDestinationConfigSchema = configSchema<OtlpDestinationConfig>()(
+	z
+		.object({
+			endpoint: z
+				.string()
+				.trim()
+				.min(1)
+				.refine((value) => {
+					const url = URL.parse(value);
+					return (
+						url !== null &&
+						(url.protocol === "http:" || url.protocol === "https:") &&
+						!url.username &&
+						!url.password &&
+						!url.search &&
+						!url.hash
+					);
+				}, "OTLP endpoint must be an HTTP(S) URL without credentials, query, or fragment"),
+			name: z
+				.string()
+				.refine((value) => value.trim().length > 0)
+				.default("otlp"),
+			token: z
+				.string()
+				.refine((value) => value.trim().length > 0)
+				.optional(),
+			headers: z
+				.record(
+					z.string().min(1),
+					z.string().refine((value) => value.trim().length > 0),
+				)
+				.optional(),
+			signals: z
+				.array(z.enum(DEFAULT_SIGNALS))
+				.nonempty()
+				.readonly()
+				.refine(
+					(signals) => new Set(signals).size === signals.length,
+					"OTLP signals must be unique",
+				)
+				.default(DEFAULT_SIGNALS),
+			encoding: z.enum(["json", "protobuf"]).default("json"),
+		})
+		.refine(
+			(config) =>
+				Result.fromThrowable(
+					() => createHeaders(config),
+					() => false,
+				)().isOk(),
+			"OTLP headers and token must contain valid header values",
+		),
+);
+
 export type ResolvedOtlpDestinationConfig = z.output<typeof otlpDestinationConfigSchema>;
 
 type OtlpAnyValue =

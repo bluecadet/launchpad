@@ -1,3 +1,4 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { ResultAsync } from "neverthrow";
 import { z } from "zod";
 import type { LogEntry } from "../core/log-entry.js";
@@ -5,38 +6,65 @@ import type { ObservabilityTransport } from "../core/transport.js";
 
 // ─── Config Schema ─────────────────────────────────────────────────────────
 
-const lokiAuthSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("basic"),
-		username: z.string(),
-		password: z.string(),
-	}),
-	z.object({
-		type: z.literal("bearer"),
-		token: z.string(),
-	}),
-]);
+/** HTTP basic authentication for Loki. */
+export interface LokiBasicAuth {
+	type: "basic";
+	username: string;
+	password: string;
+}
 
-export const lokiTransportConfigSchema = z.object({
+/** Bearer token authentication for Loki. */
+export interface LokiBearerAuth {
+	type: "bearer";
+	token: string;
+}
+
+/** Loki authentication configuration. */
+export type LokiAuth = LokiBasicAuth | LokiBearerAuth;
+
+const lokiAuthSchema = configSchema<LokiAuth>()(
+	z.discriminatedUnion("type", [
+		z.object({
+			type: z.literal("basic"),
+			username: z.string(),
+			password: z.string(),
+		}),
+		z.object({
+			type: z.literal("bearer"),
+			token: z.string(),
+		}),
+	]),
+);
+
+/** Configuration for the legacy Loki transport. */
+export interface LokiTransportConfig {
 	/**
 	 * Base URL of the Loki instance (e.g. "http://localhost:3100").
 	 * The push endpoint /loki/api/v1/push is appended automatically.
 	 */
-	url: z.string(),
+	url: string;
 	/**
 	 * Static labels applied to every log stream from this transport.
 	 * Use these for high-level identifiers: app, env, location, etc.
+	 * Defaults to `{}`.
 	 */
-	defaultLabels: z.record(z.string(), z.string()).default({}),
+	defaultLabels?: Record<string, string>;
 	/** Optional authentication configuration. */
-	auth: lokiAuthSchema.optional(),
+	auth?: LokiAuth;
 	/** Optional extra headers (e.g. for proxies or API gateways). */
-	headers: z.record(z.string(), z.string()).optional(),
-});
+	headers?: Record<string, string>;
+}
 
-export type LokiTransportConfig = z.input<typeof lokiTransportConfigSchema>;
+export const lokiTransportConfigSchema = configSchema<LokiTransportConfig>()(
+	z.object({
+		url: z.string(),
+		defaultLabels: z.record(z.string(), z.string()).default({}),
+		auth: lokiAuthSchema.optional(),
+		headers: z.record(z.string(), z.string()).optional(),
+	}),
+);
+
 export type ResolvedLokiTransportConfig = z.output<typeof lokiTransportConfigSchema>;
-export type LokiAuth = z.infer<typeof lokiAuthSchema>;
 
 export type { ObservabilityTransport };
 

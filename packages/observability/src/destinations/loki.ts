@@ -1,3 +1,4 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { serializeLogRecord } from "@bluecadet/launchpad-utils/logging";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
@@ -15,17 +16,35 @@ import { DestinationFailure } from "../core/export-failure.js";
 import type { LogEntry } from "../core/log-entry.js";
 import { createStructuredLog, serializeStructuredLog } from "../core/structured-log.js";
 
-const lokiAuthSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("basic"),
-		username: z.string(),
-		password: z.string(),
-	}),
-	z.object({
-		type: z.literal("bearer"),
-		token: z.string(),
-	}),
-]);
+/** HTTP basic authentication for a Loki destination. */
+export interface LokiDestinationBasicAuth {
+	type: "basic";
+	username: string;
+	password: string;
+}
+
+/** Bearer token authentication for a Loki destination. */
+export interface LokiDestinationBearerAuth {
+	type: "bearer";
+	token: string;
+}
+
+/** Loki destination authentication configuration. */
+export type LokiDestinationAuth = LokiDestinationBasicAuth | LokiDestinationBearerAuth;
+
+const lokiAuthSchema = configSchema<LokiDestinationAuth>()(
+	z.discriminatedUnion("type", [
+		z.object({
+			type: z.literal("basic"),
+			username: z.string(),
+			password: z.string(),
+		}),
+		z.object({
+			type: z.literal("bearer"),
+			token: z.string(),
+		}),
+	]),
+);
 
 const DEFAULT_RESOURCE_LABELS: Readonly<Record<string, string>> = {
 	"service.name": "service_name",
@@ -86,7 +105,7 @@ const resourceLabelsSchema = z.record(z.string(), z.string()).superRefine((mappi
 });
 
 const resourceLabelsInputSchema = z
-	.unknown()
+	.custom<Readonly<Record<string, string>>>()
 	.superRefine((mapping, context) => {
 		if (typeof mapping === "object" && mapping !== null && Object.hasOwn(mapping, "__proto__")) {
 			context.addIssue({
@@ -98,48 +117,54 @@ const resourceLabelsInputSchema = z
 	})
 	.pipe(resourceLabelsSchema);
 
-export const lokiDestinationConfigSchema = z
-	.object({
-		/** Destination name used by delivery state and diagnostics. */
-		name: z.string().trim().min(1).default("loki"),
-		/** Base Loki URL. `/loki/api/v1/push` is appended automatically. */
-		url: z
-			.string()
-			.trim()
-			.min(1)
-			.refine((value) => {
-				const url = URL.parse(value);
-				return (
-					url !== null &&
-					(url.protocol === "http:" || url.protocol === "https:") &&
-					!url.username &&
-					!url.password &&
-					!url.search &&
-					!url.hash
-				);
-			}, "Loki URL must use HTTP(S) without credentials, query, or fragment"),
-		/** Optional authentication configuration. */
-		auth: lokiAuthSchema.optional(),
-		/** Optional proxy, gateway, or tenant headers. */
-		headers: z.record(z.string(), z.string()).optional(),
-		/** Resource attribute key to Loki label name mappings. Replaces the default when supplied. */
-		resourceLabels: resourceLabelsInputSchema.default(DEFAULT_RESOURCE_LABELS),
-	})
-	.refine(
-		(config) =>
-			Result.fromThrowable(
-				() => requestHeaders(config),
-				() => false,
-			)().isOk(),
-		"Loki headers must be valid",
-	);
+/** Configuration for the Loki destination. */
+export interface LokiDestinationConfig {
+	/** Destination name used by delivery state and diagnostics. Defaults to `"loki"`. */
+	name?: string;
+	/** Base Loki URL. `/loki/api/v1/push` is appended automatically. */
+	url: string;
+	/** Optional authentication configuration. */
+	auth?: LokiDestinationAuth;
+	/** Optional proxy, gateway, or tenant headers. */
+	headers?: Record<string, string>;
+	/** Resource attribute key to Loki label name mappings. Replaces the default when supplied. */
+	resourceLabels?: Readonly<Record<string, string>>;
+}
 
-type LokiDestinationConfigInput = z.input<typeof lokiDestinationConfigSchema>;
-export type LokiDestinationConfig = Omit<LokiDestinationConfigInput, "resourceLabels"> & {
-	readonly resourceLabels?: Readonly<Record<string, string>>;
-};
+export const lokiDestinationConfigSchema = configSchema<LokiDestinationConfig>()(
+	z
+		.object({
+			name: z.string().trim().min(1).default("loki"),
+			url: z
+				.string()
+				.trim()
+				.min(1)
+				.refine((value) => {
+					const url = URL.parse(value);
+					return (
+						url !== null &&
+						(url.protocol === "http:" || url.protocol === "https:") &&
+						!url.username &&
+						!url.password &&
+						!url.search &&
+						!url.hash
+					);
+				}, "Loki URL must use HTTP(S) without credentials, query, or fragment"),
+			auth: lokiAuthSchema.optional(),
+			headers: z.record(z.string(), z.string()).optional(),
+			resourceLabels: resourceLabelsInputSchema.default(DEFAULT_RESOURCE_LABELS),
+		})
+		.refine(
+			(config) =>
+				Result.fromThrowable(
+					() => requestHeaders(config),
+					() => false,
+				)().isOk(),
+			"Loki headers must be valid",
+		),
+);
+
 export type ResolvedLokiDestinationConfig = z.output<typeof lokiDestinationConfigSchema>;
-export type LokiDestinationAuth = z.infer<typeof lokiAuthSchema>;
 
 type LokiStream = {
 	readonly stream: Readonly<Record<string, string>>;

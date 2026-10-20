@@ -95,6 +95,18 @@ All config schemas use Zod for validation and are defined in:
 - `packages/content/src/content-config.ts` - Content system schema
 - `packages/monitor/src/monitor-config.ts` - Monitor system schema
 
+#### Public config input types
+
+Public config input types are hand-written, JSDoc'd interfaces bound to the schema with `configSchema<T>()(schema)` from `@bluecadet/launchpad-utils/config-schema`. Do not export `z.input<...>` types or accept `z.input` parameters in exported functions; Biome flags both. Zod wraps object shapes in `{...} & {}`, and `tsc` only copies comments for declarations in the file it emits, so `z.input` loses property docs in `.d.ts` hovers.
+
+- Put property docs on the interface, not on the schema body.
+- `.loose()` schemas need `[key: string]: unknown;` in the interface.
+- Use `z.unknown()` or `z.custom<T>()` instead of `z.any()`; `any` never matches exactly.
+- A schema with an `unknown` input (`z.preprocess`) cannot be bound. Bind the inner object schemas instead.
+- Type factory params with the interface.
+
+Typechecking fails unless the schema input exactly equals the interface. See `packages/content/src/transforms/symlink.ts`.
+
 ### Schema-backed configuration references
 
 Configuration references in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.

@@ -7,17 +7,13 @@
 		// compiled by the docs build; shared data modules are typechecked here.
 		"rootDir": ".",
 		"outDir": "./.tsbuild",
-		"tsBuildInfoFile": "./.tsbuild/tsconfig.src.tsbuildinfo",
-		// The recipes include browser-side consumers (e.g. EventSource usage),
-		// so these examples typecheck against DOM globals as well as Node's.
-		"lib": ["es2025", "dom"]
+		"tsBuildInfoFile": "./.tsbuild/tsconfig.src.tsbuildinfo"
 	},
-	"include": ["recipes/live-content-refresh-examples/**/*.ts", "lib/**/*.ts"],
+	"include": ["lib/**/*.ts"],
 	"references": [
 		{ "path": "../packages/cli/tsconfig.src.json" },
 		{ "path": "../packages/content/tsconfig.src.json" },
 		{ "path": "../packages/controller/tsconfig.src.json" },
-		{ "path": "../packages/launchpad/tsconfig.src.json" },
 		{ "path": "../packages/monitor/tsconfig.src.json" },
 		{ "path": "../packages/observability/tsconfig.src.json" },
 		{ "path": "../packages/scheduler/tsconfig.src.json" }

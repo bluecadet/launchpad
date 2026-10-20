@@ -1,0 +1,12 @@
+language js
+
+or {
+	`export type $name = z.input<$schema>` as $match,
+	`export function $fn($args) { $body }` where { $args <: contains `z.input` as $match }
+} where {
+	not $filename <: or { r".*/__tests__/.*", r".*\.test\.ts" },
+	register_diagnostic(
+		span = $match,
+		message = "Inferred zod input types lose their JSDoc in emitted declarations. Write a documented interface and bind it with configSchema from @bluecadet/launchpad-utils/config-schema."
+	)
+}

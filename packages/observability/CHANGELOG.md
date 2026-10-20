@@ -1,5 +1,13 @@
 # @bluecadet/launchpad-observability
 
+## 4.0.1
+
+### Patch Changes
+
+- Restore option descriptions in editor hovers and autocomplete for `launchpad.config.ts`. Config types are now documented interfaces, so their JSDoc survives into the published type declarations. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+- Updated dependencies:
+  - @bluecadet/launchpad-utils@4.1.0
+
 ## 4.0.0
 
 ### Major Changes

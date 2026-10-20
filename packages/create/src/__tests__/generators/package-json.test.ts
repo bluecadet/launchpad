@@ -43,6 +43,16 @@ describe("generatePackageJson", () => {
 		expect(pkg.dependencies["@bluecadet/launchpad"]).toBeDefined();
 	});
 
+	it("lists @types/node under devDependencies, not dependencies", () => {
+		const result = generatePackageJson(baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as {
+			dependencies: Record<string, string>;
+			devDependencies: Record<string, string>;
+		};
+		expect(pkg.devDependencies["@types/node"]).toBeDefined();
+		expect(pkg.dependencies["@types/node"]).toBeUndefined();
+	});
+
 	it("adds content script when useContent is true", () => {
 		const answers = { ...baseAnswers, useContent: true, contentSources: ["json" as const] };
 		const result = generatePackageJson(answers, makeDeps(answers));
@@ -60,6 +70,10 @@ describe("generatePackageJson", () => {
 });
 
 describe("getRequiredPackages", () => {
+	it("includes @types/node", () => {
+		expect(getRequiredPackages(baseAnswers)).toContain("@types/node");
+	});
+
 	it("always includes @bluecadet/launchpad", () => {
 		const packages = getRequiredPackages(baseAnswers);
 		expect(packages).toContain("@bluecadet/launchpad");
@@ -182,6 +196,33 @@ describe("mergePackageJson", () => {
 		const pkg = JSON.parse(result) as { dependencies: Record<string, string> };
 		expect(pkg.dependencies["@bluecadet/launchpad"]).toBe("1.0.0");
 		expect(pkg.dependencies["some-other-dep"]).toBe("^1.0.0");
+	});
+
+	it("adds @types/node to devDependencies when missing", () => {
+		const existing = JSON.stringify({ devDependencies: { vitest: "^3.0.0" } });
+		const result = mergePackageJson(existing, baseAnswers, makeDeps(baseAnswers));
+		const pkg = JSON.parse(result) as {
+			dependencies: Record<string, string>;
+			devDependencies: Record<string, string>;
+		};
+		expect(pkg.devDependencies["@types/node"]).toBeDefined();
+		expect(pkg.devDependencies.vitest).toBe("^3.0.0");
+		expect(pkg.dependencies["@types/node"]).toBeUndefined();
+	});
+
+	it("keeps an existing @types/node pin wherever it is declared", () => {
+		const inDev = JSON.stringify({ devDependencies: { "@types/node": "^20.0.0" } });
+		const devResult = JSON.parse(
+			mergePackageJson(inDev, baseAnswers, makeDeps(baseAnswers)),
+		) as Record<string, Record<string, string>>;
+		expect(devResult.devDependencies?.["@types/node"]).toBe("^20.0.0");
+
+		const inProd = JSON.stringify({ dependencies: { "@types/node": "^20.0.0" } });
+		const prodResult = JSON.parse(
+			mergePackageJson(inProd, baseAnswers, makeDeps(baseAnswers)),
+		) as Record<string, Record<string, string>>;
+		expect(prodResult.dependencies?.["@types/node"]).toBe("^20.0.0");
+		expect(prodResult.devDependencies).toBeUndefined();
 	});
 
 	it("does not overwrite existing scripts", () => {

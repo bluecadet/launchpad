@@ -55,10 +55,10 @@ You can add other flat string, finite number, or boolean resource attributes to 
 
 ### `package.json`
 
-If no `package.json` exists, one is created with the appropriate dependencies and scripts.
+If no `package.json` exists, one is created with the appropriate dependencies (plus `@types/node` as a dev dependency) and scripts.
 
 If one already exists, the tool **merges** into it:
-- Adds any missing dependencies (without changing existing version pins)
+- Adds any missing dependencies, including `@types/node` as a dev dependency (without changing existing version pins)
 - Adds `content`, `start`, and `stop` scripts (without overwriting scripts you already have)
 
 ### `tsconfig.json`

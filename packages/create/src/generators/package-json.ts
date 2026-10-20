@@ -2,6 +2,7 @@ import type { Answers, ContentSource, ContentTransform } from "../types.js";
 
 const LAUNCHPAD_PACKAGE = "@bluecadet/launchpad";
 const NODE_ENGINE = "^24 || >=26";
+const DEV_PACKAGES = new Set(["@types/node"]);
 
 const SOURCE_PEER_DEPS: Partial<Record<ContentSource, string[]>> = {
 	sanity: ["@sanity/client"],
@@ -17,7 +18,7 @@ const TRANSFORM_PEER_DEPS: Partial<Record<ContentTransform, string[]>> = {
 };
 
 export function getRequiredPackages(answers: Answers): string[] {
-	const packages: string[] = [LAUNCHPAD_PACKAGE];
+	const packages: string[] = [LAUNCHPAD_PACKAGE, ...DEV_PACKAGES];
 
 	if (answers.useContent) {
 		for (const source of answers.contentSources) {
@@ -47,6 +48,15 @@ function getRequiredScripts(answers: Answers): Record<string, string> {
 	return scripts;
 }
 
+function splitDeps(deps: Record<string, string>) {
+	const dependencies: Record<string, string> = {};
+	const devDependencies: Record<string, string> = {};
+	for (const [name, version] of Object.entries(deps)) {
+		(DEV_PACKAGES.has(name) ? devDependencies : dependencies)[name] = version;
+	}
+	return { dependencies, devDependencies };
+}
+
 export function generatePackageJson(answers: Answers, deps: Record<string, string>): string {
 	const scripts = getRequiredScripts(answers);
 
@@ -56,7 +66,7 @@ export function generatePackageJson(answers: Answers, deps: Record<string, strin
 		type: "module",
 		engines: { node: NODE_ENGINE },
 		scripts,
-		dependencies: deps,
+		...splitDeps(deps),
 	};
 
 	return JSON.stringify(pkg, null, "\t");
@@ -73,13 +83,16 @@ export function mergePackageJson(
 	pkg.engines = { node: NODE_ENGINE, ...existingEngines };
 
 	const existingDeps = (pkg.dependencies as Record<string, string> | undefined) ?? {};
-	const mergedDeps: Record<string, string> = { ...existingDeps };
-	for (const [name, version] of Object.entries(deps)) {
-		if (!(name in mergedDeps)) {
-			mergedDeps[name] = version;
-		}
+	const existingDevDeps = (pkg.devDependencies as Record<string, string> | undefined) ?? {};
+	const { dependencies, devDependencies } = splitDeps(deps);
+	const isInstalled = (name: string) => name in existingDeps || name in existingDevDeps;
+	const missing = (incoming: Record<string, string>) =>
+		Object.fromEntries(Object.entries(incoming).filter(([name]) => !isInstalled(name)));
+	pkg.dependencies = { ...existingDeps, ...missing(dependencies) };
+	const mergedDevDeps = { ...existingDevDeps, ...missing(devDependencies) };
+	if (Object.keys(mergedDevDeps).length > 0) {
+		pkg.devDependencies = mergedDevDeps;
 	}
-	pkg.dependencies = mergedDeps;
 
 	const newScripts = getRequiredScripts(answers);
 	const existingScripts = (pkg.scripts as Record<string, string> | undefined) ?? {};

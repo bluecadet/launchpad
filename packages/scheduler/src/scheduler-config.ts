@@ -1,4 +1,5 @@
-import { durationSchema } from "@bluecadet/launchpad-utils/duration";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
+import { type Duration, durationSchema } from "@bluecadet/launchpad-utils/duration";
 import type { BaseCommand, CommandId } from "@bluecadet/launchpad-utils/plugin-interfaces";
 import { z } from "zod";
 
@@ -12,37 +13,76 @@ const cronSchema = z.string().refine(isCronExpression, {
 	message: "Cron expressions must have exactly 5 whitespace-separated fields.",
 });
 
-const backoffOverrideSchema = z
-	.object({
-		initial: durationSchema
-			.optional()
-			.describe("Initial retry delay; omitted values use 15 seconds."),
-		max: durationSchema
-			.optional()
-			.describe("Maximum retry delay; omitted values use five minutes."),
-		factor: z
-			.number()
-			.positive()
-			.optional()
-			.describe("Positive backoff multiplier; omitted values use 2."),
-	})
-	.strict();
+/** Overrides for individual exponential backoff settings. */
+export interface BackoffOverride {
+	/** Initial retry delay. Defaults to 15 seconds. */
+	initial?: Duration;
+	/** Maximum retry delay. Defaults to five minutes. */
+	max?: Duration;
+	/** Positive backoff multiplier. Defaults to `2`. */
+	factor?: number;
+}
 
-const retryForeverInputSchema = z
-	.object({
-		forever: z.literal(true).optional().describe("Retry indefinitely (the default retry policy)."),
-		backoff: backoffOverrideSchema
-			.optional()
-			.describe("Override individual exponential backoff settings."),
-	})
-	.strict();
+/** Retry indefinitely, optionally overriding the backoff. */
+export interface RetryForeverConfig {
+	/** Retry indefinitely. Defaults to `true`. */
+	forever?: true;
+	/** Override individual exponential backoff settings. */
+	backoff?: BackoffOverride;
+}
 
-const retryLimitedInputSchema = z
-	.object({
-		forever: z.literal(false).describe("Stop retrying after maxAttempts failures."),
-		maxAttempts: z.number().int().positive().describe("Positive integer limit on failed attempts."),
-	})
-	.strict();
+/** Stop retrying after a fixed number of failed attempts. */
+export interface RetryLimitedConfig {
+	/** Stop retrying after `maxAttempts` failures. */
+	forever: false;
+	/** Positive integer limit on failed attempts. */
+	maxAttempts: number;
+}
+
+const backoffOverrideSchema = configSchema<BackoffOverride>()(
+	z
+		.object({
+			initial: durationSchema
+				.optional()
+				.describe("Initial retry delay; omitted values use 15 seconds."),
+			max: durationSchema
+				.optional()
+				.describe("Maximum retry delay; omitted values use five minutes."),
+			factor: z
+				.number()
+				.positive()
+				.optional()
+				.describe("Positive backoff multiplier; omitted values use 2."),
+		})
+		.strict(),
+);
+
+const retryForeverInputSchema = configSchema<RetryForeverConfig>()(
+	z
+		.object({
+			forever: z
+				.literal(true)
+				.optional()
+				.describe("Retry indefinitely (the default retry policy)."),
+			backoff: backoffOverrideSchema
+				.optional()
+				.describe("Override individual exponential backoff settings."),
+		})
+		.strict(),
+);
+
+const retryLimitedInputSchema = configSchema<RetryLimitedConfig>()(
+	z
+		.object({
+			forever: z.literal(false).describe("Stop retrying after maxAttempts failures."),
+			maxAttempts: z
+				.number()
+				.int()
+				.positive()
+				.describe("Positive integer limit on failed attempts."),
+		})
+		.strict(),
+);
 
 export type ResolvedRetry =
 	| { forever: true; backoff: { initial: number; max: number; factor: number } }
@@ -80,8 +120,32 @@ function isCronLike(value: string): boolean {
 	return /\s/.test(value.trim());
 }
 
-const scheduleObjectSchema = z
-	.object({
+/** Options for a single scheduled job. Exactly one of `interval` or `cron` must be set. */
+export interface ScheduleObject {
+	/** Delay between completed dispatches. Required when `cron` is absent. */
+	interval?: Duration;
+	/** Five-field wall-clock cron schedule. Required when `interval` is absent. */
+	cron?: string;
+	/**
+	 * Positive random delay on runs and retries. `true` uses up to 10% for intervals/backoff or 60
+	 * seconds for cron; `false` disables jitter. Defaults to `true`.
+	 */
+	jitter?: boolean | Duration;
+	/**
+	 * Failed dispatch retry policy. Defaults to indefinite retries with a 15-second initial delay,
+	 * five-minute cap, and factor 2.
+	 */
+	retry?: RetryLimitedConfig | RetryForeverConfig;
+	/** Command payload override. When omitted, the scheduler dispatches `{ type: <record key> }`. */
+	command?: BaseCommand;
+	/** Dispatch immediately when the scheduler starts. Defaults to `false`. */
+	runOnStart?: boolean;
+	/** Whether this job is scheduled and exposed to scheduler commands and status. Defaults to `true`. */
+	enabled?: boolean;
+}
+
+const scheduleObjectSchema = configSchema<ScheduleObject>()(
+	z.object({
 		interval: durationSchema
 			.optional()
 			.describe("Delay between completed dispatches. Required when cron is absent."),
@@ -107,18 +171,18 @@ const scheduleObjectSchema = z
 			.boolean()
 			.default(true)
 			.describe("Whether this job is scheduled and exposed to scheduler commands and status."),
-	})
-	.superRefine((value, ctx) => {
-		const hasInterval = value.interval !== undefined;
-		const hasCron = value.cron !== undefined;
-		if (hasInterval === hasCron) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Exactly one of `interval` or `cron` must be set.",
-				path: [hasInterval ? "cron" : "interval"],
-			});
-		}
-	});
+	}),
+).superRefine((value, ctx) => {
+	const hasInterval = value.interval !== undefined;
+	const hasCron = value.cron !== undefined;
+	if (hasInterval === hasCron) {
+		ctx.addIssue({
+			code: "custom",
+			message: "Exactly one of `interval` or `cron` must be set.",
+			path: [hasInterval ? "cron" : "interval"],
+		});
+	}
+});
 
 /** A schedule spec: a bare duration/cron string, or the full options object. */
 export const scheduleSpecSchema = z
@@ -136,7 +200,7 @@ export const scheduleSpecSchema = z
 // z.preprocess widens the schema's input type to `unknown` (its first argument accepts
 // anything before the inner schema validates), so z.input<typeof scheduleSpecSchema> would
 // erase the public-facing "bare string or object" contract. Declare it explicitly instead.
-export type ScheduleSpec = string | z.input<typeof scheduleObjectSchema>;
+export type ScheduleSpec = string | ScheduleObject;
 
 // `command` is optional on the schema itself (a bare schedule spec doesn't set it), but
 // `schedulerConfigSchema`'s transform is the only place that produces a `ResolvedScheduleSpec`

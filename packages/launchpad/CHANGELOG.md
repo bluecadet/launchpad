@@ -1,5 +1,22 @@
 # @bluecadet/launchpad
 
+## 4.1.0
+
+### Minor Changes
+
+- Add `@bluecadet/launchpad/utils/plugin-interfaces` and `@bluecadet/launchpad/utils/config-schema`, so custom plugins can import `definePlugin` and `configSchema` without depending on `@bluecadet/launchpad-utils` directly. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+
+### Patch Changes
+
+- Updated dependencies:
+  - @bluecadet/launchpad-cli@4.0.1
+  - @bluecadet/launchpad-content@4.0.1
+  - @bluecadet/launchpad-controller@4.0.1
+  - @bluecadet/launchpad-monitor@4.0.1
+  - @bluecadet/launchpad-observability@4.0.1
+  - @bluecadet/launchpad-scheduler@4.0.1
+  - @bluecadet/launchpad-utils@4.1.0
+
 ## 4.0.0
 
 ### Major Changes

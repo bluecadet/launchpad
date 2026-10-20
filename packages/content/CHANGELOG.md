@@ -1,5 +1,23 @@
 # @bluecadet/launchpad-content
 
+## 4.0.1
+
+### Patch Changes
+
+- Restore option descriptions in editor hovers and autocomplete for `launchpad.config.ts`. Config types are now documented interfaces, so their JSDoc survives into the published type declarations. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+- Fix the documented named imports from source and transform subpaths (for example `import { sanitySource } from "@bluecadet/launchpad/content/sources/sanity"`), which previously failed because those modules only had a default export. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+  
+  Sources and transforms are now named exports only. If you default-imported them from `@bluecadet/launchpad-content/sources/*` or `@bluecadet/launchpad-content/transforms/*`, switch to the named import:
+  
+  ```ts
+  // before
+  import sanitySource from "@bluecadet/launchpad-content/sources/sanity";
+  // after
+  import { sanitySource } from "@bluecadet/launchpad-content/sources/sanity";
+  ```
+- Updated dependencies:
+  - @bluecadet/launchpad-utils@4.1.0
+
 ## 4.0.0
 
 ### Major Changes

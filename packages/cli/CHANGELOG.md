@@ -1,5 +1,15 @@
 # @bluecadet/launchpad-cli
 
+## 4.0.1
+
+### Patch Changes
+
+- Restore option descriptions in editor hovers and autocomplete for `launchpad.config.ts`. Config types are now documented interfaces, so their JSDoc survives into the published type declarations. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+- Log config load errors for plugin commands such as `content fetch` instead of exiting silently. ([#328](https://github.com/bluecadet/launchpad/pull/328))
+- Updated dependencies:
+  - @bluecadet/launchpad-controller@4.0.1
+  - @bluecadet/launchpad-utils@4.1.0
+
 ## 4.0.0
 
 ### Major Changes

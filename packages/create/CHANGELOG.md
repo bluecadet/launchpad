@@ -1,5 +1,12 @@
 # @bluecadet/create-launchpad
 
+## 4.0.1
+
+### Patch Changes
+
+- Add `.logs/` to the `.gitignore` entries written by the scaffolder. ([#328](https://github.com/bluecadet/launchpad/pull/328))
+- Install `@types/node` as a dev dependency in scaffolded projects so `process.env` and other Node APIs type-check in `launchpad.config.ts`. ([#328](https://github.com/bluecadet/launchpad/pull/328))
+
 ## 4.0.0
 
 ### Major Changes

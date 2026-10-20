@@ -1,5 +1,15 @@
 # @bluecadet/launchpad-utils
 
+## 4.1.0
+
+### Minor Changes
+
+- Add `configSchema` (`@bluecadet/launchpad-utils/config-schema`), which binds a zod schema to a hand-written config interface and fails type-checking if the schema's input type drifts from it. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+
+### Patch Changes
+
+- Restore option descriptions in editor hovers and autocomplete for `launchpad.config.ts`. Config types are now documented interfaces, so their JSDoc survives into the published type declarations. ([#330](https://github.com/bluecadet/launchpad/pull/330))
+
 ## 4.0.0
 
 ### Major Changes

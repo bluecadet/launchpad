@@ -55,6 +55,10 @@
     "./native-file-lease": {
       "types": "./dist/native-file-lease.d.ts",
       "default": "./dist/native-file-lease.js"
+    },
+    "./config-schema": {
+      "types": "./dist/config-schema.d.ts",
+      "default": "./dist/config-schema.js"
     }
   },
   "files": [

@@ -3,6 +3,7 @@ const LAUNCHPAD_ENTRIES = [
 	"dist/",
 	".launchpad/",
 	".downloads/",
+	".logs/",
 	".env.*.local",
 	".env.local",
 ];

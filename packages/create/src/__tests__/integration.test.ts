@@ -126,7 +126,7 @@ describe("applyGenerators", () => {
 		vol.mkdirSync("/project", { recursive: true });
 		vol.writeFileSync(
 			"/project/.gitignore",
-			"node_modules/\ndist/\n.launchpad/\n.downloads/\n.env.*.local\n.env.local\n",
+			"node_modules/\ndist/\n.launchpad/\n.downloads/\n.logs/\n.env.*.local\n.env.local\n",
 		);
 
 		const result = await applyGenerators(baseAnswers, mockDeps(baseAnswers));

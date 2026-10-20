@@ -8,6 +8,7 @@ describe("generateGitignore", () => {
 		expect(result).toContain("dist/");
 		expect(result).toContain(".launchpad/");
 		expect(result).toContain(".downloads/");
+		expect(result).toContain(".logs/");
 	});
 
 	it("includes the section marker", () => {
@@ -23,7 +24,8 @@ describe("generateGitignore", () => {
 
 describe("mergeGitignore", () => {
 	it("returns unchanged content when all entries already present", () => {
-		const existing = "node_modules/\ndist/\n.launchpad/\n.downloads/\n.env.*.local\n.env.local\n";
+		const existing =
+			"node_modules/\ndist/\n.launchpad/\n.downloads/\n.logs/\n.env.*.local\n.env.local\n";
 		const result = mergeGitignore(existing);
 		expect(result).toBe(existing);
 	});
@@ -34,6 +36,7 @@ describe("mergeGitignore", () => {
 		expect(result).toContain("dist/");
 		expect(result).toContain(".launchpad/");
 		expect(result).toContain(".downloads/");
+		expect(result).toContain(".logs/");
 	});
 
 	it("does not duplicate existing entries", () => {

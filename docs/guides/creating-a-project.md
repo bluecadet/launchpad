@@ -82,7 +82,7 @@ If one already exists, the tool validates it for ESM compatibility and patches a
 
 ### `.gitignore`
 
-With your confirmation, the tool adds Launchpad-specific entries (`node_modules/`, `dist/`, `.launchpad/`, `.downloads/`) to your `.gitignore`. If entries are already present, they are not duplicated.
+With your confirmation, the tool adds Launchpad-specific entries (`node_modules/`, `dist/`, `.launchpad/`, `.downloads/`, `.logs/`) to your `.gitignore`. If entries are already present, they are not duplicated.
 
 ## Re-running
 

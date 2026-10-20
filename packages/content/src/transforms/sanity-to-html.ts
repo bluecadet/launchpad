@@ -31,7 +31,7 @@ function tryImportPortableText() {
 	}
 }
 
-export default function sanityToHtml(options: SanityToHtmlOptions) {
+export function sanityToHtml(options: SanityToHtmlOptions) {
 	const { path, keys } = parseTransformConfig("sanityToHtml", sanityToHtmlSchema, options);
 
 	return defineContentTransform({

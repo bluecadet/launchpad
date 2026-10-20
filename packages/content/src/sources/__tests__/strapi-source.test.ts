@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import strapiSource from "../strapi-source.js";
+import { strapiSource } from "../strapi-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
 
 const { server } = setupMSWServer();

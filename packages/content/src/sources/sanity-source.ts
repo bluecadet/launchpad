@@ -54,7 +54,7 @@ const sanitySourceSchema = configSchema<SanitySourceOptions>()(
 	}),
 );
 
-export default async function sanitySource(options: SanitySourceOptions) {
+export async function sanitySource(options: SanitySourceOptions) {
 	const parsedOptions = sanitySourceSchema.parse(options);
 
 	const { createClient } = await tryImportSanityClient();

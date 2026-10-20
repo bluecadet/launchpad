@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { vol } from "memfs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import symlink from "../symlink.js";
+import { symlink } from "../symlink.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
 describe("symlink plugin", () => {

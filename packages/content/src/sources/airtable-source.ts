@@ -156,7 +156,7 @@ function processTableToSimplified(
 	}));
 }
 
-export default async function airtableSource(options: AirtableSourceOptions) {
+export async function airtableSource(options: AirtableSourceOptions) {
 	const assembledOptions = airtableSourceSchema.parse(options);
 
 	const { default: Airtable } = await tryImportAirtable();

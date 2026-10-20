@@ -1,7 +1,7 @@
 import Airtable from "airtable";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import airtableSource from "../airtable-source.js";
+import { airtableSource } from "../airtable-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
 
 const { server } = setupMSWServer();

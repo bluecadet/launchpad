@@ -33,7 +33,7 @@ const symlinkSchema = configSchema<SymlinkOptions>()(
 	}),
 );
 
-export default function symlink(options: SymlinkOptions) {
+export function symlink(options: SymlinkOptions) {
 	const {
 		target,
 		path: symlinkPath,

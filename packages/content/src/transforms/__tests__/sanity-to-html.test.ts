@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import sanityToHtml from "../sanity-to-html.js";
+import { sanityToHtml } from "../sanity-to-html.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
 describe("sanityToHtml plugin", () => {

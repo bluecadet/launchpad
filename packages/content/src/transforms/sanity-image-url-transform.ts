@@ -62,7 +62,7 @@ function tryImportSanityImage() {
 	}
 }
 
-export default function sanityImageUrlTransform(options: SanityImageUrlTransformOptions) {
+export function sanityImageUrlTransform(options: SanityImageUrlTransformOptions) {
 	const { path, keys, newProperty, buildUrl, ...rest } = parseTransformConfig(
 		"sanityToHtml",
 		sanityImageUrlTransformSchema,

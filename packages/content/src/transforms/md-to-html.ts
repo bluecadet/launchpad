@@ -30,7 +30,7 @@ const mdToHtmlSchema = configSchema<MdToHtmlOptions>()(
 	}),
 );
 
-export default function mdToHtml(options: MdToHtmlOptions) {
+export function mdToHtml(options: MdToHtmlOptions) {
 	const { path, keys, simplified } = parseTransformConfig("mdToHtml", mdToHtmlSchema, options);
 
 	return defineContentTransform({

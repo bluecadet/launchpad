@@ -20,7 +20,7 @@ const sanityToPlainSchema = configSchema<SanityToPlainOptions>()(
 	}),
 );
 
-export default function sanityToPlain(options: SanityToPlainOptions) {
+export function sanityToPlain(options: SanityToPlainOptions) {
 	const { path, keys } = parseTransformConfig("sanityToPlain", sanityToPlainSchema, options);
 
 	return defineContentTransform({

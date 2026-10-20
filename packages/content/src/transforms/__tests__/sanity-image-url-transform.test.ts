@@ -1,6 +1,6 @@
 import type { ImageUrlBuilder } from "@sanity/image-url";
 import { describe, expect, it } from "vitest";
-import sanityImageUrlTransform from "../sanity-image-url-transform.js";
+import { sanityImageUrlTransform } from "../sanity-image-url-transform.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
 const TEST_ID = "image-Tb9Ew8CXIwaY6R1kjMvI0uRR-2000x3000-jpg";

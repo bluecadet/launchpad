@@ -24,7 +24,7 @@ const jsonSourceSchema = configSchema<JsonSourceOptions>()(
 	}),
 );
 
-export default function jsonSource(options: JsonSourceOptions) {
+export function jsonSource(options: JsonSourceOptions) {
 	const parsedOptions = jsonSourceSchema.parse(options);
 
 	return defineSource({

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import sanityToMd from "../sanity-to-markdown.js";
+import { sanityToMarkdown } from "../sanity-to-markdown.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
-describe("sanityToMd plugin", () => {
+describe("sanityToMarkdown plugin", () => {
 	const validBlock = {
 		_type: "block",
 		children: [
@@ -18,7 +18,7 @@ describe("sanityToMd plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: validBlock }));
 
-		const transform = sanityToMd({ path: "$.content" });
+		const transform = sanityToMarkdown({ path: "$.content" });
 		await transform.apply(ctx);
 
 		const result = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
@@ -32,7 +32,7 @@ describe("sanityToMd plugin", () => {
 		await testNamespace.insert("doc1", Promise.resolve({ content: validBlock }));
 		await skipNamespace.insert("doc2", Promise.resolve({ content: validBlock }));
 
-		const transform = sanityToMd({ path: "$.content", keys: ["test"] });
+		const transform = sanityToMarkdown({ path: "$.content", keys: ["test"] });
 		await transform.apply(ctx);
 
 		const transformed = await ctx.data.getDocument("test", "doc1")._unsafeUnwrap()._read();
@@ -47,7 +47,7 @@ describe("sanityToMd plugin", () => {
 		const namespace = (await ctx.data.createNamespace("test"))._unsafeUnwrap();
 		await namespace.insert("doc1", Promise.resolve({ content: "not a block" }));
 
-		const transform = sanityToMd({ path: "$.content" });
+		const transform = sanityToMarkdown({ path: "$.content" });
 		await expect(transform.apply(ctx)).rejects.toThrow("Error applying content transform");
 	});
 });

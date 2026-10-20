@@ -17,6 +17,7 @@
 
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import {
 	type BaseCommand,
 	type Disconnectable,
@@ -34,36 +35,47 @@ import { closeServerAsResult, createShutdownGate, listenAsResult } from "./serve
 
 const MAX_COMMAND_BODY_BYTES = 64 * 1024;
 
-const httpTransportOptionsSchema = z.object({
-	/** Port to listen on. `0` picks a random free port (useful for tests). */
-	port: z.number().int().min(0).max(65535).default(8710),
-	/** Host/interface to bind. */
-	host: z.string().default("127.0.0.1"),
-	/** Command types accepted by `POST /command`. Anything else gets a 403. */
-	allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
+export interface HttpTransportOptions {
+	/** Port to listen on. `0` picks a random free port (useful for tests). Defaults to `8710`. */
+	port?: number;
+	/** Host/interface to bind. Defaults to `"127.0.0.1"`. */
+	host?: string;
+	/** Command types accepted by `POST /command`. Anything else gets a 403. Defaults to `["content.ack", "content.manifest.read"]`. */
+	allowedCommands?: string[];
 	/**
 	 * Event names forwarded to SSE clients. An entry ending in `*` is a prefix
 	 * match on the part before it; the single entry `*` matches all events;
-	 * any other entry is an exact match.
+	 * any other entry is an exact match. Defaults to `["content:*"]`.
 	 */
-	events: z.array(z.string()).default(["content:*"]),
+	events?: string[];
 	/**
 	 * Event names cached and replayed to each newly connected SSE client, so it
 	 * learns current state without waiting for the next emission. Exact names
 	 * only, and an event must also pass the `events` filter to be emitted at
 	 * all. Keep this to durable "current state" events: one-shot events (errors,
-	 * progress) replayed hours later are misleading.
+	 * progress) replayed hours later are misleading. Defaults to `["content:version:promoted"]`.
 	 */
-	replayEvents: z.array(z.string()).default(["content:version:promoted"]),
-	/** Interval between `: ping` SSE comment lines. */
-	keepAliveMs: z.number().int().positive().default(15000),
-	/** Maximum concurrent SSE clients; further `GET /events` requests get a 503. */
-	maxClients: z.number().int().positive().default(32),
-	/** Expose the full global state at `GET /state`. Off by default. */
-	exposeState: z.boolean().default(false),
-});
+	replayEvents?: string[];
+	/** Interval in ms between `: ping` SSE comment lines. Defaults to `15000`. */
+	keepAliveMs?: number;
+	/** Maximum concurrent SSE clients; further `GET /events` requests get a 503. Defaults to `32`. */
+	maxClients?: number;
+	/** Expose the full global state at `GET /state`. Defaults to `false`. */
+	exposeState?: boolean;
+}
 
-export type HttpTransportOptions = z.input<typeof httpTransportOptionsSchema>;
+const httpTransportOptionsSchema = configSchema<HttpTransportOptions>()(
+	z.object({
+		port: z.number().int().min(0).max(65535).default(8710),
+		host: z.string().default("127.0.0.1"),
+		allowedCommands: z.array(z.string()).default(["content.ack", "content.manifest.read"]),
+		events: z.array(z.string()).default(["content:*"]),
+		replayEvents: z.array(z.string()).default(["content:version:promoted"]),
+		keepAliveMs: z.number().int().positive().default(15000),
+		maxClients: z.number().int().positive().default(32),
+		exposeState: z.boolean().default(false),
+	}),
+);
 
 type ResolvedHttpTransportOptions = z.output<typeof httpTransportOptionsSchema>;
 

@@ -1,49 +1,67 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import type Airtable from "airtable";
 import { z } from "zod";
 import { defineSource } from "../source.js";
 
-const airtableSourceSchema = z.object({
+/** Options for the Airtable source. */
+export interface AirtableSourceOptions {
 	/** Required field to identify this source. Will be used as download path. */
-	id: z.string().describe("Required field to identify this source. Will be used as download path."),
+	id: string;
 	/** Airtable base ID. See https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base. */
-	baseId: z
-		.string()
-		.describe(
-			"Airtable base ID. See https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.",
-		),
-	/** The table view which to select for syncing by default. Defaults to 'Grid view'. */
-	defaultView: z
-		.string()
-		.describe("The table view which to select for syncing by default. Defaults to 'Grid view'.")
-		.default("Grid view"),
-	/** The tables you want to fetch from. Defaults to []. */
-	tables: z
-		.array(z.string())
-		.describe("The tables you want to fetch from. Defaults to [].")
-		.default([]),
-	/** As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to []. */
-	keyValueTables: z
-		.array(z.string())
-		.describe(
-			"As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to [].",
-		)
-		.default([]),
-	/** The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'. */
-	endpointUrl: z
-		.string()
-		.describe("The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'.")
-		.default("https://api.airtable.com"),
-	/** Appends the local path of attachments to the saved JSON. Defaults to true. */
-	appendLocalAttachmentPaths: z
-		.boolean()
-		.describe("Appends the local path of attachments to the saved JSON. Defaults to true.")
-		.default(true),
+	baseId: string;
+	/** The table view which to select for syncing by default. Defaults to `"Grid view"`. */
+	defaultView?: string;
+	/** The tables you want to fetch from. Defaults to `[]`. */
+	tables?: string[];
+	/** As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to `[]`. */
+	keyValueTables?: string[];
+	/** The API endpoint to use for Airtable. Defaults to `"https://api.airtable.com"`. */
+	endpointUrl?: string;
+	/** Appends the local path of attachments to the saved JSON. Defaults to `true`. */
+	appendLocalAttachmentPaths?: boolean;
 	/** Airtable API Key */
-	apiKey: z.string().describe("Airtable API Key"),
+	apiKey: string;
 	/** Max request timeout in ms. Defaults to 60 seconds. */
-	maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
-});
+	maxTimeout?: number;
+}
+
+const airtableSourceSchema = configSchema<AirtableSourceOptions>()(
+	z.object({
+		id: z
+			.string()
+			.describe("Required field to identify this source. Will be used as download path."),
+		baseId: z
+			.string()
+			.describe(
+				"Airtable base ID. See https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base.",
+			),
+		defaultView: z
+			.string()
+			.describe("The table view which to select for syncing by default. Defaults to 'Grid view'.")
+			.default("Grid view"),
+		tables: z
+			.array(z.string())
+			.describe("The tables you want to fetch from. Defaults to [].")
+			.default([]),
+		keyValueTables: z
+			.array(z.string())
+			.describe(
+				"As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`. Defaults to [].",
+			)
+			.default([]),
+		endpointUrl: z
+			.string()
+			.describe("The API endpoint to use for Airtable. Defaults to 'https://api.airtable.com'.")
+			.default("https://api.airtable.com"),
+		appendLocalAttachmentPaths: z
+			.boolean()
+			.describe("Appends the local path of attachments to the saved JSON. Defaults to true.")
+			.default(true),
+		apiKey: z.string().describe("Airtable API Key"),
+		maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
+	}),
+);
 
 /**
  * Fetch data from Airtable.
@@ -138,7 +156,7 @@ function processTableToSimplified(
 	}));
 }
 
-export default async function airtableSource(options: z.input<typeof airtableSourceSchema>) {
+export default async function airtableSource(options: AirtableSourceOptions) {
 	const assembledOptions = airtableSourceSchema.parse(options);
 
 	const { default: Airtable } = await tryImportAirtable();

@@ -1,17 +1,26 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import { dataKeysSchema } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-const sanityToPlainSchema = z.object({
+/** Options for the `sanityToPlain` transform. */
+export interface SanityToPlainOptions {
 	/** JSONPath to the content to transform */
-	path: z.string().describe("JSONPath to the content to transform"),
+	path: string;
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys: dataKeysSchema.optional(),
-});
+	keys?: DataKeys;
+}
 
-export default function sanityToPlain(options: z.input<typeof sanityToPlainSchema>) {
+const sanityToPlainSchema = configSchema<SanityToPlainOptions>()(
+	z.object({
+		path: z.string().describe("JSONPath to the content to transform"),
+		keys: dataKeysSchema.optional(),
+	}),
+);
+
+export default function sanityToPlain(options: SanityToPlainOptions) {
 	const { path, keys } = parseTransformConfig("sanityToPlain", sanityToPlainSchema, options);
 
 	return defineContentTransform({

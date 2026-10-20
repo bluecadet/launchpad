@@ -1,87 +1,115 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import type { Asset, Entry } from "contentful";
 import { z } from "zod";
 import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 
 // If deliveryToken is provided, then previewToken is optional.
-const contentfulCredentialsSchema = z.union(
-	[
-		z.object({
-			/** Content delivery token (all published content). */
-			deliveryToken: z.string().describe("Content delivery token (all published content)."),
-			/** Content preview token (only unpublished/draft content). */
-			previewToken: z
-				.string()
-				.optional()
-				.describe("Content preview token (only unpublished/draft content)."),
-		}),
-		z.object({
-			/** Content preview token (only unpublished/draft content). */
-			previewToken: z.string().describe("Content preview token (only unpublished/draft content)."),
-		}),
-	],
-	{
-		error: (error) => {
-			if (error.code === "invalid_union")
-				return "You must provide either a `deliveryToken` or a `previewToken`.";
+const contentfulCredentialsSchema = configSchema<ContentfulCredentials>()(
+	z.union(
+		[
+			z.object({
+				deliveryToken: z.string().describe("Content delivery token (all published content)."),
+				previewToken: z
+					.string()
+					.optional()
+					.describe("Content preview token (only unpublished/draft content)."),
+			}),
+			z.object({
+				previewToken: z
+					.string()
+					.describe("Content preview token (only unpublished/draft content)."),
+			}),
+		],
+		{
+			error: (error) => {
+				if (error.code === "invalid_union")
+					return "You must provide either a `deliveryToken` or a `previewToken`.";
 
-			return error.message ?? "";
+				return error.message ?? "";
+			},
 		},
-	},
+	),
 );
 
-const contentfulSourceSchema = z
-	.looseObject({
-		/** Required field to identify this source. Will be used as download path. */
-		id: z
-			.string()
-			.describe("Required field to identify this source. Will be used as download path."),
-		/** Required field to identify this source. Will be used as download path. */
-		space: z.string().describe("Your Contentful space ID."),
-		/** The filename you want to use for where all content (entries and assets metadata) will be stored. Defaults to 'content.json' */
-		filename: z
-			.string()
-			.default("content.json")
-			.describe(
-				"The filename you want to use for where all content (entries and assets metadata) will be stored.",
-			),
-		/** Optional. Defaults to 'https'. This updates the asset urls for better compatibility with the mediaDownloader plugin. By default, asset urls have no protocol. */
-		protocol: z.string().default("https").describe("Optional. Defaults to 'https'"),
-		/** Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true */
-		host: z
-			.string()
-			.default("cdn.contentful.com")
-			.describe(
-				"Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true",
-			),
-		/** Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false */
-		usePreviewApi: z
-			.boolean()
-			.default(false)
-			.describe(
-				"Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false",
-			),
-		/**
-		 * Optionally limit queries to these content types. This will also apply to linked assets.
-		 * Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images.
-		 * Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.
-		 */
-		contentTypes: z.array(z.string()).default([]).describe(
-			"Optionally limit queries to these content types. This will also apply to linked assets. \
+/** Contentful access tokens: a delivery token, a preview token, or both. */
+export type ContentfulCredentials =
+	| {
+			/** Content delivery token (all published content). */
+			deliveryToken: string;
+			/** Content preview token (only unpublished/draft content). */
+			previewToken?: string;
+	  }
+	| {
+			/** Content preview token (only unpublished/draft content). */
+			previewToken: string;
+	  };
+
+export interface ContentfulSourceBaseOptions {
+	[key: string]: unknown;
+	/** Required field to identify this source. Will be used as download path. */
+	id: string;
+	/** Your Contentful space ID. */
+	space: string;
+	/** Filename for all content (entries and assets metadata). Defaults to `"content.json"`. */
+	filename?: string;
+	/** Asset URL protocol. Defaults to `"https"`. */
+	protocol?: string;
+	/** Defaults to `"cdn.contentful.com"`, or `"preview.contentful.com"` if `usePreviewApi` is true. */
+	host?: string;
+	/** Use the preview API to view draft content. Defaults to `false`. */
+	usePreviewApi?: boolean;
+	/** Optionally limit queries to these content types. */
+	contentTypes?: string[];
+	/** Contentful search parameters. */
+	searchParams?: Record<string, unknown>;
+	/** Max request timeout in ms. Defaults to 60 seconds. */
+	maxTimeout?: number;
+}
+
+export type ContentfulSourceOptions = ContentfulSourceBaseOptions & ContentfulCredentials;
+
+const contentfulSourceSchema = configSchema<ContentfulSourceOptions>()(
+	z
+		.looseObject({
+			id: z
+				.string()
+				.describe("Required field to identify this source. Will be used as download path."),
+			space: z.string().describe("Your Contentful space ID."),
+			filename: z
+				.string()
+				.default("content.json")
+				.describe(
+					"The filename you want to use for where all content (entries and assets metadata) will be stored.",
+				),
+			protocol: z.string().default("https").describe("Optional. Defaults to 'https'"),
+			host: z
+				.string()
+				.default("cdn.contentful.com")
+				.describe(
+					"Optional. Defaults to 'cdn.contentful.com', or 'preview.contentful.com' if `usePreviewApi` is true",
+				),
+			usePreviewApi: z
+				.boolean()
+				.default(false)
+				.describe(
+					"Optional. Set to true if you want to use the preview API instead of the production version to view draft content. Defaults to false",
+				),
+			contentTypes: z.array(z.string()).default([]).describe(
+				"Optionally limit queries to these content types. This will also apply to linked assets. \
 				Types that link to other types will include up to 10 levels of child content. E.g. filtering by Story, might also include Chapters and Images. \
 				Uses `searchParams['sys.contentType.sys.id[in]']` under the hood.",
-		),
-		/** Optional. Supports anything from https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters */
-		searchParams: z.record(z.string(), z.unknown()).default({
-			limit: 1000, // This is the max that Contentful supports,
-			include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
-		}),
-		/** Max request timeout in ms. Defaults to 60 seconds. */
-		maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
-	})
-	.and(contentfulCredentialsSchema);
+			),
+			searchParams: z.record(z.string(), z.unknown()).default({
+				limit: 1000, // This is the max that Contentful supports,
+				include: 10, // @see https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/links/retrieval-of-linked-items
+			}),
+			maxTimeout: z.number().describe("Max request timeout in ms.").default(60_000),
+		})
+		.and(contentfulCredentialsSchema),
+);
 
-export default async function contentfulSource(options: z.input<typeof contentfulSourceSchema>) {
+export default async function contentfulSource(options: ContentfulSourceOptions) {
 	const assembled = contentfulSourceSchema.parse(options);
 
 	let accessToken: string;

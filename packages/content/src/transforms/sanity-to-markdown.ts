@@ -1,15 +1,24 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import { dataKeysSchema } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-const sanityToMdSchema = z.object({
+/** Options for the `sanityToMd` transform. */
+export interface SanityToMdOptions {
 	/** JSONPath to the content to transform */
-	path: z.string().describe("JSONPath to the content to transform"),
+	path: string;
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys: dataKeysSchema.optional(),
-});
+	keys?: DataKeys;
+}
+
+const sanityToMdSchema = configSchema<SanityToMdOptions>()(
+	z.object({
+		path: z.string().describe("JSONPath to the content to transform"),
+		keys: dataKeysSchema.optional(),
+	}),
+);
 
 function tryImportBlockToMd() {
 	try {
@@ -22,7 +31,7 @@ function tryImportBlockToMd() {
 	}
 }
 
-export default function sanityToMd(options: z.input<typeof sanityToMdSchema>) {
+export default function sanityToMd(options: SanityToMdOptions) {
 	const { path, keys } = parseTransformConfig("sanityToMd", sanityToMdSchema, options);
 
 	return defineContentTransform({

@@ -1,28 +1,39 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import chalk from "chalk";
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-const symlinkSchema = z.object({
+/** Options for the `symlink` transform. */
+export interface SymlinkOptions {
 	/** Symlink target (source file/directory) */
-	target: z.string().describe("Symlink target (source file/directory)"),
+	target: string;
 	/** Symlink path (destination file/directory) */
-	path: z.string().describe("Symlink path (destination file/directory)"),
+	path: string;
 	/** Condition to check before creating symlink */
-	condition: z
-		.union([
-			z.boolean(),
-			z.function({
-				output: z.custom<Promise<boolean> | boolean>(),
-			}),
-		])
-		.optional()
-		.describe("Condition to check before creating symlink"),
-});
+	condition?: boolean | (() => Promise<boolean> | boolean);
+}
 
-export default function symlink(options: z.input<typeof symlinkSchema>) {
+const symlinkSchema = configSchema<SymlinkOptions>()(
+	z.object({
+		target: z.string().describe("Symlink target (source file/directory)"),
+		path: z.string().describe("Symlink path (destination file/directory)"),
+		condition: z
+			.union([
+				z.boolean(),
+				z.function({
+					input: [],
+					output: z.custom<Promise<boolean> | boolean>(),
+				}),
+			])
+			.optional()
+			.describe("Condition to check before creating symlink"),
+	}),
+);
+
+export default function symlink(options: SymlinkOptions) {
 	const {
 		target,
 		path: symlinkPath,

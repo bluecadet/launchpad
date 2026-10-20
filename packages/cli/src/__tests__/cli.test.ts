@@ -83,4 +83,16 @@ describe("cli run", () => {
 
 		consoleLogSpy.mockRestore();
 	});
+
+	it("reports a config load error for commands that are not built in", async () => {
+		// Plugin commands (e.g. `content fetch`) only exist once the config loads.
+		// When it fails they are unknown to yargs, which silently does nothing.
+		vi.mocked(loadConfigFromFile).mockRejectedValueOnce(new Error("Set SANITY_API_TOKEN"));
+
+		await expect(run(["content", "fetch"])).rejects.toThrow("fatal");
+
+		expect(handleFatalError).toHaveBeenCalledWith(
+			expect.objectContaining({ message: expect.stringContaining("Failed to load config") }),
+		);
+	});
 });

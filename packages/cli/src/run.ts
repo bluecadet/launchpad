@@ -30,6 +30,8 @@ function withGlobalOptions(y: Argv): Argv {
 		.count("verbose");
 }
 
+const BUILT_IN_COMMANDS = ["start", "stop", "status"];
+
 export async function run(argv: string[]): Promise<void> {
 	const { loadConfigAndEnv, handleFatalError } = await import("./utils/command-utils.js");
 	const { registerPluginCliCommands } = await import("./utils/plugin-cli-registration.js");
@@ -138,6 +140,13 @@ export async function run(argv: string[]): Promise<void> {
 	if (!hasCommand && !argv.includes("--version")) {
 		yargsInstance.showHelp("log");
 		return;
+	}
+
+	// Plugin commands only exist once the config loads. If it failed, yargs would
+	// treat them as unknown and exit silently, so surface the load error instead.
+	const [commandName] = parsedGlobal._;
+	if (resolvedConfig.isErr() && !BUILT_IN_COMMANDS.includes(String(commandName))) {
+		handleFatalError(resolvedConfig.error);
 	}
 
 	await yargsInstance.parseAsync();

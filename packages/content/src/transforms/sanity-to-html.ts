@@ -1,15 +1,24 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles, isBlockContent } from "../utils/content-transform-utils.js";
-import { dataKeysSchema } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-const sanityToHtmlSchema = z.object({
+/** Options for the `sanityToHtml` transform. */
+export interface SanityToHtmlOptions {
 	/** JSONPath to the content to transform */
-	path: z.string().describe("JSONPath to the content to transform"),
+	path: string;
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys: dataKeysSchema.optional(),
-});
+	keys?: DataKeys;
+}
+
+const sanityToHtmlSchema = configSchema<SanityToHtmlOptions>()(
+	z.object({
+		path: z.string().describe("JSONPath to the content to transform"),
+		keys: dataKeysSchema.optional(),
+	}),
+);
 
 function tryImportPortableText() {
 	try {
@@ -22,7 +31,7 @@ function tryImportPortableText() {
 	}
 }
 
-export default function sanityToHtml(options: z.input<typeof sanityToHtmlSchema>) {
+export default function sanityToHtml(options: SanityToHtmlOptions) {
 	const { path, keys } = parseTransformConfig("sanityToHtml", sanityToHtmlSchema, options);
 
 	return defineContentTransform({

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import chalk from "chalk";
 import PQueue from "p-queue";
 import type { Sharp } from "sharp";
@@ -16,48 +17,61 @@ import {
 import { ContentProgressLogger } from "../content-progress-logger.js";
 import { type ContentTransformContext, defineContentTransform } from "../content-transform.js";
 import { regexToJSONPathQuery } from "../utils/content-transform-utils.js";
-import { dataKeysSchema } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import * as FileUtils from "../utils/file-utils.js";
 import { FilesystemIdentity } from "../utils/filesystem-identity.js";
 import { parseTransformConfig, queryOrUpdate } from "./content-transform-helpers.js";
 
 const DEFAULT_IMAGE_PATTERN = /\.(jpe?g|png|webp|tiff|gif|svg)$/i;
 
-const sharpPluginSchema = z.object({
+/** Options for the `sharp` transform. */
+export interface SharpOptions {
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys: dataKeysSchema.optional(),
-	/** Regex to match urls to download. */
-	mediaPattern: z
-		.instanceof(RegExp)
-		.describe("Regex to match urls to download.")
-		.default(DEFAULT_IMAGE_PATTERN),
+	keys?: DataKeys;
+	/** Regex to match urls to download. Defaults to common image file extensions. */
+	mediaPattern?: RegExp;
 	/** JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`. */
-	matchPath: z
-		.string()
-		.optional()
-		.describe(
-			"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
-		),
+	matchPath?: string;
 	/**
-	 * Update URLs in the content to point to the transformed images. Defaults to false.
+	 * Update URLs in the content to point to the transformed images. Defaults to `false`.
 	 * Note: if you have multiple transforms targeting the same image, you should set keep the default value of false.
 	 */
-	updateURLs: z
-		.boolean()
-		.default(false)
-		.describe("Update URLs in the content to point to the transformed images"),
+	updateURLs?: boolean;
 	/** The sharp transform to apply to the images. */
-	buildTransform: z
-		.function({
-			input: [z.custom<Sharp>()],
-			output: z.custom<Sharp>(),
-		})
-		.describe("The sharp transform to apply to the images."),
+	buildTransform: (sharp: Sharp) => Sharp;
 	/** Additional cache identity. Does not replace automatic recipe or input fingerprinting. */
-	cacheKey: z.string().optional(),
-	/** The number of images to transform concurrently. Defaults to 4. */
-	concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
-});
+	cacheKey?: string;
+	/** The number of images to transform concurrently. Defaults to `4`. */
+	concurrency?: number;
+}
+
+const sharpPluginSchema = configSchema<SharpOptions>()(
+	z.object({
+		keys: dataKeysSchema.optional(),
+		mediaPattern: z
+			.instanceof(RegExp)
+			.describe("Regex to match urls to download.")
+			.default(DEFAULT_IMAGE_PATTERN),
+		matchPath: z
+			.string()
+			.optional()
+			.describe(
+				"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
+			),
+		updateURLs: z
+			.boolean()
+			.default(false)
+			.describe("Update URLs in the content to point to the transformed images"),
+		buildTransform: z
+			.function({
+				input: [z.custom<Sharp>()],
+				output: z.custom<Sharp>(),
+			})
+			.describe("The sharp transform to apply to the images."),
+		cacheKey: z.string().optional(),
+		concurrency: z.number().default(4).describe("The number of images to transform concurrently."),
+	}),
+);
 
 function tryImportSharp() {
 	try {
@@ -222,7 +236,7 @@ async function prepareImageBatch(
 	return { tasks: preparedTasks, snapshots };
 }
 
-export default function sharp(options: z.input<typeof sharpPluginSchema>) {
+export default function sharp(options: SharpOptions) {
 	const resolvedConfig = parseTransformConfig("sharp", sharpPluginSchema, options);
 
 	return defineContentTransform({

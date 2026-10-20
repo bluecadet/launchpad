@@ -1,3 +1,4 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import type {
 	ImageUrlBuilder,
 	SanityAsset,
@@ -8,34 +9,47 @@ import type {
 import { z } from "zod";
 import { defineContentTransform } from "../content-transform.js";
 import { applyTransformToFiles } from "../utils/content-transform-utils.js";
-import { dataKeysSchema } from "../utils/data-store.js";
+import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-const sanityImageUrlTransformSchema = z.object({
+/** Options for the `sanityImageUrlTransform` transform. */
+export interface SanityImageUrlTransformOptions {
 	/** JSONPath to the content to transform. Defaults to all nodes with an `_type` of `image`. */
-	path: z
-		.string()
-		.describe("JSONPath to the content to transform")
-		.default('$..*[?(@._type=="image")]'),
+	path?: string;
 	/** Data keys to apply the transform to. If not provided, all keys will be transformed. */
-	keys: dataKeysSchema.optional(),
+	keys?: DataKeys;
 	/** Sanity API Token. Required if dataset is private. */
-	apiToken: z.string().describe("Sanity API Token. Required if dataset is private.").optional(),
+	apiToken?: string;
 	/** Sanity Project ID */
-	projectId: z.string().describe("Sanity Project ID"),
-	/** Sanity Dataset. Defaults to 'production' */
-	dataset: z.string().describe("Sanity Dataset").default("production"),
-	/** New Property name. Defaults to 'transformedUrl' */
-	newProperty: z.string().describe("New Property name").default("transformedUrl"),
-	/** Function to build the image URL */
-	buildUrl: z
-		.function({
-			input: [z.custom<ImageUrlBuilder>()],
-			output: z.custom<ImageUrlBuilder>(),
-		})
-		.default((bldr) => bldr)
-		.describe("Function to build the image URL"),
-});
+	projectId: string;
+	/** Sanity Dataset. Defaults to `"production"`. */
+	dataset?: string;
+	/** New Property name. Defaults to `"transformedUrl"`. */
+	newProperty?: string;
+	/** Function to build the image URL. Defaults to returning the builder unchanged. */
+	buildUrl?: (builder: ImageUrlBuilder) => ImageUrlBuilder;
+}
+
+const sanityImageUrlTransformSchema = configSchema<SanityImageUrlTransformOptions>()(
+	z.object({
+		path: z
+			.string()
+			.describe("JSONPath to the content to transform")
+			.default('$..*[?(@._type=="image")]'),
+		keys: dataKeysSchema.optional(),
+		apiToken: z.string().describe("Sanity API Token. Required if dataset is private.").optional(),
+		projectId: z.string().describe("Sanity Project ID"),
+		dataset: z.string().describe("Sanity Dataset").default("production"),
+		newProperty: z.string().describe("New Property name").default("transformedUrl"),
+		buildUrl: z
+			.function({
+				input: [z.custom<ImageUrlBuilder>()],
+				output: z.custom<ImageUrlBuilder>(),
+			})
+			.default((bldr) => bldr)
+			.describe("Function to build the image URL"),
+	}),
+);
 
 function tryImportSanityImage() {
 	try {
@@ -48,9 +62,7 @@ function tryImportSanityImage() {
 	}
 }
 
-export default function sanityImageUrlTransform(
-	options: z.input<typeof sanityImageUrlTransformSchema>,
-) {
+export default function sanityImageUrlTransform(options: SanityImageUrlTransformOptions) {
 	const { path, keys, newProperty, buildUrl, ...rest } = parseTransformConfig(
 		"sanityToHtml",
 		sanityImageUrlTransformSchema,

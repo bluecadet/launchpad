@@ -1,5 +1,6 @@
 import { setMaxListeners } from "node:events";
 import path from "node:path";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import chalk from "chalk";
 import { type Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
@@ -13,68 +14,84 @@ import { parseTransformConfig, queryOrUpdate } from "./content-transform-helpers
 
 const DEFAULT_MEDIA_PATTERN = /https?.*\.(jpe?g|png|webp|avi|mov|mp4|mpg|mpeg|webm)(\?.*)?$/i;
 
-export const mediaDownloaderConfigSchema = z.object({
+/** Options for the `mediaDownloader` transform. */
+export interface MediaDownloaderConfig {
 	/** Data keys to search for media urls. If not provided, all keys will be searched. */
-	keys: z
-		.array(z.string())
-		.optional()
-		.describe("Data keys to search for media urls. If not provided, all keys will be searched."),
-	/** Regex to match urls to download. */
-	mediaPattern: z
-		.instanceof(RegExp)
-		.describe("Regex to match urls to download.")
-		.default(DEFAULT_MEDIA_PATTERN),
+	keys?: string[];
+	/** Regex to match urls to download. Defaults to common image and video file extensions. */
+	mediaPattern?: RegExp;
 	/** JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`. */
-	matchPath: z
-		.union(
-			[z.string(), z.array(z.string())], // Allow single string or array of strings
-		)
-		.optional()
-		.describe(
-			"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
-		),
-	/** Number of concurrent downloads */
-	maxConcurrent: z.int().positive().describe("Number of concurrent downloads").default(4),
-	/** Will always download files regardless of whether they've been cached. Defaults to false. */
-	ignoreCache: z
-		.boolean()
-		.describe("Will always download files regardless of whether they've been cached.")
-		.default(false),
-	/** Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache. Defaults to false. */
-	forceClearTempFiles: z
-		.boolean()
-		.describe(
-			"Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache.",
-		)
-		.default(false),
+	matchPath?: string | string[];
+	/** Number of concurrent downloads. Defaults to `4`. */
+	maxConcurrent?: number;
+	/** Will always download files regardless of whether they've been cached. Defaults to `false`. */
+	ignoreCache?: boolean;
+	/** Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache. Defaults to `false`. */
+	forceClearTempFiles?: boolean;
 	/** Function to transform the local path of the downloaded file. */
-	transformLocalPath: z
-		.function({
-			input: [z.string()],
-			output: z.string(),
-		})
-		.describe("Function to transform the local path of the downloaded file.")
-		.optional(),
+	transformLocalPath?: (path: string) => string;
 	/** Maximum timeout for the HTTP request. Defaults to 10 seconds. */
-	maxTimeout: z.int().positive().describe("Maximum timeout for the HTTP request.").default(10000),
-	/** If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw. Defaults to true. */
-	abortOnError: z
-		.boolean()
-		.describe(
-			"If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw.",
-		)
-		.default(true),
+	maxTimeout?: number;
+	/** If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw. Defaults to `true`. */
+	abortOnError?: boolean;
 	/**
 	 * Update downloaded media URLs in content to point to the new location, relative to the source download directory.
-	 * Defaults to true.
+	 * Defaults to `true`.
 	 */
-	updatePaths: z
-		.boolean()
-		.default(true)
-		.describe(
-			"Update downloaded media URLs in content to point to the new location, relative to the source download directory. This option is required if you want to use the 'sharp' plugin to transform downloaded images.",
-		),
-});
+	updatePaths?: boolean;
+}
+
+export const mediaDownloaderConfigSchema = configSchema<MediaDownloaderConfig>()(
+	z.object({
+		keys: z
+			.array(z.string())
+			.optional()
+			.describe("Data keys to search for media urls. If not provided, all keys will be searched."),
+		mediaPattern: z
+			.instanceof(RegExp)
+			.describe("Regex to match urls to download.")
+			.default(DEFAULT_MEDIA_PATTERN),
+		matchPath: z
+			.union(
+				[z.string(), z.array(z.string())], // Allow single string or array of strings
+			)
+			.optional()
+			.describe(
+				"JSONPath-Plus compatible paths to match urls to download. Overrides `mediaPattern`.",
+			),
+		maxConcurrent: z.int().positive().describe("Number of concurrent downloads").default(4),
+		ignoreCache: z
+			.boolean()
+			.describe("Will always download files regardless of whether they've been cached.")
+			.default(false),
+		forceClearTempFiles: z
+			.boolean()
+			.describe(
+				"Clear transform staging temp files before starting downloads. Does not invalidate the HTTP cache.",
+			)
+			.default(false),
+		transformLocalPath: z
+			.function({
+				input: [z.string()],
+				output: z.string(),
+			})
+			.describe("Function to transform the local path of the downloaded file.")
+			.optional(),
+		maxTimeout: z.int().positive().describe("Maximum timeout for the HTTP request.").default(10000),
+		abortOnError: z
+			.boolean()
+			.describe(
+				"If true, the queue will stop and throw an error if any of the media requests fail. If false, the queue will continue to download the remaining files and log all errors, but not throw.",
+			)
+			.default(true),
+		updatePaths: z
+			.boolean()
+			.default(true)
+			.describe(
+				"Update downloaded media URLs in content to point to the new location, relative to the source download directory. This option is required if you want to use the 'sharp' plugin to transform downloaded images.",
+			),
+	}),
+);
 
 type MediaDownloaderConfigWithDefaults = z.infer<typeof mediaDownloaderConfigSchema>;
 
@@ -141,7 +158,7 @@ export async function findMediaUrls(
 	return returnUrls;
 }
 
-export default function mediaDownloader(config: z.input<typeof mediaDownloaderConfigSchema> = {}) {
+export default function mediaDownloader(config: MediaDownloaderConfig = {}) {
 	for (const removedOption of ["enableIfModifiedSinceCheck", "enableContentLengthCheck"]) {
 		if (Object.hasOwn(config, removedOption)) {
 			throw new MediaDownloaderError(

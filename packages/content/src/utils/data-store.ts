@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { JSONPath } from "jsonpath-plus";
 import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { z } from "zod";
@@ -15,19 +16,20 @@ export class DataStoreError extends Error {
 /**
  * A list containing a combination of namespace ids, and namespace/document id tuples.
  */
-export const dataKeysSchema = z
-	.array(
-		z
-			.string()
-			.or(z.tuple([z.string()]))
-			.or(z.tuple([z.string(), z.string()])),
-	)
-	.describe("A list containing a combination of namespace ids, and namespace/document id tuples.");
+export type DataKeys = (string | [string] | [string, string])[];
 
-/**
- * A list containing a combination of namespace ids, and namespace/document id tuples.
- */
-export type DataKeys = z.infer<typeof dataKeysSchema>;
+export const dataKeysSchema = configSchema<DataKeys>()(
+	z
+		.array(
+			z
+				.string()
+				.or(z.tuple([z.string()]))
+				.or(z.tuple([z.string(), z.string()])),
+		)
+		.describe(
+			"A list containing a combination of namespace ids, and namespace/document id tuples.",
+		),
+);
 
 /**
  * A document represents a single file or resource.

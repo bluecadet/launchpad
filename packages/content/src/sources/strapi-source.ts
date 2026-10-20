@@ -1,3 +1,4 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import type { Logger } from "@bluecadet/launchpad-utils/logger";
 import ky from "ky";
 import qs from "qs";
@@ -5,69 +6,108 @@ import { z } from "zod";
 import { defineSource } from "../source.js";
 import { fetchPaginated } from "../utils/fetch-paginated.js";
 
-const strapiCredentialsSchema = z.union(
-	[
-		z.object({
-			/** Username or email. Should be configured via `./.env.local` */
-			identifier: z.string().describe("Username or email. Should be configured via `./.env.local`"),
-			/** Password. Should be configured via `./.env.local` */
-			password: z.string().describe("Password. Should be configured via `./.env.local`"),
-		}),
-		z.object({
-			/** A previously generated JWT token. */
-			token: z.string().describe("A previously generated JWT token."),
-		}),
-	],
-	{
-		error: (error) => {
-			if (error.code === "invalid_union")
-				return "Either `identifier` and `password` OR a `token` must be provided.";
+/** Strapi credentials: either a username/email and password, or a previously generated JWT token. */
+export type StrapiCredentials = StrapiPasswordCredentials | StrapiTokenCredentials;
 
-			return error.message ?? "";
+export interface StrapiPasswordCredentials {
+	/** Username or email. Should be configured via `./.env.local` */
+	identifier: string;
+	/** Password. Should be configured via `./.env.local` */
+	password: string;
+}
+
+export interface StrapiTokenCredentials {
+	/** A previously generated JWT token. */
+	token: string;
+}
+
+/** A Strapi query for one content type, with explicit query parameters. */
+export interface StrapiQueryObject {
+	/** The content type to query. */
+	contentType: string;
+	/** Query parameters supported by Strapi. */
+	params: Record<string, unknown>;
+}
+
+export interface StrapiSourceBaseOptions {
+	/** Required field to identify this source. Will be used as download path. */
+	id: string;
+	/** Strapi version. Defaults to `"5"`. */
+	version?: "3" | "4" | "5";
+	/** The base url of your Strapi CMS (with or without trailing slash). */
+	baseUrl: string;
+	/**
+	 * Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
+	 * You can include all query parameters supported by Strapi.
+	 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
+	 */
+	queries: (string | StrapiQueryObject)[];
+	/** Max number of entries per page. Defaults to `100`. */
+	limit?: number;
+	/** Max number of pages. Defaults to `1000`. */
+	maxNumPages?: number;
+	/** How many zeros to pad each json filename index with. Defaults to `2`. */
+	pageNumZeroPad?: number;
+}
+
+/** Options for the Strapi source. */
+export type StrapiSourceOptions = StrapiSourceBaseOptions & StrapiCredentials;
+
+const strapiCredentialsSchema = configSchema<StrapiCredentials>()(
+	z.union(
+		[
+			z.object({
+				identifier: z
+					.string()
+					.describe("Username or email. Should be configured via `./.env.local`"),
+				password: z.string().describe("Password. Should be configured via `./.env.local`"),
+			}),
+			z.object({
+				token: z.string().describe("A previously generated JWT token."),
+			}),
+		],
+		{
+			error: (error) => {
+				if (error.code === "invalid_union")
+					return "Either `identifier` and `password` OR a `token` must be provided.";
+
+				return error.message ?? "";
+			},
 		},
-	},
+	),
 );
 
-const strapiSourceSchema = z
-	.object({
-		/** Required field to identify this source. Will be used as download path. */
-		id: z
-			.string()
-			.describe("Required field to identify this source. Will be used as download path."),
-		/** Strapi version. Defaults to `5`. */
-		version: z.enum(["3", "4", "5"]).describe("Strapi version").default("5"),
-		/** The base url of your Strapi CMS (with or without trailing slash). */
-		baseUrl: z
-			.string()
-			.describe("The base url of your Strapi CMS (with or without trailing slash)."),
-		/**
-		 * Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs.
-		 * You can include all query parameters supported by Strapi.
-		 * You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.
-		 */
-		queries: z
-			.array(
-				z.union([
-					z.string(),
-					z.object({ contentType: z.string(), params: z.record(z.string(), z.any()) }),
-				]),
-			)
-			.describe(
-				"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
+const strapiSourceSchema = configSchema<StrapiSourceOptions>()(
+	z
+		.object({
+			id: z
+				.string()
+				.describe("Required field to identify this source. Will be used as download path."),
+			version: z.enum(["3", "4", "5"]).describe("Strapi version").default("5"),
+			baseUrl: z
+				.string()
+				.describe("The base url of your Strapi CMS (with or without trailing slash)."),
+			queries: z
+				.array(
+					z.union([
+						z.string(),
+						z.object({ contentType: z.string(), params: z.record(z.string(), z.unknown()) }),
+					]),
+				)
+				.describe(
+					"Queries for each type of content you want to save. One per content type. Content will be stored as numbered, paginated JSONs. \
 			You can include all query parameters supported by Strapi. \
 			You can also pass an object with a `contentType` and `params` property, where `params` is an object of query parameters.",
-			),
-		/** Max number of entries per page. Defaults to `100`. */
-		limit: z.number().describe("Max number of entries per page").default(100),
-		/** Max number of pages. Defaults to `1000`. */
-		maxNumPages: z.number().describe("Max number of pages").default(1000),
-		/** How many zeros to pad each json filename index with. Defaults to `2`. */
-		pageNumZeroPad: z
-			.number()
-			.describe("How many zeros to pad each json filename index with")
-			.default(2),
-	})
-	.and(strapiCredentialsSchema);
+				),
+			limit: z.number().describe("Max number of entries per page").default(100),
+			maxNumPages: z.number().describe("Max number of pages").default(1000),
+			pageNumZeroPad: z
+				.number()
+				.describe("How many zeros to pad each json filename index with")
+				.default(2),
+		})
+		.and(strapiCredentialsSchema),
+);
 
 type StrapiSourceSchemaOutput = z.output<typeof strapiSourceSchema>;
 
@@ -242,7 +282,7 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 	return response.json().then((json) => json.jwt);
 }
 
-export default async function strapiSource(options: z.input<typeof strapiSourceSchema>) {
+export default async function strapiSource(options: StrapiSourceOptions) {
 	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0", 10);
 
 	if (majorNodeVersion < 20) {

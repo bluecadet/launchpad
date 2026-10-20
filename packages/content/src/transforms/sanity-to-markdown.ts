@@ -5,7 +5,7 @@ import { applyTransformToFiles, isBlockContent } from "../utils/content-transfor
 import { type DataKeys, dataKeysSchema } from "../utils/data-store.js";
 import { parseTransformConfig } from "./content-transform-helpers.js";
 
-/** Options for the `sanityToMd` transform. */
+/** Options for the `sanityToMarkdown` transform. */
 export interface SanityToMdOptions {
 	/** JSONPath to the content to transform */
 	path: string;
@@ -31,8 +31,8 @@ function tryImportBlockToMd() {
 	}
 }
 
-export default function sanityToMd(options: SanityToMdOptions) {
-	const { path, keys } = parseTransformConfig("sanityToMd", sanityToMdSchema, options);
+export function sanityToMarkdown(options: SanityToMdOptions) {
+	const { path, keys } = parseTransformConfig("sanityToMarkdown", sanityToMdSchema, options);
 
 	return defineContentTransform({
 		name: "sanity-to-markdown",

@@ -282,7 +282,7 @@ async function getToken(assembledOptions: StrapiSourceSchemaOutput) {
 	return response.json().then((json) => json.jwt);
 }
 
-export default async function strapiSource(options: StrapiSourceOptions) {
+export async function strapiSource(options: StrapiSourceOptions) {
 	const majorNodeVersion = Number.parseInt(process.versions.node.split(".")?.[0] ?? "0", 10);
 
 	if (majorNodeVersion < 20) {

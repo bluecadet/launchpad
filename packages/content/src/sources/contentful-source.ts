@@ -109,7 +109,7 @@ const contentfulSourceSchema = configSchema<ContentfulSourceOptions>()(
 		.and(contentfulCredentialsSchema),
 );
 
-export default async function contentfulSource(options: ContentfulSourceOptions) {
+export async function contentfulSource(options: ContentfulSourceOptions) {
 	const assembled = contentfulSourceSchema.parse(options);
 
 	let accessToken: string;

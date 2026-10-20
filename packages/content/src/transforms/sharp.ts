@@ -236,7 +236,7 @@ async function prepareImageBatch(
 	return { tasks: preparedTasks, snapshots };
 }
 
-export default function sharp(options: SharpOptions) {
+export function sharp(options: SharpOptions) {
 	const resolvedConfig = parseTransformConfig("sharp", sharpPluginSchema, options);
 
 	return defineContentTransform({

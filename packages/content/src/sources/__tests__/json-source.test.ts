@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import jsonSource from "../json-source.js";
+import { jsonSource } from "../json-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
 
 const { server } = setupMSWServer();

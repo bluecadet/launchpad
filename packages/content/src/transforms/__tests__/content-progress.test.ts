@@ -6,8 +6,8 @@ import { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as httpCache from "../../cache/http-cache.js";
 import type { ContentTransformContext } from "../../content-transform.js";
-import mediaDownloader from "../media-downloader.js";
-import sharp from "../sharp.js";
+import { mediaDownloader } from "../media-downloader.js";
+import { sharp } from "../sharp.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";
 
 vi.unmock("node:fs");

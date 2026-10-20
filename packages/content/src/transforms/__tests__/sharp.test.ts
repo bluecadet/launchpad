@@ -8,7 +8,7 @@ import { type ArtifactCache, createArtifactCache } from "../../cache/artifact-ca
 import * as sharpRecipes from "../../cache/sharp-recipe.js";
 import type { ContentTransformContext } from "../../content-transform.js";
 import type { DataStore } from "../../utils/data-store.js";
-import sharp from "../sharp.js";
+import { sharp } from "../sharp.js";
 import { createTestPluginContext as createBaseContext } from "./plugins.test-utils.js";
 
 vi.unmock("node:fs");

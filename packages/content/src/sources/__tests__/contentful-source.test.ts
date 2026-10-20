@@ -1,7 +1,7 @@
 import { createClient } from "contentful";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import contentfulSource from "../contentful-source.js";
+import { contentfulSource } from "../contentful-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
 
 vi.mock("contentful", async (importOriginal) => {

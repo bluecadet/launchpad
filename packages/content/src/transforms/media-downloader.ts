@@ -158,7 +158,7 @@ export async function findMediaUrls(
 	return returnUrls;
 }
 
-export default function mediaDownloader(config: MediaDownloaderConfig = {}) {
+export function mediaDownloader(config: MediaDownloaderConfig = {}) {
 	for (const removedOption of ["enableIfModifiedSinceCheck", "enableContentLengthCheck"]) {
 		if (Object.hasOwn(config, removedOption)) {
 			throw new MediaDownloaderError(

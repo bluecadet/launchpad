@@ -1,7 +1,7 @@
 import { createClient } from "@sanity/client";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import sanitySource from "../sanity-source.js";
+import { sanitySource } from "../sanity-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
 
 vi.mock("@sanity/client", async (importOriginal) => {

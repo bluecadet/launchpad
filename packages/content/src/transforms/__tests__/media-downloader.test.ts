@@ -5,9 +5,10 @@ import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 import { type ArtifactCache, createArtifactCache } from "../../cache/artifact-cache.js";
-import mediaDownloader, {
+import {
 	findMediaUrls,
 	localFilePathFromUrl,
+	mediaDownloader,
 	mediaDownloaderConfigSchema,
 } from "../media-downloader.js";
 import { createTestPluginContext } from "./plugins.test-utils.js";

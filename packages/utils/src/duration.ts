@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { configSchema } from "./config-schema.js";
 
 export type DurationUnit = "ms" | "s" | "m" | "h";
 
@@ -40,13 +41,16 @@ export function parseDuration(value: string | number): number | null {
  * Zod schema that accepts a duration shorthand string or a raw millisecond
  * number and resolves to the parsed millisecond value.
  */
-export const durationSchema = z.union([z.string(), z.number()]).transform((value, ctx) => {
-	const ms = parseDuration(value);
-	if (ms === null) {
-		ctx.addIssue({ code: "custom", message: `Invalid duration: ${JSON.stringify(value)}` });
-		return z.NEVER;
-	}
-	return ms;
-});
+export const durationSchema = configSchema<Duration>()(
+	z.union([z.string(), z.number()]).transform((value, ctx) => {
+		const ms = parseDuration(value);
+		if (ms === null) {
+			ctx.addIssue({ code: "custom", message: `Invalid duration: ${JSON.stringify(value)}` });
+			return z.NEVER;
+		}
+		return ms;
+	}),
+);
 
-export type Duration = z.input<typeof durationSchema>;
+/** Duration shorthand like `"500ms"`, `"30s"`, `"5m"`, or `"1h"`, or a raw millisecond number. */
+export type Duration = string | number;

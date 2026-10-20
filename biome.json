@@ -1,5 +1,6 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.6/schema.json",
+	"plugins": ["./biome-plugins/config-interface.grit"],
 	"vcs": {
 		"enabled": false,
 		"clientKind": "git",

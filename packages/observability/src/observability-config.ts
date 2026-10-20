@@ -1,63 +1,85 @@
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { z } from "zod";
 import type { ObservabilityDestination, ResourceAttributes } from "./core/destination.js";
 import type { ObservabilityTransport } from "./core/transport.js";
 
-export const observabilityCoreConfigSchema = z.object({
+/** Log batching settings. */
+export interface ObservabilityBatchConfig {
+	/** Flush interval in milliseconds. Defaults to `1000`. */
+	intervalMs?: number;
+	/** Maximum entries per batch before a forced flush. Defaults to `100`. */
+	maxEntries?: number;
+}
+
+/** Log retry buffer settings. */
+export interface ObservabilityBufferConfig {
+	/** Maximum number of failed batches to keep in memory. Defaults to `50`. */
+	maxBatches?: number;
+	/** Maximum number of retry attempts per batch. Defaults to `3`. */
+	maxRetries?: number;
+}
+
+/** Settings shared by every observability mode. */
+export interface ObservabilityCoreConfig {
 	/**
 	 * Event name patterns to include. Supports * wildcards.
-	 * Defaults to log events only. Add patterns like "command:*" or "monitor:*" to include lifecycle events.
+	 * Defaults to log events only (`["log:*"]`). Add patterns like "command:*" or "monitor:*" to include lifecycle events.
 	 */
-	include: z
-		.array(z.string())
-		.default(["log:*"])
-		.describe(
-			"Event-name patterns to export as logs. Supports * wildcards; an empty array includes all available events.",
-		),
+	include?: string[];
 	/**
 	 * Event name patterns to exclude. Takes precedence over include patterns.
+	 * Defaults to `[]`.
 	 */
-	exclude: z
-		.array(z.string())
-		.default([])
-		.describe("Event name patterns to exclude. Takes precedence over include."),
-	/**
-	 * Batching configuration.
-	 */
-	batch: z
-		.object({
-			/** Flush interval in milliseconds. Default: 1000. */
-			intervalMs: z
-				.number()
-				.default(1000)
-				.describe("Maximum wait in milliseconds before flushing a log batch."),
-			/** Maximum entries per batch before a forced flush. Default: 100. */
-			maxEntries: z.number().default(100).describe("Log entries that force a batch flush."),
-		})
-		.default({ intervalMs: 1000, maxEntries: 100 })
-		.describe("Log batching settings."),
-	/**
-	 * Retry buffer configuration.
-	 */
-	buffer: z
-		.object({
-			/** Maximum number of failed batches to keep in memory. Default: 50. */
-			maxBatches: z
-				.number()
-				.default(50)
-				.describe("Failed-log batch limit in legacy transport mode."),
-			/** Maximum number of retry attempts per batch. Default: 3. */
-			maxRetries: z
-				.number()
-				.default(3)
-				.describe(
-					"Log retry limit in memory delivery and retry attempt limit per file-backed batch.",
-				),
-		})
-		.default({ maxBatches: 50, maxRetries: 3 })
-		.describe("Log retry buffer settings."),
-});
+	exclude?: string[];
+	/** Batching configuration. */
+	batch?: ObservabilityBatchConfig;
+	/** Retry buffer configuration. */
+	buffer?: ObservabilityBufferConfig;
+}
 
-export type ObservabilityCoreConfig = z.input<typeof observabilityCoreConfigSchema>;
+const observabilityBatchConfigSchema = configSchema<ObservabilityBatchConfig>()(
+	z.object({
+		intervalMs: z
+			.number()
+			.default(1000)
+			.describe("Maximum wait in milliseconds before flushing a log batch."),
+		maxEntries: z.number().default(100).describe("Log entries that force a batch flush."),
+	}),
+);
+
+const observabilityBufferConfigSchema = configSchema<ObservabilityBufferConfig>()(
+	z.object({
+		maxBatches: z.number().default(50).describe("Failed-log batch limit in legacy transport mode."),
+		maxRetries: z
+			.number()
+			.default(3)
+			.describe(
+				"Log retry limit in memory delivery and retry attempt limit per file-backed batch.",
+			),
+	}),
+);
+
+export const observabilityCoreConfigSchema = configSchema<ObservabilityCoreConfig>()(
+	z.object({
+		include: z
+			.array(z.string())
+			.default(["log:*"])
+			.describe(
+				"Event-name patterns to export as logs. Supports * wildcards; an empty array includes all available events.",
+			),
+		exclude: z
+			.array(z.string())
+			.default([])
+			.describe("Event name patterns to exclude. Takes precedence over include."),
+		batch: observabilityBatchConfigSchema
+			.default({ intervalMs: 1000, maxEntries: 100 })
+			.describe("Log batching settings."),
+		buffer: observabilityBufferConfigSchema
+			.default({ maxBatches: 50, maxRetries: 3 })
+			.describe("Log retry buffer settings."),
+	}),
+);
+
 export type ResolvedObservabilityCoreConfig = z.output<typeof observabilityCoreConfigSchema>;
 
 const MAX_TIMER_MS = 2_147_483_647;
@@ -107,8 +129,8 @@ const resourceAttributesRecordSchema = z
 	});
 
 /** Bounded primitive attributes attached to every signal from one setup. */
-export const resourceAttributesSchema: z.ZodType<ResourceAttributes> = z
-	.unknown()
+export const resourceAttributesSchema: z.ZodType<ResourceAttributes, ResourceAttributes> = z
+	.custom<ResourceAttributes>()
 	.superRefine((resource, context) => {
 		if (typeof resource === "object" && resource !== null && Object.hasOwn(resource, "__proto__")) {
 			context.addIssue({
@@ -122,54 +144,83 @@ export const resourceAttributesSchema: z.ZodType<ResourceAttributes> = z
 	.meta({ configDocs: { inputType: "ResourceAttributes", propertiesFrom: "output" } });
 
 /** Gauge observation cadence. */
-export const observationConfigSchema = z.object({
-	intervalMs: z
-		.number()
-		.int()
-		.positive()
-		.max(MAX_TIMER_MS)
-		.default(30_000)
-		.describe("Gauge observation interval in milliseconds."),
-});
+export interface ObservationConfig {
+	/** Gauge observation interval in milliseconds. Defaults to `30000`. */
+	intervalMs?: number;
+}
 
-export type ObservationConfig = z.input<typeof observationConfigSchema>;
+export const observationConfigSchema = configSchema<ObservationConfig>()(
+	z.object({
+		intervalMs: z
+			.number()
+			.int()
+			.positive()
+			.max(MAX_TIMER_MS)
+			.default(30_000)
+			.describe("Gauge observation interval in milliseconds."),
+	}),
+);
+
 export type ResolvedObservationConfig = z.output<typeof observationConfigSchema>;
 
 /** Bounded destination delivery and shutdown behavior. */
-export const deliveryConfigSchema = z.object({
-	deliveryTimeoutMs: z
-		.number()
-		.int()
-		.positive()
-		.max(MAX_TIMER_MS)
-		.default(5_000)
-		.describe("Deadline in milliseconds for one destination export request."),
-	shutdownTimeoutMs: z
-		.number()
-		.int()
-		.positive()
-		.max(MAX_TIMER_MS)
-		.default(3_000)
-		.describe("Deadline in milliseconds for queue flushes and destination shutdown work."),
-	maxQueuedBatches: z
-		.number()
-		.int()
-		.positive()
-		.max(10_000)
-		.default(50)
-		.describe("Maximum queued batches held in each in-memory signal queue."),
-});
+export interface DeliveryConfig {
+	/** Deadline in milliseconds for one destination export request. Defaults to `5000`. */
+	deliveryTimeoutMs?: number;
+	/** Deadline in milliseconds for queue flushes and destination shutdown work. Defaults to `3000`. */
+	shutdownTimeoutMs?: number;
+	/** Maximum queued batches held in each in-memory signal queue. Defaults to `50`. */
+	maxQueuedBatches?: number;
+}
 
-export type DeliveryConfig = z.input<typeof deliveryConfigSchema>;
+export const deliveryConfigSchema = configSchema<DeliveryConfig>()(
+	z.object({
+		deliveryTimeoutMs: z
+			.number()
+			.int()
+			.positive()
+			.max(MAX_TIMER_MS)
+			.default(5_000)
+			.describe("Deadline in milliseconds for one destination export request."),
+		shutdownTimeoutMs: z
+			.number()
+			.int()
+			.positive()
+			.max(MAX_TIMER_MS)
+			.default(3_000)
+			.describe("Deadline in milliseconds for queue flushes and destination shutdown work."),
+		maxQueuedBatches: z
+			.number()
+			.int()
+			.positive()
+			.max(10_000)
+			.default(50)
+			.describe("Maximum queued batches held in each in-memory signal queue."),
+	}),
+);
+
 export type ResolvedDeliveryConfig = z.output<typeof deliveryConfigSchema>;
 
-/** File delivery uses the controller-owned canonical log; memory captures live events only. */
-export const logStorageConfigSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("file") }).strict(),
-	z.object({ type: z.literal("memory") }).strict(),
-]);
+/** Log delivery backed by the controller-owned canonical log file. */
+export interface FileLogStorageConfig {
+	type: "file";
+}
 
-export type LogStorageConfig = z.input<typeof logStorageConfigSchema>;
+/** Log delivery that captures live events only. */
+export interface MemoryLogStorageConfig {
+	type: "memory";
+}
+
+/** File delivery uses the controller-owned canonical log; memory captures live events only. */
+export type LogStorageConfig = FileLogStorageConfig | MemoryLogStorageConfig;
+
+export const logStorageConfigSchema = configSchema<LogStorageConfig>()(
+	z.discriminatedUnion("type", [
+		z.object({ type: z.literal("file") }).strict(),
+		z.object({ type: z.literal("memory") }).strict(),
+	]),
+);
+
 export type ResolvedLogStorageConfig = z.output<typeof logStorageConfigSchema>;
 
 const destinationSchema = z.custom<ObservabilityDestination>(
@@ -273,65 +324,105 @@ const removedDeploymentGuardSchema = z
 	})
 	.transform(() => ({}));
 
+/** Configuration for the legacy transport-based observability mode. */
+export interface LegacyObservabilityConfig extends ObservabilityCoreConfig {
+	/** Legacy logs-only transports using in-memory delivery. */
+	transports: ObservabilityTransport[];
+	/** Not supported with transports; use destination-based configuration. */
+	resource?: never;
+	/** Destinations and transports cannot be combined. */
+	destinations?: never;
+	/** Not supported with transports; use destination-based configuration. */
+	metrics?: never;
+	/** Not supported with transports; use destination-based configuration. */
+	delivery?: never;
+	/** Only supported with destinations. */
+	logStorage?: never;
+}
+
 /** Configuration schema for the legacy transport-based observability mode. */
-export const legacyObservabilityConfigSchema = removedDeploymentGuardSchema.and(
-	observabilityCoreConfigSchema.extend({
-		transports: transportsSchema,
-		resource: forbiddenConfigField(
-			"Observability resource attributes require destination-based configuration",
-		),
-		destinations: forbiddenConfigField(
-			"Observability destinations and transports cannot be combined",
-		),
-		metrics: forbiddenConfigField("Observability metrics require destination-based configuration"),
-		delivery: forbiddenConfigField(
-			"Observability delivery requires destination-based configuration",
-		),
-		logStorage: forbiddenConfigField(
-			"Observability log storage configuration is only supported with destinations",
-		),
-	}),
+export const legacyObservabilityConfigSchema = configSchema<LegacyObservabilityConfig>()(
+	removedDeploymentGuardSchema.and(
+		observabilityCoreConfigSchema.extend({
+			transports: transportsSchema,
+			resource: forbiddenConfigField(
+				"Observability resource attributes require destination-based configuration",
+			),
+			destinations: forbiddenConfigField(
+				"Observability destinations and transports cannot be combined",
+			),
+			metrics: forbiddenConfigField(
+				"Observability metrics require destination-based configuration",
+			),
+			delivery: forbiddenConfigField(
+				"Observability delivery requires destination-based configuration",
+			),
+			logStorage: forbiddenConfigField(
+				"Observability log storage configuration is only supported with destinations",
+			),
+		}),
+	),
 );
+
+/** Configuration for the destination-based observability mode. */
+export interface DestinationObservabilityConfig extends ObservabilityCoreConfig {
+	/**
+	 * Flat primitive attributes attached to every log and metric. Runtime supplies service.name
+	 * and service.instance.id; the latter cannot be configured.
+	 * Defaults to `{}`.
+	 */
+	resource?: ResourceAttributes;
+	/** Nonempty list of destination factories with nonblank, unique names. */
+	destinations: readonly ObservabilityDestination[];
+	/** Gauge collection settings; `false` disables metrics. Defaults to `{}`. */
+	metrics?: false | ObservationConfig;
+	/** Bounded destination delivery and shutdown behavior. Defaults to `{}`. */
+	delivery?: DeliveryConfig;
+	/** Log delivery source. Defaults to file-backed delivery (`{ type: "file" }`); select memory for live-only queues. */
+	logStorage?: LogStorageConfig;
+	/** Destinations and transports cannot be combined. */
+	transports?: never;
+}
 
 /** Configuration schema for the destination-based observability mode. */
-export const destinationObservabilityConfigSchema = removedDeploymentGuardSchema.and(
-	observabilityCoreConfigSchema.extend({
-		resource: resourceAttributesSchema
-			.prefault({})
-			.describe(
-				"Flat primitive attributes attached to every log and metric. Runtime supplies service.name and service.instance.id; the latter cannot be configured.",
+export const destinationObservabilityConfigSchema = configSchema<DestinationObservabilityConfig>()(
+	removedDeploymentGuardSchema.and(
+		observabilityCoreConfigSchema.extend({
+			resource: resourceAttributesSchema
+				.prefault({})
+				.describe(
+					"Flat primitive attributes attached to every log and metric. Runtime supplies service.name and service.instance.id; the latter cannot be configured.",
+				),
+			destinations: observabilityDestinationsSchema,
+			metrics: z
+				.union([z.literal(false), observationConfigSchema])
+				.prefault({})
+				.describe("Gauge collection settings; false disables metrics."),
+			delivery: deliveryConfigSchema
+				.prefault({})
+				.describe("Bounded destination delivery and shutdown behavior."),
+			logStorage: logStorageConfigSchema
+				.prefault({ type: "file" })
+				.describe(
+					"Log delivery source: retained controller-owned file replay or live-only in-memory batching.",
+				),
+			transports: forbiddenConfigField(
+				"Observability destinations and transports cannot be combined",
 			),
-		destinations: observabilityDestinationsSchema,
-		metrics: z
-			.union([z.literal(false), observationConfigSchema])
-			.prefault({})
-			.describe("Gauge collection settings; false disables metrics."),
-		delivery: deliveryConfigSchema
-			.prefault({})
-			.describe("Bounded destination delivery and shutdown behavior."),
-		/** Defaults to file-backed delivery. Select memory for live-only queues. */
-		logStorage: logStorageConfigSchema
-			.prefault({ type: "file" })
-			.describe(
-				"Log delivery source: retained controller-owned file replay or live-only in-memory batching.",
-			),
-		transports: forbiddenConfigField(
-			"Observability destinations and transports cannot be combined",
-		),
-	}),
+		}),
+	),
 );
 
-/** Complete observability configuration schema for both supported modes. */
-export const observabilityConfigSchema = z.union([
-	destinationObservabilityConfigSchema,
-	legacyObservabilityConfigSchema,
-]);
+/** Complete observability configuration for both supported modes. */
+export type ObservabilityConfig = DestinationObservabilityConfig | LegacyObservabilityConfig;
 
-export type LegacyObservabilityConfig = z.input<typeof legacyObservabilityConfigSchema>;
+/** Complete observability configuration schema for both supported modes. */
+export const observabilityConfigSchema = configSchema<ObservabilityConfig>()(
+	z.union([destinationObservabilityConfigSchema, legacyObservabilityConfigSchema]),
+);
+
 export type ResolvedLegacyObservabilityConfig = z.output<typeof legacyObservabilityConfigSchema>;
-export type DestinationObservabilityConfig = z.input<typeof destinationObservabilityConfigSchema>;
 export type ResolvedDestinationObservabilityConfig = z.output<
 	typeof destinationObservabilityConfigSchema
 >;
-export type ObservabilityConfig = z.input<typeof observabilityConfigSchema>;
 export type ResolvedObservabilityConfig = z.output<typeof observabilityConfigSchema>;

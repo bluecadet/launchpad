@@ -15,10 +15,10 @@ Plugins in Launchpad:
 
 ## Basic Plugin Structure
 
-A plugin is created with `definePlugin` from `@bluecadet/launchpad-utils/plugin-interfaces`:
+A plugin is created with `definePlugin` from `@bluecadet/launchpad/utils/plugin-interfaces`:
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
 export const myPlugin = definePlugin({
@@ -41,6 +41,39 @@ export default defineConfig({
 });
 ```
 
+## Typed Plugin Options
+
+If your plugin takes options, write them as a documented interface and bind your Zod schema to it with `configSchema`. Editors show the interface's comments when users fill in options in `launchpad.config.ts`. A type inferred with `z.input<typeof schema>` loses those comments once the plugin is compiled.
+
+```typescript
+import { configSchema } from '@bluecadet/launchpad/utils/config-schema';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
+import { okAsync } from 'neverthrow';
+import { z } from 'zod';
+
+export interface GreeterOptions {
+  /** Name to greet on startup. Defaults to `"world"`. */
+  name?: string;
+}
+
+const greeterOptionsSchema = configSchema<GreeterOptions>()(
+  z.object({ name: z.string().default('world') })
+);
+
+export function greeter(options: GreeterOptions = {}) {
+  const { name } = greeterOptionsSchema.parse(options);
+  return definePlugin({
+    name: 'greeter',
+    setup(ctx) {
+      ctx.logger.info(`Hello, ${name}!`);
+      return okAsync({});
+    }
+  });
+}
+```
+
+`configSchema` fails type-checking if the schema's input type stops matching the interface, so the two can't drift apart.
+
 ## Receiving Commands
 
 Plugins that handle commands should declare them explicitly in `manifest.commands` and implement `executeCommand()`. The controller only dispatches commands that have been registered through the manifest.
@@ -50,7 +83,7 @@ Plugins that handle commands should declare them explicitly in `manifest.command
 > by attaching the schema to `manifest.commands` and validating again inside `executeCommand()` as needed.
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { errAsync, okAsync } from 'neverthrow';
 import { z } from 'zod';
 
@@ -108,7 +141,7 @@ export default defineConfig({
 Plugins can expose state to the system by calling `ctx.updateState()`. The controller aggregates plugin states and broadcasts patches to connected IPC clients.
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
 type CounterCommand = { type: 'counter-plugin.increment' };
@@ -147,7 +180,7 @@ export const counterPlugin = definePlugin({
 Plugins that want to appear in `launchpad status` can add a `summarize()` hook to their plugin config. The hook receives the aggregated Launchpad state and returns a `Section`, or `null` when the plugin has no status to show.
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import type { LaunchpadState, Section } from '@bluecadet/launchpad-utils/types';
 import { okAsync } from 'neverthrow';
 
@@ -177,7 +210,7 @@ export const counterPlugin = definePlugin({
 The `eventBus` provides cross-plugin event communication. Listen for events emitted by other plugins or the system:
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
 export const listenerPlugin = definePlugin({
@@ -197,7 +230,7 @@ export const listenerPlugin = definePlugin({
 `setup()` runs sequentially in registration order, so a plugin that emits an event during its own setup is invisible to every plugin registered after it. Implement `ready()` for startup work that depends on the rest of the system being present — the controller calls it on every registered plugin once all of them have been set up, sequentially in registration order: each plugin's `ready()` completes before the next one's starts.
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
 export const announcerPlugin = definePlugin({
@@ -222,7 +255,7 @@ A `ready()` that fails is logged and contained: it never fails startup, and the 
 Implement `disconnect()` to release long-lived resources (connections, child processes, timers) when Launchpad shuts down. The controller calls `disconnect()` after the abort signal fires.
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { okAsync } from 'neverthrow';
 
 export const resourcePlugin = definePlugin({
@@ -270,7 +303,7 @@ The `PluginContext` passed to `setup()` provides:
 If your plugin needs to perform async work during setup (e.g. connecting to a database), do it inside `setup()` and return the result wrapped in `ResultAsync`:
 
 ```typescript
-import { definePlugin } from '@bluecadet/launchpad-utils/plugin-interfaces';
+import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
 import { ResultAsync, okAsync } from 'neverthrow';
 
 type DbCommand = { type: 'db-plugin.ping' };

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { formatWithOptions } from "node:util";
+import { configSchema } from "@bluecadet/launchpad-utils/config-schema";
 import { ensureError } from "@bluecadet/launchpad-utils/errors";
 import type { EventBus } from "@bluecadet/launchpad-utils/event-bus";
 import type {
@@ -53,34 +54,59 @@ const DEFAULT_FILE_LOG_FORMAT = winston.format.combine(
 	winston.format.uncolorize(),
 );
 
-const textLogConfigSchema = z
-	.object({
+type FileLogLevel = (typeof FILE_LOG_LEVELS)[number];
+
+/** Optional human-readable log view. */
+export interface TextLogConfig {
+	/** Whether to write the human-readable log view. Defaults to `true`. */
+	enabled?: boolean;
+	/** The least severe level included in the human-readable log view. Defaults to `"info"`. */
+	level?: FileLogLevel;
+}
+
+/** Controller-owned file logging configuration. */
+export interface LogConfig {
+	/** The Winston format for the human-readable log view. Canonical JSONL is unaffected. */
+	format?: winston.Logform.Format;
+	/** The directory where log files are stored, resolved from the project working directory. Defaults to `".logs"`. */
+	dirname?: string;
+	/** The target size of each log segment, such as `"8m"`. */
+	maxSize?: string;
+	/** Maximum age of retained log segments, such as `"28d"`. Count-based values are not supported. */
+	maxFiles?: string;
+	/** @deprecated Source segment names are owner-managed; nondefault values are ignored. */
+	datePattern?: string;
+	/** Optional human-readable view. Canonical JSONL remains enabled. */
+	text?: TextLogConfig;
+	/** Route console methods through the controller logger. Defaults to `true` outside tests. */
+	overrideConsole?: boolean;
+}
+
+const textLogConfigSchema = configSchema<TextLogConfig>()(
+	z.object({
 		enabled: z.boolean().default(true).describe("Whether to write the human-readable log view."),
 		level: z
 			.enum(FILE_LOG_LEVELS)
 			.default("info")
 			.describe("The least severe level included in the human-readable log view."),
-	})
-	.prefault({});
+	}),
+).prefault({});
 
-export const logConfigSchema = z
-	.object({
-		/** The format for the optional human-readable log view. Canonical JSONL is unaffected. */
+export const logConfigSchema = configSchema<LogConfig>()(
+	z.object({
 		format: z
-			.any()
+			.custom<winston.Logform.Format>()
 			.default(DEFAULT_FILE_LOG_FORMAT)
 			.describe(
 				"The Winston format for the human-readable log view; canonical JSONL is unaffected.",
 			)
 			.meta({ configDocs: { inputType: "Format", defaultLabel: "Built-in text format" } }),
-		/** The directory where controller-owned log files are stored. */
 		dirname: z
 			.string()
 			.default(".logs")
 			.describe(
 				"The directory where log files are stored, resolved from the project working directory.",
 			),
-		/** Legacy segment size setting, now applied to the canonical source when it can be parsed. */
 		maxSize: parsedLimitSchema(
 			parseByteSize,
 			1_024,
@@ -88,7 +114,6 @@ export const logConfigSchema = z
 		)
 			.prefault(DEFAULT_SEGMENT_SIZE)
 			.describe("The target size of each log segment."),
-		/** Legacy age-retention setting. Count-based values are no longer supported. */
 		maxFiles: parsedLimitSchema(
 			parseMaxAge,
 			1,
@@ -98,25 +123,22 @@ export const logConfigSchema = z
 			.describe(
 				"Maximum age of retained log segments; accepts positive day-based values, not counts.",
 			),
-		/** Retained for configuration compatibility; source segment names are owner-managed. */
 		datePattern: z
 			.string()
 			.default(DEFAULT_DATE_PATTERN)
 			.describe(
 				"Legacy human log filename date pattern. Nondefault values are ignored with a deprecation warning.",
 			),
-		/** Optional human-readable view. Canonical JSONL remains enabled. */
 		text: textLogConfigSchema.describe(
 			"Optional human-readable log view; canonical JSONL remains enabled.",
 		),
-		/** Whether to override the console methods. */
 		overrideConsole: z
 			.boolean()
 			.default(process.env.NODE_ENV !== "test")
 			.describe("Route console methods through the controller logger.")
 			.meta({ configDocs: { defaultLabel: "true outside tests; false when NODE_ENV is test" } }),
-	})
-	.prefault({});
+	}),
+).prefault({});
 
 export type ResolvedLogConfig = z.output<typeof logConfigSchema>;
 

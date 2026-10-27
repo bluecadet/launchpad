@@ -43,9 +43,14 @@ Launchpad is organized as an npm workspaces monorepo:
 packages/
 ├── cli/           # Command-line interface and configuration management
 ├── content/       # Content fetching and transformation pipeline
+├── controller/    # Plugin host, command routing, state, and IPC/HTTP transports
+├── create/        # Project scaffolding CLI (npm create @bluecadet/launchpad)
 ├── monitor/       # Process monitoring and management via PM2
-├── utils/         # Shared utilities and base functionality
-├── testing/       # Testing utilities and setup
+├── observability/ # Log and metric export to external backends
+├── scheduler/     # Scheduled command plugin
+├── utils/         # Shared types, plugin contracts, logger, and event bus
+├── testing/       # Testing utilities and setup (private)
+├── tsconfig/      # Shared TypeScript configuration (private)
 └── launchpad/     # Meta-package that installs all core packages
 ```
 
@@ -65,17 +70,17 @@ Launchpad is a suite of tools for managing interactive installations. It handles
 The main entry point, which orchestrates the system. It:
 
 - Loads and validates `launchpad.config.js` configuration
-- Initializes the content and monitor subsystems
-- Provides the user-facing CLI commands
+- Starts the controller with the configured plugins
+- Provides the user-facing CLI commands, including commands that plugins declare
 
 #### @bluecadet/launchpad-content
 
 Fetches and transforms content:
 
 - Manages content sources (Airtable, Contentful, Sanity, Strapi, JSON)
-- Runs a content pipeline: setup -> backup -> clear -> fetch -> transform -> restore/cleanup
+- Fetches into a staged directory, then publishes on success (see [Content pipeline flow](#content-pipeline-flow))
 - Stores downloaded content in a filesystem-backed DataStore
-- Extends content transformation through plugins
+- Post-processes content through transforms
 
 #### @bluecadet/launchpad-monitor
 
@@ -86,14 +91,38 @@ Manages application processes and their lifecycle:
 - Manages window state and z-order on Windows through platform-specific APIs
 - Lets plugins react to app lifecycle events
 
+#### @bluecadet/launchpad-controller
+
+Hosts plugins and connects them:
+
+- Registers plugins and runs their setup and shutdown
+- Routes commands to the plugin that owns them
+- Aggregates plugin state and status snapshots
+- Exposes commands and state over IPC and HTTP transports
+- Writes file-backed logs
+
+#### @bluecadet/launchpad-observability
+
+Exports Launchpad logs and metrics to external backends.
+
+#### @bluecadet/launchpad-scheduler
+
+Runs Launchpad commands on a schedule.
+
+#### @bluecadet/create-launchpad
+
+Scaffolds new Launchpad projects.
+
 #### @bluecadet/launchpad-utils
 
-Shared utilities:
+Shared contracts and helpers:
 
-- Centralized logging through `LogManager`, with hierarchical loggers
-- Base `PluginDriver` for plugin lifecycle management
-- Exit handling for graceful shutdown
-- Shared TypeScript configuration
+- The `Logger` interface, with child loggers per module
+- Plugin contracts and `definePlugin()`
+- The typed event bus
+- State patching and status formatting
+
+Shared TypeScript configuration lives in the private `packages/tsconfig` package.
 
 ### Configuration system
 
@@ -178,32 +207,34 @@ When editing schema source during docs development, also run `npm run dev` from 
 
 ### Plugin system
 
-The content and monitor subsystems share a plugin architecture.
+Content, monitor, scheduler, and observability are all controller plugins. `packages/utils/src/plugin-interfaces.ts` defines the contract:
 
-The base plugin driver (`packages/utils/src/plugin-driver.ts`):
+- `definePlugin()` declares a plugin with a `name`, an optional command manifest, and a `setup(ctx)` function that returns the plugin instance.
+- The context gives each plugin a logger, event bus, abort signal, working directory, command dispatch, and its own state slice.
+- Instances can implement `executeCommand()`, `ready()`, and `disconnect()`.
 
-- Runs typed hook functions that plugins implement for specific lifecycle points
-- Runs hooks sequentially or in parallel
-- Gives each plugin a context with a logger, abort signal, and working directory
+The controller (`packages/controller/src/launchpad-controller.ts`) registers plugins, routes commands, and aggregates state. Plugins communicate through the event bus and `dispatchCommand`, not through direct references.
 
-Content plugins (`packages/content/src/content-plugin-driver.ts`) run after content fetch to transform or post-process downloaded content.
+Content transforms (`packages/content/src/content-transform.ts`, built-ins in `packages/content/src/transforms/`) post-process fetched content.
 
-Monitor plugins (`packages/monitor/src/core/monitor-plugin-driver.ts`) react to app lifecycle events for monitoring, logging, notifications, and custom app management.
+The monitor emits app lifecycle events (`packages/monitor/src/monitor-events.ts`) on the event bus for other plugins to react to.
 
 ### Content pipeline flow
 
-A content fetch runs these steps:
+A content fetch writes to a staged directory and publishes only on success. `packages/content/src/fetching/fetch-run.ts` runs these stages:
 
-1. Setup: load sources from config and initialize plugins.
-2. Backup (optional): back up existing downloads.
-3. Clear: remove old downloads, respecting the config's `keep` patterns.
-4. Fetch: run all source fetch functions in parallel.
+1. Backup (flat output with `backupAndRestore` only): copy existing downloads.
+2. Prepare staging: create a staged directory per source, seeded with files matching the config's `keep` patterns.
+3. Fetch: run all source fetch functions in parallel.
    - Sources return documents shaped `{ id, data }`.
    - Data can be a Promise or AsyncIterable.
    - The DataStore stores documents namespaced by source ID.
-5. Transform: run content transforms on the fetched content.
-6. Restore: on failure, restore from backup if enabled.
+4. Transform: run content transforms in order on the staged content.
+5. Finalize: publish the staged output. Flat output replaces the published downloads. Versioned output moves it into `versions/<versionId>/` and atomically replaces `manifest.json`.
+6. Sweep (versioned only): delete versions outside the retention set.
 7. Cleanup: remove temporary and backup directories.
+
+On failure, published content stays untouched. The run discards its partial output and, in flat mode with `backupAndRestore`, restores from backup if publication had already started. See [Content versioning](./docs/reference/content/versioning.md).
 
 Content sources (`packages/content/src/sources/`) implement the `ContentSource` interface with `id` and `fetch(context)`. They receive a `FetchContext` holding a logger, the DataStore instance, and an AbortSignal.
 
@@ -261,7 +292,7 @@ npm test -- <file-pattern>
 
 ### Branch strategy
 
-- `main` is the primary development branch. Target all PRs at it.
+- Target all PRs at `main`. Pushes to `main` trigger the release workflow.
 - Create feature branches from `main` with descriptive names, such as `feat/controller-mode` or `fix/content-timing`.
 
 ### Code style
@@ -313,7 +344,7 @@ With neverthrow:
 
 Tests use Vitest. Custom setup lives in `packages/testing/src/setup.ts` and utilities in `packages/testing/src/test-utils.ts`.
 
-Content plugin tests have specialized utilities in `packages/content/src/plugins/__tests__/plugins.test-utils.ts`.
+Content transform tests have specialized utilities in `packages/content/src/transforms/__tests__/plugins.test-utils.ts`. Monitor core tests use `packages/monitor/src/core/__tests__/core.test-utils.ts`.
 
 ### Expected logging diagnostics
 
@@ -636,26 +667,26 @@ Check existing tags and releases before creating anything. Never republish a pub
 
 ### Abort signals
 
-Every long-running operation receives an `AbortSignal`. Check and respect it:
+Every long-running operation receives an `AbortSignal`. Check and respect it. In this example source, `data` is an async iterable that stops paging when the run aborts:
 
 ```typescript
-export async function fetchData(context: FetchContext) {
-  const { abortSignal, logger } = context;
+// packages/content/src/sources/paged-source.ts
+import { defineSource, type FetchContext } from "../source.js";
 
-  try {
-    // Poll for data with abort check
-    while (!abortSignal.aborted) {
-      const data = await fetchNextBatch();
-      yield { id: `item-${data.id}`, data };
-    }
-  } catch (error) {
-    if (abortSignal.aborted) {
-      logger.verbose('Operation aborted');
-      return;
-    }
-    throw error;
+async function* fetchPages({ abortSignal, logger }: FetchContext) {
+  let page = 0;
+  while (!abortSignal.aborted) {
+    const batch = await fetchPage(page++, { signal: abortSignal });
+    if (batch.length === 0) return;
+    yield batch;
   }
+  logger.verbose("Fetch aborted");
 }
+
+export default defineSource({
+  id: "paged",
+  fetch: (context) => ({ id: "items", data: fetchPages(context) }),
+});
 ```
 
 ### Testing private functions

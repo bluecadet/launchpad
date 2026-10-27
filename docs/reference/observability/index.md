@@ -33,7 +33,7 @@ export default defineConfig({
 });
 ```
 
-This setup sends logs and periodic gauges as binary OTLP/HTTP protobuf, not gRPC. The recipient must support the selected encoding. Omit `encoding` to use the default OTLP/HTTP JSON encoding. `resource` is optional; Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`. No telemetry is sent to Bluecadet automatically. Use [`signals`](./signals.md) to review each built-in observation before enabling export.
+This setup sends logs and periodic gauges as binary OTLP/HTTP protobuf, not gRPC. The recipient must support the selected encoding; omit `encoding` to use OTLP/HTTP JSON. Launchpad always supplies `service.name` and a runtime-generated `service.instance.id`, so `resource` is optional. Launchpad sends no telemetry to Bluecadet. Review each built-in observation in [`signals`](./signals.md) before enabling export.
 
 ## Choose a destination
 
@@ -43,15 +43,15 @@ This setup sends logs and periodic gauges as binary OTLP/HTTP protobuf, not gRPC
 | [Loki](./destinations/loki.md) | Logs only | You send logs directly to Grafana Loki |
 | [Custom](./custom-destinations.md) | Logs, metrics, or both | You need another protocol or backend |
 
-Traces, histograms, and percentiles are not implemented. A destination that requests an unsupported signal fails configuration validation rather than silently ignoring it.
+Traces, histograms, and percentiles are not implemented. A destination that requests an unsupported signal fails configuration validation.
 
 ## How collection works
 
-Log selection uses `include` and `exclude`; the default is `include: ['log:*']`. Metric collection is independent of those event filters. Every observation cycle asks the controller and registered plugins for bounded gauges derived from their current state.
+`include` and `exclude` select logs; the default is `include: ['log:*']`. These event filters do not affect metrics. Each observation cycle asks the controller and registered plugins for bounded gauges derived from their current state.
 
-Gauges describe the state observed at collection time. They are not health checks, desired state, or evidence that every expected machine or app exists. In particular, Launchpad does not export an overall content-freshness or generated-at guarantee.
+Gauges describe the state observed at collection time. They are not health checks, desired state, or evidence that every expected machine or app exists. Launchpad exports no overall content-freshness or generated-at guarantee.
 
-Configured destinations deliver logs from the controller-owned canonical JSONL with a durable checkpoint per destination by default. A new destination backfills from the oldest retained record, which can increase ingestion costs or encounter backend timestamp rejection. Set `logStorage: { type: 'memory' }` for ephemeral delivery or custom exporters without replay support. The default source contains canonical records only, not all raw custom bus events; event filters cannot recover events the controller did not record. An unavailable file source does not trigger a memory fallback. File delivery can replay retained logs after restart, but retention, disk failures, backend rejection, and ambiguous acknowledgements still prevent exactly-once or lossless guarantees. Metrics remain latest-state in-memory snapshots.
+By default, destinations deliver logs from the controller-owned canonical JSONL with a durable checkpoint per destination. A new destination backfills from the oldest retained record, which can raise ingestion costs or hit backend timestamp limits. Set `logStorage: { type: 'memory' }` for ephemeral delivery or for custom exporters without replay support. The default source holds canonical records only, not every raw custom bus event, and event filters cannot recover events the controller did not record. An unavailable file source does not fall back to memory. File delivery replays retained logs after restart, but retention, disk failures, backend rejection, and ambiguous acknowledgements still rule out exactly-once or lossless delivery. Metrics stay latest-state in-memory snapshots.
 
 ## Next steps
 

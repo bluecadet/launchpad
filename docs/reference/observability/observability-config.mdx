@@ -1,14 +1,14 @@
 ---
-title: "Observability Config"
+title: "Observability config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 
-`observability()` accepts destination mode or the legacy transport mode. Do not configure `destinations` and `transports` together.
+`observability()` accepts destination mode or legacy transport mode. Do not configure `destinations` and `transports` together.
 
 ## Destination mode
 
-Configured destinations read the controller's canonical file by default. File directory and retention policy belong to the controller:
+By default, destinations read the controller's canonical file. The controller owns the file directory and retention policy:
 
 ```typescript
 export default defineConfig({
@@ -26,7 +26,7 @@ export default defineConfig({
 });
 ```
 
-Omitting `logStorage` is equivalent to `{ type: 'file' }`. Use `{ type: 'memory' }` to opt out of retained log delivery. The remaining destination options are independent of the controller's file policy:
+Omitting `logStorage` is equivalent to `{ type: 'file' }`. Use `{ type: 'memory' }` to opt out of retained log delivery. The other destination options do not depend on the controller's file policy:
 
 ```typescript
 observability({
@@ -43,13 +43,13 @@ observability({
 });
 ```
 
-Input defaults precede transforms and runtime setup; for example, resource identity is supplied at runtime. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+Input defaults apply before transforms and runtime setup; for example, resource identity is supplied at runtime. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `resource`
 
 <ConfigReference id="observability-destination-options" property="resource" includeChildren />
 
-A flat set of resource attributes attached to every exported log and metric. Attribute names and meanings are caller-defined; Launchpad does not give special meaning to client, project, installation, organization, or environment attributes.
+A flat set of resource attributes attached to every exported log and metric. The caller defines attribute names and meanings; Launchpad assigns no special meaning to client, project, installation, organization, or environment attributes.
 
 Launchpad supplies only these defaults:
 
@@ -58,37 +58,38 @@ Launchpad supplies only these defaults:
 | `service.name` | `'launchpad'` | May be replaced with a nonblank string |
 | `service.instance.id` | A runtime-generated UUID | Runtime-owned; configuring it is rejected |
 
-The runtime generates a new `service.instance.id` during each plugin setup. No other resource attributes are added automatically. The own key `__proto__` is rejected to prevent prototype-key data loss.
+The runtime generates a new `service.instance.id` during each plugin setup and adds no other attributes. An own `__proto__` key is rejected to prevent prototype-key data loss.
 
-A resource can contain at most 64 configured attributes. Keys must be nonempty and at most 128 characters. String values are limited to 1,024 characters, and number values must be finite. Nested objects, arrays, `null`, and `undefined` are not supported.
+A resource can contain at most 64 configured attributes. Keys must be nonempty and at most 128 characters. String values are limited to 1,024 characters, and numbers must be finite. Nested objects, arrays, `null`, and `undefined` are not supported.
 
-Resource attributes and metric-point attributes are separate scopes. Resource attributes are attached to every signal but are not copied into each metric point. Metric points retain their own bounded `attributes`; only `service.name` and `service.instance.id` are reserved there.
+Resource attributes and metric-point attributes are separate scopes. Resource attributes are attached to every signal but not copied into metric points. Metric points keep their own bounded `attributes`, where only `service.name` and `service.instance.id` are reserved.
 
 ### `destinations`
 
 <ConfigReference id="observability-destination-options" property="destinations" />
 
-At least one destination is required. Each destination declares the exporters it supports. Names must be nonblank and unique after trimming within the plugin because they identify the delivery target in diagnostics and file-delivery checkpoints.
+At least one destination is required. Each destination declares the exporters it supports. Names identify the delivery target in diagnostics and file-delivery checkpoints, so they must be nonblank and, after trimming, unique within the plugin.
 
-The name `__proto__` is reserved because destination health is stored in ordinary objects; this name would change the object's prototype and break state updates or serialization. Names such as `constructor`, `prototype`, and `toString` remain supported. All names are validated during setup before any destination exporter factories run.
+The name `__proto__` is reserved because destination health is stored in ordinary objects, where that name would change the prototype and break state updates or serialization. Names such as `constructor`, `prototype`, and `toString` are allowed. Setup validates all names before any destination exporter factory runs.
 
 ### `logStorage`
 
 <ConfigReference id="observability-destination-options" property="logStorage" includeChildren />
 
-Selects the log delivery source. Omitted or `{ type: 'file' }` uses checkpointed delivery from the controller-owned canonical JSONL. Explicit `{ type: 'memory' }` uses bounded in-memory batching without replay, suitable for tests, ephemeral delivery, or custom log exporters that do not support replay. This opt-out does not disable controller logging.
+Selects the log delivery source. Omitted or `{ type: 'file' }` uses checkpointed delivery from the controller-owned canonical JSONL. `{ type: 'memory' }` uses bounded in-memory batching without replay, for tests, ephemeral delivery, or custom log exporters without replay support. Memory delivery does not disable controller logging.
 
-File delivery is available only in destination mode and only for destinations with a log exporter. Legacy `transports` retain their existing in-memory path and reject both `{ type: 'file' }` and `{ type: 'memory' }`. The logging owner controls the directory, format, rotation, and retention; `logStorage` does not accept directory, size, or age settings.
+File delivery is available only in destination mode and only for destinations with a log exporter. Legacy `transports` keep their in-memory path and reject both `{ type: 'file' }` and `{ type: 'memory' }`. The controller's logging config controls directory, format, rotation, and retention; `logStorage` accepts no directory, size, or age settings.
 
-Each destination reads independently. A newly enrolled destination starts at the oldest canonical record still retained. After an acknowledged export, an atomic checkpoint records its progress. Restarting with the same destination `name`, credential-free `checkpointKey`, and controller log source resumes from that checkpoint. Built-in Loki and OTLP destinations derive the key from their normalized endpoint. Changing the name or endpoint enrolls a new reader at the oldest retained record. Rotating a token or headers keeps the existing checkpoint.
+Each destination reads independently. A new destination starts at the oldest retained canonical record. After each acknowledged export, an atomic checkpoint records its progress. Restarting with the same destination `name`, credential-free `checkpointKey`, and controller log source resumes from that checkpoint. Built-in Loki and OTLP destinations derive the key from their normalized endpoint. Changing the name or endpoint starts a new reader at the oldest retained record. Rotating a token or headers keeps the existing checkpoint.
 
-**Backfill warning:** enabling a destination can immediately export historical records, increasing ingestion costs. Backends may reject records older than their accepted timestamp window. Check retained data and backend policy before enrollment. Bounded controller retention can expire unread records, and a lost acknowledgement can cause duplicate replay; delivery is neither lossless nor exactly once.
+> [!WARNING]
+> Enabling a destination can immediately export historical records and raise ingestion costs. Backends may reject records older than their accepted timestamp window. Check retained data and backend policy first. Bounded controller retention can expire unread records, and a lost acknowledgement can cause duplicate replay; delivery is neither lossless nor exactly once.
 
-Memory delivery does not advance file checkpoints. Switching from memory to file resumes from an existing checkpoint, or the oldest retained record if none exists, and may replay records already sent from memory.
+Memory delivery does not advance file checkpoints. Switching from memory to file resumes from the existing checkpoint, or from the oldest retained record if none exists, and may replay records already sent from memory.
 
-For endpoints shared by multiple accounts, such as a common Grafana gateway, credentials are deliberately excluded from checkpoint identity. Change the destination name when switching accounts so the new account does not inherit the old account's delivery position.
+Credentials are excluded from checkpoint identity, which matters for endpoints shared by multiple accounts, such as a common Grafana gateway. Change the destination name when switching accounts so the new account does not inherit the old account's delivery position.
 
-File delivery preserves each record's original timestamp and resource snapshot. Custom log exporters must provide a stable `checkpointKey` and an `exportCanonical(batch, context)` method that honors the batch's historical resource snapshot; otherwise configure explicit memory delivery. See [custom destination support](/reference/observability/custom-destinations/#file-delivery-support). An unavailable canonical file source never causes an automatic fallback to memory. Metrics always remain latest, coalesced in-memory snapshots and are not reconstructed from the log.
+File delivery preserves each record's original timestamp and resource snapshot. Custom log exporters must provide a stable `checkpointKey` and an `exportCanonical(batch, context)` method that honors the batch's historical resource snapshot, or use memory delivery. See [custom destination support](/reference/observability/custom-destinations/#file-delivery-support). An unavailable canonical file source never falls back to memory. Metrics are always latest, coalesced in-memory snapshots and are never reconstructed from the log.
 
 ### `include`
 
@@ -96,7 +97,7 @@ File delivery preserves each record's original timestamp and resource snapshot. 
 
 Event-name patterns to export as logs. `*` is a wildcard. An empty array includes all available events.
 
-In default file delivery, these filters select only [canonical records captured by the controller](/reference/controller/logging/#recorded-events), not every raw custom bus event. Use explicit memory delivery if you need the legacy live-bus capture behavior for custom events; changing `include` cannot add unrecorded events to the canonical source.
+In default file delivery, these filters select only [canonical records captured by the controller](/reference/controller/logging/#recorded-events), not every raw custom bus event. `include` cannot add unrecorded events to the canonical source; use memory delivery to capture custom events from the live bus.
 
 ### `exclude`
 
@@ -110,13 +111,13 @@ Event-name patterns to suppress. Exclusions take precedence over inclusions.
 
 <ConfigReference id="observability-destination-options" property="batch" includeChildren />
 
-Batching controls how often logs are flushed and how many entries force a flush.
+Controls how often logs flush and how many entries force a flush.
 
 ### `buffer`
 
 <ConfigReference id="observability-destination-options" property="buffer" includeChildren />
 
-In destination mode, `delivery.maxQueuedBatches` bounds each in-memory signal queue. Metric batches coalesce to the latest queued observation and are not retried. File-backed logs remain available from the canonical log until their checkpoint advances or controller retention removes them. Queue limits do not create a second sidecar or spool.
+In destination mode, `delivery.maxQueuedBatches` bounds each in-memory signal queue. Metric batches coalesce to the latest queued observation and are not retried. File-backed logs stay in the canonical log until their checkpoint advances or controller retention removes them; queue limits create no separate spool.
 
 ### `metrics`
 
@@ -147,4 +148,4 @@ observability({
 });
 ```
 
-Legacy mode is logs-only and preserves the existing in-memory batching, retry buffer, events, options, and plain-text Loki lines. The `resource`, `destinations`, `metrics`, `delivery`, and `logStorage` options belong to destination mode and are rejected in legacy mode. This includes `logStorage` with either `'file'` or `'memory'`, as well as `metrics: false`, `metrics: {}`, or `delivery: {}`. Omit these options in legacy mode. See [Migrate from transports](/reference/observability/migration/) before switching an existing deployment.
+Legacy mode is logs-only and keeps the existing in-memory batching, retry buffer, events, options, and plain-text Loki lines. It rejects the destination-mode options `resource`, `destinations`, `metrics`, `delivery`, and `logStorage`, including `logStorage` with `'file'` or `'memory'`, `metrics: false`, `metrics: {}`, and `delivery: {}`. Omit them entirely. See [Migrate from transports](/reference/observability/migration/) before switching an existing deployment.

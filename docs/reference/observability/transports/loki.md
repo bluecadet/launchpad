@@ -1,7 +1,7 @@
 ---
-title: "Loki Transport"
+title: "Loki transport"
 ---
-The built-in Loki transport delivers legacy plain-text log batches to [Grafana Loki](https://grafana.com/oss/loki/) via its HTTP push API (`/loki/api/v1/push`). It remains available for compatibility. New deployments should use the [structured Loki destination](../destinations/loki.md); review the [migration guide](../migration.md) before switching an existing stream.
+The Loki transport delivers legacy plain-text log batches to [Grafana Loki](https://grafana.com/oss/loki/) through its HTTP push API (`/loki/api/v1/push`). It remains for compatibility. New deployments should use the [structured Loki destination](../destinations/loki.md); read the [migration guide](../migration.md) before switching an existing stream.
 
 ## Usage
 
@@ -30,7 +30,7 @@ export default defineConfig({
 **Type:** `string`  
 **Required:** Yes
 
-Base URL of the Loki instance. The push endpoint `/loki/api/v1/push` is appended automatically. Do not include a trailing slash.
+Base URL of the Loki instance, without a trailing slash. The transport appends `/loki/api/v1/push`.
 
 ```typescript
 createLokiTransport({ url: 'http://loki:3100' })
@@ -42,7 +42,7 @@ createLokiTransport({ url: 'https://logs-prod-us-central1.grafana.net' })
 **Type:** `Record<string, string>`  
 **Default:** `{}`
 
-Static label key-value pairs applied to every log stream from this transport. Labels are how Grafana Loki indexes and filters logs — keep cardinality low by using stable values like app name, environment, and location.
+Static labels applied to every log stream from this transport. Loki indexes and filters logs by label, so keep cardinality low with stable values such as app name, environment, and location.
 
 ```typescript
 createLokiTransport({
@@ -56,7 +56,7 @@ createLokiTransport({
 ```
 
 > [!NOTE]
-> **Dynamic labels from log entries.** The transport automatically adds `level` and `module` labels to log streams (from `log:*` events), and `level: "event"` plus `event` labels for lifecycle events. Only use `defaultLabels` for stable, low-cardinality identifiers.
+> The transport adds `level` and `module` labels to streams from `log:*` events, and `level: "event"` plus an `event` label for lifecycle events. Use `defaultLabels` only for stable, low-cardinality identifiers.
 
 ### `auth`
 
@@ -91,7 +91,7 @@ createLokiTransport({
 **Type:** `Record<string, string>`  
 **Default:** `{}`
 
-Additional HTTP headers to include with every push request. Useful for proxies, API gateways, or custom authentication schemes.
+Additional HTTP headers sent with every push request, for proxies, API gateways, or custom authentication schemes.
 
 ```typescript
 createLokiTransport({
@@ -104,11 +104,11 @@ createLokiTransport({
 
 ## Stream label schema
 
-The Loki transport groups log entries into streams based on their labels. Two entries with identical label sets share a stream; entries with different labels get separate streams.
+The transport groups log entries into streams by label set. Entries with identical labels share a stream.
 
 | Event type | Labels |
 |---|---|
 | `log:info`, `log:warn`, etc. | `defaultLabels` + `level: "info"` + `module: "..."` (if present) |
 | Any other event (lifecycle, commands, etc.) | `defaultLabels` + `level: "event"` + `event: "monitor:app:crash"` |
 
-Keep `defaultLabels` to a small, stable set (app, env, location) to avoid stream explosion.
+Keep `defaultLabels` small and stable (app, env, location) to limit the number of streams.

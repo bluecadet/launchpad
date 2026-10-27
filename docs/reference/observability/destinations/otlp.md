@@ -1,8 +1,8 @@
 ---
-title: "OTLP/HTTP Destination"
+title: "OTLP/HTTP destination"
 ---
 
-`createOtlpDestination()` exports logs and gauges as OTLP/HTTP using native `fetch`. JSON is the default encoding; binary protobuf is available for recipients that support OTLP/HTTP protobuf. It does not require an OpenTelemetry SDK or configure global OpenTelemetry providers.
+`createOtlpDestination()` exports logs and gauges as OTLP/HTTP using native `fetch`. JSON is the default encoding; binary protobuf is available for recipients that support it. The destination needs no OpenTelemetry SDK and configures no global OpenTelemetry providers.
 
 ```typescript
 import { createOtlpDestination } from '@bluecadet/launchpad/observability/destinations/otlp';
@@ -11,11 +11,11 @@ const endpoint = 'https://collector.example.com/otlp';
 const destination = createOtlpDestination({ endpoint, encoding: 'protobuf' });
 ```
 
-`'protobuf'` selects binary OTLP/HTTP protobuf, not gRPC. Omit `encoding` to preserve the default JSON behavior. The collector or vendor receiving telemetry must support the selected OTLP/HTTP encoding.
+`'protobuf'` selects binary OTLP/HTTP protobuf, not gRPC. Omit `encoding` for JSON. The receiving collector or vendor must support the selected encoding.
 
-The factory returns an inert destination definition. Configuration is validated when the observability plugin calls `destination.create()` during setup. Invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result` rather than catching factory exceptions.
+The factory returns an inert destination definition. The observability plugin validates options when it calls `destination.create()` during setup; invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result`.
 
-An explicitly supplied `token` must be nonblank. For an optional environment variable, normalize missing or whitespace-only values to `undefined` while preserving configured token bytes: `token: token?.trim() ? token : undefined`. The generated Launchpad config does this automatically.
+A supplied `token` must be nonblank. When reading it from an optional environment variable, map missing or whitespace-only values to `undefined` and pass other values through unchanged: `token: token?.trim() ? token : undefined`. The generated Launchpad config already does this.
 
 ## Options
 
@@ -28,14 +28,14 @@ An explicitly supplied `token` must be nonblank. For an optional environment var
 | `headers` | `Record<string, string>` | `{}` | Additional request headers |
 | `signals` | `('logs' \| 'metrics')[]` | `['logs', 'metrics']` | Exporters to enable |
 
-At least one signal is required and duplicates are rejected. The endpoint cannot contain credentials, a query, or a fragment. `/v1/logs` and `/v1/metrics` are appended to its path automatically for both encodings. JSON requests and responses use `Content-Type: application/json`; protobuf requests and responses use `Content-Type: application/x-protobuf`. The destination selects both request and response decoding from `encoding`. The managed `Content-Type` and, when `token` is supplied, `Authorization: Bearer …` override headers with those names.
+At least one signal is required, and duplicates are rejected. The endpoint cannot contain credentials, a query, or a fragment. `/v1/logs` and `/v1/metrics` are appended to its path for both encodings. JSON requests and responses use `Content-Type: application/json`; protobuf requests and responses use `Content-Type: application/x-protobuf`. `encoding` sets both request encoding and response decoding. The managed `Content-Type` and, when `token` is supplied, `Authorization: Bearer ...` override custom headers with those names.
 
-Authentication, batching, resource attributes, partial-success handling, and retries work the same for both encodings. The destination accepts HTTP 200 as OTLP success and reads OTLP partial-success rejection counts. It marks HTTP 429, 502, 503, and 504 as retryable and honors `Retry-After`; other non-200 statuses are permanent failures. Non-200 response bodies are cancelled without waiting for them to finish streaming. Requests still remain bounded by `delivery.deliveryTimeoutMs` and queue limits. Payload compression is not configured by `encoding`.
+Authentication, batching, resource attributes, partial-success handling, and retries work the same for both encodings. The destination treats HTTP 200 as success and reads OTLP partial-success rejection counts. HTTP 429, 502, 503, and 504 are retryable, and the destination honors `Retry-After`; other non-200 statuses are permanent failures. Non-200 response bodies are cancelled without waiting for them to finish streaming. `delivery.deliveryTimeoutMs` and queue limits bound every request. `encoding` does not configure payload compression.
 
-With default file delivery, the destination derives its credential-free checkpoint key from the normalized endpoint. Token, headers, encoding, and signal selection do not affect that key. Changing only credentials preserves the checkpoint; changing the endpoint enrolls a new reader. If two accounts share one endpoint, change the destination `name` when switching accounts. Replayed OTLP records preserve their stored timestamps and resource snapshots. Confirm that the receiver accepts timestamps as old as the controller's retention window.
+With default file delivery, the destination derives its credential-free checkpoint key from the normalized endpoint. Token, headers, encoding, and signal selection do not affect the key. Changing only credentials preserves the checkpoint; changing the endpoint starts a new reader. If two accounts share one endpoint, change the destination `name` when switching accounts. Replayed records keep their stored timestamps and resource snapshots; confirm that the receiver accepts timestamps as old as the controller's retention window.
 
-Logs use the `@bluecadet/launchpad-observability` instrumentation scope. Metadata is bounded, normalized, and key-redacted before encoding. Every configured resource attribute is encoded in the OTLP resource for both logs and metrics. Metric-point attributes remain a separate scope and are not populated from the resource. Metrics are OTLP gauges. Invalid or non-finite records are rejected rather than sent.
+Logs use the `@bluecadet/launchpad-observability` instrumentation scope. Metadata is bounded, normalized, and key-redacted before encoding. Every configured resource attribute is encoded in the OTLP resource for both logs and metrics. Metric-point attributes are a separate scope and are not populated from the resource. Metrics are OTLP gauges. Invalid or non-finite records are rejected, not sent.
 
-Backends differ in how they expose OTLP resource attributes as queryable labels. Configure resource-to-label mapping in your collector when dashboards or alerts depend on those labels.
+Backends differ in how they expose OTLP resource attributes as queryable labels. If dashboards or alerts depend on those labels, configure resource-to-label mapping in your collector.
 
-This implementation is covered by HTTP payload and response fixture tests. It has not been validated against a live OpenTelemetry Collector in this release environment.
+HTTP payload and response fixture tests cover this implementation. It has not been validated against a live OpenTelemetry Collector.

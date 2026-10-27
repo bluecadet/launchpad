@@ -1,5 +1,5 @@
 ---
-title: "Loki Destination"
+title: "Loki destination"
 ---
 
 `createLokiDestination()` exports structured, versioned JSON log records to Grafana Loki. Loki is logs-only; use [OTLP](./otlp.md) for metrics.
@@ -19,7 +19,7 @@ const destination = createLokiDestination({
 });
 ```
 
-The factory returns an inert destination definition. Configuration is validated when the observability plugin calls `destination.create()` during setup. Invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result` rather than catching factory exceptions.
+The factory returns an inert destination definition. The observability plugin validates options when it calls `destination.create()` during setup; invalid options return a non-retryable `Err` instead of throwing while your config module loads. Neither the factory nor `create()` sends requests. If you call `create()` directly, handle its `Result`.
 
 ## Options
 
@@ -31,19 +31,19 @@ The factory returns an inert destination definition. Configuration is validated 
 | `headers` | `Record<string, string>` | — | Additional proxy, gateway, or tenant headers |
 | `resourceLabels` | `Record<string, string>` | `{ 'service.name': 'service_name' }` | Map resource attribute keys to Loki stream label names |
 
-Request header names are case-insensitive. The destination always sets `Content-Type: application/json`; when `auth` is supplied, its credentials override any custom `Authorization` header. Without `auth`, a custom `Authorization` header is preserved. Other custom headers, including tenant headers, are retained. Invalid HTTP header names or values return a configuration `Err` during setup.
+Header names are case-insensitive. The destination always sets `Content-Type: application/json`. When `auth` is supplied, its credentials override any custom `Authorization` header; without `auth`, a custom `Authorization` header is kept. Other custom headers, including tenant headers, are kept. Invalid header names or values return a configuration `Err` during setup.
 
-The omitted `resourceLabels` option promotes only `service.name` to `service_name`. Supplying a map replaces that default rather than extending it, so `resourceLabels: {}` disables all resource-derived labels.
+When `resourceLabels` is omitted, only `service.name` is promoted to `service_name`. A supplied map replaces that default instead of extending it, so `resourceLabels: {}` disables all resource-derived labels.
 
-The destination always manages the `level`, `module`, and `event` labels; those label names cannot be targets in `resourceLabels`. An own `__proto__` mapping key is also rejected. A mapped attribute that is missing is omitted. Boolean `false`, numeric `0`, and other present primitive values are stringified rather than omitted. Organization fields and custom resource attributes are never promoted automatically.
+The destination always manages the `level`, `module`, and `event` labels, so `resourceLabels` cannot target those names. An own `__proto__` mapping key is also rejected. A mapped attribute that is missing is omitted. Present primitive values, including `false` and `0`, are stringified. Organization fields and custom resource attributes are never promoted automatically.
 
-Every resource attribute remains available in the structured log line's `resource` object, whether or not it is mapped to a stream label. Each line also contains `schemaVersion: 1`, timestamp, event, level, message, optional module, and normalized metadata. Unsupported JSON values and circular references are represented safely, and oversized structures are truncated. Sensitive-key redaction is only a safeguard; read [Privacy and delivery limits](../privacy.md).
+Every resource attribute appears in the structured log line's `resource` object, whether or not it maps to a stream label. Each line also contains `schemaVersion: 1`, timestamp, event, level, message, optional module, and normalized metadata. Unsupported JSON values and circular references are encoded safely, and oversized structures are truncated. Sensitive-key redaction is only a safeguard; read [Privacy and delivery limits](../privacy.md).
 
-With default file delivery, the destination derives its credential-free checkpoint key from the normalized Loki endpoint. Authentication, tenant headers, and label mapping do not affect that key. Changing only credentials preserves the checkpoint; changing the endpoint enrolls a new reader. Because Grafana gateways can use one URL for multiple tenant accounts, change the destination `name` when switching accounts. Replayed records preserve their stored timestamps and resource snapshots, so confirm that Loki accepts timestamps as old as the controller's retention window.
+With default file delivery, the destination derives its credential-free checkpoint key from the normalized Loki endpoint. Authentication, tenant headers, and label mapping do not affect the key. Changing only credentials preserves the checkpoint; changing the endpoint starts a new reader. Grafana gateways can serve multiple tenant accounts from one URL, so change the destination `name` when switching accounts. Replayed records keep their stored timestamps and resource snapshots; confirm that Loki accepts timestamps as old as the controller's retention window.
 
 ## Bluecadet fleet label recipe
 
-The following is an optional deployment policy for fleets that use Bluecadet's canonical resource keys. These fields are not required by the public observability model.
+An optional deployment policy for fleets that use Bluecadet's canonical resource keys. The observability plugin does not require these fields.
 
 ```typescript
 import { observability } from '@bluecadet/launchpad/observability';
@@ -72,8 +72,8 @@ observability({
 });
 ```
 
-This explicit map preserves the previous fleet's `client`, `project`, `installation`, `environment`, and `service_name` Loki label contract. When the same resource is exported as OTLP metrics, Grafana metric filters depend on the existing collector's resource-to-label mapping; Launchpad does not promote OTLP resource attributes to metric-point attributes.
+This map preserves the legacy `client`, `project`, `installation`, `environment`, and `service_name` Loki labels. When the same resource is exported as OTLP metrics, Grafana metric filters depend on the collector's resource-to-label mapping; Launchpad does not promote OTLP resource attributes to metric-point attributes.
 
 ## Legacy plain-text format
 
-`createLokiTransport()` remains available from `@bluecadet/launchpad/observability/transports/loki`. It emits the existing plain-text line format and supports its existing options. New and legacy formats are intentionally separate; see the [migration guide](../migration.md).
+`createLokiTransport()` remains available from `@bluecadet/launchpad/observability/transports/loki` with its plain-text line format and existing options. See the [migration guide](../migration.md) to move between formats.

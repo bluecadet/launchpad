@@ -1,10 +1,10 @@
-# Sharp Content Transform
+# Sharp content transform
 
-The `sharp` transform is used to transform downloaded images using the [Sharp](https://sharp.pixelplumbing.com/) image processing library. It can resize, format convert, and apply various transformations to your images.
+The `sharp` transform processes downloaded images with the [Sharp](https://sharp.pixelplumbing.com/) library, for example to resize them or convert their format.
 
 ## Usage
 
-To use the `sharp` transform, include it in the list of content transforms after the mediaDownloader in your configuration:
+Add it to the content `transforms` list after `mediaDownloader`:
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -30,15 +30,15 @@ export default defineConfig({
 
 ## Cache behavior
 
-Sharp uses the [shared artifact cache](../artifact-cache.md) automatically. Its identity includes the resolved Sharp recipe/options, input content, supported file and buffer dependencies, output paths, and the `sharp.versions` engine fingerprint. Ordinary supported recipes do not need a user-supplied version or cache key.
+Sharp uses the [shared artifact cache](../artifact-cache.md) automatically. Its identity covers the resolved Sharp recipe and options, input content, supported file and buffer dependencies, output paths, and the `sharp.versions` engine fingerprint. Supported recipes need no user-supplied version or cache key.
 
-Changed input bytes, resize/format/compression options, supported overlay dependencies, or engine versions invalidate reuse. Previously published outputs must also pass local file verification before they are copied into the current staging tree. The resolved recipe is analyzed once per transform application; cache hits do not construct per-image execution pipelines.
+A change to input bytes, resize, format, or compression options, supported overlay dependencies, or engine versions invalidates reuse. Previously published outputs must also pass local file verification before Launchpad copies them into staging. The transform analyzes the resolved recipe once per application, and cache hits skip building per-image pipelines.
 
-Every image in a batch reads its original input and explicit file dependencies, even when another image's output replaces one of those files. Sharp snapshots overlapping inputs before generation or cache restoration starts. These temporary snapshot paths are not part of the cache identity, and filenames remain unchanged.
+Each image in a batch reads its original input and explicit file dependencies, even when another image's output replaces one of those files. Sharp snapshots overlapping inputs before generation or cache restoration starts. Snapshot paths are not part of the cache identity, and filenames stay the same.
 
-The adapter only caches recipes whose options and dependencies it can reliably resolve. Unsupported loaders, text/font or external-resource dependencies, unknown options, nondeterministic operations, and unaudited Sharp versions run uncached with a diagnostic. An optional `cacheKey` does not make an unsupported recipe cacheable. Inputs and outputs at the same path also run uncached; use distinct paths for reusable results.
+The transform caches only recipes whose options and dependencies it can reliably resolve. Unsupported loaders, text, font, or external-resource dependencies, unknown options, nondeterministic operations, and unaudited Sharp versions run uncached with a diagnostic. Setting `cacheKey` does not make an unsupported recipe cacheable. A recipe whose input and output share a path also runs uncached; use distinct paths for reusable results.
 
-Output naming is unchanged. Different cached identities claiming the same output path are an error, not an overwrite. Give competing transforms distinct destinations or avoid targeting the same image with conflicting recipes.
+Output naming is unchanged. Different cached identities that claim the same output path raise an error instead of overwriting each other. Give competing transforms distinct destinations, or avoid targeting one image with conflicting recipes.
 
 ## Options
 
@@ -47,46 +47,46 @@ Output naming is unchanged. Different cached identities claiming the same output
 - **Type:** `(transform: Sharp) => Sharp`
 - **Required**
 
-A function that takes a Sharp instance and returns a transformed Sharp instance. This is where you define the image transformations to apply.
+Receives a Sharp instance and returns it with the image transformations to apply.
 
 ### `mediaPattern`
 
 - **Type:** `RegExp`
 - **Default:** `/\.(jpe?g|png|webp|tiff|gif|svg)$/i`
 
-Regex pattern to match image files that should be transformed.
+Pattern that matches image files to transform.
 
 ### `matchPath`
 
 - **Type:** `string`
 - **Optional**
 
-JSONPath-Plus compatible path to match images to transform. Overrides `mediaPattern` if provided.
+JSONPath-Plus path that matches images to transform. Overrides `mediaPattern`.
 
 ### `updateURLs`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-When true, updates URLs in the content to point to the transformed images. Note: if you have multiple transforms targeting the same image, you should keep this as false.
+When `true`, points image URLs in the content at the transformed images. Leave it `false` when several transforms target the same image.
 
 ### `keys`
 
 - **Type:** `string[]`
 - **Optional**
 
-Specifies which data keys to transform. If not provided, all keys will be searched for images.
+Data keys to search for images. If omitted, all keys are searched.
 
 ### `cacheKey`
 
 - **Type:** `string`
 - **Optional**
 
-An additional invalidation token for application-specific changes. It supplements automatic recipe, dependency, input, and engine fingerprinting; it never replaces them. For example, change `cacheKey: 'gallery-policy-2'` when an application-level processing policy changes without otherwise changing the resolved recipe. Most transforms should omit it.
+Extra invalidation token for application-specific changes, added to the automatic recipe, dependency, input, and engine fingerprints. For example, change `cacheKey: 'gallery-policy-2'` when an application-level processing policy changes but the resolved recipe does not. Most transforms should omit it.
 
 ### `concurrency`
 
 - **Type:** `number`
 - **Default:** `4`
 
-The number of images to transform concurrently.
+Number of images to transform at once.

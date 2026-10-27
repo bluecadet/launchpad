@@ -1,8 +1,8 @@
-# Content Sources
+# Content sources
 
-Content sources are used to fetch content from various external systems or APIs. These sources define how and where to retrieve content, which is then processed and transformed by content transforms.
+A content source defines how and where to fetch content from an external system or API. Content transforms then process the fetched content.
 
-## Type Reference
+## Type reference
 
 ```typescript
 type ContentSource = {
@@ -15,39 +15,39 @@ type ContentSource = {
 
 ### `id`
 
-The unique identifier for this source. The documents for this source will be written to a subdirectory with this name in the configured download directory.
+Unique identifier for this source. Its documents are written to a subdirectory with this name in the download directory.
 
 ### `fetch`
 
-A sync callback for fetching the source data. Returns either a single document instance, or an array of documents.
+Synchronous callback that returns one document or an array of documents. Each document's `data` is a promise or async iterable.
 
-## Fetch Context
+## Fetch context
 
 ### `logger`
 
-A logger instance for logging messages and errors during the fetch process.
+Logger for messages and errors during the fetch.
 
 ### `dataStore`
 
-A data store instance for storing and retrieving fetched content. This is useful if one source needs to reference the data from a prior source. Ex: fetching shopify data based on the products referenced in a sanity api call.
+Data store for storing and retrieving fetched content. Use it when a source depends on data from an earlier source, such as fetching Shopify data for products referenced in a Sanity query.
 
-## Source Fetch Result
+## Source fetch result
 
 ### `id`
 
 - **Type:** `string`
 
-The unique identifier for the fetched document.
+Unique identifier for the fetched document.
 
 ### `data`
 
 - **Type:** `Promise<unknown> | AsyncIterable<unknown>`
 
-The fetched data, either as a promise returning a single document or an async iterable returning multiple documents. If it's a promise, it will be written to a single json file. If it's an async iterable, each yield will be written to a separate json file with a index suffix (ie `data-001.json`).
+The fetched data. A promise resolving to one document is written to a single JSON file. An async iterable yielding several documents writes each yield to its own JSON file with an index suffix, such as `data-001.json`.
 
 ## Example
 
-To define a custom content source, use the `defineSource` function:
+Define a custom content source with `defineSource`:
 
 ```typescript
 import { defineSource } from '@bluecadet/launchpad/content/source';
@@ -63,4 +63,4 @@ export default defineSource({
 });
 ```
 
-For detailed source configuration options, see the specific source documentation.
+Each built-in source's page lists its configuration options.

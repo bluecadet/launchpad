@@ -1,12 +1,12 @@
 ---
-title: "Content Events"
+title: "Content events"
 ---
-When integrated with `@bluecadet/launchpad-controller`, the content package emits lifecycle events throughout the fetch process. All events are fully type-safe through TypeScript declaration merging.
+With `@bluecadet/launchpad-controller`, the content package emits lifecycle events during each fetch. TypeScript declaration merging types every event.
 
-## Fetch Lifecycle Events
+## Fetch lifecycle events
 
 ### `content:fetch:start`
-Emitted when the content fetch process begins.
+Emitted when a content fetch starts.
 
 **Payload:**
 ```typescript
@@ -25,7 +25,7 @@ eventBus.on('content:fetch:start', (data) => {
 ---
 
 ### `content:fetch:done`
-Emitted when all content has been successfully fetched.
+Emitted when every source has been fetched.
 
 **Payload:**
 ```typescript
@@ -44,7 +44,7 @@ eventBus.on('content:fetch:done', (data) => {
 ---
 
 ### `content:fetch:error`
-Emitted when the fetch process encounters an error.
+Emitted when a fetch fails.
 
 **Payload:**
 ```typescript
@@ -64,10 +64,10 @@ eventBus.on('content:fetch:error', (data) => {
 });
 ```
 
-## Source Events
+## Source events
 
 ### `content:source:start`
-Emitted when a content source begins fetching.
+Emitted when a source starts fetching.
 
 **Payload:**
 ```typescript
@@ -87,7 +87,7 @@ eventBus.on('content:source:start', (data) => {
 ---
 
 ### `content:source:done`
-Emitted when a source completes successfully.
+Emitted when a source fetch succeeds.
 
 **Payload:**
 ```typescript
@@ -106,7 +106,7 @@ eventBus.on('content:source:done', (data) => {
 ---
 
 ### `content:source:error`
-Emitted when a source encounters an error.
+Emitted when a source fails.
 
 **Payload:**
 ```typescript
@@ -123,10 +123,10 @@ eventBus.on('content:source:error', (data) => {
 });
 ```
 
-## Document Events
+## Document events
 
 ### `content:document:write`
-Emitted when a document is successfully written into the current fetch run's staged output.
+Emitted when a document is written to the current run's staged output.
 
 **Payload:**
 ```typescript
@@ -137,7 +137,7 @@ Emitted when a document is successfully written into the current fetch run's sta
 }
 ```
 
-`path` points at the staged file under `tempPath/runs/<runId>/downloads/...`, not the final published file under `downloadPath`. After a successful run, Launchpad promotes the staged tree into `downloadPath`.
+`path` points to the staged file under `tempPath/runs/<runId>/downloads/...`, not the published file under `downloadPath`. Launchpad promotes the staged tree into `downloadPath` after a successful run.
 
 **Example:**
 ```typescript
@@ -167,10 +167,10 @@ eventBus.on('content:document:error', (data) => {
 });
 ```
 
-## Transform Events
+## Transform events
 
 ### `content:transform:start`
-Emitted when a content transform begins processing.
+Emitted when a transform starts.
 
 **Payload:**
 ```typescript
@@ -189,7 +189,7 @@ eventBus.on('content:transform:start', (data) => {
 ---
 
 ### `content:transform:done`
-Emitted when a transform completes successfully.
+Emitted when a transform succeeds.
 
 **Payload:**
 ```typescript
@@ -209,7 +209,7 @@ eventBus.on('content:transform:done', (data) => {
 ---
 
 ### `content:transform:error`
-Emitted when a transform encounters an error.
+Emitted when a transform fails.
 
 **Payload:**
 ```typescript
@@ -226,7 +226,7 @@ eventBus.on('content:transform:error', (data) => {
 });
 ```
 
-## See Also
+## See also
 
-- [Controller Events Reference](../controller/events.md) - Complete event system documentation
-- [Monitor Events](../monitor/events.md) - Monitor subsystem events
+- [Controller events](../controller/events.md): the full event system
+- [Monitor events](../monitor/events.md)

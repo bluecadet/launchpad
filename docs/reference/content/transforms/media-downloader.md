@@ -1,6 +1,6 @@
-# mediaDownloader Content Transform
+# mediaDownloader content transform
 
-The `mediaDownloader` transform downloads media URLs referenced in content. Files are staged in the owning source's download directory and published after a successful content run.
+The `mediaDownloader` transform downloads media URLs referenced in content. It stages files in the owning source's download directory, and Launchpad publishes them after a successful content run.
 
 ## Usage
 
@@ -21,11 +21,11 @@ export default defineConfig({
 
 ## Cache behavior
 
-The downloader uses the [shared artifact cache](../artifact-cache.md#downloaded-media). Verified, previously published files can be reused without a request while an explicit HTTP freshness lifetime is valid. Without such a lifetime, the downloader contacts the server every run, using conditional GET with the server's `ETag` or `Last-Modified` when available.
+The downloader uses the [shared artifact cache](../artifact-cache.md#downloaded-media). While an explicit HTTP freshness lifetime is valid, it reuses verified, previously published files without a request. Otherwise it contacts the server every run, sending a conditional GET with the server's `ETag` or `Last-Modified` when available.
 
-There is no freshness heuristic, local-mtime HEAD check, or remote-size equality shortcut. `no-store`, `no-cache`, and `Vary` constrain reuse. Missing or corrupt local files require a full download, even if cached policy metadata is fresh. Stale-on-error reuse is allowed only by the applicable HTTP policy.
+The downloader uses no freshness heuristic, local-mtime HEAD check, or remote-size comparison. `no-store`, `no-cache`, and `Vary` constrain reuse. A missing or corrupt local file needs a full download, even if cached policy metadata is fresh. Only the applicable HTTP policy can allow stale reuse after an error.
 
-Filenames and URL-to-path mapping are unchanged. Different download/artifact identities targeting the same path are rejected; use distinct destinations rather than relying on overwrites.
+Filenames and URL-to-path mapping are unchanged. Launchpad rejects different download or artifact identities that target the same path, so give each its own destination.
 
 ## Options
 
@@ -48,7 +48,7 @@ Pattern used to find media URLs.
 - **Type:** `string | string[]`
 - **Default:** `undefined`
 
-JSONPath-Plus expression(s) used to find URLs. Overrides `mediaPattern`.
+One or more JSONPath-Plus expressions that find URLs. Overrides `mediaPattern`.
 
 ### `maxConcurrent`
 
@@ -62,21 +62,21 @@ Maximum number of simultaneous downloads.
 - **Type:** `boolean`
 - **Default:** `false`
 
-When `true`, downloads unconditionally instead of reusing a fresh file or sending cached validators. This does not change filenames or clear artifact metadata for other recipes.
+When `true`, always downloads instead of reusing a fresh file or sending cached validators. Filenames and other recipes' artifact metadata are unaffected.
 
 ### `forceClearTempFiles`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Clears this transform's temporary files before downloading, without recreating that directory. Downloads write directly into the run's staged download tree; when this option is `false`, the downloader does not create or clean a separate transform-temp tree. It does **not** invalidate HTTP cache records or delete published downloads. For metadata invalidation, use [cache-only clearing](../artifact-cache.md#clearing).
+Clears this transform's temporary files before downloading, without recreating the directory. Downloads write directly into the run's staged download tree; when this option is `false`, the downloader neither creates nor cleans a separate transform temp tree. It does **not** invalidate HTTP cache records or delete published downloads. To invalidate metadata, use [cache-only clearing](../artifact-cache.md#clearing).
 
 ### `transformLocalPath`
 
 - **Type:** `(localPath: string) => string`
 - **Default:** `undefined`
 
-Changes the destination path derived from each URL. Return a relative path within the source's download directory. Different remote resources must not claim the same destination.
+Rewrites the destination path derived from each URL. Return a path relative to, and inside, the source's download directory. Each remote resource needs its own destination.
 
 ### `maxTimeout`
 
@@ -90,13 +90,13 @@ HTTP request timeout in milliseconds.
 - **Type:** `boolean`
 - **Default:** `true`
 
-When `true`, download errors fail the transform. When `false`, errors are logged without failing the transform, so failed media downloads may be absent from published output. This does not authorize stale cache reuse outside HTTP policy.
+When `true`, a download error fails the transform. When `false`, errors are logged and the transform continues, so failed media can be missing from published output. Stale cache reuse still follows HTTP policy.
 
 ### `updatePaths`
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Replaces media URLs in content with local paths relative to the source's download directory. Keep this enabled when a following Sharp transform needs to read downloaded images.
+Replaces media URLs in content with local paths relative to the source's download directory. Keep this enabled when a later Sharp transform reads the downloaded images.
 
-The former validator and content-length check toggles have been removed. HTTP policy determines freshness and validation automatically. This transform requires Node.js 24.x or 26 and later (`^24 || >=26`).
+HTTP policy controls freshness and validation, replacing the removed validator and content-length toggles. This transform requires Node.js 24.x or 26 and later (`^24 || >=26`).

@@ -1,9 +1,9 @@
 ---
-title: "Refetch Checker"
+title: "Refetch checker"
 ---
-`refetchChecker` is a check-before-fetch plugin. Its `refetch.check` command asks your CMS for its most recent modification value and dispatches `content.fetch` only when that value is newer than the last one seen. On a fast schedule this prevents the [versioned output](./versioning.md) churn where every fetch mints a new `versionId` and every polling application reloads on identical content.
+`refetchChecker` is a check-before-fetch plugin. Its `refetch.check` command asks your CMS for its latest modification value and dispatches `content.fetch` only when that value is newer than the last one seen. On a fast schedule, this keeps [versioned output](./versioning.md) from minting a new `versionId` on every fetch and making every polling application reload identical content.
 
-For the full setup — scheduler, versioning, and consumer patterns — see the [Live Content Refresh recipe](../../recipes/live-content-refresh.md).
+The [live content refresh recipe](../../recipes/live-content-refresh.md) covers the full setup, including the scheduler, versioning, and consumer patterns.
 
 ## Configuration
 
@@ -20,8 +20,8 @@ refetchChecker({
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `getLatestModifiedAt` | `(helpers: { abortSignal, logger }) => Promise<string>` | required | CMS-specific freshness probe. Return the most recent modification value the CMS reports, in a format whose lexicographic order matches chronological order (an ISO 8601 timestamp qualifies). The `abortSignal` aborts on shutdown; pass it to your request. |
-| `downloadPath` | `string` | discovered | Where to read the active version manifest used as the first baseline after boot. By default the checker asks the content plugin via `content.manifest.read`, so it needs no path of its own. Set this only when the manifest lives somewhere the content plugin doesn't manage. Relative paths resolve against the launchpad working directory. |
+| `getLatestModifiedAt` | `(helpers: { abortSignal, logger }) => Promise<string>` | required | CMS-specific freshness probe. Return the CMS's latest modification value in a format whose lexicographic order matches chronological order, such as an ISO 8601 timestamp. `abortSignal` aborts on shutdown; pass it to your request. |
+| `downloadPath` | `string` | discovered | Location of the version manifest that supplies the first baseline after boot. By default the checker asks the content plugin through `content.manifest.read` and needs no path. Set this only when the content plugin does not manage the manifest. Relative paths resolve against the launchpad working directory. |
 
 ## `refetch.check`
 
@@ -29,17 +29,17 @@ refetchChecker({
 { type: 'refetch.check' }
 ```
 
-Runs one check. The decision rules:
+Runs one check:
 
-- The baseline for the first check after boot is the active manifest's `generatedAt`. Every later check compares against the last CMS value seen in memory, so clock skew between the CMS and the local machine can cause at most one wrong decision per restart.
-- No readable manifest and no in-memory value means the check fetches unconditionally. This covers fresh installs and self-heals a failed boot fetch.
-- The dispatched `content.fetch` is awaited before the check completes, so a scheduled interval measures from the end of the whole check-and-fetch cycle and a fetch failure fails the check. The last seen CMS value is recorded only after a successful fetch; a failed fetch leaves the change unseen and the next check fetches again.
+- The first check after boot compares against the active manifest's `generatedAt`. Later checks compare against the last CMS value held in memory, so clock skew between the CMS and the local machine can cause at most one wrong decision per restart.
+- With no readable manifest and no value in memory, the check always fetches. This covers fresh installs and recovers from a failed boot fetch.
+- The check awaits the dispatched `content.fetch`, so a scheduled interval measures from the end of the check-and-fetch cycle, and a failed fetch fails the check. The checker records the CMS value only after a successful fetch, so the next check retries a failed one.
 
-Pair the checker with the content plugin and versioning enabled. Without versioning there is no manifest, so the first check after boot always fetches; later checks still compare in memory.
+Use the checker with the content plugin and versioning enabled. Without versioning there is no manifest, so the first check after boot always fetches; later checks still compare in memory.
 
 ## Manifest discovery
 
-The content plugin registers a `content.manifest.read` command that returns the active version manifest as data:
+The content plugin registers a `content.manifest.read` command that returns the active version manifest:
 
 ```typescript
 { type: 'content.manifest.read' }
@@ -53,4 +53,4 @@ The result is one of:
 { status: 'invalid', message: string }
 ```
 
-`refetchChecker` uses it to locate its baseline without duplicating the content plugin's `downloadPath`. Any dispatcher — another plugin, or a Node consumer connected over IPC — can use it the same way to read the manifest without knowing where it lives on disk.
+`refetchChecker` uses it to find its baseline without duplicating the content plugin's `downloadPath`. Any dispatcher, such as another plugin or a Node consumer connected over IPC, can call it to read the manifest without knowing its location on disk.

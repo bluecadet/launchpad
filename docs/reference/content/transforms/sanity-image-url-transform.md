@@ -1,10 +1,10 @@
-# sanityImageUrlTransform Content Transform
+# sanityImageUrlTransform content transform
 
-The `sanityImageUrlTransform` transform turns Sanity image references into usable URLs. It can apply image transformations like resizing, cropping, and format conversion using Sanity's image URL builder.
+The `sanityImageUrlTransform` transform turns Sanity image references into URLs. It can resize, crop, and convert images with Sanity's image URL builder.
 
 ## Usage
 
-To use the `sanityImageUrlTransform` transform, include it in your configuration before your `mediaDownloader` transform:
+Add it to the content `transforms` list before `mediaDownloader`:
 
 ```typescript
 import { sanityImageUrlTransform } from '@bluecadet/launchpad/content/transforms/sanity-image-url-transform'; // [!code highlight]
@@ -50,32 +50,32 @@ The Sanity dataset to use.
 - **Type:** `string`
 - **Optional**
 
-Sanity API token, required if accessing a private dataset.
+Sanity API token. Required for private datasets.
 
 ### `path`
 
 - **Type:** `string`
 - **Default:** `'$..*[?(@._type=="image")]'`
 
-JSONPath to the content to transform. By default, matches all nodes with `_type` of "image".
+JSONPath to the content to transform. The default matches every node whose `_type` is `"image"`.
 
 ### `buildUrl`
 
 - **Type:** `(builder: ImageUrlBuilder) => ImageUrlBuilder`
 - **Default:** `builder => builder`
 
-Function to configure image transformations using Sanity's image URL builder.
+Configures image transformations on Sanity's image URL builder.
 
 ### `newProperty`
 
 - **Type:** `string`
 - **Default:** `"transformedUrl"`
 
-The property name where the transformed URL will be stored.
+Property that stores the transformed URL.
 
 ### `keys`
 
 - **Type:** `string[]`
 - **Optional**
 
-Specific data keys to transform. If not provided, transforms all keys.
+Data keys to transform. If omitted, all keys are transformed.

@@ -93,11 +93,3 @@ Maximum entries per page.
 - **Default:** `1000`
 
 Maximum pages to fetch.
-
-### `pageNumZeroPad`
-
-- **Type:** `number`
-- **Default:** `2`
-
-Number of zeros to pad each JSON filename index with.
-

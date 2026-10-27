@@ -46,8 +46,6 @@ export interface StrapiSourceBaseOptions {
 	limit?: number;
 	/** Max number of pages. Defaults to `1000`. */
 	maxNumPages?: number;
-	/** How many zeros to pad each json filename index with. Defaults to `2`. */
-	pageNumZeroPad?: number;
 }
 
 /** Options for the Strapi source. */
@@ -101,10 +99,6 @@ const strapiSourceSchema = configSchema<StrapiSourceOptions>()(
 				),
 			limit: z.number().describe("Max number of entries per page").default(100),
 			maxNumPages: z.number().describe("Max number of pages").default(1000),
-			pageNumZeroPad: z
-				.number()
-				.describe("How many zeros to pad each json filename index with")
-				.default(2),
 		})
 		.and(strapiCredentialsSchema),
 );

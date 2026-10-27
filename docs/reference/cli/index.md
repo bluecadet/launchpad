@@ -6,32 +6,30 @@ title: "@bluecadet/launchpad-cli"
 [npm](https://www.npmjs.com/package/@bluecadet/launchpad-cli) ·
 [changelog](https://github.com/bluecadet/launchpad/blob/main/packages/cli/CHANGELOG.md)
 
-The CLI package provides a command-line interface for managing Launchpad installations. It serves as the primary entry point for running content management, process monitoring, and system configuration tasks.
+The CLI package is the main entry point to Launchpad. Use it to run content management, process monitoring, and system configuration tasks.
 
 ## Features
 
-- **Command Line Interface**: Easy-to-use commands for common operations:
-  - Start/stop content downloads and app monitoring
-  - Run content updates independently
+- Commands for common operations:
+  - Start and stop content downloads and app monitoring
+  - Run content updates on their own
   - Configure system settings
-  - Access help documentation
-
-- **Configuration Management**:
+  - Show help
+- Configuration management:
   - Load and parse config files
-  - Environment variable handling with dotenv
-  - Cascading configuration support
-  - Type-safe config validation
-
-- **Flexible Commands**:
-  - `start`: Launch persistent controller (optional detached mode)
-  - `stop`: Graceful shutdown of controller
-  - `status`: Query running controller state
-  - `content`: Content fetch operations (via IPC or ephemeral)
-  - `monitor`: App monitoring operations (via IPC or ephemeral)
+  - Load environment variables with dotenv
+  - Cascade `.env` files
+  - Validate config with types
+- Commands:
+  - `start`: launch the persistent controller, optionally detached
+  - `stop`: shut down the controller gracefully
+  - `status`: query the running controller's state
+  - `content`: fetch content, over IPC or with a temporary controller
+  - `monitor`: monitor apps, over IPC or with a temporary controller
 
 ## Installation
 
-The CLI can be installed globally via npm:
+Install the CLI with npm:
 
 ```bash
 npm install @bluecadet/launchpad
@@ -39,7 +37,7 @@ npm install @bluecadet/launchpad
 
 ## Usage
 
-Once installed, you can run commands using the `launchpad` executable:
+Run commands with the `launchpad` executable:
 
 ```bash
 npx launchpad <command> [options]
@@ -52,6 +50,6 @@ npx launchpad help
 ```
 
 > [!NOTE]
-> if installed globally (`npm install -g @bluecadet/launchpad`) you don't need the `npx` prefix when running commands.
+> If you install globally (`npm install -g @bluecadet/launchpad`), drop the `npx` prefix.
 
-See [Commands](./commands.md) for more information on the available commands.
+See [Commands](./commands.md) for the full command list.

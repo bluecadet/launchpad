@@ -1,28 +1,28 @@
-# CLI Commands
+# CLI commands
 
-Launchpad provides several commands to manage your media installations. Each command can be run using `npx launchpad <command>` or just `launchpad <command>` if installed globally.
+Run each command with `npx launchpad <command>`, or `launchpad <command>` if installed globally.
 
-## Start Command
+## Start command
 
 ```bash
 launchpad start [options]
 ```
 
-The `start` command launches Launchpad in **persistent mode**, which opens an IPC socket allowing subsequent CLI commands to connect to the running controller instance. This enables:
+`start` launches Launchpad in **persistent mode** and opens an IPC socket so later CLI commands can connect to the running controller. Use it to:
 
-- Starting a long-running controller that manages both content and monitor subsystems
-- Running background processes with optional detached mode
-- Executing subsequent commands (content, monitor, status) via IPC without redundant initialization
+- Run a long-lived controller that manages the content and monitor subsystems
+- Run in the background with detached mode
+- Send later commands (content, monitor, status) over IPC without reinitializing
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `-d, --detach` | Run the controller in the background (detached mode) |
+| `-d, --detach` | Run the controller in the background |
 
-### Usage Examples
+### Usage examples
 
-Start in foreground (useful for development/debugging):
+Start in the foreground, for development and debugging:
 ```bash
 launchpad start
 # or
@@ -30,44 +30,44 @@ launchpad start -v # with verbose logging
 launchpad start -vv # with verbose + debug logging
 ```
 
-Start in background:
+Start in the background:
 ```bash
 launchpad start --detach
 # or
 launchpad start -d
 ```
 
-Once started, you can use other commands to interact with the running controller via IPC.
+Other commands then talk to the running controller over IPC.
 
-## Stop Command
+## Stop command
 
 ```bash
 launchpad stop [options]
 ```
 
-The `stop` command gracefully shuts down the running Launchpad controller:
+`stop` shuts down the running controller. It:
 
-- Sends graceful shutdown signal via IPC
+- Sends a graceful shutdown request over IPC
 - Falls back to SIGTERM if IPC fails
-- Force kills (SIGKILL) as last resort if the process doesn't respond
-- Cleans up the PID file
+- Sends SIGKILL as a last resort if the process doesn't respond
+- Deletes the PID file
 
-For compatibility, if the controller is not running but a monitor process exists, it attempts to stop the monitor process.
+If the controller isn't running but a monitor process exists, `stop` tries to stop the monitor process. This keeps older setups working.
 
-## Status Command
+## Status command
 
 ```bash
 launchpad status [options]
 ```
 
-The `status` command queries the persistent controller for its current state via IPC:
+`status` asks the persistent controller for its current state over IPC and shows:
 
-- Shows controller uptime
-- Displays monitor connection status
-- Lists all running apps with their status and PID
-- Shows content fetch status and last fetch time
+- Controller uptime
+- Monitor connection status
+- Each running app with its status and PID
+- Content fetch status and last fetch time
 
-### Output Example
+### Output example
 
 ```
 Launchpad Status:
@@ -86,48 +86,48 @@ Content:
   In Progress: No
 ```
 
-## Content Command
+## Content command
 
 ```bash
 launchpad content [options]
 ```
 
-The `content` command runs a content fetch operation:
+`content` fetches content:
 
-- If a controller is already running (via `launchpad start`), it sends the command via IPC
-- If no controller is running, it starts an ephemeral one for the fetch operation
-- Downloads fresh content from all configured sources
-- Runs content transformations
-- Updates local content cache
+- If a controller is running (via `launchpad start`), it sends the command over IPC
+- Otherwise, it starts a temporary controller for the fetch
+- Downloads content from every configured source
+- Runs content transforms
+- Updates the local content cache
 
-This is useful for updating content without restarting applications or the controller.
+Use it to update content without restarting apps or the controller.
 
-## Monitor Command
+## Monitor command
 
 ```bash
 launchpad monitor [options]
 ```
 
-The `monitor` command manages applications:
+`monitor` manages applications:
 
-- If a controller is already running (via `launchpad start`), it connects and starts monitoring via IPC
-- If no controller is running, it starts an ephemeral one for monitoring
+- If a controller is running (via `launchpad start`), it connects and starts monitoring over IPC
+- Otherwise, it starts a temporary controller for monitoring
 - Starts configured applications
-- Monitors for crashes and restarts as needed
+- Restarts apps that crash
 - Collects process statistics
 
-Use this when you want to manage applications independently or connect to an existing controller instance.
+Use it to manage applications on their own or through an existing controller.
 
-## Global Options
+## Global options
 
-Run `launchpad` without a command to print the available built-in and configured plugin commands.
+Run `launchpad` without a command to list the built-in and configured plugin commands.
 
-All commands support these options:
+All commands accept these options:
 
 | Option | Description | Type |
 |--------|-------------|------|
 | `--config, -c` | Path to your JS config file | string |
 | `--env, -e` | Path(s) to your .env file(s) | array |
-| `--env-cascade, -E` | Cascade env variables from multiple .env files | string |
-| `-verbose, -v` | Increase logging verbosity | count |
-| `--help` | Show help information | flag |
+| `--env-cascade, -E` | Load env variables from a cascade of .env files | string |
+| `--verbose, -v` | Increase logging verbosity | count |
+| `--help` | Show help | flag |

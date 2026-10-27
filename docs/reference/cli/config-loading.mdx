@@ -1,14 +1,14 @@
 ---
-title: "Config Loading"
+title: "Config loading"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 
-The Launchpad CLI uses a flexible configuration system that automatically searches for and loads your project configuration. The CLI supports Javascript config files.
+The Launchpad CLI finds and loads your project config file automatically.
 
-## Config File Search
+## Config file search
 
-The CLI searches for config files with the following names:
+The CLI looks for these file names, in order:
 
 1. `launchpad.config.js`
 2. `launchpad.config.mjs`
@@ -17,11 +17,11 @@ The CLI searches for config files with the following names:
 5. `launchpad.config.mts`
 6. `launchpad.config.cts`
 
-The search starts in the current working directory and recursively searches up parent directories (up to 64 levels) until a config file is found.
+The search starts in the current working directory and walks up parent directories, up to 64 levels, until it finds a config file.
 
-## Config File Format
+## Config file format
 
-### JavaScript/TypeScript Config (Recommended)
+### JavaScript/TypeScript config (recommended)
 
 ```js
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -33,35 +33,37 @@ export default defineConfig({
 });
 ```
 
-## Configuration Structure
+## Configuration structure
 
 <ConfigReference id="launchpad-options" />
 
-The top-level config selects controller settings, plugins, and named workflows. For details, see [Controller configuration](/reference/controller/#configuration) and [Host-Owned Workflows](/reference/controller/#host-owned-workflows).
+The top-level config sets controller options, plugins, and named workflows. See [Controller configuration](/reference/controller/#configuration) and [Host-owned workflows](/reference/controller/#host-owned-workflows).
 
-Plugin configuration is passed to each plugin factory:
+Each plugin factory takes its own configuration:
 
-- `content()` - Content management settings ([Content Config Reference](/reference/content/content-config/))
-- `monitor()` - Process monitoring settings ([Monitor Config Reference](/reference/monitor/monitor-config/))
+- `content()`: content management settings ([content config reference](/reference/content/content-config/))
+- `monitor()`: process monitoring settings ([monitor config reference](/reference/monitor/monitor-config/))
 
 ### Configuration reference conventions
 
-Configuration references render directly from the runtime Zod schemas. Pages with individual property sections embed only each selected property's metadata under its authored heading, with handwritten prose explaining its behavior. Generated descendant definitions and complete fallback property lists retain schema summaries. **Input default** is the value supplied by `.default()` or `.prefault()` when a field is omitted. A prefault is passed through validation and transforms; it is not necessarily the resolved value. Defaults filled by transforms or runtime setup are described in the surrounding prose rather than presented as input defaults. For example, scheduler retry policy is resolved by a transform, and observability resource identity is added during setup.
+Configuration references render from the runtime Zod schemas. Pages with per-property sections embed each property's schema metadata under a written heading, followed by prose describing its behavior. Generated descendant definitions and full fallback property lists keep their schema summaries.
 
-Requiredness describes the schema structure, including optional fields and defaults. Union branches may have different requirements. Cross-field rules still apply: a scheduler job needs exactly one of `interval` and `cron`, even though each field is individually optional. The reference renderer does not infer conditional requiredness or arbitrary refinement rules; consult the property notes and validation constraints.
+**Input default** is the value `.default()` or `.prefault()` supplies when a field is omitted. A prefault passes through validation and transforms, so the resolved value can differ. The surrounding prose covers defaults that transforms or runtime setup fill in. For example, a transform resolves the scheduler retry policy, and setup adds the observability resource identity.
 
-## Environment Variables
+Requiredness reflects the schema structure, including optional fields and defaults. Union branches can have different requirements. Cross-field rules still apply: a scheduler job needs exactly one of `interval` and `cron`, though each field is optional on its own. The renderer can't infer conditional requiredness or refinement rules, so check the property notes and validation constraints.
 
-Config files can reference environment variables using the `process.env` object in JavaScript configs. For managing environment variables, see the [Environment Variables](/reference/cli/env/) documentation.
+## Environment variables
 
-## Type Safety
+Config files can read environment variables from `process.env`. See [Environment variables](/reference/cli/env/) for loading them.
 
-When using TypeScript or an editor with TypeScript support (like VS Code), the `defineConfig` helper provides:
+## Type safety
 
-- Full IntelliSense for all configuration options
+In TypeScript, or an editor with TypeScript support such as VS Code, `defineConfig` provides:
+
+- IntelliSense for every configuration option
 - Type checking for configuration values
-- Auto-completion suggestions
-- Documentation hints
+- Autocompletion
+- Inline documentation
 
 ## Example
 

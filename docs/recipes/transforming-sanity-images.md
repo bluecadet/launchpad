@@ -6,10 +6,11 @@ For Sanity.io images, you can use Sanity's built-in image transformations instea
 
 Include the image fields in your GROQ query:
 
-```typescript {14-19}
+```typescript {15-20}
 import { defineConfig } from '@bluecadet/launchpad/cli';
 import { content } from '@bluecadet/launchpad/content';
 import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
+import { mediaDownloader } from '@bluecadet/launchpad/content/transforms/media-downloader';
 
 export default defineConfig({
   plugins: [

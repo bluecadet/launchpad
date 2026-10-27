@@ -1,6 +1,6 @@
-# Serving Static Web Apps with Launchpad Monitor
+# Serving static web apps with Launchpad monitor
 
-This recipe demonstrates how to use Launchpad's monitor functionality to serve static web applications using PM2's built-in serve capability, and optionally launch a browser to display them in kiosk mode.
+Use Launchpad's monitor to serve a static web app with PM2's built-in `serve` script, and optionally open it in a kiosk-mode browser.
 
 ## Configuration
 
@@ -52,30 +52,25 @@ export default defineConfig({
 });
 ```
 
-## How It Works
+## The configured apps
 
-### The Server App
+### Server app
 
-The first app in the configuration uses PM2's built-in `serve` functionality:
+The first app serves the files:
 
-- `script: "serve"` tells PM2 to use its static file server
-- `PM2_SERVE_PATH` specifies which directory to serve
-- `PM2_SERVE_PORT` sets the port number
-- `PM2_SERVE_SPA: "true"` enables Single Page App support (routes all requests to index.html)
+- `script: "serve"` selects PM2's static file server
+- `PM2_SERVE_PATH` sets the directory to serve
+- `PM2_SERVE_PORT` sets the port
+- `PM2_SERVE_SPA: "true"` enables single-page app mode, routing all requests to index.html
 - `PM2_SERVE_HOMEPAGE` sets the default page
 
-### The Browser App (optional)
+### Browser app (optional)
 
-The second app launches a browser to display your web content:
+The second app opens the served content in Chromium. It runs in kiosk mode (full screen, minimal UI), uses flags suited to exhibition use, loads the local URL, and stays in the foreground.
 
-- Uses Chromium in kiosk mode (full-screen, minimal UI)
-- Includes flags to optimize for exhibition use
-- Automatically navigates to the locally served content
-- Is configured to stay in the foreground
+## Common customizations
 
-## Common Customizations
-
-### Change the Port
+### Change the port
 
 ```javascript
 env: {
@@ -83,7 +78,7 @@ env: {
 }
 ```
 
-Don't forget to update the URL in the browser args too!
+Update the URL in the browser `args` to match.
 
 ### Enable HTTPS
 
@@ -98,20 +93,20 @@ env: {
 }
 ```
 
-### Chrome/Chromium Flags
+### Chrome/Chromium flags
 
-Common flags for kiosk applications:
+Common kiosk flags:
 
 - `--kiosk`: Full-screen kiosk mode
 - `--incognito`: Private browsing mode
 - `--disable-pinch`: Disable pinch zoom
 - `--overscroll-history-navigation=0`: Disable swipe navigation
-- `--enable-auto-reload`: Auto-refresh on crashes
-- `--autoplay-policy=no-user-gesture-required`: Allow autoplay of media
+- `--enable-auto-reload`: Reload the page after a crash
+- `--autoplay-policy=no-user-gesture-required`: Allow media autoplay
 
-### Using Other Browsers
+### Other browsers
 
-For Firefox:
+Firefox:
 
 ```javascript
 {
@@ -128,19 +123,19 @@ For Firefox:
 
 ### Server won't start
 
-- Ensure the `serve` module is available to PM2
-- Check that the specified path contains static web files
-- Verify the port isn't already in use
+- Make sure PM2 can find the `serve` module
+- Check that the path contains static web files
+- Check that the port is free
 
 ### Browser doesn't launch
 
-- Verify the browser path is correct for your system
-- Check that the URL is correct and the server is running
-- Some browser flags may differ between versions
+- Check the browser path for your system
+- Check the URL and confirm the server is running
+- Check the flags against your browser version
 
 ### Page doesn't load properly
 
-- If using SPA mode, ensure your app is built as a proper SPA
-- For non-SPA sites, set `PM2_SERVE_SPA` to `"false"`
+- In SPA mode, make sure your app is built as a single-page app
+- For other sites, set `PM2_SERVE_SPA` to `"false"`
 
 

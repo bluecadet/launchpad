@@ -1,10 +1,10 @@
-# Transforming Sanity Images
+# Transforming Sanity images
 
-When working with Sanity.io images, you can leverage Sanity's built-in image transformation capabilities instead of using the `sharp` plugin. This is particularly useful for handling Sanity's hotspot and crop features.
+For Sanity.io images, you can use Sanity's built-in image transformations instead of the `sharp` plugin. They handle Sanity's hotspot and crop features and run on Sanity's CDN, which reduces build time and server load.
 
-## Fetching Images with GROQ
+## Fetching images with GROQ
 
-First, ensure your GROQ query includes all necessary image fields:
+Include the image fields in your GROQ query:
 
 ```typescript {14-19}
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -37,11 +37,11 @@ export default defineConfig({
 });
 ```
 
-The `asset->` reference is crucial for accessing the full image data, including hotspot and crop information.
+The `asset->` dereference returns the full image data, including hotspot and crop information.
 
-## Using the Image URL Transform Plugin
+## Using the image URL transform plugin
 
-Add the `sanityImageUrlTransform` plugin to transform image references into URLs:
+Add the `sanityImageUrlTransform` plugin to turn image references into URLs:
 
 ```typescript {4,18-26}
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -78,11 +78,11 @@ export default defineConfig({
 ```
 
 >[!TIP]
->It's added _before_ the mediaDownloader (unlike the `sharp` plugin) because it modifies the image URLs before they are downloaded. Conversely, the `sharp` plugin modifies the image files after they are downloaded.
+>Place `sanityImageUrlTransform` _before_ `mediaDownloader` because it rewrites image URLs before download. The `sharp` plugin goes after, because it modifies files that are already downloaded.
 
-## Available Transformations
+## Available transformations
 
-Sanity's image URL builder supports many transformations:
+Sanity's image URL builder supports these transformations, among others:
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -124,9 +124,7 @@ export default defineConfig({
 
 ## Resources
 
-- [Sanity Image URLs Reference](https://www.sanity.io/docs/image-url)
-- [Image Image Presentation Documentation](https://www.sanity.io/docs/presenting-images)
-- [sanityImageUrlTransform Plugin](../reference/content/transforms/sanity-image-url-transform.md)
-- [Sanity Content Source](../reference/content/sources/sanity-source.md)
-
-Unlike the `sharp` plugin, Sanity's image transformations are performed on their CDN, reducing your build time and server load.
+- [Sanity image URLs reference](https://www.sanity.io/docs/image-url)
+- [Presenting images in Sanity](https://www.sanity.io/docs/presenting-images)
+- [sanityImageUrlTransform plugin](../reference/content/transforms/sanity-image-url-transform.md)
+- [Sanity content source](../reference/content/sources/sanity-source.md)

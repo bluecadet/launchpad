@@ -1,19 +1,19 @@
-# Creating a Custom Content Source
+# Creating a custom content source
 
-This recipe explains how to create a custom content source for Launchpad. Content sources allow you to fetch data from any external system and integrate it into Launchpad's content pipeline.
+A custom content source brings data from any external system into Launchpad's content pipeline.
 
 ## Overview
 
-Content sources in Launchpad:
+Content sources:
 
 - Define where and how to fetch content
-- Return data in a standardized format
-- Can fetch from APIs, databases, files, or any data source
-- Run before content transforms process the data
+- Return data in a standard format
+- Can fetch from APIs, databases, files, or any other system
+- Run before content transforms
 
-## Basic Source Structure
+## Basic source structure
 
-Here's a minimal content source example:
+A minimal content source:
 
 ```typescript
 import { defineSource } from '@bluecadet/launchpad/content/source';
@@ -29,9 +29,9 @@ export default defineSource({
 });
 ```
 
-## Step-by-Step Example
+## Example: REST API source
 
-Let's create a source that fetches data from a REST API:
+This source fetches data from a REST API:
 
 ```typescript
 import { defineSource } from '@bluecadet/launchpad/content/source';
@@ -60,9 +60,6 @@ const myApiSource = defineSource({
 });
 ```
 
->[!NOTE]
->Remember to handle errors appropriately and implement proper logging for better debugging.
-
 Add it to your Launchpad config:
 
 ```typescript
@@ -79,9 +76,9 @@ export default defineConfig({
 });
 ```
 
-## Multiple Documents
+## Multiple documents
 
-Sources can return multiple documents:
+A source can return multiple documents:
 
 ```typescript
 const multiDocSource = defineSource({
@@ -101,9 +98,9 @@ const multiDocSource = defineSource({
 });
 ```
 
-## Paginated Data
+## Paginated data
 
-For large datasets, use AsyncIterables:
+For large datasets, return an `AsyncIterable`:
 
 ```typescript
 const streamingSource = defineSource({
@@ -119,20 +116,19 @@ const streamingSource = defineSource({
 });
 ```
 
-## Best Practices
+## Best practices
 
-1. **Use Meaningful IDs**: Choose descriptive, unique IDs for your source and documents
-2. **Handle Errors**: Implement proper error handling and logging
-3. **Respect Rate Limits**: Add delays between API calls if needed
-4. **Document Requirements**: List any API keys or configuration needed
-5. **Validate Data**: Check that fetched data matches expected format
+1. Give sources and documents descriptive, unique IDs.
+2. Log and handle errors.
+3. Respect rate limits; add delays between API calls if needed.
+4. Document required API keys and configuration.
+5. Check that fetched data matches the expected format.
 
 >[!TIP]
->Use TypeScript for better type safety and autocompletion when configuring your source.
+>Write your source in TypeScript for type checking and autocompletion.
 
-## Next Steps
+## Next steps
 
-- Learn about [Content Sources](../reference/content/sources/index.md) for full API details
-- Explore [Content Plugins](../reference/content/transforms/index.md) to process your fetched data
-- See the [Content Configuration Reference](/reference/content/content-config/) for config options
-- Check [Built-in Sources](../reference/content/sources/index.md) for implementation examples
+- [Content sources](../reference/content/sources/index.md) for the full API and built-in implementations
+- [Content transforms](../reference/content/transforms/index.md) to process fetched data
+- [Content configuration reference](/reference/content/content-config/) for config options

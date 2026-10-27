@@ -1,10 +1,10 @@
 # Contributing to Launchpad
 
-## Getting Started
+## Getting started
 
 ### Setup
 
-Repository development requires Node.js 24 or 26 and later (`^24 || >=26`), including for the Changesets release tooling. This development requirement does not change the supported runtime baseline of published packages.
+Repository development, including the Changesets release tooling, requires Node.js 24 or 26 and later (`^24 || >=26`). This requirement does not change the supported runtime baseline of published packages.
 
 ```bash
 # Clone the repository
@@ -15,13 +15,13 @@ cd launchpad
 npm install
 ```
 
-The monitor's Windows window-management addon is checked in as precompiled x64 and arm64 binaries, so installing dependencies or building TypeScript does not require Python, MSVC, or Zig. A previous arm64 prebuild passed a manual Windows arm64 smoke check before the switch to generated Node import libraries; the current prebuilds still need Windows runtime validation.
+The monitor's Windows window-management addon is checked in as precompiled x64 and arm64 binaries, so installing dependencies or building TypeScript needs no Python, MSVC, or Zig. An earlier arm64 prebuild passed a manual Windows arm64 smoke check before the switch to generated Node import libraries; the current prebuilds still need Windows runtime validation.
 
 ### Rebuilding and verifying the Windows addon
 
-Only maintainers changing the native addon need the pinned Zig toolchain. Native binaries are rebuilt manually, not during `npm install`. Follow the [native addon README](./packages/monitor/native/README.md) for the exact build command, toolchain version, and Windows verification procedure. Commit both the source changes and rebuilt prebuilds.
+Only maintainers changing the native addon need the pinned Zig toolchain. Rebuild native binaries manually; `npm install` never rebuilds them. The [native addon README](./packages/monitor/native/README.md) lists the build command, toolchain version, and Windows verification procedure. Commit the source changes together with the rebuilt prebuilds.
 
-The **Native binary drift** CI job rebuilds when changes touch `packages/monitor/native/**`, `packages/monitor/prebuilds/**`, or `.github/workflows/ci.yml`; unrelated changes skip it. Manual workflow dispatches and change-detection failures always rebuild. Ordinary lint, CI, and native packaging checks remain unchanged and run regardless of the native path filter.
+The **Native binary drift** CI job rebuilds when changes touch `packages/monitor/native/**`, `packages/monitor/prebuilds/**`, or `.github/workflows/ci.yml`, and skips otherwise. Manual workflow dispatches and change-detection failures always rebuild. Lint, CI, and native packaging checks run regardless of the native path filter.
 
 Run the Windows-only smoke tests against the real bundled addon from the repository root:
 
@@ -29,13 +29,13 @@ Run the Windows-only smoke tests against the real bundled addon from the reposit
 npx vitest run packages/monitor/src/utils/__tests__/windows-native.windows.test.ts
 ```
 
-They use a disposable PowerShell/.NET Windows Forms window, without addon mocks or added consumer dependencies. Prerequisites are Windows x64 or arm64 with a matching Node architecture, built-in Windows PowerShell 5.1, and policies allowing .NET Windows Forms and `Add-Type`. No Python, MSVC, or Zig is needed to run the tests. The suite checks enumeration, the exact title, minimize and hide independently observed through Win32 state, live mismatched-PID no-ops, and stale descriptors after fixture termination. Non-Windows platforms skip; addon-load or fixture failures on supported Windows fail rather than skip.
+The tests drive a disposable PowerShell/.NET Windows Forms window, with no addon mocks or added consumer dependencies. They require Windows x64 or arm64 with a matching Node architecture, built-in Windows PowerShell 5.1, and policies that allow .NET Windows Forms and `Add-Type`. They need no Python, MSVC, or Zig. The suite checks enumeration, the exact title, minimize and hide (each observed independently through Win32 state), live mismatched-PID no-ops, and stale descriptors after fixture termination. Non-Windows platforms skip the suite; on supported Windows, addon-load or fixture failures fail the run.
 
-The existing `windows-latest` CI job discovers the tests normally through Vitest and currently covers x64 only; arm64 needs a separate Windows arm64 run. Foreground remains a manual/best-effort check because of Windows focus restrictions.
+The `windows-latest` CI job discovers the tests through Vitest and covers x64 only; arm64 needs a separate Windows arm64 run. Windows focus restrictions make foreground activation a manual, best-effort check.
 
-Before release, verify that the monitor tarball includes both Windows binaries, install that tarball with normal npm install scripts enabled on a Windows machine without Python, MSVC, or Zig, and test real window behavior in an interactive desktop session. Hosted Windows CI verifies packaging and addon smoke tests, but its preinstalled build tools mean it does not prove a toolchain-free install or full Launchpad/PM2 integration. See the native addon README for the manual checks.
+Before release, verify that the monitor tarball includes both Windows binaries. Install that tarball, with normal npm install scripts enabled, on a Windows machine without Python, MSVC, or Zig, and test real window behavior in an interactive desktop session. Hosted Windows CI verifies packaging and runs the addon smoke tests, but its preinstalled build tools mean it cannot prove a toolchain-free install or full Launchpad/PM2 integration. The native addon README lists the manual checks.
 
-### Project Structure
+### Project structure
 
 Launchpad is organized as an npm workspaces monorepo:
 
@@ -49,47 +49,55 @@ packages/
 └── launchpad/     # Meta-package that installs all core packages
 ```
 
-## Project Architecture
+## Project architecture
 
-### Core Concepts
+### Core concepts
 
-**Launchpad** is a suite of tools for managing interactive installations. It provides:
+Launchpad is a suite of tools for managing interactive installations. It handles:
 
-- **Content Management**: Fetching and transforming data from CMSs/APIs into a SQLite-backed DataStore
-- **Process Monitoring**: Managing long-running applications via PM2 with window management
+- Content management: fetching data from CMSs and APIs, transforming it, and storing it in a filesystem-backed DataStore
+- Process monitoring: running long-lived applications under PM2, with window management
 
-### Monorepo Packages
+### Monorepo packages
 
 #### @bluecadet/launchpad-cli
-The main entry point that orchestrates the entire system. It:
+
+The main entry point, which orchestrates the system. It:
+
 - Loads and validates `launchpad.config.js` configuration
 - Initializes the content and monitor subsystems
-- Provides CLI commands for users
+- Provides the user-facing CLI commands
 
 #### @bluecadet/launchpad-content
-Handles content fetching and transformation:
-- Manages multiple content sources (Airtable, Contentful, Sanity, Strapi, JSON)
-- Executes a content pipeline: setup → backup → clear → fetch → transform → restore/cleanup
-- Stores downloaded content in a SQLite-backed DataStore
-- Plugins allow extensible content transformation
+
+Fetches and transforms content:
+
+- Manages content sources (Airtable, Contentful, Sanity, Strapi, JSON)
+- Runs a content pipeline: setup -> backup -> clear -> fetch -> transform -> restore/cleanup
+- Stores downloaded content in a filesystem-backed DataStore
+- Extends content transformation through plugins
 
 #### @bluecadet/launchpad-monitor
-Manages application processes and lifecycle:
-- Uses PM2 for process management
+
+Manages application processes and their lifecycle:
+
+- Manages processes with PM2
 - Captures and routes application stdout/stderr
-- Manages window state and z-order on Windows via platform-specific APIs
-- Plugin system for reacting to app lifecycle events
+- Manages window state and z-order on Windows through platform-specific APIs
+- Lets plugins react to app lifecycle events
 
 #### @bluecadet/launchpad-utils
-Shared foundational utilities:
-- Centralized logging via `LogManager` with hierarchical logger support
+
+Shared utilities:
+
+- Centralized logging through `LogManager`, with hierarchical loggers
 - Base `PluginDriver` for plugin lifecycle management
-- Exit handling utilities for graceful shutdown
+- Exit handling for graceful shutdown
 - Shared TypeScript configuration
 
-### Configuration System
+### Configuration system
 
-All config schemas use Zod for validation and are defined in:
+Config schemas use Zod for validation and live in:
 - `packages/cli/src/launchpad-config.ts` - Top-level config schema
 - `packages/controller/src/controller-config.ts` - Controller system schema
 - `packages/content/src/content-config.ts` - Content system schema
@@ -109,9 +117,9 @@ Typechecking fails unless the schema input exactly equals the interface. See `pa
 
 ### Schema-backed configuration references
 
-Configuration references in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';`. Use the `@docs-src/` alias rather than a relative import: the docs wrapper copies pages to normalized route paths before rendering them. There are no checked-in generated property lists to update.
+Configuration references in `docs/reference/` render directly from the runtime Zod schemas through `docs/components/ConfigReference.astro`. The registry in `docs/lib/config-references.ts` gives each reference a stable id. MDX pages import the component with `import ConfigReference from '@docs-src/components/ConfigReference.astro';`. Use the `@docs-src/` alias instead of a relative import, because the docs wrapper copies pages to normalized route paths before rendering them. No generated property lists are checked in.
 
-When a page has handwritten property headings, embed metadata under each heading with an exact path, such as `<ConfigReference id="content-options" property="sources" />`. The selected property renders only **Input type**, **Required**, and **Input default**, in a compact wrapping metadata row. It does not generate a property name, heading, anchor, or schema description: the MDX heading and authored prose own that explanation. Preserve the authored behavior notes, caveats, examples, and links; a concise schema description is not a replacement for them.
+When a page has handwritten property headings, embed metadata under each heading with an exact path, such as `<ConfigReference id="content-options" property="sources" />`. The selected property renders only **Input type**, **Required**, and **Input default**, in a compact wrapping row. It generates no property name, heading, anchor, or schema description; the MDX heading and authored prose provide those. Keep authored behavior notes, caveats, examples, and links, since a concise schema description cannot replace them.
 
 The `ConfigReference` contributor API is:
 
@@ -120,7 +128,7 @@ The `ConfigReference` contributor API is:
 - `includeChildren`: render the selected property's descendants as vertical definitions with names, metadata, and schema descriptions. Omit it when those fields have their own authored sections.
 - `exclude`: exact descendant paths to delegate to another section, such as `exclude={["retry.backoff"]}` on the `retry` selection. Requires `property` and `includeChildren`; each exclusion removes that row and its subtree.
 
-For small object shapes, put the parent metadata first, then an explanation and input example, then a compact schema-backed field table:
+For small object shapes, put the parent metadata first, then an explanation and input example, then a schema-backed field table:
 
 ```mdx
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
@@ -135,13 +143,13 @@ Explain shorthand and object forms here, followed by an example.
 <ConfigFieldTable id="content-options" property="versioning" caption="Object fields (relative to versioning)" />
 ```
 
-`ConfigFieldTable` requires `id`, `property`, and a plain-text `caption`. It renders descendants only, never the parent metadata. Field names are local to the selected object; an array selection describes one item (`sources[].id` becomes `id`). Introduce array items as a named shape, such as `ContentSource`, and state the item context in prose or the caption. Types, requiredness, defaults, and descriptions still come directly from the schema. Keep the parent input default separate from object-field defaults; do not invent a resolved default object or copy field types/defaults into MDX tables.
+`ConfigFieldTable` requires `id`, `property`, and a plain-text `caption`. It renders descendants only, never the parent metadata. Field names are local to the selected object, and an array selection describes one item (`sources[].id` becomes `id`). Introduce array items as a named shape, such as `ContentSource`, and state the item context in prose or the caption. Types, requiredness, defaults, and descriptions come directly from the schema. Keep the parent input default separate from object-field defaults; do not invent a resolved default object or copy field types or defaults into MDX tables.
 
-Tables accept `exclude` with the same exact-subtree semantics as `ConfigReference`, without `includeChildren`. Only immediate fields of an object or one array-item shape are supported. Deeper paths, record entries, synthetic roots, and empty selections fail the build: delegate a nested object to its own section/table and exclude its subtree from the outer table. This prevents an evolving schema from silently becoming an ambiguous flattened table. Use authored child sections for behavior-heavy objects such as Monitor window and logging settings.
+Tables accept `exclude` with the same exact-subtree semantics as `ConfigReference`, without `includeChildren`. They support only the immediate fields of an object or of one array-item shape. Deeper paths, record entries, synthetic roots, and empty selections fail the build, so an evolving schema cannot silently flatten into an ambiguous table. Give a nested object its own section or table and exclude its subtree from the outer table. Use authored child sections for behavior-heavy objects such as Monitor window and logging settings.
 
-Do not use a merged field table to imply that mutually exclusive union fields can be combined. Document policies/branches explicitly, with valid input examples and conditional requiredness. Scheduler's `maxAttempts` is required only for `forever: false`, while `backoff` belongs only to the forever policy. The shared metadata reports structural requiredness across the input schema, not branch-specific requirements. Runtime fallbacks belong in descriptions or prose, not the **Input default** column.
+Do not merge mutually exclusive union fields into one table, which implies they can be combined. Document each policy or branch explicitly, with valid input examples and conditional requiredness. For example, Scheduler's `maxAttempts` is required only for `forever: false`, and `backoff` belongs only to the forever policy. The shared metadata reports structural requiredness across the input schema, not branch-specific requirements. Put runtime fallbacks in descriptions or prose, not the **Input default** column.
 
-Description rendering follows the mode automatically; there is no separate description-policy prop. Unknown ids, property paths, and invalid exclusions fail the docs build. Do not repeat a full reference before individual property sections. Each schema row must appear exactly once per reference id across parent metadata, authored child sections, and field tables; `docs/lib/__tests__/config-reference-coverage.test.ts` checks the authored MDX calls against the registry.
+The rendering mode determines whether descriptions appear; no prop controls it. Unknown ids, property paths, and invalid exclusions fail the docs build. Do not repeat a full reference before individual property sections. Each schema row must appear exactly once per reference id across parent metadata, authored child sections, and field tables; `docs/lib/__tests__/config-reference-coverage.test.ts` checks the authored MDX calls against the registry.
 
 When changing a configuration field:
 
@@ -150,11 +158,11 @@ When changing a configuration field:
 3. Keep transform/runtime defaults and conditional rules in schema descriptions or surrounding prose. The renderer documents structural requiredness; it does not infer arbitrary refinement rules.
 4. Build the docs to verify the rendered reference. Update surrounding operational notes, examples, and property headings when the behavior changes.
 
-Keep schema descriptions concise: summarize the field's meaning for generated descendant and fallback definitions. They are rendered as literal plain text, not interpreted as Markdown or HTML. Keep richer explanations, formatted notes, caveats, links, and examples in the MDX page around the component, including for selected properties whose schema descriptions are not rendered. Do not shorten or remove authored prose just because a schema description covers the same topic.
+Keep schema descriptions concise: summarize the field's meaning for generated descendant and fallback definitions. They render as literal plain text, not Markdown or HTML. Put richer explanations, formatted notes, caveats, links, and examples in the MDX around the component, including for selected properties whose schema descriptions do not render. Do not cut authored prose because a schema description covers the same topic.
 
-MDX pages need explicit `title` frontmatter and no leading H1, because the docs layout renders the title. Unlike Markdown pages, MDX pages do not receive source-relative link rewriting; use published routes such as `/reference/content/content-config/` instead of `./content-config.md`.
+MDX pages need explicit `title` frontmatter and no leading H1, because the docs layout renders the title. MDX pages, unlike Markdown pages, get no source-relative link rewriting; use published routes such as `/reference/content/content-config/` instead of `./content-config.md`.
 
-The references import built workspace packages, so their schema dependencies must be compiled with `tsc --build` before Astro starts. The docs workspace's `prebuild` and `predev` scripts handle this prerequisite.
+The references import built workspace packages, so `tsc --build` must compile their schema dependencies before Astro starts. The docs workspace's `prebuild` and `predev` scripts handle this.
 
 From the repository root:
 
@@ -166,66 +174,58 @@ npm run docs:build
 npm run dev -w @bluecadet/launchpad-docs
 ```
 
-For schema-source edits during docs development, also run `npm run dev` from the repository root in a separate terminal. This TypeScript watcher rebuilds the workspace packages that the references import; the docs server alone does not compile schema source changes. This docs-only tooling does not require create-package scaffolding changes.
+When editing schema source during docs development, also run `npm run dev` from the repository root in a separate terminal. This TypeScript watcher rebuilds the workspace packages the references import; the docs server does not compile schema source changes. This docs-only tooling requires no create-package scaffolding changes.
 
-### Plugin System
+### Plugin system
 
-Both content and monitor subsystems use a shared, extensible plugin architecture:
+The content and monitor subsystems share a plugin architecture.
 
-**Base Plugin Driver** (`packages/utils/src/plugin-driver.ts`):
-- Generic plugin system with lifecycle hooks
-- Plugins implement typed hook functions that run at specific lifecycle points
-- Supports sequential and parallel hook execution
-- Each plugin receives: logger, abort signal, and working directory in its context
+The base plugin driver (`packages/utils/src/plugin-driver.ts`):
 
-**Content Plugins** (`packages/content/src/content-plugin-driver.ts`):
-- Transform or process downloaded content
-- Runs after content fetch, enabling custom post-processing
+- Runs typed hook functions that plugins implement for specific lifecycle points
+- Runs hooks sequentially or in parallel
+- Gives each plugin a context with a logger, abort signal, and working directory
 
-**Monitor Plugins** (`packages/monitor/src/core/monitor-plugin-driver.ts`):
-- React to app lifecycle events
-- Enable monitoring, logging, notifications, and custom app management
+Content plugins (`packages/content/src/content-plugin-driver.ts`) run after content fetch to transform or post-process downloaded content.
 
-### Content Pipeline Flow
+Monitor plugins (`packages/monitor/src/core/monitor-plugin-driver.ts`) react to app lifecycle events for monitoring, logging, notifications, and custom app management.
 
-When content is fetched, the system follows this sequence:
+### Content pipeline flow
 
-1. **Setup**: Load sources from config, initialize plugins
-2. **Backup** (optional): Backup existing downloads before fetching new content
-3. **Clear**: Remove old downloads, respecting `keep` patterns from config
-4. **Fetch**: Execute all source fetch functions in parallel
-   - Sources return documents with `{ id, data }` structure
-   - Data can be a Promise or AsyncIterable
-   - Documents stored in the DataStore namespaced by source ID
-5. **Transform**: Run content transforms on fetched content
-6. **Restore**: On failure, restore from backup if enabled
-7. **Cleanup**: Remove temporary and backup directories
+A content fetch runs these steps:
 
-**Content Sources** (`packages/content/src/sources/`):
-- Must implement `ContentSource` interface with `id` and `fetch(context)` methods
-- Receive a `FetchContext` with: logger, DataStore instance, and AbortSignal
+1. Setup: load sources from config and initialize plugins.
+2. Backup (optional): back up existing downloads.
+3. Clear: remove old downloads, respecting the config's `keep` patterns.
+4. Fetch: run all source fetch functions in parallel.
+   - Sources return documents shaped `{ id, data }`.
+   - Data can be a Promise or AsyncIterable.
+   - The DataStore stores documents namespaced by source ID.
+5. Transform: run content transforms on the fetched content.
+6. Restore: on failure, restore from backup if enabled.
+7. Cleanup: remove temporary and backup directories.
 
-**DataStore** (`packages/content/src/utils/data-store.ts`):
-- filesystem-backed storage for downloaded content
-- Organizes data by source ID (namespace) and document ID
-- Handles JSON serialization and file writing automatically
+Content sources (`packages/content/src/sources/`) implement the `ContentSource` interface with `id` and `fetch(context)`. They receive a `FetchContext` holding a logger, the DataStore instance, and an AbortSignal.
 
-### Process Monitoring Architecture
+The DataStore (`packages/content/src/utils/data-store.ts`) stores downloaded content on the filesystem, organized by source ID (namespace) and document ID. It serializes JSON and writes files.
 
-The monitor system manages applications via PM2 with three layers:
+### Process monitoring architecture
 
-- **ProcessManager** (`core/process-manager.ts`): Low-level PM2 interface (connect, start, stop, list, get logs)
-- **BusManager** (`core/bus-manager.ts`): Captures stdout/stderr from apps and routes to launchpad logs
-- **AppManager** (`core/app-manager.ts`): High-level app lifecycle (start, stop, validate), window management
+The monitor manages applications through PM2 in layers:
+
+- `ProcessManager` (`core/process-manager.ts`): low-level PM2 interface (connect, start, stop, list, get logs)
+- `BusManager` (`core/bus-manager.ts`): captures app stdout/stderr and routes it to Launchpad logs
+- `AppManager` (`core/app-manager.ts`): high-level app lifecycle (start, stop, validate) and window management
 
 Each app is configured with:
-- `pm2` config object (follows PM2 StartOptions)
-- Optional `windows` config for foreground/minimize/hide behavior
-- Optional `logging` config for stdout/stderr routing
 
-## Development Guidelines
+- A `pm2` config object, following PM2 StartOptions
+- An optional `windows` config for foreground, minimize, and hide behavior
+- An optional `logging` config for stdout/stderr routing
 
-### Common Commands
+## Development guidelines
+
+### Common commands
 
 ```bash
 # Run the local maintainer checks (fail-fast, no watch mode)
@@ -259,27 +259,28 @@ npm test -w @bluecadet/launchpad-content
 npm test -- <file-pattern>
 ```
 
-### Branch Strategy
+### Branch strategy
 
-- **main**: Primary development branch. All PRs should target this branch.
-- **feature branches**: Create from `main` with descriptive names (e.g., `feat/controller-mode`, `fix/content-timing`)
+- `main` is the primary development branch. Target all PRs at it.
+- Create feature branches from `main` with descriptive names, such as `feat/controller-mode` or `fix/content-timing`.
 
-### Code Style
+### Code style
 
-We use **Biome** for code linting and formatting. Before committing:
+Biome lints and formats the code. Before committing, run:
 
 ```bash
 npm run lint:fix
 ```
 
-Key style guidelines:
-- Use TypeScript for all new code
-- Follow existing code patterns in the package
-- Add JSDoc comments for public APIs
-- Use meaningful variable and function names
-- Keep functions focused and testable
+Style guidelines:
 
-### File Organization
+- Write all new code in TypeScript.
+- Follow the package's existing patterns.
+- Add JSDoc comments to public APIs.
+- Use meaningful variable and function names.
+- Keep functions focused and testable.
+
+### File organization
 
 - Source code: `src/`
 - Tests: `__tests__/` (colocated with source)
@@ -287,36 +288,36 @@ Key style guidelines:
 - Built output: `dist/`
 - Configuration: `tsconfig.src.json`, `package.json`
 
-## Error Handling with neverthrow
+## Error handling with neverthrow
 
-This codebase uses the [neverthrow](https://github.com/supermacro/neverthrow) library for functional error handling. **Never throw errors in production code**—always return a `Result` type.
+The codebase uses [neverthrow](https://github.com/supermacro/neverthrow) for functional error handling. Never throw errors in production code; return a `Result` type.
 
-### Why neverthrow?
+With neverthrow:
 
-- **Explicit error handling**: Errors are part of the function signature, making error cases visible at compile time
-- **No unhandled promises**: Async operations return `ResultAsync`, preventing silent failures
-- **Composable error chains**: Use `.andThen()`, `.map()`, `.orElse()` to build complex logic without nested try-catch
-- **Type safety**: TypeScript enforces handling all error cases
-- **Testability**: Functions with predictable, typed results are easier to test
+- Errors are part of the function signature, so the compiler surfaces error cases.
+- Async operations return `ResultAsync`, which prevents silent failures from unhandled promises.
+- `.andThen()`, `.map()`, and `.orElse()` compose error chains without nested try-catch.
+- TypeScript enforces handling every error case.
+- Functions with predictable, typed results are easier to test.
 
 ## Testing
 
 ### Philosophy
 
-- Tests are colocated with source code in `__tests__` directories
-- Aim for high coverage of business logic and error cases
-- Mock external dependencies (APIs, file system, PM2)
-- Use realistic test data and scenarios
+- Colocate tests with source code in `__tests__` directories.
+- Cover business logic and error cases thoroughly.
+- Mock external dependencies such as APIs, the file system, and PM2.
+- Use realistic test data and scenarios.
 
-### Setup and Utilities
+### Setup and utilities
 
-We use **Vitest** for testing. Custom setup is in `packages/testing/src/setup.ts` and utilities in `packages/testing/src/test-utils.ts`.
+Tests use Vitest. Custom setup lives in `packages/testing/src/setup.ts` and utilities in `packages/testing/src/test-utils.ts`.
 
 Content plugin tests have specialized utilities in `packages/content/src/plugins/__tests__/plugins.test-utils.ts`.
 
 ### Expected logging diagnostics
 
-Shared setup automatically captures only `console.warn` messages with the `[launchpad logging] ` prefix. Declare deliberate diagnostics before triggering them:
+Shared setup captures only `console.warn` messages with the `[launchpad logging] ` prefix. Declare deliberate diagnostics before triggering them:
 
 ```ts
 import { expectLoggingDiagnostic } from "@bluecadet/launchpad-testing/test-utils.ts";
@@ -325,28 +326,28 @@ expectLoggingDiagnostic("File-backed logging is unavailable: directory is locked
 // Trigger the intentional source failure here.
 ```
 
-Pass the message without the prefix. Strings match exactly; regular expressions are supported for variable details. The optional second argument is the expected count (default: one). Verification runs after test cleanup and fails on missing, extra, or undeclared diagnostics. Unexpected diagnostics are also forwarded to the original console. Other warnings and all errors remain unchanged. Event-bus diagnostics are not intercepted; keep assertions on their payloads where relevant.
+Pass the message without the prefix. Strings match exactly; use a regular expression for variable details. The optional second argument sets the expected count (default: one). Verification runs after test cleanup and fails on missing, extra, or undeclared diagnostics, and unexpected diagnostics also go to the original console. Other warnings and all errors pass through unchanged. Setup does not intercept event-bus diagnostics; assert on their payloads where relevant.
 
-Each test gets a console copy, restored at test finish even if logger console overriding freezes it. Do not replace `console.warn` with a silent mock for deliberate Launchpad diagnostics. Await owned asynchronous work and cleanup before the test finishes: callbacks that outlive the test are forwarded rather than silently captured. This console fixture is for sequential tests, not `test.concurrent`.
+Each test gets a console copy, restored when the test finishes even if logger console overriding freezes it. Do not replace `console.warn` with a silent mock for deliberate Launchpad diagnostics. Await owned asynchronous work and cleanup before the test finishes, because setup forwards callbacks that outlive the test instead of capturing them. The console fixture supports sequential tests, not `test.concurrent`.
 
-## Code Quality
+## Code quality
 
-### Local Maintainer Checks
+### Local maintainer checks
 
 ```bash
 npm run check
 ```
 
-Runs Biome lint/format checks, Sherif, Knip, the docs build, root typecheck, and tests in that order. Stops at the first failure; tests run once without watch mode. It does not autofix formatting; use `npm run lint:fix` separately.
+This runs Biome lint and format checks, Sherif, Knip, the docs build, the root typecheck, and tests, in that order, and stops at the first failure. Tests run once without watch mode. It does not autofix formatting; run `npm run lint:fix` for that.
 
-The docs build runs before the root typecheck to approximate CI's independent docs build. The typecheck uses `tsc --build` for production and test projects and emits build artifacts needed by tests; this is not a read-only check.
+The docs build runs before the root typecheck to approximate CI's independent docs build. The typecheck runs `tsc --build` for production and test projects and emits build artifacts the tests need, so it writes files.
 
-This command does not reproduce clean-checkout or multi-OS CI, the pinned-Zig native binary drift check, or package-content assertions. CI retains its independent jobs and platform matrix.
+The command does not reproduce clean-checkout or multi-OS CI, the pinned-Zig native binary drift check, or package-content assertions. CI keeps its independent jobs and platform matrix.
 
 ### TypeScript
 
-- Use strict mode (enabled by default in `tsconfig.src.json`)
-- Annotate function parameters and return types
+- Use strict mode (on by default in `tsconfig.src.json`).
+- Annotate function parameters and return types.
 
 ### Linting
 
@@ -359,20 +360,21 @@ npm run lint:fix
 ```
 
 Biome checks for:
+
 - Unused imports
 - Unreachable code
 - Inconsistent naming
 - Code style and formatting
 
-### Workspace Consistency
+### Workspace consistency
 
 ```bash
 npm run sherif
 ```
 
-Sherif checks workspace package and dependency consistency. Like CI, it ignores `@bluecadet/launchpad*` dependency version mismatches because Changesets manages those versions. Knip separately checks for unused dependencies and exports.
+Sherif checks workspace package and dependency consistency. Like CI, it ignores `@bluecadet/launchpad*` dependency version mismatches, because Changesets manages those versions.
 
-### Unused Dependencies and Exports
+### Unused dependencies and exports
 
 Run the same Knip check used in CI:
 
@@ -382,11 +384,11 @@ npm run knip
 
 The content workspace has a narrow `ignoreDependencies` exception for
 `@types/http-cache-semantics`. `http-cache-semantics@4.2.0` advertises
-`"types": "index.js"` but ships no TypeScript declarations. Knip treats that
-metadata as bundled types and incorrectly reports the separate typings as unused;
+`"types": "index.js"` but ships no TypeScript declarations. Knip reads that
+metadata as bundled types and wrongly reports the separate typings as unused;
 TypeScript resolves the adapter's policy types through `@types/http-cache-semantics`.
-Keep this dependency and remove the exception when upstream metadata or Knip's
-bundled-type detection is corrected.
+Keep the dependency, and remove the exception once upstream metadata or Knip's
+bundled-type detection is fixed.
 
 ### Building
 
@@ -397,7 +399,7 @@ npm run build
 
 ## Testing the CLI with npm link
 
-If you're developing Launchpad and want to test it as a dependency in another project, you can link all packages locally using npm workspaces. This allows you to make changes in launchpad and immediately test them in your project without publishing to npm.
+To test local Launchpad changes as a dependency of another project without publishing to npm, link the packages.
 
 ### Setup
 
@@ -411,7 +413,7 @@ npm run build
 
 #### 2. Link packages
 
-Link each of the Launchpad packages. This creates a symlink to the local package in your project's `node_modules`.
+Link each Launchpad package. Linking symlinks the local package into your project's `node_modules`.
 
 ```bash
 # In launchpad repo
@@ -434,18 +436,18 @@ npm link
 npm link @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/launchpad-monitor @bluecadet/launchpad-utils @bluecadet/launchpad @bluecadet/launchpad-controller @bluecadet/create-launchpad
 ```
 
-### Development Workflow
+### Development workflow
 
-Once linked, you can use watch mode to rebuild changes automatically:
+Once the packages are linked, run watch mode to rebuild on change:
 
 ```bash
 # In launchpad repo
 npm run dev
 ```
 
-Any changes to TypeScript source files will be automatically compiled, and your test project will pick up the changes.
+Watch mode compiles TypeScript source changes, and your test project picks them up.
 
-### Testing with a Real Config
+### Testing with a real config
 
 Create a `launchpad.config.ts` in your test project:
 
@@ -476,7 +478,7 @@ npx launchpad monitor
 
 ### Unlinking
 
-When you're done testing, unlink the packages:
+When you finish testing, unlink the packages:
 
 ```bash
 # In your test project
@@ -485,35 +487,39 @@ npm unlink @bluecadet/launchpad-cli @bluecadet/launchpad-content @bluecadet/laun
 
 ### Troubleshooting
 
-**Issue: Changes aren't being picked up**
-- Make sure `npm run build` or `npm run dev` is running in the launchpad repo
-- Check that the link is correctly set up by running `npm link` again in the package directory
-- Clear your test project's node_modules cache: `rm -rf node_modules/.cache`
+If the test project doesn't pick up changes:
 
-**Issue: TypeScript errors in test project**
-- Ensure the test project has TypeScript and the Launchpad types are available
-- Run `npm install` in both the launchpad repo and test project to ensure types are synced
+- Make sure `npm run build` or `npm run dev` ran in the Launchpad repo.
+- Run `npm link` again in the package directory to repair the link.
+- Clear the test project's cache: `rm -rf node_modules/.cache`
 
-**Issue: Module resolution errors**
-- Verify the package names are correct
-- Try removing and re-creating the links
+If the test project shows TypeScript errors:
 
-## Creating Changesets
+- Make sure the test project has TypeScript and can see the Launchpad types.
+- Run `npm install` in both the Launchpad repo and the test project to sync types.
 
-If you're contributing a user-facing change, create a changeset:
+If module resolution fails:
+
+- Verify the package names.
+- Remove and re-create the links.
+
+## Creating changesets
+
+Create a changeset for every user-facing change:
 
 ```bash
 npm run changeset
 ```
 
-Follow the prompts to:
-1. Select which package(s) are affected
-2. Choose change type: major, minor, or patch
-3. Write a description of the change
+The prompts ask you to:
 
-### Changeset Guidelines
+1. Select the affected packages.
+2. Choose a change type: major, minor, or patch.
+3. Describe the change.
 
-Changelogs are for users upgrading, not a log of commits. Explain what changed, who it affects, and any action they need to take. Include user-facing fixes, features, and breaking changes; skip internal refactors, test-only changes, and documentation-only updates.
+### Changeset guidelines
+
+Write changelogs for users who are upgrading. Explain what changed, who it affects, and any action they need to take. Include user-facing fixes, features, and breaking changes; skip internal refactors, test-only changes, and documentation-only updates.
 
 Use Markdown with a plain-text summary on the first line, not a heading. For example:
 
@@ -524,17 +530,17 @@ Avoid implementation-only summaries such as "Fix typo in variable name."
 
 #### Ordinary changesets (the default)
 
-Use an ordinary changeset for all packages, including the umbrella `@bluecadet/launchpad` alone or alongside subpackages. Keep the entry compact: a concise summary, with a short explanation or upgrade note when needed.
+Use an ordinary changeset for every package, including the umbrella `@bluecadet/launchpad` alone or with subpackages. Keep the entry compact: a concise summary, plus a short explanation or upgrade note when needed.
 
-The body is shared by every package listed in the frontmatter. Group affected packages when the same explanation applies; use separate changesets when their explanations differ. Choose package membership and bump types based on actual public API impact, including umbrella re-exports, not simply because one package depends on another. See the [versioning policy](#versioning-policy) below.
+Every package listed in the frontmatter shares the body. Group packages that share an explanation; use separate changesets when explanations differ. Choose packages and bump types by actual public API impact, including umbrella re-exports, rather than by dependency relationships. See the [versioning policy](#versioning-policy) below.
 
-Multiple changesets for one package produce one version bump per release, with the highest requested bump winning. You don't need to combine unrelated explanations to avoid multiple bumps.
+Multiple changesets for one package produce one version bump per release, and the highest requested bump wins, so keep unrelated explanations in separate changesets.
 
-Ordinary entries get an unobtrusive PR-link suffix when an associated PR is found. Generated commit hashes and contributor prefixes are omitted. Author-written links remain intact.
+Ordinary entries get a PR-link suffix when the formatter finds an associated PR. Generated commit hashes and contributor prefixes are omitted. Links you write stay intact.
 
 #### Release overviews (rare, explicit opt-in)
 
-Use an overview for a substantial major or breaking release that needs a cross-package narrative: how the changes fit together, what upgrading requires, and important limitations. Neither targeting the umbrella nor writing a long body makes a changeset an overview automatically.
+Use an overview for a substantial major or breaking release that needs a cross-package narrative: how the changes fit together, what upgrading requires, and important limitations. Only the marker below makes a changeset an overview; targeting the umbrella or writing a long body does not.
 
 Opt in with the exact marker `<!-- changeset: overview -->` immediately after the plain-text summary and a blank line, followed by another blank line:
 
@@ -560,27 +566,28 @@ retained delivery after a restart. Upgrading requires configuration changes.
 Retained log delivery isn't lossless or exactly once.
 ```
 
-The formatter removes the marker and renders a bold summary followed by normal paragraphs, headings, lists, and code blocks, rather than one large bullet. Overviews don't get automatic PR or commit references; links you write yourself are preserved. For extensive upgrade instructions, link to a migration guide.
+The formatter removes the marker and renders a bold summary followed by normal paragraphs, headings, lists, and code blocks instead of one large bullet. Overviews get no automatic PR or commit references; links you write stay intact. For extensive upgrade instructions, link to a migration guide.
 
-Use H4–H6 (`####` through `######`) for overview sections. Changesets already generates the `##` version heading and `### Major/Minor/Patch Changes` headings. The GitHub release extractor stops at the next H2, which can truncate the current release. The formatter rejects H1–H3 outside backtick code fences both to prevent truncation and to preserve the hierarchy below the generated H3 bump heading. Use backtick fences for code containing those headings; tilde fences don't protect them from the current extractor.
+Use H4-H6 (`####` through `######`) for overview sections. Changesets already generates the `##` version heading and the `### Major/Minor/Patch Changes` headings. The GitHub release extractor stops at the next H2, which can truncate the current release. The formatter rejects H1-H3 outside backtick code fences to prevent truncation and to keep the hierarchy below the generated H3 bump heading. Put code that contains those headings in backtick fences; tilde fences don't protect them from the current extractor.
 
-A long overview usually belongs only in the umbrella changelog, keeping subpackage entries focused. Keep shared subpackage changesets compact. Remove the umbrella from those entries only when its overview already covers the changes, so the umbrella doesn't repeat the same summaries. An overview may deliberately target multiple packages if the full narrative is useful to each audience.
+A long overview usually belongs only in the umbrella changelog, so subpackage entries stay focused and compact. Remove the umbrella from shared subpackage changesets only when its overview already covers those changes, so the umbrella changelog doesn't repeat them. An overview may target multiple packages when each audience needs the full narrative.
 
-Package membership controls changelog scope and version bumps; the marker controls presentation only. There's no need to split an overview solely for formatting. It still appears under Changesets' bump heading: the supported formatter callbacks can't remove that wrapper.
+Package membership controls changelog scope and version bumps; the marker controls only presentation, so don't split an overview for formatting. The overview still appears under Changesets' bump heading, because the supported formatter callbacks can't remove that wrapper.
 
 #### Formatter maintenance
 
-The local formatter is `.changeset/changelog.cjs`. This policy applies to newly generated entries; it doesn't rewrite historical changelogs. Test formatter changes from the repository root:
+The local formatter is `.changeset/changelog.cjs`. It applies to newly generated entries and doesn't rewrite historical changelogs. Test formatter changes from the repository root:
 
 ```bash
 npx vitest run --project changesets
 ```
 
-Local versioning (`npm run changeset -- version`) still needs `GITHUB_TOKEN` for automatic PR lookup on committed ordinary changesets, using the same GitHub helper as the previous formatter. Overviews and dependency-update lines don't query GitHub. No compare link is generated because the formatter doesn't receive the package's old and new versions; add a known full-changelog link manually when useful.
+Local versioning (`npm run changeset -- version`) needs `GITHUB_TOKEN` to look up PRs for committed ordinary changesets, through the same GitHub helper as the previous formatter. Overviews and dependency-update lines don't query GitHub. The formatter never receives the package's old and new versions, so it generates no compare link; add a full-changelog link manually when useful.
 
-### Non-Packages
+### Non-packages
 
 Don't create changesets for:
+
 - Examples and demo projects
 - Test utilities and test files
 - Documentation updates
@@ -590,50 +597,46 @@ Don't create changesets for:
 
 ### Versioning policy
 
-All packages, including the umbrella, follow SemVer and are versioned independently. Breaking public API changes require a major release of the affected package. The umbrella's public API includes its re-exports, so breaking those APIs requires an umbrella major too. A dependency major alone does not automatically require an umbrella major if the umbrella's public contract remains compatible. Choose changeset types based on each package's public contract, not automatic dependency bumps or matching major numbers.
+Every package, including the umbrella, follows SemVer and is versioned independently. A breaking public API change requires a major release of the affected package. The umbrella's public API includes its re-exports, so breaking those also requires an umbrella major. A dependency major alone requires no umbrella major while the umbrella's public contract stays compatible. Choose changeset types by each package's public contract, not by automatic dependency bumps or matching major numbers.
 
 See [Versioning and upgrades](./docs/guides/packages.md#versioning-and-upgrades) for the consumer policy and upcoming release versions.
 
-### Release Process
+### Release process
 
-1. **Create changeset**: Include with your PR when adding user-facing changes
-2. **Open PR**: Open a PR against `main`
-3. **Merge PR**: Once approved, merge the PR into `main`
-4. **Wait for Version PR**: The [Changesets GitHub action](https://github.com/changesets/action#usage) automatically creates a "Version Packages" PR
-5. **Review and merge**: Review the version bumps and changelog, then merge the PR
-6. **Automatic publish**: npm packages are automatically published to the npm registry
+1. Include a changeset in any PR with user-facing changes.
+2. Open the PR against `main`.
+3. Merge the approved PR into `main`.
+4. The [Changesets GitHub action](https://github.com/changesets/action#usage) opens a "Version Packages" PR.
+5. Review the version bumps and changelog, then merge that PR.
+6. The packages publish to the npm registry automatically.
 
 #### Release automation contract
 
-The workflow pairs Changesets action v2 with Changesets CLI v3. The action supplies a `CHANGESETS_OUTPUT` file path; the CLI appends structured NDJSON events that the action uses to push tags and create GitHub releases. Action v1 parsed human-readable `New tag:` output instead, which CLI v3 no longer emits. Keep the action and CLI compatible when upgrading either.
+The workflow pairs Changesets action v2 with Changesets CLI v3. The action supplies a `CHANGESETS_OUTPUT` file path, and the CLI appends structured NDJSON events that the action uses to push tags and create GitHub releases. Action v1 parsed human-readable `New tag:` output, which CLI v3 no longer emits. Keep the action and CLI compatible when upgrading either.
 
-The action's `publish-script` input runs `npm run release`, which must pass the inherited `CHANGESETS_OUTPUT` environment variable through to the CLI unchanged. Keep the build and publish stages joined with `&&` and propagate failures; don't swallow a nonzero exit status or replace the structured output with stdout parsing. `push-with-git-cli: true` preserves Git-based pushing, and non-cancelling concurrency serializes release runs for the same workflow and ref.
+The action's `publish-script` input runs `npm run release`, which must pass the inherited `CHANGESETS_OUTPUT` environment variable to the CLI unchanged. Keep the build and publish stages joined with `&&` and propagate failures; don't swallow a nonzero exit status or replace the structured output with stdout parsing. `push-with-git-cli: true` preserves Git-based pushing, and non-cancelling concurrency serializes release runs for the same workflow and ref.
 
 Run the offline release-tooling tests with `npx vitest run --project changesets`. They check the workflow contract and exercise CLI `git-tag` in temporary repositories with local remotes, without publishing packages or writing to GitHub.
 
 #### If npm succeeds but GitHub tags or releases are missing
 
-Treat this as **GitHub-only recovery**, not another npm publish. Verify the published package versions and their npm `gitHead` metadata against the original release commit. For each missing package tag, use that verified commit and the package's exact `name@version` tag; create the missing GitHub release with the exact corresponding version section from that package's `CHANGELOG.md` at the same commit. Don't substitute the latest `main` or summarize the changelog notes.
+Recover on GitHub only; do not publish to npm again. Verify the published package versions and their npm `gitHead` metadata against the original release commit. For each missing package tag, use that verified commit and the package's exact `name@version` tag. Create each missing GitHub release from the matching version section of that package's `CHANGELOG.md` at the same commit. Don't substitute the latest `main` or summarize the changelog notes.
 
-Check existing tags and releases before creating anything. Never republish an already-published npm version or force-move an existing tag. If a tag points elsewhere, or published packages disagree about the release commit, stop and investigate rather than overwriting it. Fixing the workflow protects future releases; it does not repair a previous run's missing GitHub artifacts automatically.
+Check existing tags and releases before creating anything. Never republish a published npm version or force-move an existing tag. If a tag points elsewhere, or published packages disagree about the release commit, stop and investigate instead of overwriting. Fixing the workflow protects future releases but does not repair a previous run's missing GitHub artifacts.
 
-### Branch Management
+## Best practices
 
-- **main**: Primary development branch. All PRs target this branch.
+### General principles
 
-## Best Practices
+- Prefer explicit code that documents itself.
+- Fail fast: validate inputs early and return errors explicitly.
+- Use TypeScript's type system to prevent bugs.
+- Favor composition over inheritance through plugins and utility functions.
+- Add context-aware logging for debugging and monitoring.
 
-### General Principles
+### Abort signals
 
-1. **Explicit over implicit**: Write clear, self-documenting code
-2. **Fail fast**: Validate inputs early and return errors explicitly
-3. **Type safety**: Leverage TypeScript's type system to prevent bugs
-4. **Composition over inheritance**: Use plugin architecture and utility functions
-5. **Logging**: Add context-aware logging for debugging and monitoring
-
-### Abort Signals
-
-All long-running operations receive an `AbortSignal`. Always check and respect it:
+Every long-running operation receives an `AbortSignal`. Check and respect it:
 
 ```typescript
 export async function fetchData(context: FetchContext) {
@@ -655,25 +658,24 @@ export async function fetchData(context: FetchContext) {
 }
 ```
 
-### Testing Private Functions
+### Testing private functions
 
-If you need to test internal helpers, consider:
-1. Making them testable through public APIs
-2. Exporting them for testing only with a clear naming convention
-3. Keeping the function scope small enough that it's implicitly tested
+To test internal helpers, prefer one of these approaches:
+
+1. Test them through public APIs.
+2. Export them for testing only, under a clear naming convention.
+3. Keep them small enough that callers' tests cover them.
 
 ### Documentation
 
-- Add JSDoc comments to all exported functions and types
-- Include usage examples in complex modules
-- Document plugin hooks and their lifecycle
-- Keep README files up to date for each package
-- User API changes should be documented in the /docs site
+- Add JSDoc comments to all exported functions and types.
+- Include usage examples in complex modules.
+- Document plugin hooks and their lifecycle.
+- Keep each package's README current.
+- Document user API changes on the docs site (`docs/`).
 
----
+## Getting help
 
-## Questions?
-
-- Check existing tests for examples
-- Look at similar modules for patterns
-- Ask in PRs or open discussions
+- Check existing tests for examples.
+- Look at similar modules for patterns.
+- Ask in PRs or open a discussion.

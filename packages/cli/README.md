@@ -1,11 +1,10 @@
 # @bluecadet/launchpad-cli
 
-Command line interface for managing media installations with Launchpad. Provides commands for content management, process monitoring, and system configuration.
+Command-line interface for managing media installations with Launchpad. It manages content, monitors processes, and loads configuration.
 
 ## Documentation
 
-For complete documentation, configuration options, and guides, visit:
-[Launchpad Documentation](https://bluecadet.github.io/launchpad/)
+See the [Launchpad documentation](https://bluecadet.github.io/launchpad/) for guides and configuration options.
 
 ## Installation
 
@@ -16,7 +15,7 @@ npm install @bluecadet/launchpad-cli
 npm install @bluecadet/launchpad-content @bluecadet/launchpad-monitor
 ```
 
-## Basic Usage
+## Basic usage
 
 ```bash
 # Download content and start apps

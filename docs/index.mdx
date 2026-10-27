@@ -1,6 +1,6 @@
 ---
 title: "A toolkit for next generation media experiences."
-description: Launchpad ensures stability, reduces installation time, and allows teams to focus on innovation rather than troubleshooting.
+description: Launchpad keeps installations stable and cuts setup time, so teams spend less time troubleshooting.
 ---
 
 import {
@@ -17,17 +17,17 @@ import {
 } from "@bluecadet/docs/components";
 
 <Hero
-  lead="Launchpad ensures stability, reduces installation time, and allows teams to focus on innovation rather than troubleshooting."
+  lead="Launchpad keeps installations stable and cuts setup time, so teams spend less time troubleshooting."
 >
   <Fragment slot="title">A toolkit for <em>next generation</em> media experiences.</Fragment>
   <HeroEyebrows>
     <HeroEyebrow tone="state">unattended operation</HeroEyebrow>
-    <HeroEyebrow tone="attention">node 23+</HeroEyebrow>
+    <HeroEyebrow tone="attention">node 24 or 26+</HeroEyebrow>
     <HeroEyebrow>isc licensed</HeroEyebrow>
   </HeroEyebrows>
   <HeroActions>
     <HeroInstall>npm create @bluecadet/launchpad</HeroInstall>
-    <Button href="/guides/getting-started/" variant="ghost">Get Started →</Button>
+    <Button href="/guides/getting-started/" variant="ghost">Get started →</Button>
   </HeroActions>
   <HeroNotes>
     <HeroNote>↖ one package to install. nothing else to stand up.</HeroNote>
@@ -38,8 +38,8 @@ import {
   <Feature title="Content lands before doors open">
     Sources pull from Airtable, Contentful, Sanity, Strapi, or any JSON endpoint, and
     transforms download and resize media on the way in. New content stages into its own
-    version and only goes live once the whole fetch succeeds, so the worst case for a
-    failed sync is yesterday's content, not a half-updated screen.
+    version and goes live only after the whole fetch succeeds, so a failed sync leaves
+    yesterday's content on screen instead of a half-updated one.
   </Feature>
   <Feature title="Apps come back without you">
     Launchpad launches whatever your installation runs, watches it, and restarts what
@@ -47,9 +47,9 @@ import {
     reboots comes back arranged the way you left it.
   </Feature>
   <Feature title="Every piece is a plugin">
-    Sources, transforms, monitor backends, and observability transports are swappable
-    pieces, not fixed choices. Reach for Sanity or Grafana Loki out of the box, or
-    implement the same interface yourself when they don't fit — no fork required.
+    Sources, transforms, monitor backends, and observability transports are all
+    swappable. Use Sanity or Grafana Loki out of the box, or implement the same
+    interface yourself when they don't fit, without forking Launchpad.
   </Feature>
 </Features>
 
@@ -60,10 +60,10 @@ import {
   so a screen shows last month's labels. An app crashes at 6am, and the first person to
   notice is a visitor. Launchpad exists to make both survivable without a person on site.
 
-  It does three things: pulls content out of the CMS you already run, launches your apps
-  and restarts the ones that die, and forwards a record of all of it somewhere you'll
-  actually see. That's the whole scope. It doesn't author your content and it doesn't
-  build your app; it keeps the thing you built running after everyone goes home.
+  It pulls content out of the CMS you already run, launches your apps and restarts the
+  ones that die, and forwards a record of all of it somewhere you'll see it. Content
+  authoring and app development stay with you; Launchpad keeps what you built running
+  after everyone goes home.
 </GeneralBand>
 
 
@@ -73,10 +73,10 @@ import {
   intro="What Launchpad handles out of the box."
 >
   <Fragment slot="title">
-    Launchpad's <em>Key Features</em>
+    Launchpad's <em>key features</em>
   </Fragment>
   <GlyphItem glyph="✓" lead="Run multiple apps simultaneously.">
-    Control over launch sequence and window order for more complex exhibit setups.
+    Control launch order and window order for complex exhibit setups.
   </GlyphItem>
   <GlyphItem glyph="✓" lead="Graceful handling of app failures.">
     Apps that exit or crash are restarted automatically.
@@ -99,7 +99,7 @@ import {
   </GlyphItem>
   <GlyphItem glyph="✓" lead="Built on a plugin interface.">
     Sources, transforms, monitor backends, and observability transports all implement
-    the same interface as the built-ins, so swapping one in touches config, not core.
+    the same interface as the built-ins, so swapping one in changes only config.
   </GlyphItem>
 </GlyphList>
 

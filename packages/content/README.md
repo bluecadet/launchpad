@@ -1,19 +1,18 @@
 # @bluecadet/launchpad-content
 
-Content management tools for Launchpad interactive installations. Fetch, transform, and manage content from any source with a flexible plugin system.
+Content management for Launchpad installations. Fetch content from APIs and CMSs, then transform it with plugins.
 
 ## Documentation
 
-For complete documentation, configuration options, and guides, visit:
-[Launchpad Documentation](https://bluecadet.github.io/launchpad/)
+See the [Launchpad documentation](https://bluecadet.github.io/launchpad/) for guides and configuration options.
 
 ## Features
 
-- Fetch content from multiple sources (APIs, CMSs, etc.)
+- Fetch content from multiple sources, such as APIs and CMSs
 - Transform content with plugins
-- Automatic backup and restore
-- Error handling and logging
-- Media file downloads and processing
+- Back up and restore content automatically
+- Handle and log errors
+- Download and process media files
 
 ## Installation
 
@@ -21,7 +20,7 @@ For complete documentation, configuration options, and guides, visit:
 npm install @bluecadet/launchpad-content @bluecadet/launchpad-cli
 ```
 
-## Basic Usage
+## Basic usage
 
 ```ts
 // launchpad.config.ts

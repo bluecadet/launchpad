@@ -1,11 +1,11 @@
 ---
-title: "Scheduler Config"
+title: "Scheduler config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
-Pass a command-keyed record to `scheduler()`. Each key identifies the command to dispatch; one command id can have one schedule.
+Pass a record keyed by command id to `scheduler()`. Each key names the command to dispatch.
 
 ```typescript
 scheduler({
@@ -15,9 +15,9 @@ scheduler({
 ```
 
 > [!NOTE]
-> Multiple independent schedules for the same command id are not supported. The record shape allows one schedule per key.
+> Each command id can have only one schedule.
 
-For a complete content-refresh setup, see the [Live Content Refresh recipe](/recipes/live-content-refresh/).
+For a complete content-refresh setup, see the [live content refresh recipe](/recipes/live-content-refresh/).
 
 ## Schedule shorthand
 
@@ -26,7 +26,7 @@ A bare string is either a duration or a cron expression:
 - A string with no whitespace is a duration, such as `'500ms'`, `'30s'`, `'5m'`, or `'2h'`.
 - A string with whitespace is a cron expression and must contain exactly five whitespace-separated fields.
 
-Durations may also be raw millisecond numbers in the object form.
+In the object form, durations can also be millisecond numbers.
 
 ## Per-job options
 
@@ -48,7 +48,7 @@ scheduler({
 });
 ```
 
-The schema reference covers each record value. Input defaults do not include values filled by transforms or the scheduler at runtime; those behaviors are explained below. Requiredness is structural, so read the conditional rules for `interval`, `cron`, and retry branches. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+The schema reference covers each record value. Input defaults exclude values that transforms or the scheduler fill in at runtime; the sections below describe those. Required markers reflect schema structure only, so read the conditional rules for `interval`, `cron`, and the retry policies. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 <ConfigReference id="scheduler-options" property="(root)" />
 
@@ -56,13 +56,13 @@ The schema reference covers each record value. Input defaults do not include val
 
 <ConfigReference id="scheduler-options" property="interval" />
 
-A duration between interval runs. The next interval is computed when the previous dispatch completes, so interval jobs cannot overlap themselves.
+Duration between runs. The next run is scheduled when the previous dispatch completes, so interval jobs cannot overlap themselves.
 
 ### `cron`
 
 <ConfigReference id="scheduler-options" property="cron" />
 
-A five-field cron expression. Cron schedules stay anchored to wall-clock occurrences. The next occurrence is armed before the current dispatch completes; a command already in progress is skipped rather than queued.
+A five-field cron expression. Cron schedules stay anchored to wall-clock time. The next occurrence is armed before the current dispatch completes; if the command is still in progress, that occurrence is skipped, not queued.
 
 Exactly one of `interval` and `cron` is required.
 
@@ -70,23 +70,23 @@ Exactly one of `interval` and `cron` is required.
 
 <ConfigReference id="scheduler-options" property="jitter" />
 
-Adds a fresh, positive random delay to every scheduled run and retry, spreading a fleet of kiosks out so they don't all fire at once.
+Adds a new random positive delay to every scheduled run and retry so a fleet of kiosks does not fire at once.
 
-The `true` default resolves differently by schedule type:
+The default, `true`, depends on schedule type:
 
-- **Interval jobs** (and retry backoff): up to 10% of the delay being scheduled.
-- **Cron jobs:** up to 60 seconds. A cron gap can be many hours, so a percentage of it would drag the run far off its wall-clock time; the fixed 60-second cap desyncs a fleet without shifting the occurrence meaningfully. For example, a nightly `'0 3 * * *'` job still fires within a minute of 3am.
+- Interval jobs and retry backoff: up to 10% of the delay being scheduled.
+- Cron jobs: up to 60 seconds. A percentage of a multi-hour cron gap would push the run far from its wall-clock time, while a 60-second cap spreads a fleet without moving the occurrence much. A nightly `'0 3 * * *'` job still fires within a minute of 3am.
 
-Supply a duration to set a fixed maximum jitter for either schedule type, or `false` to disable jitter.
+Set a duration for a fixed maximum jitter on either schedule type, or `false` to disable jitter.
 
 ### `retry`
 
 <ConfigReference id="scheduler-options" property="retry" />
 
-Failed dispatches retry before the normal schedule resumes. A successful dispatch resets the failure count and backoff. Choose one of two policies:
+Failed dispatches retry before the normal schedule resumes. A successful dispatch resets the failure count and backoff. Choose a policy:
 
-- **Forever:** omit `retry`, use `{}`, or set `forever: true`. Only this policy accepts `backoff` overrides; it does not accept `maxAttempts`.
-- **Limited:** set `forever: false` and supply `maxAttempts`. This policy uses the default backoff curve and does not accept `backoff` overrides.
+- Forever: omit `retry`, use `{}`, or set `forever: true`. Only this policy accepts `backoff` overrides; it rejects `maxAttempts`.
+- Limited: set `forever: false` and supply `maxAttempts`. This policy uses the default backoff curve and rejects `backoff` overrides.
 
 ```typescript
 scheduler({
@@ -108,19 +108,19 @@ scheduler({
 });
 ```
 
-A command rejected because it is already running is an overlap skip, not a failure. It does not consume an attempt or begin backoff.
+A command rejected because it is already running counts as an overlap skip. It does not consume an attempt or start backoff.
 
 #### `forever`
 
 <ConfigReference id="scheduler-options" property="retry.forever" />
 
-Selects the retry policy. Omitting this field selects forever retries; `false` selects limited retries and requires `maxAttempts`. The field metadata describes all accepted inputs together; conditional requirements are specified in each policy above.
+Selects the retry policy. Omitted means forever; `false` selects limited retries and requires `maxAttempts`. The field metadata lists all accepted inputs together; the policies above state the conditional requirements.
 
 #### `maxAttempts` (limited policy)
 
 <ConfigReference id="scheduler-options" property="retry.maxAttempts" />
 
-Required when `forever: false`, even though it is not required across the combined input schema. Must be a positive integer. Not accepted with `forever: true` or an omitted `forever` field; it cannot be combined with `backoff`.
+Required when `forever: false`, although the combined input schema does not mark it required. Must be a positive integer. It is rejected with `forever: true` or an omitted `forever`, and it cannot be combined with `backoff`.
 
 #### `backoff` (forever policy)
 
@@ -143,7 +143,7 @@ scheduler({
 
 <ConfigReference id="scheduler-options" property="command" />
 
-Overrides the command dispatched for this job. This is useful when the command needs a payload. When omitted, the scheduler dispatches `{ type: <record key> }`.
+Overrides the command dispatched for this job, for commands that need a payload. When omitted, the scheduler dispatches `{ type: <record key> }`.
 
 ```typescript
 scheduler({
@@ -158,14 +158,14 @@ scheduler({
 
 <ConfigReference id="scheduler-options" property="runOnStart" />
 
-Dispatches the job immediately when the scheduler starts. When `false`, the first dispatch occurs after the scheduled delay.
+Dispatches the job immediately when the scheduler starts. When `false`, the first dispatch waits for the scheduled delay.
 
 ### `enabled`
 
 <ConfigReference id="scheduler-options" property="enabled" />
 
-When `false`, the job is never scheduled or dispatched and does not appear in the Scheduler status section. A disabled job is invisible to the runtime commands too: `scheduler.pause`, `scheduler.resume`, and `scheduler.trigger` treat its id as unknown, and a broadcast `scheduler.pause`/`scheduler.resume` (no `job` given) skips it entirely.
+When `false`, the job is never scheduled or dispatched and does not appear in the Scheduler status section. `scheduler.pause`, `scheduler.resume`, and `scheduler.trigger` treat its id as unknown, and a broadcast `scheduler.pause` or `scheduler.resume` (no `job` given) skips it.
 
 ## Limitations
 
-Schedules and retry state are in memory only. On restart, each job receives a fresh schedule from the current time, and cron occurrences missed while Launchpad was stopped are skipped.
+Schedules and retry state live in memory only. On restart, each job gets a fresh schedule from the current time, and cron occurrences missed while Launchpad was stopped are skipped.

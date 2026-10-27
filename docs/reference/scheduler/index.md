@@ -1,13 +1,13 @@
 ---
 title: "Scheduler"
 ---
-The scheduler plugin dispatches registered Launchpad commands on interval or cron schedules. It is command-agnostic: configure a command id and the scheduler dispatches that command through the controller.
+The scheduler plugin dispatches registered Launchpad commands through the controller on interval or cron schedules. It works with any command id.
 
-For a complete content-refresh setup, see the [Live Content Refresh recipe](../../recipes/live-content-refresh.md).
+For a complete content-refresh setup, see the [live content refresh recipe](../../recipes/live-content-refresh.md).
 
 ## Installation
 
-The scheduler is included with the Launchpad umbrella package:
+The Launchpad umbrella package includes the scheduler:
 
 ```bash
 npm install @bluecadet/launchpad
@@ -15,7 +15,7 @@ npm install @bluecadet/launchpad
 
 ## Minimal configuration
 
-Add `scheduler()` to your Launchpad config. This schedules `content.fetch` every five minutes. The default retry policy keeps retrying failed dispatches with exponential backoff.
+Add `scheduler()` to your Launchpad config. This example runs `content.fetch` every five minutes. By default, failed dispatches retry indefinitely with exponential backoff.
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -26,6 +26,6 @@ export default defineConfig({
 });
 ```
 
-The first run is one interval after startup. Set `runOnStart: true` for a job that should also run immediately.
+The first run happens one interval after startup. Set `runOnStart: true` to also run a job immediately.
 
-See [Scheduler Config](/reference/scheduler/scheduler-config/) for all scheduling options and [Commands & Events](./commands.md) for runtime control and status output.
+See [Scheduler config](/reference/scheduler/scheduler-config/) for all scheduling options and [Commands & events](./commands.md) for runtime control and status output.

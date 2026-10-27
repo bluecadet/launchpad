@@ -31,6 +31,17 @@ Logger for messages and errors during the fetch.
 
 Data store for storing and retrieving fetched content. Use it when a source depends on data from an earlier source, such as fetching Shopify data for products referenced in a Sanity query.
 
+### `abortSignal`
+
+`AbortSignal` that fires when the controller shuts down, whether from a manual quit or an error. It does not fire when a single fetch fails. Pass it to `fetch()` or any other cancellable call so in-flight requests stop on shutdown:
+
+```typescript
+fetch: ({ abortSignal }) => ({
+  id: 'data',
+  data: fetch('https://api.example.com/data', { signal: abortSignal }).then((res) => res.json()),
+}),
+```
+
 ## Source fetch result
 
 ### `id`

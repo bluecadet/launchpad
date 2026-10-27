@@ -67,7 +67,7 @@ In flat mode with `backupAndRestore` enabled, a publication or temporary-file cl
 A source-filtered temporary clear removes that source's entries in the run layout and in the temporary namespaces of the configured transforms. A source named `runs`, `downloads`, or after a transform does not authorize deletion of the containing namespace. Unknown historical transform namespaces are preserved. Without a layout record, a direct temporary source directory with subdirectories is ambiguous, so a filtered clear refuses to delete it rather than risk another source's files. Use an all-source temporary clear to remove historical or ambiguous files:
 
 ```typescript
-await controller.dispatchCommand({
+await controller.executeCommand({
   type: "content.clear",
   downloads: false,
   temp: true,

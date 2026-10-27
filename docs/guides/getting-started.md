@@ -1,31 +1,29 @@
-# Getting Started
+# Getting started
 
-## Quick Start
+## Quick start
 
-The fastest way to get set up is with the project generator:
+Run the project generator:
 
 ```bash
 npm create @bluecadet/launchpad
 ```
 
-It will ask which plugins you need, configure everything, and generate a working `launchpad.config.ts`. See [Creating a Project](./creating-a-project.md) for details.
+It asks which plugins you need and generates a working `launchpad.config.ts`. See [Creating a project](./creating-a-project.md) for details.
 
-## Manual Installation
+## Manual installation
 
-Install the `@bluecadet/launchpad` package, which includes the CLI and all first-party plugins:
+Install `@bluecadet/launchpad`, which includes the CLI and all first-party plugins:
 
 ```bash
 npm install @bluecadet/launchpad
 ```
 
-If you use CMS integrations or image processing, also install the relevant peer dependencies — see [Packages and Modularity](./packages.md) for the full list.
-
-The project generator handles this automatically.
+CMS integrations and image processing need extra peer dependencies. See [Packages and modularity](./packages.md) for the list. The project generator installs them for you.
 
 > [!TIP]
-> You can also install individual packages (`@bluecadet/launchpad-content`, `@bluecadet/launchpad-monitor`, etc.) instead of the umbrella. Both work identically at runtime. See [Packages and Modularity](./packages.md) for when to prefer one over the other.
+> You can install individual packages (`@bluecadet/launchpad-content`, `@bluecadet/launchpad-monitor`, etc.) instead of the umbrella. Both behave the same at runtime. See [Packages and modularity](./packages.md) for when to prefer each.
 
-## Basic Setup
+## Basic setup
 
 1. Create a configuration file:
 
@@ -64,7 +62,7 @@ export default defineConfig({
 });
 ```
 
-2. Run launchpad:
+2. Run Launchpad:
 
 ```bash
 # Download content and start apps

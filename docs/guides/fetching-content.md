@@ -1,10 +1,10 @@
-# Fetching Content
+# Fetching content
 
-Launchpad's content fetching process is designed to be flexible and robust, allowing you to fetch, transform, and manage content from various sources. This guide provides an overview of how content flows through Launchpad, from configuration to storage.
+Launchpad fetches content from configured sources, transforms it, and writes it to disk. This guide follows content from configuration to storage.
 
-## Basic Configuration
+## Basic configuration
 
-Content fetching requires a `ContentConfig` object in your Launchpad configuration:
+Add the `content` plugin to your Launchpad configuration:
 
 ```js
 // launchpad.config.js
@@ -31,11 +31,9 @@ export default defineConfig({
 });
 ```
 
-See the [Content Configuration Reference](/reference/content/content-config/) for all options.
+See the [content configuration reference](/reference/content/content-config/) for all options.
 
-## Running Content Updates
-
-You can update content in two ways:
+## Running content updates
 
 ```bash
 # As part of the full Launchpad startup
@@ -45,56 +43,50 @@ npx launchpad start
 npx launchpad content
 ```
 
-See the [CLI Commands Reference](../reference/cli/commands.md) for more details.
+See the [CLI commands reference](../reference/cli/commands.md) for details.
 
-## Content Sources
+## Content sources
 
-Sources define where your content comes from. Launchpad includes several built-in sources:
+Sources define where content comes from. Built-in sources cover JSON/REST APIs and CMS platforms such as Contentful and Sanity.
 
-- JSON/REST APIs
-- CMS platforms (Contentful, Sanity, etc.)
+See the [content sources reference](../reference/content/sources/index.md) for the available sources and how to write your own.
 
-Check the [Content Sources Reference](../reference/content/sources/index.md) to learn more about available sources and how to create custom ones.
+## Fetch lifecycle
 
-## Fetch Lifecycle
-
-Each `content.fetch` run now uses a staged run directory under `tempPath`.
+Each `content.fetch` run writes to a staged run directory under `tempPath`:
 
 1. Launchpad prepares a fresh staged output tree for the run.
-2. Matching files from the currently published `downloadPath` that satisfy `keep` are copied into staging.
-3. Sources and transforms write only into the staged tree for that run.
-4. If every source and transform succeeds, the staged output is promoted into the published `downloadPath`, including any files written at the root of the staged download tree.
-5. If the run fails, the staged output is discarded and the previously published `downloadPath` remains unchanged.
-6. Promotion is fail-safe: Launchpad moves the current published path aside and restores it automatically if replacement cannot complete.
+2. It copies files from the published `downloadPath` that match `keep` into staging.
+3. Sources and transforms write only into the staged tree.
+4. If every source and transform succeeds, Launchpad promotes the staged output into the published `downloadPath`, including files written at the root of the staged tree.
+5. If the run fails, Launchpad discards the staged output and leaves the published `downloadPath` unchanged.
+6. During promotion, Launchpad moves the published path aside and restores it if the replacement cannot complete.
 
-This makes the normal fetch path atomic at the source-directory level without requiring rollback from backups.
+Fetches are therefore atomic per source directory and need no rollback from backups.
 
 ## Transforms
 
-Transforms process your content after it's downloaded. Common use cases include:
+Transforms process content after download. Common uses:
 
 - Converting Markdown to HTML
 - Resizing images
 - Validating data
-- Custom transformations
 
-Learn more in the [Transforms Reference](../reference/content/transforms/index.md).
+See the [transforms reference](../reference/content/transforms/index.md).
 
-## Best Practices
+## Best practices
 
-- **Rely on staged promotion for normal safety**: Fetches now keep the published tree unchanged until promotion succeeds.
-- **Use `backupAndRestore` as compatibility protection**: Backups are still available, but they are no longer the primary rollback mechanism for ordinary fetch failures.
-- **Treat `content:document:write` paths as staged paths**: Event listeners should not assume the emitted path is already published.
-- **Implement Error Handling**: Use the [error handling system](../reference/content/index.md#error-handling) to gracefully handle failures.
-- **Monitor Progress**: Forward logs and lifecycle events to an aggregator with the [observability package](../reference/observability/index.md) to track content updates.
-- **Organize Sources**: Group related content into separate sources for better management.
-- **Cache Effectively**: Configure appropriate cache settings for your content type.
+- Rely on staged promotion for safety. The published tree stays unchanged until promotion succeeds.
+- Treat `backupAndRestore` as compatibility protection. Backups remain available but are no longer the main rollback mechanism for failed fetches.
+- Treat `content:document:write` paths as staged paths. Event listeners should not assume the emitted path is published.
+- Handle failures with the [error handling system](../reference/content/index.md#error-handling).
+- Forward logs and lifecycle events to an aggregator with the [observability package](../reference/observability/index.md) to track content updates.
+- Group related content into separate sources.
 
-## Next Steps
+## Next steps
 
-- Read about [Content Configuration](/reference/content/content-config/)
-- Learn about [Content Sources](../reference/content/sources/index.md)
-- Explore [Transforms](../reference/content/transforms/index.md)
-- Understanding [Error Handling](../reference/content/index.md#error-handling)
-
-For complete API documentation, visit the [Content Reference Documentation](../reference/content/index.md).
+- [Content configuration](/reference/content/content-config/)
+- [Content sources](../reference/content/sources/index.md)
+- [Transforms](../reference/content/transforms/index.md)
+- [Error handling](../reference/content/index.md#error-handling)
+- [Content reference](../reference/content/index.md) for the full API

@@ -130,6 +130,7 @@ Common payload fields:
 - `content:fetch:start`: fetch begins
 - `content:fetch:done`: all content fetched
 - `content:fetch:error`: fetch failed
+- `content:version:promoted`: new version published, emitted right after the manifest swap (versioned output only)
 
 ### Source events
 - `content:source:start`: a source begins fetching
@@ -172,6 +173,13 @@ See the [content events reference](../content/events.md) for payloads and exampl
 - `monitor:app:exit`: app exited
 - `monitor:app:crash`: app crashed
 
+### App output
+- `monitor:app:log`: app wrote to stdout. Payload: `{ appName: string; data: string }`
+- `monitor:app:errorLog`: app wrote to stderr. Payload: `{ appName: string; data: string }`
+
+### Shutdown
+- `monitor:beforeShutdown`: monitor is about to stop its apps and disconnect from PM2. Payload: `{ code?: number }`
+
 ### Window management (Windows only)
 - `monitor:window:foreground`: window brought to the foreground
 - `monitor:window:minimize`: window minimized
@@ -179,6 +187,21 @@ See the [content events reference](../content/events.md) for payloads and exampl
 - `monitor:window:error`: window management failed
 
 See the [monitor events reference](../monitor/events.md) for payloads and examples.
+
+## Observability events
+
+`@bluecadet/launchpad-observability` emits these events while pushing telemetry.
+
+- `observability:push:success`: batch pushed to a transport
+- `observability:push:error`: push attempt failed; retried if retries remain
+- `observability:push:dropped`: batch dropped after max retries or a full buffer
+- `observability:buffer:full`: retry buffer full; oldest batch evicted
+
+See the [observability events reference](../observability/events.md) for payloads.
+
+## Log events
+
+`@bluecadet/launchpad-utils` declares the logger events: `log:error`, `log:warn`, `log:info`, `log:debug`, `log:verbose`, plus `log:tty` and `log:tty:close` for fixed TTY console messages.
 
 ## Listening to events
 
@@ -188,7 +211,7 @@ Listen to one event by name:
 
 ```typescript
 eventBus.on('content:fetch:done', (data) => {
-  console.log(`Fetched ${data.totalFiles} files`);
+  console.log(`Fetched ${data.sources.length} sources`);
 });
 ```
 

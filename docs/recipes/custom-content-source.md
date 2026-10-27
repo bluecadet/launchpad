@@ -64,6 +64,7 @@ Add it to your Launchpad config:
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
+import { content } from '@bluecadet/launchpad/content';
 
 export default defineConfig({
   plugins: [

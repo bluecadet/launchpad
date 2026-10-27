@@ -1,53 +1,47 @@
-# Environment Variables
+# Environment variables
 
-The `launchpad-cli` package supports loading environment variables from `.env` files using the `--env` and `--env-cascade` flags. This allows you to manage different configurations for various environments (development, staging, production, etc.).
+The `launchpad-cli` package loads environment variables from `.env` files with the `--env` and `--env-cascade` flags. Use them to keep separate settings for development, staging, production, and other environments.
 
 ## Usage
 
-To load environment variables from a `.env` file:
+Load a single `.env` file:
 
 ```bash
 npx launchpad --env .env
 ```
 
-You can also load multiple `.env` files in sequence:
+Load several `.env` files in sequence:
 
 ```bash
 npx launchpad --env .env.local --env .env
 ```
 
-When loading multiple files, variables from later files will override those from earlier files if they share the same name.
+When two files define the same variable, the first file loaded wins.
 
-### Environment Cascading
+### Environment cascading
 
-The `--env-cascade` flag provides an automated way to load multiple environment files in a specific order. For example:
+`--env-cascade` loads a fixed set of environment files. For example:
 
 ```bash
 npx launchpad --env-cascade production
 ```
 
-This will load files in the following order:
+This loads these files, from lowest to highest precedence:
 
 1. `.env`
 2. `.env.local`
 3. `.env.production`
 4. `.env.production.local`
 
-## Best Practices
+## Best practices
 
-- **Environment-Specific Files**: Create separate `.env` files for different environments:
+- Create a separate `.env` file for each environment:
   - `.env.development` for development settings
   - `.env.staging` for staging settings
   - `.env.production` for production settings
-
-- **Security**:
-  - Keep sensitive data (API keys, passwords) in local `.env` files that aren't committed
-  - Use `.env.local` for machine-specific overrides
-
-- **Documentation**:
-  - Create a `.env.example` file
-  - List all required variables with example values
-  - Include this file in version control
+- Keep secrets such as API keys and passwords in local `.env` files that aren't committed.
+- Use `.env.local` for machine-specific overrides.
+- Commit a `.env.example` file that lists every required variable with an example value.
 
 Example `.env.example`:
 

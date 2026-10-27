@@ -6,7 +6,7 @@
   "devDependencies": {
     "@bluecadet/docs": "^1.2.2",
     "@bluecadet/launchpad-cli": "~4.0.1",
-    "@bluecadet/launchpad-content": "~4.0.1",
+    "@bluecadet/launchpad-content": "~4.0.2",
     "@bluecadet/launchpad-controller": "~4.0.1",
     "@bluecadet/launchpad-monitor": "~4.0.1",
     "@bluecadet/launchpad-observability": "~4.0.1",

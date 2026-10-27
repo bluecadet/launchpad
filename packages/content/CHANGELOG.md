@@ -1,5 +1,11 @@
 # @bluecadet/launchpad-content
 
+## 4.0.2
+
+### Patch Changes
+
+- Remove the unused `pageNumZeroPad` option from the Strapi source. It never affected output filenames. ([#331](https://github.com/bluecadet/launchpad/pull/331))
+
 ## 4.0.1
 
 ### Patch Changes

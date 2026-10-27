@@ -1,57 +1,55 @@
 ---
-title: "Monitor Config"
+title: "Monitor config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
-Configuration for managing process monitoring, window management, and logging settings.
+Settings for process monitoring, window management, and logging.
 
 ## Options
 
-Input defaults are applied by the schema. Nested defaults are shown separately from their parent object. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+The schema applies input defaults. Nested defaults appear separately from their parent object. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `apps`
 
 <ConfigReference id="monitor-options" property="apps" />
 
-A list of apps to launch and monitor. Each app can be configured with PM2 settings, window management options, and logging preferences.
-
-For detailed app configuration options, see [App Config](#app-config).
+Apps to launch and monitor. Each app takes PM2 settings, window management options, and logging preferences. See [App config](#app-config).
 
 ### `deleteExistingBeforeConnect`
 
 <ConfigReference id="monitor-options" property="deleteExistingBeforeConnect" />
 
-When enabled, deletes existing PM2 processes before connecting. Useful for volatile apps or when node processes might quit unexpectedly, ensuring a clean slate on startup.
+Deletes existing PM2 processes before connecting, so startup begins clean. Use it for volatile apps or when node processes might quit unexpectedly.
 
 ### `windowsApi`
 
 <ConfigReference id="monitor-options" property="windowsApi" />
 
-Advanced configuration for the Windows API, used for managing foreground/minimized/hidden windows. Window operations are Windows-only; PM2 process management and logging work independently of them. See [Windows window management](/reference/monitor/#windows-window-management) for platform and installation details.
+Advanced Windows API settings for foreground, minimized, and hidden windows. Window operations run only on Windows; PM2 process management and logging work without them. See [Windows window management](/reference/monitor/#windows-window-management) for platform and installation details.
 
 #### `debounceDelay`
 
 <ConfigReference id="monitor-options" property="windowsApi.debounceDelay" />
 
-The delay (in milliseconds) until windows are ordered after launch. If your app takes a long time to open all of its windows, set this to a higher value to ensure it can be on top of the launchpad terminal window. Higher values also reduce CPU load if apps relaunch frequently.
+Delay in milliseconds before windows are ordered after launch. If your app opens its windows slowly, raise this so they end up above the Launchpad terminal window. Higher values also reduce CPU load when apps relaunch often.
 
 ### `shutdownOnExit`
 
 <ConfigReference id="monitor-options" property="shutdownOnExit" />
 
-When enabled, listens for exit events to handle graceful shutdown.
+Listens for exit events and shuts down gracefully.
 
-## App Config
+## App config
 
-Each app in the `apps` array can have the following configuration:
+Each app in the `apps` array accepts these settings:
 
 ### `pm2`
 
 <ConfigReference id="monitor-options" property="apps[].pm2" />
 
-PM2 configuration for the app. See [PM2 documentation](https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available) for the full `StartOptions` API. The table below covers only the fields Launchpad declares explicitly, not every option accepted by PM2.
+PM2 configuration for the app. See the [PM2 documentation](https://pm2.keymetrics.io/docs/usage/application-declaration/#attributes-available) for the full `StartOptions` API. The table below lists only the fields Launchpad declares; PM2 accepts more.
 
 ```typescript
 monitor({
@@ -65,54 +63,54 @@ monitor({
 
 <ConfigReference id="monitor-options" property="apps[].windows" />
 
-Settings for window management on Windows. All flags default to `false` and apply to the app's visible top-level windows matched by its PM2 process ID.
+Window management settings for Windows. All flags default to `false` and apply to the app's visible top-level windows, matched by PM2 process ID.
 
-Window operations are scheduled after launch using `windowsApi.debounceDelay`. They run asynchronously; the existing PM2 configuration and launch ordering are unchanged. On non-Windows platforms these settings do not perform window operations.
+Window operations run asynchronously after launch, delayed by `windowsApi.debounceDelay`. They don't change PM2 configuration or launch order. On other platforms these settings do nothing.
 
 #### `foreground`
 
 <ConfigReference id="monitor-options" property="apps[].windows.foreground" />
 
-Request foreground placement after launch. Windows focus restrictions can prevent activation.
+Requests foreground placement after launch. Windows focus restrictions can block it.
 
 #### `minimize`
 
 <ConfigReference id="monitor-options" property="apps[].windows.minimize" />
 
-Minimize windows after launch.
+Minimizes windows after launch.
 
 #### `hide`
 
 <ConfigReference id="monitor-options" property="apps[].windows.hide" />
 
-Hide windows after launch. Hidden windows may interfere with GUI-based apps.
+Hides windows after launch. Hiding can cause problems for GUI-based apps.
 
 ### `logging`
 
 <ConfigReference id="monitor-options" property="apps[].logging" />
 
-Settings for log management:
+Log management settings.
 
 #### `logToLaunchpadDir`
 
 <ConfigReference id="monitor-options" property="apps[].logging.logToLaunchpadDir" />
 
-Route logs to launchpad's directory
+Writes logs to the Launchpad directory.
 
 #### `mode`
 
 <ConfigReference id="monitor-options" property="apps[].logging.mode" />
 
-Log capture method ('bus' or 'file')
+Log capture method: `'bus'` or `'file'`.
 
 #### `showStdout`
 
 <ConfigReference id="monitor-options" property="apps[].logging.showStdout" />
 
-Include stdout output
+Includes stdout output.
 
 #### `showStderr`
 
 <ConfigReference id="monitor-options" property="apps[].logging.showStderr" />
 
-Include stderr output
+Includes stderr output.

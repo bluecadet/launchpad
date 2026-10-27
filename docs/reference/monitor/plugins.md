@@ -1,10 +1,10 @@
-# Extending Monitor
+# Extending monitor
 
-The old `MonitorPlugin` hook system has been replaced by a two-part model: registering custom behavior as a launchpad plugin, and subscribing to monitor lifecycle events on the shared event bus.
+To extend the monitor, register custom behavior as a Launchpad plugin and subscribe to monitor lifecycle events on the shared event bus. This model replaces the old `MonitorPlugin` hook system.
 
-## Custom Plugins
+## Custom plugins
 
-Use `definePlugin()` from `@bluecadet/launchpad/utils/plugin-interfaces` to create a plugin, then register it in the `plugins` array in `launchpad.config.ts`.
+Create a plugin with `definePlugin()` from `@bluecadet/launchpad/utils/plugin-interfaces`, then add it to the `plugins` array in `launchpad.config.ts`.
 
 ```ts
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -48,8 +48,8 @@ export default {
 ```
 
 > [!IMPORTANT]
-> If your plugin handles commands, declare them in `manifest.commands`. Launchpad no longer routes commands implicitly based on command name prefixes.
+> If your plugin handles commands, declare them in `manifest.commands`. Launchpad doesn't route commands by name prefix.
 
-## Available Events
+## Available events
 
-Subscribe to any monitor lifecycle event in your plugin's `setup()` function via `ctx.eventBus`. See the [Monitor Events](./events.md) page for the full list of available events.
+Subscribe to monitor lifecycle events through `ctx.eventBus` in your plugin's `setup()` function. See [Monitor events](./events.md) for the full list.

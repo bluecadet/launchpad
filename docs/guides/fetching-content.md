@@ -40,7 +40,7 @@ See the [content configuration reference](/reference/content/content-config/) fo
 npx launchpad start
 
 # Content updates only
-npx launchpad content
+npx launchpad content fetch
 ```
 
 See the [CLI commands reference](../reference/cli/commands.md) for details.

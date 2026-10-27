@@ -69,10 +69,10 @@ export default defineConfig({
 npx launchpad start
 
 # Only download fresh content
-npx launchpad content
+npx launchpad content fetch
 
 # Only manage apps
-npx launchpad monitor
+npx launchpad monitor start
 
 # Stop any running launchpad processes
 npx launchpad stop

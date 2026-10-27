@@ -1,14 +1,14 @@
 ---
-title: "Observability Events"
+title: "Observability events"
 ---
-These events report delivery by the legacy `{ transports }` mode. Destination mode exposes per-signal delivery state instead and does not emit the transport events below.
+These events report delivery in legacy `{ transports }` mode. Destination mode does not emit them; it exposes per-signal delivery state instead.
 
-All events are fully type-safe through TypeScript declaration merging.
+All events are typed through TypeScript declaration merging.
 
-## Push Success
+## Push success
 
 ### `observability:push:success`
-Emitted after a batch is successfully delivered to a transport.
+Emitted after a transport delivers a batch.
 
 **Payload:**
 ```typescript
@@ -28,10 +28,10 @@ eventBus.on('observability:push:success', (data) => {
 
 ---
 
-## Push Failures
+## Push failures
 
 ### `observability:push:error`
-Emitted when a push attempt fails. The batch will be retried if retries remain.
+Emitted when a push attempt fails. The batch is retried if retries remain.
 
 **Payload:**
 ```typescript
@@ -56,7 +56,7 @@ eventBus.on('observability:push:error', (data) => {
 ---
 
 ### `observability:push:dropped`
-Emitted when a batch is permanently discarded — either because it exhausted all retry attempts or because the in-memory buffer was full when a new failure arrived.
+Emitted when a batch is permanently discarded, either because it exhausted its retries or because the in-memory buffer was full when a new failure arrived.
 
 **Payload:**
 ```typescript
@@ -79,7 +79,7 @@ eventBus.on('observability:push:dropped', (data) => {
 ---
 
 ### `observability:buffer:full`
-Emitted when the retry buffer hits its `maxBatches` cap and must evict an old batch to make room. This is a subset of `observability:push:dropped` (only fired when `reason === 'buffer-full'`), provided as a separate signal for buffer pressure monitoring.
+Emitted when the retry buffer reaches its `maxBatches` cap and evicts an old batch. It fires only alongside `observability:push:dropped` with `reason === 'buffer-full'`, as a separate signal for monitoring buffer pressure.
 
 **Payload:**
 ```typescript
@@ -98,8 +98,8 @@ eventBus.on('observability:buffer:full', (data) => {
 
 ---
 
-## See Also
+## See also
 
-- [Observability Config](/reference/observability/observability-config/) — configure retry limits and buffer size
-- [Controller Events](../controller/events.md) — core system events also forwarded by default
-- [Monitor Events](../monitor/events.md) — add `monitor:*` to `include` to forward monitor events
+- [Observability config](/reference/observability/observability-config/): retry limits and buffer size
+- [Controller events](../controller/events.md): core system events; add patterns such as `command:*` to `include` to forward them
+- [Monitor events](../monitor/events.md): add `monitor:*` to `include` to forward them

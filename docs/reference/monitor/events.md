@@ -1,12 +1,12 @@
 ---
-title: "Monitor Events"
+title: "Monitor events"
 ---
-When integrated with `@bluecadet/launchpad-controller`, the monitor package emits lifecycle events throughout process management. All events are fully type-safe through TypeScript declaration merging.
+With `@bluecadet/launchpad-controller`, the monitor package emits lifecycle events as it manages processes. TypeScript declaration merging types every event.
 
-## Connection Lifecycle Events
+## Connection lifecycle events
 
 ### `monitor:connect:start`
-Emitted when PM2 connection begins.
+Emitted when the PM2 connection begins.
 
 **Payload:**
 ```typescript
@@ -23,7 +23,7 @@ eventBus.on('monitor:connect:start', () => {
 ---
 
 ### `monitor:connect:done`
-Emitted when PM2 connection succeeds.
+Emitted when the PM2 connection succeeds.
 
 **Example:**
 ```typescript
@@ -35,7 +35,7 @@ eventBus.on('monitor:connect:done', () => {
 ---
 
 ### `monitor:connect:error`
-Emitted when PM2 connection fails.
+Emitted when the PM2 connection fails.
 
 **Payload:**
 ```typescript
@@ -54,7 +54,7 @@ eventBus.on('monitor:connect:error', (data) => {
 ---
 
 ### `monitor:disconnect:start`
-Emitted when disconnecting from PM2.
+Emitted when disconnecting from PM2 begins.
 
 **Payload:**
 ```typescript
@@ -71,10 +71,10 @@ Emitted when disconnection completes.
 {}  // Empty object
 ```
 
-## App Lifecycle Events
+## App lifecycle events
 
 ### `monitor:app:start`
-Emitted when an app start is requested (before the app actually starts).
+Emitted when an app start is requested, before the app starts.
 
 **Payload:**
 ```typescript
@@ -94,7 +94,7 @@ eventBus.on('monitor:app:start', (data) => {
 ---
 
 ### `monitor:app:started`
-Emitted when an app has successfully started and is running.
+Emitted when an app has started and is running.
 
 **Payload:**
 ```typescript
@@ -115,7 +115,7 @@ eventBus.on('monitor:app:started', (data) => {
 ---
 
 ### `monitor:app:stop`
-Emitted when an app stop is requested (before the app actually stops).
+Emitted when an app stop is requested, before the app stops.
 
 **Payload:**
 ```typescript
@@ -135,7 +135,7 @@ eventBus.on('monitor:app:stop', (data) => {
 ---
 
 ### `monitor:app:stopped`
-Emitted when an app has successfully stopped.
+Emitted when an app has stopped.
 
 **Payload:**
 ```typescript
@@ -155,7 +155,7 @@ eventBus.on('monitor:app:stopped', (data) => {
 ---
 
 ### `monitor:app:restart`
-Emitted when an app restart is requested (before the restart begins).
+Emitted when an app restart is requested, before the restart begins.
 
 **Payload:**
 ```typescript
@@ -175,7 +175,7 @@ eventBus.on('monitor:app:restart', (data) => {
 ---
 
 ### `monitor:app:restarted`
-Emitted when an app has successfully restarted.
+Emitted when an app has restarted.
 
 **Payload:**
 ```typescript
@@ -196,7 +196,7 @@ eventBus.on('monitor:app:restarted', (data) => {
 ---
 
 ### `monitor:app:error`
-Emitted when an app operation encounters an error.
+Emitted when an app operation fails.
 
 **Payload:**
 ```typescript
@@ -214,7 +214,7 @@ eventBus.on('monitor:app:error', (data) => {
 });
 ```
 
-## App State Change Events
+## App state change events
 
 ### `monitor:app:online`
 Emitted when an app comes online.
@@ -285,7 +285,7 @@ eventBus.on('monitor:app:crash', (data) => {
 ---
 
 ### `monitor:app:log`
-Emitted when an app outputs to stdout.
+Emitted when an app writes to stdout.
 
 **Payload:**
 ```typescript
@@ -298,7 +298,7 @@ Emitted when an app outputs to stdout.
 ---
 
 ### `monitor:app:errorLog`
-Emitted when an app outputs to stderr.
+Emitted when an app writes to stderr.
 
 **Payload:**
 ```typescript
@@ -308,10 +308,10 @@ Emitted when an app outputs to stderr.
 }
 ```
 
-## Shutdown Events
+## Shutdown events
 
 ### `monitor:beforeShutdown`
-Emitted just before the monitor begins shutting down.
+Emitted just before the monitor shuts down.
 
 **Payload:**
 ```typescript
@@ -321,11 +321,11 @@ Emitted just before the monitor begins shutting down.
 ```
 
 > [!NOTE]
-> This event is fire-and-forget — the monitor does not wait for listeners to complete before proceeding with shutdown. Plugins that need to react to monitor shutdown should use their own `disconnect()` lifecycle on the controller.
+> This event is fire-and-forget: the monitor doesn't wait for listeners before it shuts down. Plugins that must react to monitor shutdown should use their own `disconnect()` lifecycle on the controller.
 
-## Window Management Events
+## Window management events
 
-These events are Windows-specific and only emitted when window management features are used.
+These events fire only on Windows, and only when window management is in use.
 
 ### `monitor:window:foreground`
 Emitted when a window is brought to the foreground.
@@ -374,7 +374,7 @@ Emitted when a window is hidden.
 ---
 
 ### `monitor:window:error`
-Emitted when window management encounters an error.
+Emitted when a window management operation fails.
 
 **Payload:**
 ```typescript
@@ -391,8 +391,8 @@ eventBus.on('monitor:window:error', (data) => {
 });
 ```
 
-## See Also
+## See also
 
-- [Controller Events Reference](../controller/events.md) - Complete event system documentation
-- [Content Events](../content/events.md) - Content subsystem events
-- [Monitor Configuration](/reference/monitor/monitor-config/) - Monitor configuration options
+- [Controller events reference](../controller/events.md): the full event system
+- [Content events](../content/events.md): content subsystem events
+- [Monitor configuration](/reference/monitor/monitor-config/): monitor configuration options

@@ -1,11 +1,10 @@
 # @bluecadet/launchpad
 
-All-in-one package for building and managing interactive media installations. This package is a convenient way to install all core Launchpad packages at once.
+All-in-one package for building and managing interactive media installations. It installs every core Launchpad package at once.
 
 ## Documentation
 
-For complete documentation, configuration options, and guides, visit:
-[Launchpad Documentation](https://bluecadet.github.io/launchpad/)
+See the [Launchpad documentation](https://bluecadet.github.io/launchpad/) for guides and configuration options.
 
 ## Installation
 
@@ -13,15 +12,15 @@ For complete documentation, configuration options, and guides, visit:
 npm install @bluecadet/launchpad
 ```
 
-This will install all core packages:
+This installs the core packages:
 
-- `@bluecadet/launchpad-cli`: Command line interface
+- `@bluecadet/launchpad-cli`: Command-line interface
 - `@bluecadet/launchpad-content`: Content management
 - `@bluecadet/launchpad-monitor`: Process monitoring
 - `@bluecadet/launchpad-controller`: Central orchestration and canonical file logging
 - `@bluecadet/launchpad-observability`: Optional endpoint-neutral log and metric delivery
 
-## Basic Usage
+## Basic usage
 
 ```bash
 # Download content and start apps
@@ -37,9 +36,11 @@ npx launchpad monitor
 npx launchpad stop
 ```
 
-## Note
+## Subpath exports
 
-This package installs the core Launchpad packages and provides thin subpath re-exports such as `@bluecadet/launchpad/content`, `@bluecadet/launchpad/monitor`, and `@bluecadet/launchpad/observability`. Configured observability destinations default to checkpointed delivery from the controller's canonical JSONL; `logStorage: { type: 'memory' }` opts out of retained log delivery. For more targeted installations, you can install individual packages directly.
+The package re-exports each core package through thin subpaths such as `@bluecadet/launchpad/content`, `@bluecadet/launchpad/monitor`, and `@bluecadet/launchpad/observability`. To install less, add individual packages directly.
+
+Configured observability destinations default to checkpointed delivery from the controller's canonical JSONL. Set `logStorage: { type: 'memory' }` to opt out of retained log delivery.
 
 ## License
 

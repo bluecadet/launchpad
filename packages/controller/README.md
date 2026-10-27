@@ -1,15 +1,15 @@
 # @bluecadet/launchpad-controller
 
-Controller layer for Launchpad with multi-interface control support.
+Controller layer for Launchpad, controllable through multiple interfaces.
 
 ## Features
 
-- **Event Bus**: Type-safe event system for inter-subsystem communication
-- **Explicit Command Registry**: Controller-owned command registration via plugin manifests
-- **State Store**: Real-time state management via event subscriptions
-- **Transport System**: Pluggable transports for various connection types
-- **Task & Persistent Modes**: Ephemeral execution or long-running with transports
-- **Canonical Logging**: Segmented JSONL, an optional human-readable text view, bounded retention, and checkpoint support for observability
+- Type-safe event bus for communication between subsystems
+- Explicit command registry: the controller registers commands from plugin manifests
+- State store updated in real time through event subscriptions
+- Pluggable transports for different connection types
+- Task mode for ephemeral runs and persistent mode for long-running processes with transports
+- Canonical logging: segmented JSONL, an optional human-readable text view, bounded retention, and checkpoints for observability
 
 ## Installation
 
@@ -19,15 +19,17 @@ npm install @bluecadet/launchpad-controller
 
 ## Lifecycle and ownership
 
-`new LaunchpadController(...)` creates an unstarted controller without opening files. The first `registerPlugin()` or `start()` reserves the configured project identity before opening logging or running plugin setup. These methods return `ResultAsync` errors for ownership contention and filesystem or native-locking failures. Task and persistent controllers use the same lease.
+`new LaunchpadController(...)` creates an unstarted controller and opens no files. The first `registerPlugin()` or `start()` call reserves the configured project identity before it opens logging or runs plugin setup. Both methods return `ResultAsync` errors for ownership contention and for filesystem or native-locking failures. Task and persistent controllers use the same lease.
 
-Concurrent `start()` calls share one attempt. Failed startup aborts and disconnects registered plugins before closing logging and releasing ownership. Always await `stop()` when disposing a controller, even if it was never started or registration failed. Shutdown keeps ownership until plugins and physical logging I/O have settled. If the bounded logging-close wait times out, `stop()` may finish while the project and log-directory leases remain held; another controller cannot start until the pending I/O settles. A stopped controller cannot be restarted; create a new instance for another run.
+Concurrent `start()` calls share one attempt. If startup fails, the controller aborts and disconnects registered plugins, then closes logging and releases ownership.
+
+Always await `stop()` when disposing a controller, even one that never started or failed registration. Shutdown holds ownership until plugins and physical logging I/O settle. If the bounded logging-close wait times out, `stop()` can return while the project and log-directory leases remain held, and no other controller can start until the pending I/O settles. A stopped controller cannot restart; create a new instance for another run.
 
 See the [controller reference](https://launchpad.bluecadet.com/reference/controller/#process-ownership) for lease-file and PID-file behavior.
 
 ## Logging
 
-The controller is the single owner of local log normalization, redaction, files, rotation, retention, and the logging-directory lease. The default `.logs` directory contains canonical segmented JSONL plus a default-on text view at `info` and above. Configured observability destinations default to checkpointed delivery from the canonical source without creating a sidecar spool.
+The controller alone owns local log normalization, redaction, files, rotation, retention, and the logging-directory lease. The default `.logs` directory holds canonical segmented JSONL and a text view of `info` and above, enabled by default. Configured observability destinations default to checkpointed delivery from the canonical source and create no sidecar spool.
 
 See the [controller logging reference](https://launchpad.bluecadet.com/reference/controller/logging/) for configuration and migration details.
 

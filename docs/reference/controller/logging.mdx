@@ -1,10 +1,10 @@
 ---
-title: "Controller Logging"
+title: "Controller logging"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 
-The controller owns one local logging pipeline. It writes a canonical structured log and, by default, a human-readable text view to the configured logging directory. Configured observability destinations read the canonical log directly by default; they do not create a second archive or spool.
+The controller owns one local logging pipeline. It writes a canonical structured log and, by default, a human-readable text view to the configured logging directory. By default, observability destinations read the canonical log directly instead of keeping their own archive or spool.
 
 ## Configuration
 
@@ -24,45 +24,45 @@ export default defineConfig({
 
 <ConfigReference id="controller-logging-options" />
 
-Input defaults are schema defaults, not the transformed runtime values. For example, `maxSize` and `maxFiles` accept strings and resolve to numeric limits. The console default depends on `NODE_ENV`; see [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+Input defaults are schema defaults, before transforms. For example, `maxSize` and `maxFiles` accept strings that resolve to numeric limits. The console default depends on `NODE_ENV`. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
-`format` and `text.level` never change the canonical JSONL schema. There are no observability-side directory, maximum-byte, or maximum-age options. The logging owner applies one rotation and retention policy to the files and checkpoints in this directory. `maxSize` must parse as a byte size of at least 1,024 bytes (for example, `8m` or `12mb`); invalid or smaller values fail configuration validation.
+`format` and `text.level` never change the canonical JSONL schema. Observability has no directory, maximum-byte, or maximum-age options of its own; the logging owner applies one rotation and retention policy to every file and checkpoint in this directory. `maxSize` must parse as a byte size of at least 1,024 bytes, such as `8m` or `12mb`. Invalid or smaller values fail validation.
 
-The built-in policy rotates by UTC day or when a segment reaches approximately 8 MiB. It bounds retained files to 256 MiB total and, by default, 28 days. Retention is checked before reader enrollment, during rotation and shutdown, and by scheduled maintenance while the source is idle. Expired history is removed before a newly enrolled destination can replay it. `maxSize` and a day-based `maxFiles` value preserve the existing logging configuration surface; the total 256 MiB cap is not configurable through observability.
+The built-in policy rotates each UTC day, or when a segment reaches about 8 MiB. It caps retained files at 256 MiB total and, by default, 28 days. Retention runs before reader enrollment, during rotation and shutdown, and in scheduled maintenance while the source is idle, so a newly enrolled destination never replays expired history. `maxSize` and a day-based `maxFiles` keep their existing meaning; observability can't change the 256 MiB total cap.
 
 ## Files and format
 
-Canonical segments use names like `launchpad-<sequence>-<id>-<UTC-date>.<active|sealed>.jsonl`. Every complete line is a versioned, normalized JSON record with its original timestamp and resource snapshot. The canonical format is the machine-readable contract used for replay.
+Canonical segments are named like `launchpad-<sequence>-<id>-<UTC-date>.<active|sealed>.jsonl`. Each complete line is a versioned, normalized JSON record with its original timestamp and resource snapshot. Replay relies on this machine-readable format.
 
-When `text.enabled` is true, matching `launchpad-<sequence>-<id>-<UTC-date>.<active|sealed>.log` segments provide a human-readable view. The default level is `info`, so debug and verbose records remain available in canonical JSONL without appearing in text. The text layout is not a stable structured-data format.
+When `text.enabled` is true, matching `launchpad-<sequence>-<id>-<UTC-date>.<active|sealed>.log` segments hold a human-readable view. The default text level is `info`, so debug and verbose records appear only in the canonical JSONL. The text layout isn't a stable structured format.
 
-The directory also contains source metadata, atomic per-destination checkpoints, and `.launchpad-log.lock`. The lock file is permanent by design: do not delete, rename, replace, or rotate it. The operating system releases the advisory lock when its owning process exits; do not use PID inspection or manual lock-file cleanup to take ownership.
+The directory also holds source metadata, atomic per-destination checkpoints, and `.launchpad-log.lock`. The lock file is permanent: don't delete, rename, replace, or rotate it. The operating system releases the advisory lock when its owning process exits. Don't inspect PIDs or clean up the lock file to take ownership.
 
-Only one controller process may own a logging directory at a time. This resource-level lock is separate from the controller's project ownership lease: the project lease prevents task and persistent controllers with the same resolved `pidFile` identity from overlapping, while the logging lease independently protects a configured log directory from accidental sharing.
+Only one controller process may own a logging directory at a time. This lock is separate from the controller's project ownership lease. The project lease keeps task and persistent controllers with the same resolved `pidFile` identity from overlapping. The logging lease keeps two processes from sharing a log directory.
 
-Both leases use `fs-native-extensions` and require a local filesystem. NFS, SMB, and other network filesystems are unsupported and unverified. The logging lock path has been exercised on macOS ARM with Node.js 24; Linux and Windows validation is pending CI.
+Both leases use `fs-native-extensions` and require a local filesystem. NFS, SMB, and other network filesystems are unsupported. The logging lock has been tested on macOS ARM with Node.js 24; Linux and Windows validation is pending CI.
 
 ## Recorded events
 
-The canonical log records ordinary controller logger calls plus a bounded set of operational lifecycle events:
+The canonical log records controller logger calls plus these lifecycle events:
 
-- command and workflow success or error;
-- system shutdown or error;
-- content fetch/source completion or error, and version promotion; and
-- monitor connection completion/error, disconnect completion, and app started, stopped, restarted, error, online, exit, or crash.
+- Command and workflow success or error
+- System shutdown or error
+- Content fetch and source completion or error, and version promotion
+- Monitor connection completion or error, disconnect completion, and app started, stopped, restarted, error, online, exit, or crash
 
-Progress events and raw application stdout/stderr are not copied wholesale from the event bus. The logging layer owns normalization, key-based redaction, formatting, rotation, and retention for recorded entries.
+Progress events and raw app stdout/stderr stay off the log. The logging layer normalizes, redacts by key, formats, rotates, and retains recorded entries.
 
 ## Failure and shutdown behavior
 
-Logger calls enter a bounded admission queue so application work does not wait on filesystem I/O. Disk-full, write, or admission-overflow failures produce logging diagnostics and loss accounting. Launchpad does not silently switch file-backed observability to memory delivery, and a logging failure does not intentionally crash the application.
+Logger calls enter a bounded admission queue so application work never waits on filesystem I/O. Disk-full, write, and admission-overflow failures produce logging diagnostics and loss counts. Launchpad never silently switches file-backed observability to memory delivery, and a logging failure doesn't crash the application.
 
-A failure of the optional text view produces a diagnostic without discarding pending canonical records. Canonical loss counters do not count records that were successfully persisted only because their text view failed.
+A text view failure produces a diagnostic and keeps pending canonical records. Canonical loss counters skip records that were persisted canonically but failed in the text view.
 
-Shutdown callers wait only for their configured deadline. The logging owner nevertheless keeps the operating-system lease until all file and checkpoint I/O has settled; a caller timing out does not release the lease while I/O remains active. Retention can remove records before a lagging destination reads or acknowledges them; diagnostics report a known loss count where it can be proven and an unknown-size gap otherwise.
+Shutdown callers wait only until their configured deadline, but the logging owner holds the operating-system lease until all file and checkpoint I/O settles. A caller's timeout doesn't release it. Retention can remove records before a lagging destination reads or acknowledges them. Diagnostics then report a known loss count when provable, or an unknown-size gap otherwise.
 
-A corrupt checkpoint, including an unknown segment identity or a position ahead of the source's metadata, is preserved in a `.corrupt-*` file beside the checkpoint. Replay resumes from the oldest retained record and reports a corruption gap. The recovery position becomes durable only when the destination acknowledges that gap. A valid checkpoint whose segment was deleted by retention reports a retention gap instead.
+A corrupt checkpoint, including one with an unknown segment identity or a position ahead of the source metadata, is preserved in a `.corrupt-*` file beside the checkpoint. Replay resumes from the oldest retained record and reports a corruption gap. The recovery position becomes durable only once the destination acknowledges that gap. A valid checkpoint whose segment retention deleted reports a retention gap instead.
 
-Complete malformed or oversized canonical lines produce corruption gaps. Oversized lines are scanned in bounded chunks and skipped only after their terminating newline is found; records after the damaged line remain replayable. An incomplete final line is never delivered or acknowledged as a complete record.
+Complete but malformed or oversized canonical lines produce corruption gaps. The reader scans oversized lines in bounded chunks and skips them once it finds the terminating newline, so later records stay replayable. An incomplete final line is never delivered or acknowledged as a record.
 
 See [Observability configuration](/reference/observability/observability-config/) for default checkpointed file delivery and the explicit memory opt-out.

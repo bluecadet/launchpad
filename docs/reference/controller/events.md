@@ -1,11 +1,11 @@
 ---
-title: "Controller Events"
+title: "Controller events"
 ---
-The controller's EventBus provides a type-safe event system that enables communication between subsystems. This page provides an overview of all available events across the system.
+Subsystems communicate through the controller's type-safe EventBus. This page gives an overview of events across the system.
 
-## Type Safety
+## Type safety
 
-Events are fully type-safe through TypeScript declaration merging. Each subsystem declares its own events against `@bluecadet/launchpad-utils/types`, which are merged into the `LaunchpadEvents` interface:
+Events are typed through TypeScript declaration merging. Each subsystem declares its events on `@bluecadet/launchpad-utils/types`, and they merge into the `LaunchpadEvents` interface:
 
 ```typescript
 import { LaunchpadController } from '@bluecadet/launchpad/controller';
@@ -20,33 +20,33 @@ eventBus.on('content:fetch:done', (data) => {
 });
 ```
 
-## Event Naming Conventions
+## Event naming conventions
 
-Events follow a consistent naming pattern:
+Event names have three parts:
 
-- **Namespace**: Subsystem prefix (`content:`, `monitor:`, `system:`)
-- **Category**: The component or feature (`fetch`, `app`, `plugin`)
-- **Action**: What happened (`start`, `done`, `error`)
+- Namespace: the subsystem prefix (`content:`, `monitor:`, `system:`)
+- Category: the component or feature (`fetch`, `app`, `plugin`)
+- Action: what happened (`start`, `done`, `error`)
 
-Example: `content:fetch:start`, `monitor:app:started`
+Examples: `content:fetch:start`, `monitor:app:started`
 
-### Lifecycle Event Patterns
+### Lifecycle event patterns
 
-- `{namespace}:{category}:start` - Operation beginning
-- `{namespace}:{category}:done` - Operation completed successfully
-- `{namespace}:{category}:error` - Operation failed
+- `{namespace}:{category}:start`: operation began
+- `{namespace}:{category}:done`: operation succeeded
+- `{namespace}:{category}:error`: operation failed
 
-### State Change Patterns
+### State change patterns
 
 - Use past tense for completed state changes: `started`, `stopped`, `restarted`
-- Include relevant identifiers in payload: `appName`, `sourceId`, etc.
+- Include identifiers in the payload, such as `appName` or `sourceId`
 
-## System Events
+## System events
 
-These events are emitted by the controller itself.
+The controller emits these events.
 
 ### `system:shutdown`
-Signals that the process should terminate. Emitted by the IPC transport on receiving a shutdown command. The CLI entry point listens for this and calls `process.exit()`.
+Signals that the process should exit. The IPC transport emits it when it receives a shutdown command, and the CLI entry point responds by calling `process.exit()`.
 
 **Payload:**
 ```typescript
@@ -57,7 +57,7 @@ Signals that the process should terminate. Emitted by the IPC transport on recei
 ```
 
 ### `system:error`
-Emitted when a system-level error occurs.
+Emitted on a system-level error.
 
 **Payload:**
 ```typescript
@@ -68,7 +68,7 @@ Emitted when a system-level error occurs.
 ```
 
 ### `command:start`
-Emitted when a command begins execution.
+Emitted when a command starts.
 
 **Payload:**
 ```typescript
@@ -78,7 +78,7 @@ Emitted when a command begins execution.
 ```
 
 ### `command:success`
-Emitted when a command completes successfully.
+Emitted when a command succeeds.
 
 **Payload:**
 ```typescript
@@ -99,18 +99,18 @@ Emitted when a command fails.
 }
 ```
 
-## Workflow Events
+## Workflow events
 
-These events are emitted when a named workflow runs.
+Named workflows emit these events.
 
-- `workflow:start` - Workflow begins
-- `workflow:step:start` - A workflow step begins
-- `workflow:step:success` - A workflow step succeeds
-- `workflow:step:error` - A workflow step fails
-- `workflow:success` - Workflow completes successfully
-- `workflow:error` - Workflow fails
+- `workflow:start`: workflow begins
+- `workflow:step:start`: a step begins
+- `workflow:step:success`: a step succeeds
+- `workflow:step:error`: a step fails
+- `workflow:success`: workflow succeeds
+- `workflow:error`: workflow fails
 
-Common workflow payload fields include:
+Common payload fields:
 
 ```typescript
 {
@@ -122,69 +122,69 @@ Common workflow payload fields include:
 }
 ```
 
-## Content Events
+## Content events
 
-These events are emitted by `@bluecadet/launchpad-content` during content fetch operations.
+`@bluecadet/launchpad-content` emits these events while fetching content.
 
-### Fetch Lifecycle
-- `content:fetch:start` - Content fetch process begins
-- `content:fetch:done` - All content successfully fetched
-- `content:fetch:error` - Fetch process encounters an error
+### Fetch lifecycle
+- `content:fetch:start`: fetch begins
+- `content:fetch:done`: all content fetched
+- `content:fetch:error`: fetch failed
 
-### Source Events
-- `content:source:start` - Individual source begins fetching
-- `content:source:done` - Source completes successfully
-- `content:source:error` - Source encounters an error
+### Source events
+- `content:source:start`: a source begins fetching
+- `content:source:done`: a source succeeds
+- `content:source:error`: a source fails
 
-### Document Events
-- `content:document:write` - Document successfully written to the staged run output (promoted later on fetch success)
-- `content:document:error` - Document write fails
+### Document events
+- `content:document:write`: document written to the staged run output, promoted later if the fetch succeeds
+- `content:document:error`: document write failed
 
-### Transform Events
-- `content:transform:start` - Transform begins processing
-- `content:transform:done` - Transform completes successfully
-- `content:transform:error` - Transform encounters an error
+### Transform events
+- `content:transform:start`: transform begins
+- `content:transform:done`: transform succeeds
+- `content:transform:error`: transform fails
 
-See [Content Events Reference](../content/events.md) for detailed payload documentation and usage examples.
+See the [content events reference](../content/events.md) for payloads and examples.
 
-## Monitor Events
+## Monitor events
 
-These events are emitted by `@bluecadet/launchpad-monitor` during process management operations.
+`@bluecadet/launchpad-monitor` emits these events while managing processes.
 
-### Connection Lifecycle
-- `monitor:connect:start` - PM2 connection begins
-- `monitor:connect:done` - PM2 connection succeeds
-- `monitor:connect:error` - PM2 connection fails
-- `monitor:disconnect:start` - Disconnecting from PM2
-- `monitor:disconnect:done` - Disconnection completes
+### Connection lifecycle
+- `monitor:connect:start`: PM2 connection begins
+- `monitor:connect:done`: PM2 connection succeeds
+- `monitor:connect:error`: PM2 connection fails
+- `monitor:disconnect:start`: disconnecting from PM2
+- `monitor:disconnect:done`: disconnected
 
-### App Lifecycle
-- `monitor:app:start` - App start requested
-- `monitor:app:started` - App successfully started
-- `monitor:app:stop` - App stop requested
-- `monitor:app:stopped` - App successfully stopped
-- `monitor:app:restart` - App restart requested
-- `monitor:app:restarted` - App successfully restarted
-- `monitor:app:error` - App operation encounters an error
+### App lifecycle
+- `monitor:app:start`: app start requested
+- `monitor:app:started`: app started
+- `monitor:app:stop`: app stop requested
+- `monitor:app:stopped`: app stopped
+- `monitor:app:restart`: app restart requested
+- `monitor:app:restarted`: app restarted
+- `monitor:app:error`: app operation failed
 
-### App State Changes
-- `monitor:app:online` - App comes online
-- `monitor:app:exit` - App exits
-- `monitor:app:crash` - App crashes unexpectedly
+### App state changes
+- `monitor:app:online`: app came online
+- `monitor:app:exit`: app exited
+- `monitor:app:crash`: app crashed
 
-### Window Management (Windows-specific)
-- `monitor:window:foreground` - Window brought to foreground
-- `monitor:window:minimize` - Window minimized
-- `monitor:window:hide` - Window hidden
-- `monitor:window:error` - Window management error
+### Window management (Windows only)
+- `monitor:window:foreground`: window brought to the foreground
+- `monitor:window:minimize`: window minimized
+- `monitor:window:hide`: window hidden
+- `monitor:window:error`: window management failed
 
-See [Monitor Events Reference](../monitor/events.md) for detailed payload documentation and usage examples.
+See the [monitor events reference](../monitor/events.md) for payloads and examples.
 
-## Listening to Events
+## Listening to events
 
-### Specific Events
+### Specific events
 
-Listen to a specific event by name:
+Listen to one event by name:
 
 ```typescript
 eventBus.on('content:fetch:done', (data) => {
@@ -192,9 +192,9 @@ eventBus.on('content:fetch:done', (data) => {
 });
 ```
 
-### Event Patterns
+### Event patterns
 
-Listen to multiple events matching a regex pattern:
+Listen to every event that matches a regex:
 
 ```typescript
 // Listen to all content events
@@ -208,9 +208,9 @@ eventBus.onPattern(/.*:error$/, (event, data) => {
 });
 ```
 
-### All Events
+### All events
 
-Listen to all events:
+Listen to every event:
 
 ```typescript
 eventBus.onAny((event, data) => {
@@ -218,9 +218,9 @@ eventBus.onAny((event, data) => {
 });
 ```
 
-### One-Time Listeners
+### One-time listeners
 
-Listen for an event only once:
+Listen for an event once:
 
 ```typescript
 eventBus.once('content:fetch:done', (data) => {
@@ -228,7 +228,7 @@ eventBus.once('content:fetch:done', (data) => {
 });
 ```
 
-### Removing Listeners
+### Removing listeners
 
 ```typescript
 const handler = (data) => console.log(data);
@@ -239,9 +239,9 @@ eventBus.on('content:fetch:done', handler);
 eventBus.off('content:fetch:done', handler);
 ```
 
-## Custom Events
+## Custom events
 
-Applications and plugins can define their own events using declaration merging:
+Applications and plugins can define their own events with declaration merging:
 
 ```typescript
 // my-plugin.ts

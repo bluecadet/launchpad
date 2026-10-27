@@ -8,19 +8,19 @@ import ConfigReference from '@docs-src/components/ConfigReference.astro';
 [npm](https://www.npmjs.com/package/@bluecadet/launchpad-controller) ·
 [changelog](https://github.com/bluecadet/launchpad/blob/main/packages/controller/CHANGELOG.md)
 
-The controller package is the orchestration layer every other subsystem plugs into. It owns the plugin lifecycle, routes commands, and carries the event bus that content, monitor, scheduler, and observability all communicate over.
+The controller package coordinates every other subsystem. It owns the plugin lifecycle, routes commands, and hosts the event bus that content, monitor, scheduler, and observability use to communicate.
 
 ## Configuration
 
 <ConfigReference id="controller-options" />
 
-These are input defaults; logging has its own nested defaults. See [Controller Logging](/reference/controller/logging/) for the full logging reference and [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions) for default and requiredness notation.
+These are input defaults. Logging has its own nested defaults; see [Controller logging](/reference/controller/logging/). See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions) for default and requiredness notation.
 
-## Integration with Subsystems
+## Integration with subsystems
 
-Plugins integrate with the controller through two complementary contracts:
+Plugins integrate with the controller through these contracts.
 
-**Plugin properties** — capabilities the plugin *offers* to the controller:
+Plugin properties are the capabilities a plugin offers the controller:
 
 ```typescript
 type InstantiatedPlugin<TCommand> = Partial<
@@ -30,7 +30,7 @@ type InstantiatedPlugin<TCommand> = Partial<
 >;
 ```
 
-**Plugin config** — controller-owned metadata and lifecycle hooks:
+Plugin config holds controller-owned metadata and lifecycle hooks:
 
 ```typescript
 interface PluginConfig<TCommand, TState> {
@@ -41,7 +41,7 @@ interface PluginConfig<TCommand, TState> {
 }
 ```
 
-**PluginContext** — infrastructure the controller *provides* to the plugin:
+`PluginContext` is the infrastructure the controller provides to the plugin:
 
 ```typescript
 interface PluginContext<TState = unknown> {
@@ -59,9 +59,9 @@ interface PluginContext<TState = unknown> {
 }
 ```
 
-### Explicit Command Registration
+### Explicit command registration
 
-Plugins that handle commands must declare them in `manifest.commands` and implement `executeCommand()`:
+A plugin that handles commands must declare them in `manifest.commands` and implement `executeCommand()`:
 
 ```typescript
 interface CommandExecutor<TCommand> {
@@ -86,27 +86,27 @@ definePlugin({
 });
 ```
 
-The controller only dispatches commands that have been explicitly registered. Launchpad no longer infers command ownership from command name prefixes.
+The controller dispatches only registered commands. It does not infer command ownership from name prefixes.
 
 ### Logging
 
-The controller owns canonical segmented JSONL, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available; its `flush` and `createReader` methods and each reader's `read`, `ack`, and `close` methods return `ResultAsync` so callers handle failures explicitly. See [Controller Logging](/reference/controller/logging/) for configuration, file-layout migration, locking, and failure behavior.
+The controller owns the canonical segmented JSONL log, an optional human-readable text view, rotation, retention, and the per-destination checkpoint store. `PluginContext.logSource` exposes the source when available. Its `flush` and `createReader` methods, and each reader's `read`, `ack`, and `close` methods, return `ResultAsync`, so callers handle failures explicitly. See [Controller logging](/reference/controller/logging/) for configuration, file-layout migration, locking, and failure behavior.
 
 ### Process ownership
 
-Only one controller may be active for a configured project identity, whether it runs in task or persistent mode. Construction does not open files or acquire ownership. The first `registerPlugin()` or `start()` acquires an operating-system lease at `<resolved pidFile>.lock` before initializing file logging or running plugin setup. Contention, filesystem errors, and unavailable native locking return an error through the lifecycle method's `ResultAsync`; the constructor does not throw for these failures.
+Only one controller may be active per configured project identity, in task or persistent mode. The constructor opens no files and acquires no ownership. The first `registerPlugin()` or `start()` call acquires an operating-system lease at `<resolved pidFile>.lock`, before file logging starts or plugin setup runs. Contention, filesystem errors, and missing native locking surface as errors in that method's `ResultAsync`; the constructor never throws for them.
 
-Overlapping calls to `start()` share one startup attempt. If startup fails, the controller aborts its signal, waits for registered plugins to disconnect, and closes logging before releasing ownership. `stop()` performs the same resource cleanup even if plugins were registered before startup or registration failed. When startup is still pending, `stop()` waits for that attempt before shutting down. The `stop` workflow runs only for a started controller.
+Overlapping `start()` calls share one startup attempt. If startup fails, the controller aborts its signal, waits for registered plugins to disconnect, and closes logging before releasing ownership. `stop()` does the same cleanup, even if plugins were registered before startup or registration failed. If startup is still pending, `stop()` waits for it before shutting down. The `stop` workflow runs only on a started controller.
 
-Ownership is released only after plugin shutdown and physical logging I/O settle. Always call and await `stop()` when disposing a controller, including after failed registration. The logging-close wait is bounded: a timeout emits a warning and lets `stop()` finish, but any pending canonical or checkpoint I/O continues to hold both the project and log-directory leases. A successor's `start()` or `registerPlugin()` therefore returns a contention error until that I/O settles; shutdown does not cancel it or release ownership early. A stopped controller cannot be restarted or accept new plugins; construct a new controller for another run. If the process crashes, the operating system releases the leases automatically.
+The controller releases ownership only after plugin shutdown and physical logging I/O settle. Always call and await `stop()` when disposing of a controller, including after failed registration. The logging-close wait is bounded: on timeout, `stop()` logs a warning and finishes, but pending canonical or checkpoint I/O keeps holding both the project and log-directory leases. Until that I/O settles, a successor's `start()` or `registerPlugin()` returns a contention error. Shutdown neither cancels the I/O nor releases ownership early. A stopped controller can't restart or accept new plugins; create a new controller for the next run. If the process crashes, the operating system releases the leases.
 
-The adjacent PID file is persistent-daemon discovery metadata, not the ownership authority. It remains absent for task runs. The lease file is permanent and must not be deleted, renamed, or replaced; its presence does not mean a controller is active.
+The adjacent PID file only helps clients discover a persistent daemon; the lease decides ownership. Task runs don't write a PID file. The lease file is permanent: don't delete, rename, or replace it. Its presence doesn't mean a controller is active.
 
-This closes startup races that a PID existence check cannot prevent. Concurrent task commands do not run a second local controller, and a task controller cannot overlap a persistent controller that uses the same resolved `pidFile` identity.
+The lease closes startup races that a PID existence check can't. Concurrent task commands can't start a second local controller, and a task controller can't overlap a persistent controller with the same resolved `pidFile` identity.
 
-### Host-Owned Workflows
+### Host-owned workflows
 
-Hosts declare startup and shutdown orchestration in config and hand it to the controller:
+Hosts declare startup and shutdown steps in config and pass them to the controller:
 
 ```typescript
 export default defineConfig({
@@ -117,17 +117,17 @@ export default defineConfig({
 });
 ```
 
-The controller exposes `setWorkflows()` and `runWorkflow()` so every host can run the same named workflow sequence. `LaunchpadController.stop()` automatically runs the `stop` workflow before plugin disconnects.
+The controller exposes `setWorkflows()` and `runWorkflow()` so every host runs the same named workflows. `LaunchpadController.stop()` runs the `stop` workflow before disconnecting plugins.
 
 #### Step failure handling
 
-Workflows run every step **best-effort**. If a step fails, the controller records the error, emits `workflow:step:error`, and continues with the remaining steps. After all steps run, the workflow reports an aggregated failure (`workflow:error`) if any step errored.
+Workflows run every step **best-effort**. When a step fails, the controller records the error, emits `workflow:step:error`, and moves on. After the last step, the workflow reports an aggregated failure (`workflow:error`) if any step failed.
 
-This means a failed `content.fetch` no longer prevents `monitor.start` from launching apps — content fetching stages its output before promoting it, so the previously-published content remains on disk and the monitor runs against the last good content.
+A failed `content.fetch` therefore doesn't stop `monitor.start` from launching apps. Content fetching stages its output before promoting it, so the last published content stays on disk and the monitor runs against it.
 
-`launchpad start` treats the aggregated failure the same way: it logs the errors and keeps the controller running, so a failed workflow step never takes down apps that started successfully.
+`launchpad start` logs an aggregated failure and keeps the controller running, so a failed step never takes down apps that started successfully.
 
-To make a step fatal — halting the workflow and skipping the remaining steps when it fails — wrap it in an object with `stopOnError`:
+To make a step fatal, wrap it in an object with `stopOnError`. If it fails, the workflow halts and skips the remaining steps:
 
 ```typescript
 export default defineConfig({
@@ -138,15 +138,15 @@ export default defineConfig({
 });
 ```
 
-### State Management
+### State management
 
-Plugins own their domain logic; the controller owns the state infrastructure. Plugins call `ctx.updateState()` to establish and mutate their state slice — the controller lazily creates a scoped store on first call and handles patch generation, versioning, and broadcasting.
+Plugins own their domain logic; the controller owns the state infrastructure. A plugin calls `ctx.updateState()` to create and change its state slice. The controller creates a scoped store on the first call and handles patch generation, versioning, and broadcasting.
 
-To read the full aggregated state (all plugins + system), use `ctx.getGlobalState()`. Prefer `ctx.eventBus` or `ctx.dispatchCommand` for cross-plugin communication over polling global state.
+`ctx.getGlobalState()` returns the full aggregated state for all plugins and the system. For cross-plugin communication, use `ctx.eventBus` or `ctx.dispatchCommand` instead of polling global state.
 
-### Status Snapshots
+### Status snapshots
 
-Plugins can contribute to `launchpad status` by adding a `summarize(state)` function to their plugin config. The controller calls every registered plugin's `summarize()` hook, drops `null` results, sorts the returned sections by `order`, and sends the resulting status snapshot over IPC.
+A plugin adds to `launchpad status` output by defining `summarize(state)` in its plugin config. The controller calls every registered plugin's `summarize()`, drops `null` results, sorts the sections by `order`, and sends the snapshot over IPC.
 
 ```typescript
 import type { LaunchpadState, Section } from '@bluecadet/launchpad-utils/types';
@@ -172,11 +172,11 @@ definePlugin({
 
 ### Transports
 
-Transports are plugins that expose the command bus and event bus over a wire protocol — the IPC socket used by the CLI, and the [HTTP/SSE transport](/reference/controller/transports/) for browsers and Unity/.NET consumers. See [Transports](/reference/controller/transports/) for the HTTP/SSE surface.
+Transports are plugins that expose the command bus and event bus over a wire protocol: the IPC socket the CLI uses, and the [HTTP/SSE transport](/reference/controller/transports/) for browsers and Unity/.NET clients.
 
 ### Readyable
 
-Plugin `setup()` runs sequentially in registration order, so anything a plugin emits during its own setup is invisible to plugins registered after it. Plugins with startup work that depends on the rest of the system — announcing state on the event bus, for example — implement `ready()` instead.
+Plugin `setup()` runs sequentially in registration order, so plugins registered later miss anything a plugin emits during its own setup. Plugins whose startup work depends on the rest of the system, such as announcing state on the event bus, implement `ready()` instead.
 
 ```typescript
 interface Readyable {
@@ -184,11 +184,11 @@ interface Readyable {
 }
 ```
 
-The host calls `LaunchpadController.ready()` once it has finished registering plugins; the controller then calls `ready()` on every registered plugin in registration order. A `ready()` that fails or throws is logged and contained — it neither fails startup nor blocks another plugin's `ready()`. Repeat calls are no-ops, and a plugin registered after the phase has run is readied right after its `setup()`, so every plugin sees the hook exactly once.
+After registering plugins, the host calls `LaunchpadController.ready()`, and the controller calls `ready()` on each plugin in registration order. If a plugin's `ready()` fails or throws, the controller logs the error; startup continues and other plugins' `ready()` still runs. Repeat calls do nothing. A plugin registered after the ready phase is readied right after its `setup()`, so every plugin sees the hook exactly once.
 
 ### Disconnectable
 
-Plugins that manage long-lived resources (connections, child processes) implement `disconnect()`. It is called *after* `abortSignal` is fired, so in-flight async work is already cancelled by the time `disconnect()` runs.
+Plugins that manage long-lived resources, such as connections or child processes, implement `disconnect()`. The controller calls it after firing `abortSignal`, so in-flight async work is already cancelled.
 
 ```typescript
 interface Disconnectable {
@@ -196,45 +196,45 @@ interface Disconnectable {
 }
 ```
 
-## Usage Modes
+## Usage modes
 
-### Task Mode
+### Task mode
 
-Ephemeral controller instances for one-off operations:
+A task-mode controller is a temporary instance for one-off operations:
 
-1. Create controller in task mode
-2. Start controller
+1. Create a controller in task mode
+2. Start the controller
 3. Register subsystems
 4. Run the ready phase (`ready()`)
-5. Execute command(s)
-6. Stop controller
+5. Execute the command(s)
+6. Stop the controller
 
-This mode is used when no persistent controller is running. It uses the same project ownership lease as persistent mode, so overlapping task runs fail instead of mutating project resources concurrently.
+The CLI uses task mode when no persistent controller is running. Task mode takes the same project ownership lease as persistent mode, so overlapping task runs fail instead of changing project resources at the same time.
 
-### Persistent Mode
+### Persistent mode
 
-Long-running controller that stays active to handle multiple commands:
+A persistent-mode controller stays running to handle many commands. It:
 
-- Started with `launchpad start` (optionally detached with `-d`)
-- Registers plugins, then runs the ready phase (`ready()`) once all of them are set up — this is where, for example, the content plugin's startup announcement feeds the HTTP/SSE transport's replay backlog
-- Opens IPC socket for inter-process communication
-- Holds the project ownership lease and stores PID metadata for discovery
-- Handles multiple CLI commands without reinitializing
-- Gracefully shuts down with `launchpad stop`
+- Starts with `launchpad start`, optionally detached with `-d`
+- Registers plugins, then runs the ready phase (`ready()`) once all are set up. For example, the content plugin's startup announcement reaches the HTTP/SSE transport's replay backlog here.
+- Opens an IPC socket
+- Holds the project ownership lease and writes PID metadata for discovery
+- Handles many CLI commands without reinitializing
+- Shuts down gracefully with `launchpad stop`
 
-Subsequent `launchpad` commands (content, monitor, status) detect the running controller and communicate with it via IPC instead of creating ephemeral instances.
+Later `launchpad` commands (content, monitor, status) detect the running controller and talk to it over IPC instead of creating temporary instances.
 
 #### Benefits
 
-- **Faster command execution**: No initialization overhead for subsequent commands
-- **Shared state**: All commands operate against the same controller instance
-- **Detached mode**: Can run in background with `-d` flag
-- **IPC protocol**: Type-safe command execution and state queries
-- **Graceful shutdown**: Multi-stage shutdown with IPC fallbacks (SIGTERM → SIGKILL)
+- Later commands run faster because they skip initialization.
+- All commands share one controller instance and its state.
+- Detached mode (`-d`) runs the controller in the background.
+- The IPC protocol provides type-safe command execution and state queries.
+- Shutdown escalates from IPC to SIGTERM to SIGKILL.
 
-## Type Safety
+## Type safety
 
-The controller uses TypeScript declaration merging against `@bluecadet/launchpad-utils/types` to provide type-safe events without circular dependencies:
+The controller uses TypeScript declaration merging on `@bluecadet/launchpad-utils/types` to type events without circular dependencies:
 
 ```typescript
 // The controller declares system events

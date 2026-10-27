@@ -22,10 +22,10 @@ npm install @bluecadet/launchpad-content @bluecadet/launchpad-monitor
 npx launchpad start
 
 # Only download fresh content
-npx launchpad content
+npx launchpad content fetch
 
 # Only manage apps
-npx launchpad monitor
+npx launchpad monitor start
 
 # Stop all processes
 npx launchpad stop

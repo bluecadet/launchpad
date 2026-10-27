@@ -1,6 +1,19 @@
 # CLI commands
 
-Run each command with `npx launchpad <command>`, or `launchpad <command>` if installed globally.
+Run each command with `npx launchpad <command>`, or `launchpad <command>` if installed globally. Run `launchpad` with no command, or `launchpad --help`, to list the built-in commands and the commands your configured plugins add.
+
+| Command | Source | Description |
+|---------|--------|-------------|
+| `start` | Built-in | Start the controller |
+| `stop` | Built-in | Stop the controller |
+| `status` | Built-in | Show controller status |
+| `content fetch` | Content plugin | Fetch all content sources |
+| `monitor start` | Monitor plugin | Start the monitor |
+| `monitor stop` | Monitor plugin | Stop the monitor |
+| `monitor restart` | Monitor plugin | Restart monitored apps |
+| `observability flush` | Observability plugin | Flush pending log batches to transports |
+
+Plugin commands exist only when the plugin is in your config. If the config fails to load, plugin commands report the load error.
 
 ## Start command
 
@@ -8,41 +21,23 @@ Run each command with `npx launchpad <command>`, or `launchpad <command>` if ins
 launchpad start [options]
 ```
 
-`start` launches Launchpad in **persistent mode** and opens an IPC socket so later CLI commands can connect to the running controller. Use it to:
-
-- Run a long-lived controller that manages the content and monitor subsystems
-- Run in the background with detached mode
-- Send later commands (content, monitor, status) over IPC without reinitializing
-
-### Options
+`start` launches the controller in **persistent mode** and opens an IPC socket. Later commands connect to that controller instead of starting their own.
 
 | Option | Description |
 |--------|-------------|
-| `-d, --detach` | Run the controller in the background |
+| `-d, --detach` | Run the controller in the background. Default: `false` |
 
-### Usage examples
-
-Start in the foreground, for development and debugging:
 ```bash
-launchpad start
-# or
-launchpad start -v # with verbose logging
-launchpad start -vv # with verbose + debug logging
+launchpad start         # foreground
+launchpad start -v      # verbose logging
+launchpad start -vv     # verbose + debug logging
+launchpad start -d      # background
 ```
-
-Start in the background:
-```bash
-launchpad start --detach
-# or
-launchpad start -d
-```
-
-Other commands then talk to the running controller over IPC.
 
 ## Stop command
 
 ```bash
-launchpad stop [options]
+launchpad stop
 ```
 
 `stop` shuts down the running controller. It:
@@ -52,7 +47,7 @@ launchpad stop [options]
 - Sends SIGKILL as a last resort if the process doesn't respond
 - Deletes the PID file
 
-If the controller isn't running but a monitor process exists, `stop` tries to stop the monitor process. This keeps older setups working.
+If no controller is running but a monitor process exists, `stop` stops the monitor process instead. This keeps older setups working.
 
 ## Status command
 
@@ -60,12 +55,11 @@ If the controller isn't running but a monitor process exists, `stop` tries to st
 launchpad status [options]
 ```
 
-`status` asks the persistent controller for its current state over IPC and shows:
+`status` queries the running controller over IPC and prints a status snapshot: uptime, then one section per plugin that defines `summarize()`. It fails if no controller is running.
 
-- Controller uptime
-- Monitor connection status
-- Each running app with its status and PID
-- Content fetch status and last fetch time
+| Option | Description |
+|--------|-------------|
+| `-w, --watch` | Keep running and reprint the snapshot when it changes. Press Ctrl+C to exit. Default: `false` |
 
 ### Output example
 
@@ -75,59 +69,68 @@ Launchpad Status:
 
 Monitor:
   Connected: Yes
-  PM2 Version: 5.3.0
-
-Apps:
-  ● my-app: online (PID: 12345)
-  ○ other-app: stopped
+  Apps:
+    ✓ my-app: online (PID: 12345)
+    ✗ other-app: stopped
 
 Content:
-  Last Fetch: 2025-10-21T10:30:00.000Z
-  In Progress: No
+  Phase: idle
+  Sources:
+    ✓ cms: Success (1.2s)
 ```
 
-## Content command
+## Plugin commands
+
+Plugin commands run against the controller started by `launchpad start` when one is running. Otherwise they start a local controller for the command.
+
+### `content fetch`
 
 ```bash
-launchpad content [options]
+launchpad content fetch
 ```
 
-`content` fetches content:
+Downloads content from every configured source, runs transforms, and publishes the result. Without a running controller, the local controller exits when the fetch completes.
 
-- If a controller is running (via `launchpad start`), it sends the command over IPC
-- Otherwise, it starts a temporary controller for the fetch
-- Downloads content from every configured source
-- Runs content transforms
-- Updates the local content cache
-
-Use it to update content without restarting apps or the controller.
-
-## Monitor command
+### `monitor start`
 
 ```bash
-launchpad monitor [options]
+launchpad monitor start
 ```
 
-`monitor` manages applications:
+Connects to the process manager and starts the configured apps. Without a running controller, the local controller keeps running in the foreground to supervise the apps.
 
-- If a controller is running (via `launchpad start`), it connects and starts monitoring over IPC
-- Otherwise, it starts a temporary controller for monitoring
-- Starts configured applications
-- Restarts apps that crash
-- Collects process statistics
+### `monitor stop`
 
-Use it to manage applications on their own or through an existing controller.
+```bash
+launchpad monitor stop
+```
+
+Stops the monitored apps.
+
+### `monitor restart`
+
+```bash
+launchpad monitor restart
+```
+
+Restarts the monitored apps.
+
+### `observability flush`
+
+```bash
+launchpad observability flush
+```
+
+Force-flushes all pending log batches to the configured transports.
 
 ## Global options
 
-Run `launchpad` without a command to list the built-in and configured plugin commands.
-
-All commands accept these options:
+All commands accept these options, before or after the command name:
 
 | Option | Description | Type |
 |--------|-------------|------|
-| `--config, -c` | Path to your JS config file | string |
-| `--env, -e` | Path(s) to your .env file(s) | array |
-| `--env-cascade, -E` | Load env variables from a cascade of .env files | string |
-| `--verbose, -v` | Increase logging verbosity | count |
+| `-c, --config` | Path to your JS config file | string |
+| `-e, --env` | Path(s) to your .env file(s) | array |
+| `-E, --env-cascade` | Load env variables from `.env`, `.env.<arg>`, `.env.local`, and `.env.<arg>.local` in the Launchpad root | string |
+| `-v, --verbose` | Increase logging verbosity. Repeat for debug output (`-vv`) | count |
 | `--help` | Show help | flag |

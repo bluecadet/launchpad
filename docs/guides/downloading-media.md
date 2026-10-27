@@ -1,19 +1,19 @@
-# Downloading Media
+# Downloading media
 
-Add media downloading and image processing to a configured content source. Run Launchpad on Node.js 24.x or 26 and later; the shared artifact cache uses `node:sqlite`.
+Add media downloading and image processing to a configured content source. Launchpad requires Node.js 24.x or 26 and later because the shared artifact cache uses `node:sqlite`.
 
 ## Overview
 
-When you fetch content that includes media (images, videos, etc.), Launchpad can automatically:
+When your content includes media such as images or videos, Launchpad can:
 
 1. Detect media URLs in your content
 2. Download the files locally
-3. Update content references to point to local files
-4. Transform media files (resize images, convert formats, etc.)
+3. Point content references at the local files
+4. Transform the files (resize images, convert formats, etc.)
 
-## Basic Setup
+## Basic setup
 
-First, add the `mediaDownloader` plugin to your configuration:
+Add the `mediaDownloader` plugin to your configuration:
 
 ```ts {3,12-14}
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -36,22 +36,11 @@ export default defineConfig({
 });
 ```
 
-The media downloader will automatically:
+The media downloader scans your content for media URLs, downloads the files to your content directory, and rewrites the URLs to point to the local files.
 
-- Scan your content for media URLs
-- Download files to your content directory
-- Update URLs in your content to point to local files
+## Image transformations
 
-## Image Transformations
-
-After downloading media, you can transform images using the `sharp` plugin. This is useful for:
-
-- Resizing images
-- Converting formats
-- Optimizing quality
-- Applying effects
-
-Add the sharp plugin *after* the media downloader:
+To resize, convert, optimize, or apply effects to downloaded images, add the `sharp` plugin *after* the media downloader:
 
 ```ts
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -77,11 +66,9 @@ export default defineConfig({
 ```
 
 >[!TIP]
->The `sharp` plugin uses the powerful [sharp](https://sharp.pixelplumbing.com/) image processing library under the hood. Check their documentation for all available transformations.
+>The `sharp` plugin wraps the [sharp](https://sharp.pixelplumbing.com/) image processing library. See its documentation for all available transformations.
 
-## Common Transformations
-
-Here are some useful image transformation examples:
+## Common transformations
 
 ```ts
 // Resize to specific dimensions
@@ -103,7 +90,7 @@ sharp({
 })
 ```
 
-## Fetch and Reuse Media
+## Fetch and reuse media
 
 Run a content update after adding the transforms:
 
@@ -113,50 +100,50 @@ npx launchpad content fetch
 
 Downloads and generated images go into the current run's staging tree. Launchpad publishes that tree only after the run succeeds.
 
-On subsequent fetches, downloaded media can skip the network while an explicit server freshness lifetime is valid. Otherwise Launchpad contacts the server, using conditional GET with its validators when available. Servers without an explicit freshness lifetime are contacted every run; caching does not promise offline availability.
+On later fetches, Launchpad skips the network for downloaded media while the server's explicit freshness lifetime is valid. Otherwise it contacts the server, sending a conditional GET when validators are available. Media from servers without an explicit freshness lifetime is revalidated every run. Caching does not guarantee offline availability.
 
-Supported Sharp recipes automatically reuse outputs when local input bytes, resolved options, supported dependencies, and engine versions match. You do not need to maintain a version token for ordinary image resizing. Unsupported or unresolved dependencies run uncached with a diagnostic.
+Supported Sharp recipes reuse outputs when the local input bytes, resolved options, supported dependencies, and engine versions match. Ordinary image resizing needs no version token. Recipes with unsupported or unresolved dependencies run uncached and log a diagnostic.
 
-Metadata is stored at `.launchpad/cache/artifacts.sqlite`; the bodies are the previously published files, not a separate blob store. Existing files without trusted metadata may be downloaded or generated again on the first run after upgrading.
+Metadata lives in `.launchpad/cache/artifacts.sqlite`. The cached bodies are the previously published files, not a separate blob store. After upgrading, files without trusted metadata may be downloaded or generated again on the first run.
 
-## Force a New Download
+## Force a new download
 
-To bypass HTTP reuse and cached validators, set `ignoreCache` for the downloader:
+To bypass HTTP reuse and cached validators, set `ignoreCache` on the downloader:
 
 ```typescript
 mediaDownloader({ ignoreCache: true })
 ```
 
-Run a fetch, then remove the flag to resume normal HTTP policy. Sharp may still reuse a derived image if the newly downloaded bytes and recipe have not changed.
+Run a fetch, then remove the flag to restore normal HTTP caching. Sharp may still reuse a derived image if the new bytes and recipe are unchanged.
 
-`forceClearTempFiles` only removes temporary staging files. To invalidate metadata while leaving published files available to applications, use `content.clear` with `downloads: false, cache: true` between runs. See the [clearing reference](../reference/content/artifact-cache.md#clearing) for a dispatch example.
+`forceClearTempFiles` removes only temporary staging files. To invalidate metadata while keeping published files available to applications, run `content.clear` with `downloads: false, cache: true` between runs. See the [clearing reference](../reference/content/artifact-cache.md#clearing) for a dispatch example.
 
-## Best Practices
+## Best practices
 
 - Put `mediaDownloader` before Sharp or custom transforms that read downloaded files.
 - Keep `updatePaths` enabled when Sharp needs local image paths.
-- Use distinct output destinations for different URLs or recipes; conflicting cache identities are rejected rather than overwritten.
-- Leave publication ownership and cache cleanup to Launchpad. Parallel tasks within a run are supported, but concurrent project writers are not.
+- Give different URLs or recipes distinct output destinations. Launchpad rejects conflicting cache identities instead of overwriting them.
+- Leave publication and cache cleanup to Launchpad. Parallel tasks within a run are supported; concurrent project writers are not.
 
 ## Troubleshooting
 
 If media isn't downloading:
 
 1. Check your network connection
-2. Verify media URLs are accessible
-3. Ensure proper permissions in download directory
-4. Look for error messages in the console output
+2. Verify the media URLs are reachable
+3. Check write permissions on the download directory
+4. Look for errors in the console output
 
 If transformations aren't working:
 
-1. Confirm media was downloaded successfully
-2. Check sharp plugin configuration
-3. Verify input image format is supported
-4. Look for transform-specific error messages
+1. Confirm the media downloaded
+2. Check the sharp plugin configuration
+3. Verify the input image format is supported
+4. Look for transform-specific errors
 
-## Next Steps
+## Next steps
 
-- Learn more about [content transforms](../reference/content/transforms/index.md)
-- Explore [sharp plugin options](../reference/content/transforms/sharp.md)
-- See [media downloader configuration](../reference/content/transforms/media-downloader.md)
-- Read the [artifact cache reference](../reference/content/artifact-cache.md)
+- [Content transforms](../reference/content/transforms/index.md)
+- [Sharp plugin options](../reference/content/transforms/sharp.md)
+- [Media downloader configuration](../reference/content/transforms/media-downloader.md)
+- [Artifact cache reference](../reference/content/artifact-cache.md)

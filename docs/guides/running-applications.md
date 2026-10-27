@@ -1,19 +1,19 @@
-# Running Applications
+# Running applications
 
-Launchpad's monitoring system helps you manage and maintain long-running applications reliably. This guide covers how to configure, launch, and monitor your applications using Launchpad.
+Launchpad's monitor launches long-running applications and keeps them running. This guide covers configuring, launching, and monitoring them.
 
 ## Overview
 
-The monitoring system is built on top of [PM2](https://pm2.keymetrics.io/), a robust process manager, providing:
+The monitor runs on [PM2](https://pm2.keymetrics.io/) and provides:
 
 - Process management and auto-restart
 - Log collection and rotation
 - Application status monitoring
-- Graceful shutdown handling
+- Graceful shutdown
 
-## Basic Setup
+## Basic setup
 
-1. Install the required packages:
+1. Install the package:
 
 ```bash
 npm install @bluecadet/launchpad
@@ -47,23 +47,23 @@ export default defineConfig({
 ```
 
 >[!WARNING]
->Always test your configuration in a development environment first
+>Test your configuration in a development environment first.
 
-1. Start your application
+3. Start your application:
 
 ```bash
 npx launchpad monitor start
 ```
 
-## Configuration Options
+## Configuration options
 
-### Basic Settings
+### Basic settings
 
-- `name`: Unique identifier for your application
-- `script`: Path to your executable or script
-- `cwd`: Working directory for your application. Relative paths are resolved against the current working directory of the launchpad configuration.
+- `name`: Unique identifier for the application
+- `script`: Path to the executable or script
+- `cwd`: Working directory for the application. Relative paths resolve against Launchpad's working directory.
 
-### Advanced Settings
+### Advanced settings
 
 ```js
 {
@@ -82,14 +82,14 @@ npx launchpad monitor start
 }
 ```
 
-## Best Practices
+## Best practices
 
-1. **Unique Names**: Give each application a unique, descriptive name
-2. **Error Handling**: Configure proper restart policies
-3. **Resource Limits**: Set memory limits to prevent system overload
-4. **Logging**: Use appropriate log levels for debugging
+- Give each application a unique, descriptive name.
+- Configure restart policies.
+- Set memory limits to prevent system overload.
+- Use log levels suited to debugging.
 
-## Next Steps
+## Next steps
 
-- Learn about [content management](./fetching-content.md)
-- Read the [monitor reference](../reference/monitor/index.md) for detailed API documentation
+- [Fetching content](./fetching-content.md)
+- [Monitor reference](../reference/monitor/index.md) for the full API

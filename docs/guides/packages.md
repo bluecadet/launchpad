@@ -7,12 +7,15 @@ Launchpad ships as a set of npm packages under the `@bluecadet` scope. This page
 Start with `@bluecadet/launchpad`. It re-exports every first-party plugin through scoped subpaths:
 
 ```
-@bluecadet/launchpad/cli                          → defineConfig, config loading
-@bluecadet/launchpad/content                      → content syncing plugin and types
-@bluecadet/launchpad/monitor                      → process monitoring plugin and types
-@bluecadet/launchpad/observability                → log aggregation plugin and types
-@bluecadet/launchpad/observability/transports/loki → Loki transport
-@bluecadet/launchpad/controller                   → IPC and process orchestration
+@bluecadet/launchpad/cli                             → defineConfig, config loading
+@bluecadet/launchpad/content                         → content syncing plugin and types
+@bluecadet/launchpad/monitor                         → process monitoring plugin and types
+@bluecadet/launchpad/scheduler                       → command scheduling plugin and types
+@bluecadet/launchpad/observability                   → log and metric export plugin and types
+@bluecadet/launchpad/observability/destinations/otlp → OTLP/HTTP destination
+@bluecadet/launchpad/observability/destinations/loki → Loki destination
+@bluecadet/launchpad/observability/transports/loki   → Loki transport
+@bluecadet/launchpad/controller                      → IPC and process orchestration
 ```
 
 Deeper subpaths give granular access:

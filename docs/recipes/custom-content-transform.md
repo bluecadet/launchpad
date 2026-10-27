@@ -1,19 +1,19 @@
-# Creating a Custom Content Transform
+# Creating a custom content transform
 
-This recipe explains how to create a custom content transform for Launchpad. Transforms run after all sources have been fetched and allow you to process, modify, or augment downloaded content inside the current run's staged output before Launchpad promotes that staged tree into the final download directory.
+Transforms process, modify, or augment downloaded content. They work inside the current run's staged output, before Launchpad promotes it to the download directory.
 
 ## Overview
 
-Content transforms in Launchpad:
+Content transforms:
 
-- Run sequentially after all sources are fetched, in the order they are declared
+- Run after all sources are fetched, one at a time, in declaration order
 - Receive a `DataStore` containing all fetched documents
-- Can read and mutate document data using JSONPath expressions
-- Are commonly used to download media files, convert formats, or enrich data
+- Can read and mutate document data with JSONPath expressions
+- Commonly download media, convert formats, or enrich data
 
-## Basic Transform Structure
+## Basic transform structure
 
-A transform is created with `defineContentTransform` from `@bluecadet/launchpad/content`:
+Create a transform with `defineContentTransform` from `@bluecadet/launchpad/content`:
 
 ```typescript
 import { defineContentTransform } from '@bluecadet/launchpad/content';
@@ -33,9 +33,9 @@ export const myTransform = defineContentTransform({
 });
 ```
 
-## Step-by-Step Example
+## Example: uppercase titles
 
-Let's create a transform that uppercases a specific field in all documents:
+This transform uppercases the `title` field in every document:
 
 ```typescript
 import { defineContentTransform } from '@bluecadet/launchpad/content';
@@ -77,9 +77,9 @@ export default defineConfig({
 });
 ```
 
-## Targeting Specific Documents
+## Targeting specific documents
 
-Use `data.filter()` to target documents from a specific source or by document ID:
+Use `data.filter()` to select documents by source or document ID:
 
 ```typescript
 import { defineContentTransform } from '@bluecadet/launchpad/content';
@@ -108,7 +108,7 @@ export const myTransform = defineContentTransform({
 });
 ```
 
-## Using JSONPath to Modify Nested Fields
+## Using JSONPath to modify nested fields
 
 Use `document.apply()` with a [JSONPath-Plus](https://github.com/JSONPath-Plus/JSONPath) expression to target specific fields:
 
@@ -131,24 +131,24 @@ export const normalizeUrls = defineContentTransform({
 });
 ```
 
-## Accessing the Transform Context
+## Transform context
 
-The `apply` function receives a `ContentTransformContext` with several useful properties:
+The `apply` function receives a `ContentTransformContext`:
 
 | Property | Description |
 |---|---|
-| `data` | `DataStore` — read/write access to all fetched documents |
+| `data` | `DataStore` with read/write access to all fetched documents |
 | `cache` | Run-owned artifact cache; use `cache.derive()` for generated files |
 | `logger` | Logger instance for structured output |
 | `contentOptions` | Resolved content configuration (download paths, etc.) |
-| `paths` | Path helpers — `getTempPath`, `getDownloadPath`, `getStagedDownloadPath`, `getPublishedDownloadPath`, `getBackupPath`, `getRunPath`; `getTempPath` is pre-bound to this transform's name |
+| `paths` | Path helpers: `getTempPath`, `getDownloadPath`, `getStagedDownloadPath`, `getPublishedDownloadPath`, `getBackupPath`, `getRunPath`; `getTempPath` is pre-bound to this transform's name |
 | `eventBus` | Event bus for emitting TTY progress events |
-| `abortSignal` | Abort signal — check this to cancel long-running work gracefully |
+| `abortSignal` | Abort signal; check it to cancel long-running work |
 | `cwd` | Working directory for the current run |
 
-## Report Progress Without Caching
+## Report progress without caching
 
-Use `ContentProgressLogger` to count successful tasks. No cache setup or utility-package import is needed. This example counts one task per document, after its URL updates succeed:
+Use `ContentProgressLogger` to count successful tasks. It needs no cache setup or utility-package import. This example counts one task per document after its URL updates succeed:
 
 ```typescript
 import {
@@ -185,15 +185,15 @@ export const normalizeUrlsWithProgress = defineContentTransform({
 });
 ```
 
-Keep `complete()` after the awaited work so failed or cancelled tasks aren't counted as successes. The sequential loop ensures no work is still running when `finally` closes the logger. With concurrency, wait for every started task to settle before cleanup; `Promise.all()` can reject before the remaining tasks finish.
+Call `complete()` after the awaited work so failed or cancelled tasks don't count as successes. The sequential loop guarantees no work is still running when `finally` closes the logger. With concurrent tasks, wait for every started task to settle before cleanup; `Promise.all()` can reject before the remaining tasks finish.
 
 See the [progress logging reference](../reference/content/progress-logging.md) for options, read-only counters, and event behavior.
 
-## Cache Generated Files
+## Cache generated files
 
-Use `cache.derive()` when a transform generates files from local inputs. Declare the source, every input/dependency file, resolved options, a recipe revision, and relative output paths. The callback writes into staging only on a miss; on a hit, the cache copies verified published files into staging.
+Use `cache.derive()` when a transform generates files from local inputs. Declare the source, every input and dependency file, resolved options, a recipe revision, and relative output paths. On a miss, the callback writes into staging; on a hit, the cache copies verified published files into staging.
 
-This example creates a video poster using an existing `ffmpeg` executable on `PATH`. Install ffmpeg separately and supply the version of the tool you actually deploy; Launchpad does not install or discover it. Declare this transform **after** `mediaDownloader` so the input video exists locally.
+This example creates a video poster with an `ffmpeg` executable on `PATH`. Launchpad does not install or detect ffmpeg, so install it yourself and pass the version you deploy. Declare this transform **after** `mediaDownloader` so the input video exists locally.
 
 ```typescript
 import { execFile } from 'node:child_process';
@@ -261,19 +261,19 @@ export function videoPoster(options: VideoPosterOptions) {
 }
 ```
 
-Pass the resolved `derive()` result to `progress.complete(result)` outside `generate`. Hits skip the callback, and both hits and misses must finish file verification (and copying on reuse) before the task counts as successful. The logger counts this recipe as one task, not bytes or output files. Closing the progress logger does not close the shared cache.
+Pass the resolved `derive()` result to `progress.complete(result)` outside `generate`. Hits skip the callback, and both hits and misses must finish file verification (and copying, on reuse) before the task counts as successful. The logger counts this recipe as one task, not bytes or output files. Closing the progress logger does not close the shared cache.
 
-For example, configure it with `sourceId: 'videos'`, `input: 'clips/welcome.mp4'`, `output: 'posters/welcome.jpg'`, and your deployed `ffmpegVersion`. These paths must match your downloader's local paths; this transform produces a file but does not rewrite document references.
+For example, configure it with `sourceId: 'videos'`, `input: 'clips/welcome.mp4'`, `output: 'posters/welcome.jpg'`, and your deployed `ffmpegVersion`. The paths must match your downloader's local paths. The transform writes a file but does not rewrite document references.
 
-When adding a watermark, filter script, or other file dependency, add that local file to `inputs`. Include non-file dependencies such as tool versions in `options`, and bump `version` for recipe/code changes. Unlike Sharp, custom recipes do not get automatic engine or dependency discovery. Keep generation deterministic for its declared inputs and options.
+Add file dependencies such as a watermark or filter script to `inputs`. Put non-file dependencies such as tool versions in `options`, and bump `version` when the recipe or code changes. Unlike Sharp, custom recipes get no automatic engine or dependency discovery. Keep generation deterministic for its declared inputs and options.
 
-Input hashes verify local bytes, not remote changes. The downloader must first fetch or revalidate remote media. Keep inputs stable throughout generation; within-run fingerprint reuse cannot detect same-size edits that preserve modification time. Outputs must be relative paths inside the source's staged tree and distinct from input paths to cache. In-place work runs uncached; missing declared inputs or outputs are errors. Different identities cannot claim the same cached destination.
+Input hashes verify local bytes, not remote changes, so the downloader must fetch or revalidate remote media first. Keep inputs stable during generation: within-run fingerprint reuse cannot detect same-size edits that preserve modification time. To be cached, outputs must be relative paths inside the source's staged tree and differ from the input paths. In-place work runs uncached. Missing declared inputs or outputs are errors. Different identities cannot claim the same cached destination.
 
-Always await `derive()` and any parallel tasks before returning. Do not close or abort the shared cache from a callback; Launchpad owns that lifecycle. See the [artifact cache reference](../reference/content/artifact-cache.md#derived-artifacts-cachederive) for the full contract.
+Await `derive()` and any parallel tasks before returning. Do not close or abort the shared cache from a callback; Launchpad owns its lifecycle. See the [artifact cache reference](../reference/content/artifact-cache.md#derived-artifacts-cachederive) for the full contract.
 
-## Handling Cancellation
+## Handling cancellation
 
-For long-running transforms, check `abortSignal` to allow graceful cancellation:
+In long-running transforms, check `abortSignal` so the transform can stop cleanly:
 
 ```typescript
 import { defineContentTransform } from '@bluecadet/launchpad/content';
@@ -292,20 +292,20 @@ export const slowTransform = defineContentTransform({
 });
 ```
 
-## Best Practices
+## Best practices
 
-1. **Choose a unique name**: The `name` is used in logs and for temp directory scoping
-2. **Write only into staged output**: `paths.getDownloadPath()` now points at the current run's staged download tree. Treat it as the writable destination.
-3. **Use published paths as read-only context**: If you need to inspect currently published files, use `paths.getPublishedDownloadPath()` and avoid mutating it during a fetch run.
-4. **Handle errors gracefully**: Unhandled exceptions abort the entire fetch pipeline and prevent promotion.
-5. **Respect `abortSignal`**: Check it in loops or before expensive operations.
-6. **Use `document.apply()`** for field-level mutations instead of reading and re-writing the full document where possible.
+1. Choose a unique `name`. Launchpad uses it in logs and to scope temp directories.
+2. Write only into staged output. `paths.getDownloadPath()` points at the current run's staged download tree.
+3. Treat published files as read-only. To inspect them, use `paths.getPublishedDownloadPath()`, and don't modify them during a fetch.
+4. Handle errors. An unhandled exception aborts the fetch pipeline and prevents promotion.
+5. Check `abortSignal` in loops and before expensive operations.
+6. Prefer `document.apply()` for field-level changes over rewriting the whole document.
 
 >[!TIP]
->Transforms run in declaration order. If one transform depends on the output of another (for example, `sharp` depends on `mediaDownloader` having written staged files), declare them in the right order.
+>Transforms run in declaration order. Declare a transform after any transform whose output it needs; for example, `sharp` needs the staged files `mediaDownloader` writes.
 
-## Next Steps
+## Next steps
 
-- See [Built-in Transforms](../reference/content/transforms/index.md) for implementation examples
-- Learn about the [Media Downloader Transform](../reference/content/transforms/media-downloader.md)
-- Read the [Content Configuration Reference](/reference/content/content-config/) for all config options
+- [Built-in transforms](../reference/content/transforms/index.md) for implementation examples
+- [Media downloader transform](../reference/content/transforms/media-downloader.md)
+- [Content configuration reference](/reference/content/content-config/) for all config options

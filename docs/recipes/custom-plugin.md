@@ -1,21 +1,24 @@
-# Creating a Custom Plugin
+# Creating a custom plugin
 
-This recipe explains how to create a custom plugin for Launchpad. Plugins are the primary extension point for the Launchpad controller — they receive a context on startup and can respond to commands, manage long-lived resources, and expose state to the system.
+Plugins are the main way to extend the Launchpad controller. A plugin receives a context on startup and can respond to commands, manage long-lived resources, and expose state.
 
 ## Overview
 
-Plugins in Launchpad:
+Plugins:
 
 - Are registered in the `plugins` array of your Launchpad config
-- Receive a `PluginContext` during `setup()` with access to logging, events, and state management
-- Can optionally handle commands dispatched to them
-- Can optionally expose state to status output and other plugins
-- Can optionally run startup work once every plugin has been set up
-- Can optionally perform cleanup on shutdown
+- Receive a `PluginContext` in `setup()` with logging, events, and state management
 
-## Basic Plugin Structure
+Optionally, a plugin can:
 
-A plugin is created with `definePlugin` from `@bluecadet/launchpad/utils/plugin-interfaces`:
+- Handle commands dispatched to it
+- Expose state to status output and other plugins
+- Run startup work after every plugin is set up
+- Clean up on shutdown
+
+## Basic plugin structure
+
+Create a plugin with `definePlugin` from `@bluecadet/launchpad/utils/plugin-interfaces`:
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -41,9 +44,9 @@ export default defineConfig({
 });
 ```
 
-## Typed Plugin Options
+## Typed plugin options
 
-If your plugin takes options, write them as a documented interface and bind your Zod schema to it with `configSchema`. Editors show the interface's comments when users fill in options in `launchpad.config.ts`. A type inferred with `z.input<typeof schema>` loses those comments once the plugin is compiled.
+For plugin options, write a documented interface and bind your Zod schema to it with `configSchema`. Editors then show the interface's comments in `launchpad.config.ts`. A type inferred with `z.input<typeof schema>` loses those comments once the plugin is compiled.
 
 ```typescript
 import { configSchema } from '@bluecadet/launchpad/utils/config-schema';
@@ -72,15 +75,15 @@ export function greeter(options: GreeterOptions = {}) {
 }
 ```
 
-`configSchema` fails type-checking if the schema's input type stops matching the interface, so the two can't drift apart.
+`configSchema` fails type-checking when the schema's input type no longer matches the interface.
 
-## Receiving Commands
+## Receiving commands
 
-Plugins that handle commands should declare them explicitly in `manifest.commands` and implement `executeCommand()`. The controller only dispatches commands that have been registered through the manifest.
+To handle commands, declare them in `manifest.commands` and implement `executeCommand()`. The controller dispatches only commands registered through the manifest.
 
 > [!TIP]
-> For production plugins, validate incoming commands with a [Zod](https://zod.dev) schema
-> by attaching the schema to `manifest.commands` and validating again inside `executeCommand()` as needed.
+> In production plugins, validate incoming commands with a [Zod](https://zod.dev) schema:
+> attach it to `manifest.commands` and validate again inside `executeCommand()` as needed.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -120,9 +123,9 @@ export const greetPlugin = definePlugin({
 });
 ```
 
-### Declaring Startup and Shutdown Workflows
+### Declaring startup and shutdown workflows
 
-Plugins should declare commands, while hosts decide when those commands run:
+Plugins declare commands; hosts decide when they run:
 
 ```typescript
 export default defineConfig({
@@ -136,9 +139,9 @@ export default defineConfig({
 > [!IMPORTANT]
 > Launchpad no longer infers command ownership from the command type prefix. Plugins declare commands in `manifest.commands`; hosts declare orchestration in `workflows` and hand it to the controller.
 
-## Managing State
+## Managing state
 
-Plugins can expose state to the system by calling `ctx.updateState()`. The controller aggregates plugin states and broadcasts patches to connected IPC clients.
+Call `ctx.updateState()` to expose plugin state. The controller aggregates plugin states and broadcasts patches to connected IPC clients.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -173,11 +176,11 @@ export const counterPlugin = definePlugin({
 ```
 
 >[!NOTE]
->Call `ctx.updateState()` with a complete initial value at the top of `setup()` to establish state. For subsequent updates, mutate the draft directly (Immer-style).
+>At the top of `setup()`, call `ctx.updateState()` with a complete initial value. For later updates, mutate the draft directly (Immer-style).
 
-## Contributing Status Output
+## Contributing status output
 
-Plugins that want to appear in `launchpad status` can add a `summarize()` hook to their plugin config. The hook receives the aggregated Launchpad state and returns a `Section`, or `null` when the plugin has no status to show.
+To appear in `launchpad status`, add a `summarize()` hook to the plugin config. The hook receives the aggregated Launchpad state and returns a `Section`, or `null` when the plugin has nothing to show.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -205,9 +208,9 @@ export const counterPlugin = definePlugin({
 });
 ```
 
-## Reacting to Events
+## Reacting to events
 
-The `eventBus` provides cross-plugin event communication. Listen for events emitted by other plugins or the system:
+Use `eventBus` to listen for events from other plugins or the system:
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -225,9 +228,9 @@ export const listenerPlugin = definePlugin({
 });
 ```
 
-## Startup Work That Needs Other Plugins
+## Startup work that needs other plugins
 
-`setup()` runs sequentially in registration order, so a plugin that emits an event during its own setup is invisible to every plugin registered after it. Implement `ready()` for startup work that depends on the rest of the system being present — the controller calls it on every registered plugin once all of them have been set up, sequentially in registration order: each plugin's `ready()` completes before the next one's starts.
+`setup()` runs sequentially in registration order, so plugins registered later miss any event a plugin emits during its own setup. Implement `ready()` for startup work that needs the rest of the system. Once every plugin is set up, the controller calls each plugin's `ready()` in registration order, waiting for one to complete before starting the next.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -248,11 +251,11 @@ export const announcerPlugin = definePlugin({
 });
 ```
 
-A `ready()` that fails is logged and contained: it never fails startup, and the remaining plugins still become ready. Plugins registered after the ready phase has run (a host registering a plugin at runtime) get their `ready()` immediately after `setup()`.
+A failed `ready()` is logged and contained. It never fails startup, and the remaining plugins still become ready. A plugin registered after the ready phase, such as one a host adds at runtime, has its `ready()` called immediately after `setup()`.
 
-## Cleanup on Shutdown
+## Cleanup on shutdown
 
-Implement `disconnect()` to release long-lived resources (connections, child processes, timers) when Launchpad shuts down. The controller calls `disconnect()` after the abort signal fires.
+Implement `disconnect()` to release long-lived resources such as connections, child processes, and timers. The controller calls `disconnect()` after the abort signal fires.
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -281,7 +284,7 @@ export const resourcePlugin = definePlugin({
 });
 ```
 
-## The Plugin Context
+## The plugin context
 
 The `PluginContext` passed to `setup()` provides:
 
@@ -291,16 +294,16 @@ The `PluginContext` passed to `setup()` provides:
 | `eventBus` | Event bus for cross-plugin communication |
 | `abortSignal` | Fires when Launchpad is shutting down |
 | `cwd` | Working directory |
-| `mode` | Which mode the controller is running in (`"task" \| "persistent"`) |
-| `getStatusSnapshot` | Build the display-oriented status snapshot, aggregating every plugin's `summarize()`. Use sparingly |
+| `mode` | The controller's run mode (`"task" \| "persistent"`) |
+| `getStatusSnapshot` | Build the display status snapshot from every plugin's `summarize()`. Use sparingly |
 | `dispatchCommand` | Dispatch a registered command to another plugin |
 | `updateState` | Update this plugin's state slice |
 | `getGlobalState` | Read the full aggregated system state |
 | `onGlobalStatePatch` | Subscribe to state patches across the system |
 
-## Async Initialization
+## Async initialization
 
-If your plugin needs to perform async work during setup (e.g. connecting to a database), do it inside `setup()` and return the result wrapped in `ResultAsync`:
+Do async setup work, such as connecting to a database, inside `setup()` and return the result wrapped in `ResultAsync`:
 
 ```typescript
 import { definePlugin } from '@bluecadet/launchpad/utils/plugin-interfaces';
@@ -330,32 +333,32 @@ export const dbPlugin = definePlugin({
 });
 ```
 
-## Best Practices
+## Best practices
 
-1. **Choose a unique name**: Plugin names appear in logs and state aggregation
-2. **Declare handled commands in `manifest.commands`**: command execution is explicit and controller-owned
-3. **Keep startup behavior in host workflows**: plugins expose commands, and hosts decide when to run them
-4. **Use `summarize()`** for `launchpad status` output instead of mutating controller-owned status registries
-5. **Return `ResultAsync`** from `setup()` — wrap async errors with `ResultAsync.fromPromise` rather than throwing
-6. **Use `ready()` for cross-plugin startup work** — anything emitted during `setup()` is missed by plugins registered later
-7. **Implement `disconnect()`** for any plugin that holds open handles or long-lived connections
-8. **Use `abortSignal`** to cancel in-flight async work rather than ignoring it
-9. **Prefer `dispatchCommand` over direct references** for cross-plugin coordination to keep plugins decoupled
-10. **Never call `process.exit()`** from plugin code — emit a `system:shutdown` event via the event bus if the plugin needs to signal termination, and let the host process decide when to exit
-11. **Never throw from plugin methods** — always return `errAsync()` or `err()` instead. Functions that return `ResultAsync` must never throw.
+1. Choose a unique name. Plugin names appear in logs and state aggregation.
+2. Declare handled commands in `manifest.commands`.
+3. Keep startup behavior in host workflows.
+4. Use `summarize()` for `launchpad status` output instead of mutating controller-owned status registries.
+5. Return `ResultAsync` from `setup()`, wrapping async errors with `ResultAsync.fromPromise` instead of throwing.
+6. Use `ready()` for cross-plugin startup work.
+7. Implement `disconnect()` in any plugin that holds open handles or long-lived connections.
+8. Use `abortSignal` to cancel in-flight async work.
+9. Coordinate with other plugins through `dispatchCommand` instead of direct references.
+10. Never call `process.exit()`. To signal termination, emit a `system:shutdown` event on the event bus and let the host decide when to exit.
+11. Never throw from plugin methods. Return `errAsync()` or `err()` instead; functions that return `ResultAsync` must never throw.
 
-## Migration Notes
+## Migration notes
 
-If you are updating an older plugin:
+To update an older plugin:
 
-- move handled commands into `manifest.commands`
-- move any automatic startup behavior into host-level `workflows`
-- replace status registry usage with a plugin-level `summarize()` hook
-- stop relying on implicit prefix-based routing such as assuming `my-plugin.*` commands will be dispatched automatically
-- ensure any plugin that declares `manifest.commands` returns an `executeCommand()` implementation from `setup()`
+- Move handled commands into `manifest.commands`.
+- Move automatic startup behavior into host-level `workflows`.
+- Replace status registry usage with a plugin-level `summarize()` hook.
+- Stop relying on prefix-based routing; `my-plugin.*` commands are no longer dispatched automatically.
+- Return an `executeCommand()` implementation from `setup()` in any plugin that declares `manifest.commands`.
 
-## Next Steps
+## Next steps
 
-- Explore [Built-in Plugins](../reference/content/index.md) for real-world examples
-- See the [Controller Reference](/reference/controller/) for plugin contract details
-- Learn about [Content Sources](../reference/content/sources/index.md) and [Content Transforms](../reference/content/transforms/index.md) for content-specific extension points
+- [Content plugin reference](../reference/content/index.md) for a built-in example
+- [Controller reference](/reference/controller/) for plugin contract details
+- [Content sources](../reference/content/sources/index.md) and [content transforms](../reference/content/transforms/index.md) for content-specific extension points

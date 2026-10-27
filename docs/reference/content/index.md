@@ -6,27 +6,18 @@ title: "@bluecadet/launchpad-content"
 [npm](https://www.npmjs.com/package/@bluecadet/launchpad-content) ·
 [changelog](https://github.com/bluecadet/launchpad/blob/main/packages/content/CHANGELOG.md)
 
-The content package downloads, transforms, and manages content from external sources. It provides a plugin-based architecture for building content pipelines.
+The content package downloads, transforms, and manages content from external sources through a plugin-based pipeline.
 
 ## Features
 
-- **Extensible Source System**: Easily connect to any content source:
-  - Build custom source adapters with a simple interface
-  - Includes ready-to-use adapters for popular CMSs (Contentful, Airtable, Sanity, etc.)
-  - Type-safe data fetching and validation
-
-- **Flexible Plugin Architecture**: Transform and process content your way:
-  - Create custom plugins with straightforward APIs
-  - Chain multiple transformations
-  - Built-in plugins for common tasks (Markdown, image processing, etc.)
-  - Full control over the content pipeline
-
-- **Robust Content Management**:
-  - Intelligent diffing for efficient updates
-  - Automatic backup and recovery
-  - Configurable file organization
-  - Temporary file cleanup
-  - Progress tracking and detailed logging
+- Source adapters for Contentful, Airtable, Sanity, Strapi, and JSON endpoints, plus a small interface for writing your own
+- Type-safe data fetching and validation
+- Chainable transforms, with built-in plugins for Markdown, image processing, and other common tasks
+- Diffing for efficient updates
+- Backup and recovery
+- Configurable file organization
+- Temporary file cleanup
+- Progress tracking and detailed logging
 
 ## Installation
 
@@ -34,7 +25,7 @@ The content package downloads, transforms, and manages content from external sou
 npm install @bluecadet/launchpad
 ```
 
-## JS API Usage
+## JS API usage
 
 ```typescript
 import { defineConfig } from '@bluecadet/launchpad/cli';
@@ -64,31 +55,19 @@ export default defineConfig({
 
 ## Configuration
 
-Content operations are configured through a `ContentConfig` object that specifies:
+A `ContentConfig` object defines:
 
-- **Sources**: Array of content sources to fetch from
-- **Transforms**: Array of transforms for content processing
-- **Paths**: Various path configurations for content storage
-- **Backup Options**: Settings for content backup and restoration
+- `sources`: content sources to fetch from
+- `transforms`: transforms that process fetched content
+- Paths for downloads, temporary files, and backups
+- Backup and restore settings
 
-See the [Content Config](/reference/content/content-config/) section for detailed configuration options.
+See [Content config](/reference/content/content-config/) for every option.
 
 ## Transforms
 
-The transform system is core to the content package's functionality. Transforms can:
+Transforms convert content formats, process media files, and add custom processing steps. See [Transforms](./transforms/index.md) for the built-in transforms and how to write your own.
 
-- Transform content formats
-- Process media files
-- Add custom processing steps
-- Handle errors and logging
+## Error handling
 
-Learn more about available transforms and creating custom ones in the [Transforms](./transforms/index.md) section.
-
-## Error Handling
-
-The package uses the `neverthrow` library for robust error handling:
-
-- Type-safe error handling
-- Clear error boundaries
-- Graceful failure recovery
-- Automatic backup restoration on errors when configured
+The package uses `neverthrow` for type-safe error handling. With `backupAndRestore` enabled, Launchpad can restore published content from backup when publication fails.

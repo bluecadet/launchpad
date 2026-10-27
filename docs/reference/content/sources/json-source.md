@@ -1,10 +1,10 @@
-# JSON Content Source
+# JSON content source
 
-The `jsonSource` content source is used to fetch data from JSON endpoints via HTTP(S). It supports fetching multiple JSON files from different URLs and saving them with custom identifiers.
+The `jsonSource` content source fetches JSON files over HTTP(S) and saves each under an identifier you choose.
 
 ## Usage
 
-To use the `jsonSource` content source, include it in the list of content sources in your configuration:
+Add it to the content `sources` list:
 
 ```typescript {1,7-14}
 import { jsonSource } from '@bluecadet/launchpad/content/sources/json';
@@ -34,16 +34,14 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the unique identifier for this source. This will be used as the download path.
+Unique identifier for this source, also used as its download directory name.
 
 ### `files`
 
 - **Type:** `Record<string, string>`
 - **Required**
 
-A mapping of JSON keys to URLs. Each key will be used as the identifier for the downloaded JSON file, while the corresponding URL specifies where to fetch the JSON data from.
-
-For example:
+Maps file identifiers to the URLs to fetch. For example:
 
 ```typescript
 {
@@ -52,11 +50,11 @@ For example:
 }
 ```
 
-This will create files named `settings.json` and `users.json` in the output directory.
+This creates `settings.json` and `users.json` in the output directory.
 
 ### `maxTimeout`
 
 - **Type:** `number`
 - **Default:** `30000`
 
-Specifies the maximum time (in milliseconds) to wait for a response from each JSON endpoint before timing out. The default is 30 seconds.
+Timeout in milliseconds for each JSON request.

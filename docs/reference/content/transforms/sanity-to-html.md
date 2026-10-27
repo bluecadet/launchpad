@@ -1,10 +1,10 @@
-# sanityToHtml Content Transform
+# sanityToHtml content transform
 
-The `sanityToHtml` transform is used to transform Sanity.io Portable Text content into HTML. It converts block content from Sanity's structured format into standard HTML markup.
+The `sanityToHtml` transform converts Sanity Portable Text block content to HTML.
 
 ## Usage
 
-To use the `sanityToHtml` transform, include it in the list of content transforms in your configuration:
+Add it to the content `transforms` list:
 
 ```typescript
 import { sanityToHtml } from '@bluecadet/launchpad/content/transforms/sanity-to-html'; // [!code highlight]
@@ -29,11 +29,11 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the JSONPath to the Sanity Portable Text content that needs to be transformed to HTML.
+JSONPath to the Sanity Portable Text content to convert.
 
 ### `keys`
 
 - **Type:** `DataKeys`
 - **Default:** `undefined`
 
-Specifies the data keys to which the transformation should be applied. If not provided, the transformation will be applied to all keys.
+Data keys to transform. If omitted, all keys are transformed.

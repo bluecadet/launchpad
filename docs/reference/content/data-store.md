@@ -1,24 +1,24 @@
 # DataStore
 
-The DataStore is a file system-based storage system used to manage content during the fetch and transform process. It provides a simple API for storing and retrieving content, with support for namespaces and documents.
+The DataStore is file-system-backed storage for content during fetch and transform. It stores and retrieves documents grouped into namespaces.
 
-## Core Concepts
+## Core concepts
 
 ### Namespaces
 
-Namespaces represent collections of documents from a single source. Each content source gets its own namespace, identified by the source's ID.
+A namespace holds the documents from one source. Each content source gets its own namespace, named by the source's ID.
 
 ### Documents
 
-Documents are individual files containing content data. They can be either single JSON files or batched files (for paginated content).
+A document is a file of content data: either a single JSON file or a set of batched files for paginated content.
 
-## API Reference
+## API reference
 
 ### DataStore
 
 #### `createNamespace(namespaceId: string)`
 
-Creates a new namespace in the data store. Returns a Result containing the namespace.
+Creates a namespace. Returns a Result containing the namespace.
 
 #### `namespace(namespaceId: string)`
 
@@ -26,17 +26,17 @@ Gets an existing namespace. Returns a Result containing the namespace.
 
 #### `getDocument(namespaceId: string, documentId: string)`
 
-Gets a specific document from a namespace. Returns a Result containing the document.
+Gets a document from a namespace. Returns a Result containing the document.
 
 #### `filter(ids?: DataKeys)`
 
-Filters documents based on namespace and document IDs. Returns grouped results by namespace.
+Filters documents by namespace and document IDs. Returns results grouped by namespace.
 
 ### Namespace
 
 #### `insert<T>(id: string, data: Promise<T> | AsyncIterable<T>)`
 
-Inserts a new document into the namespace. Data can be a Promise for single documents or an AsyncIterable for batched documents.
+Inserts a document into the namespace. Pass a Promise for a single document or an AsyncIterable for batched documents.
 
 #### `document(id: string)`
 
@@ -48,25 +48,25 @@ Gets all documents in the namespace.
 
 #### `waitFor(id: string)`
 
-Returns a promise that resolves when the document with the passed ID has finished being written.
+Returns a promise that resolves once the document with the given ID is written.
 
 ### Document
 
 #### `update(cb: (data: T) => T | Promise<T>)`
 
-Updates document content using a callback function.
+Updates the document's content with a callback.
 
 #### `apply(pathExpression: string, fn: (x: unknown) => unknown)`
 
-Applies a transformation to specific paths in the document using JSONPath.
+Applies a function to the values at a JSONPath expression.
 
 #### `query(pathExpression: string)`
 
-Queries document content using JSONPath expressions.
+Queries the document's content with a JSONPath expression.
 
-## Error Handling
+## Error handling
 
-The DataStore uses the `neverthrow` library for error handling. Most methods return a `Result` or `ResultAsync` type:
+Most methods return a `neverthrow` `Result` or `ResultAsync`:
 
 ```typescript
 const namespaceResult = dataStore.namespace('my-source');
@@ -78,7 +78,7 @@ if (namespaceResult.isErr()) {
 }
 ```
 
-For async operations, you can use the `andThen` method:
+Chain async operations with `andThen`:
 
 ```typescript
 await dataStore

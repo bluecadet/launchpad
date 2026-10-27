@@ -1,10 +1,10 @@
-# sanityToMarkdown Content Transform
+# sanityToMarkdown content transform
 
-The `sanityToMarkdown` transform is used to transform Sanity.io Portable Text content into Markdown. It converts block content from Sanity's structured format into standard Markdown syntax.
+The `sanityToMarkdown` transform converts Sanity Portable Text block content to Markdown.
 
 ## Usage
 
-To use the `sanityToMarkdown` transform, include it in the list of content transforms in your configuration:
+Add it to the content `transforms` list:
 
 ```typescript
 import { sanityToMarkdown } from '@bluecadet/launchpad/content/transforms/sanity-to-markdown'; // [!code highlight]
@@ -29,11 +29,11 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the JSONPath to the Sanity Portable Text content that needs to be transformed to Markdown.
+JSONPath to the Sanity Portable Text content to convert.
 
 ### `keys`
 
 - **Type:** `DataKeys`
 - **Default:** `undefined`
 
-Specifies the data keys to which the transformation should be applied. If not provided, the transformation will be applied to all keys.
+Data keys to transform. If omitted, all keys are transformed.

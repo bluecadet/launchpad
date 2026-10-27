@@ -1,23 +1,23 @@
 ---
-title: "Content Config"
+title: "Content config"
 ---
 
 import ConfigReference from '@docs-src/components/ConfigReference.astro';
 import ConfigFieldTable from '@docs-src/components/ConfigFieldTable.astro';
 
-Configuration for managing content sources, transforms, and file handling settings.
+Options for content sources, transforms, and file handling.
 
 ## Options
 
-Input defaults come from the schema, before transforms and runtime setup. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
+Input defaults come from the schema and apply before transforms and runtime setup. See [configuration reference conventions](/reference/cli/config-loading/#configuration-reference-conventions).
 
 ### `sources`
 
 <ConfigReference id="content-options" property="sources" />
 
-A list of content source options that defines where content is downloaded from. You can configure multiple sources and use different source types simultaneously. Each item accepts `ContentSource | Promise<ContentSource>`: either a source object or a Promise that resolves to one.
+The sources to download content from. You can mix source types. Each item accepts `ContentSource | Promise<ContentSource>`: a source object or a Promise that resolves to one.
 
-For detailed source configuration options, see [Sources Reference](/reference/content/sources/).
+See the [sources reference](/reference/content/sources/) for per-source options.
 
 ```typescript
 content({
@@ -32,7 +32,7 @@ content({
 
 #### `ContentSource`
 
-Each item has the following fields after its Promise, if any, resolves. Names are relative to one `sources[]` item, not the array itself.
+Each item has these fields once its Promise, if any, resolves. Field names are relative to one `sources[]` item.
 
 <ConfigFieldTable id="content-options" property="sources" caption="ContentSource fields" />
 
@@ -40,33 +40,33 @@ Each item has the following fields after its Promise, if any, resolves. Names ar
 
 <ConfigReference id="content-options" property="transforms" />
 
-A list of content transforms that process content after download. Transforms can modify, analyze, or enhance content before final output.
+Transforms that modify, analyze, or enhance content after download and before publication.
 
-See [Content Transforms Reference](/reference/content/transforms/) for available transforms and usage.
+See the [transforms reference](/reference/content/transforms/) for available transforms.
 
 ### `downloadPath`
 
 <ConfigReference id="content-options" property="downloadPath" />
 
-Base directory path where successfully promoted content is published. Fetch runs write into an isolated staged run directory first, then replace the published source directory only after the run succeeds. Can be absolute or relative path.
+Directory where Launchpad publishes promoted content. A fetch run writes to an isolated staged directory and replaces the published source directory only after the run succeeds.
 
-Relative paths are resolved against the directory of the launchpad configuration.
+Accepts an absolute path or a path relative to the launchpad config directory.
 
 ### `tempPath`
 
 <ConfigReference id="content-options" property="tempPath" />
 
-Temporary directory path used during content processing. Launchpad creates per-run staged workspaces under this directory and removes them after the run completes.
+Directory for temporary files during content processing. Launchpad creates a staged workspace here for each run and removes it when the run completes.
 
-Relative paths are resolved against the directory of the launchpad configuration.
+Accepts an absolute path or a path relative to the launchpad config directory.
 
 ### `backupPath`
 
 <ConfigReference id="content-options" property="backupPath" />
 
-Directory path where existing published content can be backed up before processing new downloads. This remains available for compatibility and recovery flows, but normal fetch failure handling now relies on staged output never being promoted.
+Directory for backups of published content taken before new downloads. Backups support compatibility and recovery flows; ordinary fetch failures need none, because Launchpad never promotes failed staged output.
 
-Relative paths are resolved against the directory of the launchpad configuration.
+Accepts an absolute path or a path relative to the launchpad config directory.
 
 ### `keep`
 
@@ -74,40 +74,36 @@ Relative paths are resolved against the directory of the launchpad configuration
 
 Glob patterns for files to preserve when clearing directories.
 
-Example:
+Examples:
 
-- `["*.json"]` - Keep all JSON files
-- `["**/*.csv", "*.git*"]` - Keep all CSV files in any subdirectory, and any git related files.
+- `["*.json"]` keeps all JSON files.
+- `["**/*.csv", "*.git*"]` keeps CSV files in any subdirectory and any Git-related files.
 
 ### `backupAndRestore`
 
 <ConfigReference id="content-options" property="backupAndRestore" />
 
-When enabled:
+When enabled, Launchpad backs up published files before each fetch run and can restore them if promotion or recovery fails.
 
-- Creates a backup of existing published files before a fetch run
-- Allows Launchpad to restore published content from backup during compatibility recovery flows
-- Provides an extra safety net for promotion/recovery problems
-
-Normal fetch failures do not require backup restoration because staged output is discarded until promotion succeeds. Error state is only marked as `restored: true` when at least one source was actually restored from backup.
+Ordinary fetch failures need no restore, because Launchpad discards staged output that was never promoted. The error state reports `restored: true` only when Launchpad restored at least one source from backup.
 
 ### `maxTimeout`
 
 <ConfigReference id="content-options" property="maxTimeout" />
 
-Maximum time in milliseconds to wait for network requests before timing out.
+Network request timeout in milliseconds.
 
 ### `encodeChars`
 
 <ConfigReference id="content-options" property="encodeChars" />
 
-Special characters to encode in file paths for both content and media downloads. Ensures valid filenames across systems.
+Special characters to encode in content and media file paths, so filenames stay valid on every platform.
 
 ### `versioning`
 
 <ConfigReference id="content-options" property="versioning" />
 
-Enables immutable versioned output. Pass `false` to disable versioning, `true` to enable it with the object-field defaults below, or an object to enable it and override individual fields. The parent input default is not a resolved settings object.
+Enables immutable versioned output. Pass `false` to disable it, `true` to enable it with the defaults below, or an object to enable it and override individual fields. The top-level input default is `false`, not a resolved settings object.
 
 ```typescript
 content({
@@ -115,8 +111,8 @@ content({
 });
 ```
 
-`keepVersions` must be a non-negative integer; active and freshly leased versions remain protected. `ackTimeout` accepts duration shorthand or milliseconds.
+`keepVersions` must be a non-negative integer; Launchpad always keeps the active version and versions with fresh leases. `ackTimeout` accepts duration shorthand or milliseconds.
 
 <ConfigFieldTable id="content-options" property="versioning" caption="Object fields (relative to versioning)" />
 
-See [Versioning](/reference/content/versioning/) for configuration defaults, publishing, retention, mode-switch behavior, and status output. Applications that consume versioned content must follow the [Version Manifest](/reference/content/version-manifest/) contract.
+See [Versioning](/reference/content/versioning/) for defaults, publishing, retention, mode switching, and status output. Applications that read versioned content must follow the [version manifest](/reference/content/version-manifest/) contract.

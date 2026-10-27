@@ -1,6 +1,6 @@
-# symlink Content Transform
+# symlink content transform
 
-The `symlink` transform is used to create symbolic links between files or directories.
+The `symlink` transform creates a symbolic link to a file or directory.
 
 ## Usage
 
@@ -29,24 +29,18 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the target file or directory that the symlink will point to, which can be a relative or absolute path.
-
-Relative paths are resolved against the launchpad config directory.
+File or directory the symlink points to. Accepts an absolute path or a path relative to the launchpad config directory.
 
 ### `path`
 
 - **Type:** `string`
 - **Required**
 
-Specifies the path where the symlink will be created.
-
-Relative paths are resolved against the launchpad config directory.
+Where to create the symlink. Accepts an absolute path or a path relative to the launchpad config directory.
 
 ### `condition`
 
 - **Type:** `boolean | (() => boolean | Promise<boolean>)`
 - **Default:** `true`
 
-Specifies a condition that must be met for the symlink to be created. This can be a boolean value or a function that returns a boolean or a promise that resolves to a boolean.
-
-If the condition is not met, the symlink will not be created. This is useful for scenarios where you want to conditionally create symlinks based on the existence of files or directories.
+The symlink is created only when this is true. Pass a boolean, or a function that returns a boolean or a promise of one; for example, check that the target exists.

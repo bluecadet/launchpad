@@ -1,10 +1,10 @@
-# Contentful Content Source
+# Contentful content source
 
-The `contentfulSource` content source is used to fetch entries and assets from Contentful. It supports both published content (using the Content Delivery API) and draft content (using the Preview API), with built-in pagination handling.
+The `contentfulSource` content source fetches entries and assets from Contentful and handles pagination. It reads published content through the Content Delivery API or draft content through the Preview API.
 
 ## Usage
 
-To use the `contentfulSource` content source, include it in the list of content sources in your configuration:
+Add it to the content `sources` list:
 
 ```typescript {1,7-14}
 import { contentfulSource } from '@bluecadet/launchpad/content/sources/contentful';
@@ -34,7 +34,7 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the unique identifier for this source. This will be used as the download path.
+Unique identifier for this source, also used as its download directory name.
 
 ### `space`
 
@@ -48,49 +48,49 @@ Your Contentful space ID.
 - **Type:** `string`
 - **Required** (unless using Preview API exclusively)
 
-Content delivery token used to access published content.
+Content Delivery API token for published content.
 
 ### `previewToken`
 
 - **Type:** `string`
 - **Required** if `usePreviewApi` is true
 
-Content preview token used to access draft/unpublished content.
+Preview API token for draft and unpublished content.
 
 ### `usePreviewApi`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Set to true to use the Preview API instead of the Content Delivery API. Requires `previewToken` to be set.
+When `true`, uses the Preview API instead of the Content Delivery API. Requires `previewToken`.
 
 ### `contentTypes`
 
 - **Type:** `string[]`
 - **Default:** `[]`
 
-Optionally limit queries to specific content types. This will also apply to linked assets. Types that link to other types will include up to 10 levels of child content.
+Limits queries, including linked assets, to these content types. Types that link to other types include up to 10 levels of child content.
 
 ### `filename`
 
 - **Type:** `string`
 - **Default:** `'content.json'`
 
-The filename where content (entries and assets metadata) will be stored.
+File that stores entries and asset metadata.
 
 ### `protocol`
 
 - **Type:** `string`
 - **Default:** `'https'`
 
-This updates the asset urls for better compatibility with the mediaDownloader plugin. By default, asset urls have no protocol.
+Protocol added to asset URLs, which Contentful returns without one, so `mediaDownloader` can fetch them.
 
 ### `host`
 
 - **Type:** `string`
 - **Default:** `'cdn.contentful.com'` or `'preview.contentful.com'` if `usePreviewApi` is true
 
-The API host to use for requests.
+API host for requests.
 
 ### `searchParams`
 
@@ -104,4 +104,4 @@ The API host to use for requests.
 }
 ```
 
-Additional search parameters to pass to the Contentful API. Supports all parameters from the [Contentful Content Delivery API](https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters).
+Extra search parameters for the Contentful API. Accepts any [Content Delivery API search parameter](https://www.contentful.com/developers/docs/references/content-delivery-api/#/reference/search-parameters).

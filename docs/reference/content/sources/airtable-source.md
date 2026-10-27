@@ -1,10 +1,10 @@
-# Airtable Content Source
+# Airtable content source
 
-The `airtableSource` content source is used to fetch data from Airtable. It supports fetching data from specified tables and views, and can transform the data into a simplified format.
+The `airtableSource` content source fetches data from specified Airtable tables and views, and can simplify the result into key/value pairs.
 
 ## Usage
 
-To use the `airtableSource` content source, include it in the list of content sources in your configuration:
+Add it to the content `sources` list:
 
 ```typescript {1,7-13}
 import { airtableSource } from '@bluecadet/launchpad/content/sources/airtable';
@@ -33,53 +33,53 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the unique identifier for this source. This will be used as the download path.
+Unique identifier for this source, also used as its download directory name.
 
 ### `baseId`
 
 - **Type:** `string`
 - **Required**
 
-Specifies the Airtable base ID. See [Airtable documentation](https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base) for more details on how to obtain this ID.
+Airtable base ID. See [this guide](https://help.appsheet.com/en/articles/1785063-using-data-from-airtable#:~:text=To%20obtain%20the%20ID%20of,API%20page%20of%20the%20base) for how to find it.
 
 ### `defaultView`
 
 - **Type:** `string`
 - **Default:** `'Grid view'`
 
-Specifies the table view to select for syncing by default.
+Table view to sync by default.
 
 ### `tables`
 
 - **Type:** `string[]`
 - **Default:** `[]`
 
-Specifies the tables you want to fetch from.
+Tables to fetch.
 
 ### `keyValueTables`
 
 - **Type:** `string[]`
 - **Default:** `[]`
 
-As a convenience feature, you can store tables listed here as key/value pairs. Field names should be `key` and `value`.
+Tables to store as key/value pairs. Their fields must be named `key` and `value`.
 
 ### `endpointUrl`
 
 - **Type:** `string`
 - **Default:** `'https://api.airtable.com'`
 
-Specifies the API endpoint to use for Airtable.
+Airtable API endpoint.
 
 ### `appendLocalAttachmentPaths`
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Appends the local path of attachments to the saved JSON.
+Adds each attachment's local path to the saved JSON.
 
 ### `apiKey`
 
 - **Type:** `string`
 - **Required**
 
-Specifies the Airtable API Key.
+Airtable API key.

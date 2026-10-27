@@ -1,10 +1,10 @@
-# Sanity Content Source
+# Sanity content source
 
-The `sanitySource` content source is used to fetch data from Sanity.io. It supports fetching data using GROQ queries and can handle pagination of large datasets.
+The `sanitySource` content source fetches data from Sanity with GROQ queries and paginates large datasets.
 
 ## Usage
 
-To use the `sanitySource` content source, include it in the list of content sources in your configuration:
+Add it to the content `sources` list:
 
 ```typescript {1,7-16}
 import { sanitySource } from '@bluecadet/launchpad/content/sources/sanity';
@@ -36,7 +36,7 @@ export default defineConfig({
 - **Type:** `string`
 - **Required**
 
-Specifies the unique identifier for this source. This will be used as the download path.
+Unique identifier for this source, also used as its download directory name.
 
 ### `projectId`
 
@@ -50,59 +50,59 @@ Your Sanity project ID.
 - **Type:** `string`
 - **Default:** `'production'`
 
-The name of the dataset you want to fetch from.
+Dataset to fetch from.
 
 ### `apiToken`
 
 - **Type:** `string`
 - **Optional**
 
-Sanity API token. Required if you're accessing a private dataset.
+Sanity API token. Required for private datasets.
 
 ### `apiVersion`
 
 - **Type:** `string`
 - **Default:** `'v2021-10-21'`
 
-The Sanity API version to use.
+Sanity API version.
 
 ### `queries`
 
 - **Type:** `Array<string | { query: string, id: string }>`
 - **Required**
 
-An array of queries to fetch. Each query can be either:
+Queries to run. Each query is either:
 
-- A string representing a document type (e.g., `'article'` will fetch all documents of type 'article')
+- A document type string; for example, `'article'` fetches every document of type `article`
 - An object with a custom GROQ query and an ID for the result set
 
 > [!NOTE]
-> if the query includes a range (e.g., `*[_type == "article"][0...100]` or `*[_type == "article"][0]`), the `limit` and `maxNumPages` options will be ignored, and the query will be executed as is.
+> A query that includes a range, such as `*[_type == "article"][0...100]` or `*[_type == "article"][0]`, runs as written and ignores `limit` and `maxNumPages`.
 
 ### `useCdn`
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Set to `false` if you want to ensure fresh data instead of potentially cached responses.
+Set to `false` to bypass the CDN cache and get fresh data.
 
 ### `limit`
 
 - **Type:** `number`
 - **Default:** `100`
 
-Maximum number of documents to fetch per page.
+Maximum documents per page.
 
 ### `maxNumPages`
 
 - **Type:** `number`
 - **Default:** `1000`
 
-Maximum number of pages to fetch.
+Maximum pages to fetch.
 
 ### `mergePages`
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-When `true`, combines all paginated results into a single file. When `false`, each page is stored separately.
+When `true`, writes all pages to one file. When `false`, writes each page to its own file.

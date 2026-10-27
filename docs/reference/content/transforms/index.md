@@ -1,8 +1,8 @@
-# Content Transforms
+# Content transforms
 
-Content transforms are used to transform, analyze, or enhance content after all sources have been fetched. Transforms run sequentially, each receiving a context object with access to the data store, shared artifact cache, logger, resolved config, and path helpers.
+Content transforms modify, analyze, or enhance content after every source is fetched. They run in order, and each receives a context with the data store, shared artifact cache, logger, resolved config, and path helpers.
 
-## Type Reference
+## Type reference
 
 ```typescript
 type ContentTransform = {
@@ -29,30 +29,32 @@ type ContentTransformContext = {
 }
 ```
 
-## Content Transform Context
+## Content transform context
 
 ### `data`
 
-Access to the data store where content and metadata can be stored and retrieved. This data store is a proxy to the file-system, and exposes some helpers for easily modifying the data that was fetched during the source-fetch step.
+The data store that holds fetched content and metadata. It proxies the file system and has helpers for modifying data fetched by sources. See [DataStore](../data-store.md).
 
 ### `cache`
 
-The run-owned `ArtifactCache`, shared by downloads and derived transforms. Use `cache.derive()` to restore or generate source-scoped files in staging. Launchpad owns publication and database cleanup; transforms must not close, abort, or commit this cache themselves. Await every cache operation and generation task before `apply()` returns.
+The run-owned `ArtifactCache`, shared by downloads and derived transforms. Call `cache.derive()` to restore or generate source-scoped files in staging. Launchpad owns publication and database cleanup, so transforms must not close, abort, or commit the cache. Await every cache operation and generation task before `apply()` returns.
 
-See the [artifact cache reference](../artifact-cache.md) for declarations, file verification, clearing, and failure behavior, or the [custom transform recipe](../../../recipes/custom-content-transform.md#cache-generated-files) for an example.
+See the [artifact cache reference](../artifact-cache.md) for declarations, file verification, clearing, and failure behavior, and the [custom transform recipe](../../../recipes/custom-content-transform.md#cache-generated-files) for an example.
 
 ### `contentOptions`
 
-The resolved content configuration object. See [Content Config Reference](/reference/content/content-config/) for more info.
+The resolved content configuration. See [Content config](/reference/content/content-config/).
 
 ### `paths`
 
-Helpers for retrieving staged, published, temp, backup, and run-scoped paths. `getDownloadPath()` now resolves to the staged output for the current fetch run, so built-in and custom transforms should treat it as the writable destination. This includes the root of the staged download tree, which is promoted on success alongside per-source directories. If no `source` is passed, the helper returns the root path for that scope.
+Helpers that return staged, published, temp, backup, and run-scoped paths. Without a `source` argument, each helper returns the root path for its scope.
+
+`getDownloadPath()` returns the current run's staged output, so transforms should write there. That includes the root of the staged download tree, which Launchpad promotes on success along with the per-source directories.
 
 > [!NOTE]
-> The `getTempPath` function returns a directory scoped to the current transform's `name`. Transforms do not share temp directories.
+> `getTempPath` returns a directory scoped to the current transform's `name`, so transforms never share temp directories.
 >
-> `getPublishedDownloadPath` is read-only context for cases where a transform needs to inspect the currently published tree. Do not write into it during a fetch run.
+> `getPublishedDownloadPath` lets a transform read the currently published tree. Do not write to it during a fetch run.
 
 ### `logger`
 
@@ -60,21 +62,19 @@ A transform-specific logger.
 
 ### `eventBus` and task progress
 
-Use `ContentProgressLogger` from `@bluecadet/launchpad/content` with `eventBus` to report completed tasks, with or without caching. It counts successful fresh and reused tasks, not bytes. The built-in media downloader and Sharp transforms use this shared class.
+Pass `eventBus` to `ContentProgressLogger` from `@bluecadet/launchpad/content` to report completed tasks, with or without caching. It counts successful fresh and reused tasks, not bytes. The built-in media downloader and Sharp transforms use the same class.
 
-See the [progress logging reference](../progress-logging.md) for constructor options, counters, events, and cleanup rules, or [add progress to a custom transform](../../../recipes/custom-content-transform.md#report-progress-without-caching) for a sequential example.
+See the [progress logging reference](../progress-logging.md) for constructor options, counters, events, and cleanup rules, and [add progress to a custom transform](../../../recipes/custom-content-transform.md#report-progress-without-caching) for a sequential example.
 
-## Built-in Transforms
+## Built-in transforms
 
-The following transforms are available out of the box:
+Each transform's page lists its options and an example.
 
-- `sanityToHtml` — Converts Sanity portable text to HTML
-- `mdToHtml` — Converts Markdown content to HTML
-- `sanityToMarkdown` — Converts Sanity portable text to Markdown
-- `sanityToPlain` — Converts Sanity portable text to plain text
-- `sanityImageUrlTransform` — Resolves Sanity image URLs
-- `mediaDownloader` — Downloads referenced media assets
-- `sharp` — Processes images using the Sharp library
-- `symlink` — Creates symbolic links for content files
-
-See the individual transform documentation pages for configuration options and usage examples.
+- [`sanityToHtml`](./sanity-to-html.md): converts Sanity Portable Text to HTML
+- [`mdToHtml`](./md-to-html.md): converts Markdown to HTML
+- [`sanityToMarkdown`](./sanity-to-markdown.md): converts Sanity Portable Text to Markdown
+- [`sanityToPlain`](./sanity-to-plain.md): converts Sanity Portable Text to plain text
+- [`sanityImageUrlTransform`](./sanity-image-url-transform.md): resolves Sanity image URLs
+- [`mediaDownloader`](./media-downloader.md): downloads referenced media
+- [`sharp`](./sharp.md): processes images with the Sharp library
+- [`symlink`](./symlink.md): creates symbolic links

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
+    "@astrojs/markdown-remark": "7.3.5",
     "@bluecadet/docs": "^1.2.3",
     "@bluecadet/launchpad-cli": "~4.0.1",
     "@bluecadet/launchpad-content": "~4.0.2",

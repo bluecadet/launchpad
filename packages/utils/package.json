@@ -83,8 +83,8 @@
     "url": "https://github.com/bluecadet/launchpad/issues"
   },
   "dependencies": {
-    "fs-native-extensions": "1.5.1",
-    "immer": "^11.1.4",
+    "fs-native-extensions": "1.5.2",
+    "immer": "^11.2.9",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },
@@ -92,6 +92,6 @@
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "vitest": "^4.1.2"
+    "vitest": "^5.0.5"
   }
 }

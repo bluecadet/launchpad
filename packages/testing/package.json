@@ -5,8 +5,8 @@
   "type": "module",
   "devDependencies": {
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "ky": "^2.0.2",
-    "memfs": "^4.57.1",
+    "ky": "^2.2.0",
+    "memfs": "^4.80.0",
     "neverthrow": "^8.2.0",
     "winston": "^3.19.0",
     "winston-transport": "^4.9.0"

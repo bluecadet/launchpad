@@ -136,7 +136,7 @@
     "@sanity/client": "^6.4.9",
     "@sanity/image-url": "^1.1.0",
     "airtable": "^0.11.1",
-    "contentful": "^9.0.0",
+    "contentful": "^9.3.7 || ^11.12.10",
     "sharp": "^0.35.5"
   },
   "peerDependenciesMeta": {

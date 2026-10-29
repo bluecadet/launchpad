@@ -1,0 +1,28 @@
+version: 2
+
+# Combine all supported ecosystems into one weekly version-update PR.
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: "weekly"
+
+updates:
+  # The root manifest and lockfile cover packages/* and docs npm workspaces.
+  - package-ecosystem: "npm"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # Includes version-tagged and commit-pinned actions in .github/workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "dependencies"
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

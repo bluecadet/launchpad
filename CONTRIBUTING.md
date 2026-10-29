@@ -290,6 +290,16 @@ npm test -w @bluecadet/launchpad-content
 npm test -- <file-pattern>
 ```
 
+### Dependency updates
+
+[Dependabot](./.github/dependabot.yml) checks weekly and combines npm and GitHub Actions version updates into a single pull request, including major updates. The root npm workspace configuration covers all packages and the docs site, using the shared `package-lock.json`.
+
+Security updates are grouped separately per ecosystem: npm fixes share a security PR, and GitHub Actions fixes share another. Dependabot cannot combine security updates across ecosystems or merge them into the weekly version-update group. Security updates run when vulnerabilities are found, rather than waiting for the weekly schedule. Enable Dependabot alerts and security updates in the repository settings for these groups to take effect.
+
+Dependabot does not support the native addon's Zig dependency manifest (`packages/monitor/native/build.zig.zon`) or the Zig toolchain downloaded in CI; maintain those pins manually.
+
+When adding another supported package ecosystem, add it to `.github/dependabot.yml` with `patterns: ["*"]` and `multi-ecosystem-group: "dependencies"` to keep its version updates in the same PR.
+
 ### Branch strategy
 
 - Target all PRs at `main`. Pushes to `main` trigger the release workflow.

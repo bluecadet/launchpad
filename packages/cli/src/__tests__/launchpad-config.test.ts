@@ -1,7 +1,20 @@
-import { describe, expect, it } from "vitest";
+import type { ResolvedControllerConfig } from "@bluecadet/launchpad-controller/config";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { launchpadConfigSchema, resolveLaunchpadConfig } from "../launchpad-config.js";
 
 describe("launchpadConfigSchema", () => {
+	it.each([{}, { controller: undefined }, { controller: {} }])(
+		"always resolves controller settings for %j",
+		(input) => {
+			const config = resolveLaunchpadConfig(input);
+
+			expectTypeOf(config.controller).toEqualTypeOf<ResolvedControllerConfig>();
+			expect(config.controller.pidFile).toBe(".launchpad/launchpad.pid");
+			expect(config.controller.socketPath).toBe(".launchpad/launchpad.sock");
+			expect(config.controller.logging.dirname).toBe(".logs");
+		},
+	);
+
 	it("accepts string and object workflow steps", () => {
 		const config = resolveLaunchpadConfig({
 			workflows: {

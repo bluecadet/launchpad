@@ -12,7 +12,7 @@ import { mediaDownloader } from "../transforms/media-downloader.js";
 describe("Content Event Emissions", () => {
 	const server = setupServer();
 
-	beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+	beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 	afterAll(() => server.close());
 	beforeEach(() => vol.reset());
 	afterEach(() => server.resetHandlers());

@@ -34,7 +34,7 @@ describe("mediaDownloader", () => {
 		return { ...ctx, cache };
 	}
 
-	beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+	beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 	afterAll(() => server.close());
 	beforeEach(() => vol.reset());
 	afterEach(async () => {

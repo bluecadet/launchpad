@@ -170,7 +170,6 @@
     "@sanity/client": "^8.11.0",
     "@sanity/image-url": "^2.0.3",
     "@types/http-cache-semantics": "^4.2.0",
-    "@types/markdown-it": "^14.2.0",
     "@types/qs": "^6.15.0",
     "@types/sanitize-html": "^2.16.2",
     "airtable": "^0.12.2",

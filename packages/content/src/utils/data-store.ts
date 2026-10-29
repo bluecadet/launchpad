@@ -195,22 +195,25 @@ class SingleDocument<T = unknown> extends Document<T> {
 			const promises: Promise<void>[] = [];
 
 			JSONPath({
-				json: data as object,
+				json: data,
 				path: pathExpression,
 				resultType: "all",
 				ignoreEvalErrors: true,
-				callback: ({ value }, _, { parent, parentProperty }) => {
-					const fnResult = fn(value);
+				callback: (_, _type, { value, parent, parentProperty }) => {
+					if (typeof parent !== "object" || parent === null || parentProperty === null) {
+						throw new DataStoreError("Cannot transform a JSONPath match without a parent");
+					}
 
+					const fnResult = fn(value);
 					if (fnResult instanceof Promise) {
 						// if the function returns a promise, wait for it to resolve before updating the parent
 						promises.push(
 							fnResult.then((result) => {
-								parent[parentProperty] = result;
+								Reflect.set(parent, parentProperty, result);
 							}),
 						);
 					} else {
-						parent[parentProperty] = fnResult;
+						Reflect.set(parent, parentProperty, fnResult);
 					}
 				},
 			});
@@ -222,12 +225,17 @@ class SingleDocument<T = unknown> extends Document<T> {
 
 	override async _query(pathExpression: string): Promise<unknown[]> {
 		const data = await this._read();
-		return JSONPath({
-			json: data as object,
+		const values = JSONPath({
+			json: data,
 			path: pathExpression,
 			resultType: "value",
+			wrap: true,
 			ignoreEvalErrors: true,
 		});
+		if (!Array.isArray(values)) {
+			throw new DataStoreError("JSONPath query did not return an array");
+		}
+		return values;
 	}
 
 	override async _close() {

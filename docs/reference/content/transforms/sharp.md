@@ -36,6 +36,8 @@ A change to input bytes, resize, format, or compression options, supported overl
 
 Each image in a batch reads its original input and explicit file dependencies, even when another image's output replaces one of those files. Sharp snapshots overlapping inputs before generation or cache restoration starts. Snapshot paths are not part of the cache identity, and filenames stay the same.
 
+The current cache adapter is audited for Sharp **0.35.5**. Other Sharp versions still process images, but run uncached until their recipe schema is audited.
+
 The transform caches only recipes whose options and dependencies it can reliably resolve. Unsupported loaders, text, font, or external-resource dependencies, unknown options, nondeterministic operations, and unaudited Sharp versions run uncached with a diagnostic. Setting `cacheKey` does not make an unsupported recipe cacheable. A recipe whose input and output share a path also runs uncached; use distinct paths for reusable results.
 
 Output naming is unchanged. Different cached identities that claim the same output path raise an error instead of overwriting each other. Give competing transforms distinct destinations, or avoid targeting one image with conflicting recipes.

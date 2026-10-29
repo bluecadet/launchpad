@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@bluecadet/docs": "^1.2.2",
+    "@bluecadet/docs": "^1.2.3",
     "@bluecadet/launchpad-cli": "~4.0.1",
     "@bluecadet/launchpad-content": "~4.0.2",
     "@bluecadet/launchpad-controller": "~4.0.1",

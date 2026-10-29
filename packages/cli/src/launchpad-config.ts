@@ -17,7 +17,18 @@ export interface LaunchpadConfig {
 	workflows?: Record<string, readonly z.input<typeof workflowStepSchema>[]>;
 }
 
-export const launchpadConfigSchema = configSchema<LaunchpadConfig>()(
+// Keep imported schemas named so declarations do not reference their transitive dependency types.
+type LaunchpadConfigSchema = z.ZodPrefault<
+	z.ZodObject<{
+		controller: z.ZodPrefault<typeof controllerConfigSchema>;
+		plugins: z.ZodPrefault<z.ZodArray<z.ZodCustom<PluginConfig>>>;
+		workflows: z.ZodPrefault<
+			z.ZodRecord<z.ZodString, z.ZodReadonly<z.ZodArray<typeof workflowStepSchema>>>
+		>;
+	}>
+>;
+
+export const launchpadConfigSchema: LaunchpadConfigSchema = configSchema<LaunchpadConfig>()(
 	z.object({
 		controller: controllerConfigSchema
 			.prefault({})

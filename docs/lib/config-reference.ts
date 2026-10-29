@@ -174,7 +174,9 @@ function inspect(schema: core.$ZodType, path: string, overrides: ConfigDocs = {}
 		...result,
 		// Object-property omission is a Zod structural flag, not the same as
 		// accepting an explicitly supplied undefined (unknown/void/intersections).
-		optional: schema._zod.optin === "optional",
+		// Defaults and prefaults use "defaulted"; parsing to detect omission would
+		// execute application refinements, transforms, and default factories.
+		optional: schema._zod.optin === "optional" || schema._zod.optin === "defaulted",
 		type: metadata.inputType ?? result.type,
 		defaultLabel: metadata.defaultLabel ?? result.defaultLabel,
 		description: core.globalRegistry.get(schema)?.description ?? result.description,

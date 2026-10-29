@@ -1,3 +1,4 @@
+import { once } from "node:events";
 import path from "node:path";
 import { vol } from "memfs";
 import Sharp, { type Sharp as SharpPipeline } from "sharp";
@@ -33,6 +34,18 @@ describe("Sharp recipe adapter", () => {
 		original.resize(40);
 		expect(privateOptions(recipe.createPipeline(new Map())).width).toBe(20);
 		expect(recipe.fingerprint).not.toBe(fingerprint(original));
+	});
+
+	it("processes a prepared pipeline whose input stream has already finished", async () => {
+		const recipe = prepareSharpRecipe(Sharp().resize(2, 2).png(), Sharp.versions, () => Sharp());
+		if (!recipe.cacheable) throw new Error(recipe.reason);
+		const pipeline = recipe.createPipeline(new Map());
+		const finished = once(pipeline, "finish");
+		pipeline.end(image);
+		await finished;
+
+		const output = await pipeline.toBuffer();
+		expect(await Sharp(output).metadata()).toMatchObject({ width: 2, height: 2, format: "png" });
 	});
 
 	it("clones unsupported callbacks without rebuilding or sharing mutable options", () => {
@@ -155,10 +168,16 @@ describe("Sharp recipe adapter", () => {
 		);
 	});
 
-	it("fails closed for unaudited versions and unknown schema or functions", () => {
-		expect(
-			prepareSharpRecipe(Sharp(), { ...Sharp.versions, sharp: "0.36.0" }, () => Sharp(), "force"),
-		).toMatchObject({ cacheable: false });
+	it.each(["0.35.3", "0.35.4", "0.35.6", "0.36.0"])(
+		"fails closed for unaudited Sharp version %s even with a cache key",
+		(version) => {
+			expect(
+				prepareSharpRecipe(Sharp(), { ...Sharp.versions, sharp: version }, () => Sharp(), "force"),
+			).toMatchObject({ cacheable: false, reason: `Unaudited Sharp version '${version}'` });
+		},
+	);
+
+	it("fails closed for unknown schema or functions", () => {
 		const unknown = Sharp();
 		privateOptions(unknown).futureOption = true;
 		expect(prepareSharpRecipe(unknown, Sharp.versions, () => Sharp())).toMatchObject({

@@ -1,16 +1,9 @@
+import "../../__tests__/mock-sanity-transport.js";
 import { createClient } from "@sanity/client";
 import { HttpResponse, http } from "msw";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { sanitySource } from "../sanity-source.js";
 import { createFetchContext, setupMSWServer } from "./helpers.js";
-
-vi.mock("@sanity/client", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@sanity/client")>();
-	return {
-		...actual,
-		createClient: vi.fn(actual.createClient),
-	};
-});
 
 const { server } = setupMSWServer();
 

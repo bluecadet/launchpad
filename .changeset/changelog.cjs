@@ -46,9 +46,10 @@ async function getReleaseLine(changeset, _type, options) {
 
 	const [summary] = changeset.summary.split(/\r?\n/, 1);
 	const continuation = changeset.summary.slice(summary.length).replace(/\r?\n/g, "$&  ");
-	const pull = changeset.commit
-		? (await githubInfo.getInfo({ repo: options.repo, commit: changeset.commit })).links.pull
-		: null;
+	const info = changeset.commit
+		? await githubInfo.getCommitInfo({ repo: options.repo, commit: changeset.commit })
+		: undefined;
+	const pull = info?.pull?.markdownLink;
 	const suffix = pull ? ` (${pull})` : "";
 	return `- ${summary}${suffix}${continuation}`;
 }

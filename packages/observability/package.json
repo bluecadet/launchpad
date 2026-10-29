@@ -60,12 +60,12 @@
   "dependencies": {
     "@bluecadet/launchpad-utils": "~4.1.0",
     "neverthrow": "^8.2.0",
-    "protobufjs": "^8.8.0",
+    "protobufjs": "^8.8.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "vitest": "^4.1.2"
+    "vitest": "^5.0.5"
   }
 }

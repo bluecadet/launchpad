@@ -36,13 +36,13 @@
 	},
 	"homepage": "https://github.com/bluecadet/launchpad/packages/create",
 	"dependencies": {
-		"@clack/prompts": "^1.4.0",
+		"@clack/prompts": "^1.8.1",
 		"dedent": "^1.7.2"
 	},
 	"devDependencies": {
 		"@bluecadet/launchpad-testing": "0.1.0",
 		"@bluecadet/launchpad-tsconfig": "0.1.0",
-		"memfs": "^4.57.1",
-		"vitest": "^4.1.2"
+		"memfs": "^4.80.0",
+		"vitest": "^5.0.5"
 	}
 }

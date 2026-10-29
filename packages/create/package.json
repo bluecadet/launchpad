@@ -1,6 +1,6 @@
 {
 	"name": "@bluecadet/create-launchpad",
-	"version": "4.0.1",
+	"version": "4.0.2",
 	"description": "Scaffolding CLI for @bluecadet/launchpad projects",
 	"type": "module",
 	"bin": {

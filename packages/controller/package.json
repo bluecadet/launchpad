@@ -1,6 +1,6 @@
 {
   "name": "@bluecadet/launchpad-controller",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Controller layer for Launchpad with multi-interface support",
   "type": "module",
   "files": [
@@ -53,7 +53,7 @@
   },
   "homepage": "https://github.com/bluecadet/launchpad/packages/controller",
   "dependencies": {
-    "@bluecadet/launchpad-utils": "~4.1.0",
+    "@bluecadet/launchpad-utils": "~4.1.1",
     "chalk": "^6.0.1",
     "devalue": "^6.0.3",
     "immer": "^11.2.9",
@@ -64,7 +64,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bluecadet/launchpad-observability": "~4.0.1",
+    "@bluecadet/launchpad-observability": "~4.0.2",
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
     "fs-native-extensions": "1.5.2",

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { vol } from "memfs";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataStore } from "../data-store.js";
 
 describe("SingleDocument", () => {
@@ -47,7 +47,7 @@ describe("SingleDocument", () => {
 		const doc = docResult._unsafeUnwrap();
 
 		(
-			await doc.update((data: any) => ({
+			await doc.update((data) => ({
 				...data,
 				content: "modified content",
 			}))
@@ -92,6 +92,57 @@ describe("SingleDocument", () => {
 		expect(JSON.parse(fileContent.toString())).toEqual({
 			nested: { content: "TEST CONTENT" },
 		});
+	});
+
+	it("queries scalar and array matches and returns an empty array for missing paths", async () => {
+		const namespace = (await store.createNamespace("test-namespace"))._unsafeUnwrap();
+		const doc = (
+			await namespace.insert(
+				"test-doc",
+				Promise.resolve({ title: "Example", items: [{ value: 1 }, { value: 2 }] }),
+			)
+		)._unsafeUnwrap();
+
+		expect((await doc.query("$.title"))._unsafeUnwrap()).toEqual(["Example"]);
+		expect((await doc.query("$.items[*].value"))._unsafeUnwrap()).toEqual([1, 2]);
+		expect((await doc.query("$.missing"))._unsafeUnwrap()).toEqual([]);
+	});
+
+	it("applies asynchronous transformations to object properties and array entries", async () => {
+		const namespace = (await store.createNamespace("test-namespace"))._unsafeUnwrap();
+		const doc = (
+			await namespace.insert("test-doc", Promise.resolve({ values: [1, 2], count: 3 }))
+		)._unsafeUnwrap();
+		const double = async (value: unknown) => (typeof value === "number" ? value * 2 : value);
+
+		(await doc.apply("$.values[*]", double))._unsafeUnwrap();
+		(await doc.apply("$.count", double))._unsafeUnwrap();
+
+		expect((await doc.read())._unsafeUnwrap()).toEqual({ values: [2, 4], count: 6 });
+	});
+
+	it("reports an error rather than modifying a root match without a parent", async () => {
+		const namespace = (await store.createNamespace("test-namespace"))._unsafeUnwrap();
+		const doc = (
+			await namespace.insert("test-doc", Promise.resolve({ content: "original" }))
+		)._unsafeUnwrap();
+
+		expect(await doc.apply("$", () => ({ content: "changed" }))).toBeErr();
+		expect((await doc.read())._unsafeUnwrap()).toEqual({ content: "original" });
+	});
+
+	it("rejects root matches before invoking a rejecting asynchronous transform", async () => {
+		const namespace = (await store.createNamespace("test-namespace"))._unsafeUnwrap();
+		const doc = (
+			await namespace.insert("test-doc", Promise.resolve({ content: "original" }))
+		)._unsafeUnwrap();
+		const transform = vi.fn(async () => {
+			throw new Error("Transform must not run for a root match");
+		});
+
+		expect(await doc.apply("$", transform)).toBeErr();
+		expect(transform).not.toHaveBeenCalled();
+		expect((await doc.read())._unsafeUnwrap()).toEqual({ content: "original" });
 	});
 
 	it("should keep original file extension", async () => {

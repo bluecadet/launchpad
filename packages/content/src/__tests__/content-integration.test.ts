@@ -1,4 +1,5 @@
 import "./mock-project-lease.js";
+import "./mock-sanity-transport.js";
 import * as fsPromises from "node:fs/promises";
 import path from "node:path";
 import { createMockPluginCtx } from "@bluecadet/launchpad-testing/test-utils.ts";
@@ -31,7 +32,7 @@ describe("Content Integration", () => {
 		return file;
 	});
 
-	beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+	beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 	afterAll(() => {
 		server.close();
 		openFile.mockRestore();

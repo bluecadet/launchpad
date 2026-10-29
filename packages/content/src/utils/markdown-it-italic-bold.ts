@@ -1,7 +1,6 @@
-import type { PluginSimple } from "markdown-it";
-import type { RenderRule } from "markdown-it/lib/renderer.mjs";
+import type { MarkdownIt, RendererRule } from "markdown-it";
 
-const render: RenderRule = (tokens, idx, options, _env, self) => {
+const render: RendererRule = (tokens, idx, options, _env, self) => {
 	const token = tokens[idx];
 
 	if (!token) {
@@ -16,7 +15,7 @@ const render: RenderRule = (tokens, idx, options, _env, self) => {
 	return self.renderToken(tokens, idx, options);
 };
 
-const plugin: PluginSimple = (md) => {
+const plugin = (md: MarkdownIt): void => {
 	md.renderer.rules.em_open = render;
 	md.renderer.rules.em_close = render;
 	md.renderer.rules.strong_open = render;

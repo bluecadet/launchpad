@@ -36,9 +36,9 @@ function cancel(message = "Setup cancelled."): never {
 	process.exit(0);
 }
 
-function guard<T>(value: T | symbol): T {
+function guard<T>(value: T | typeof p.CANCEL_SYMBOL): T {
 	if (p.isCancel(value)) cancel();
-	return value as T;
+	return value;
 }
 
 async function readFile(filePath: string): Promise<string | null> {

@@ -9,7 +9,7 @@ export function createTestClient() {
 	const writeMock = vi.fn((_data: string, cb?: Cb) => {
 		if (cb) cb();
 	});
-	const endMock = vi.fn();
+	const endMock = vi.fn<() => void>();
 	const socketListeners: { [key: string]: Cb[] } = {};
 
 	const mockSocket = {

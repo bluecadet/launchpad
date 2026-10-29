@@ -24,8 +24,8 @@ export const createMockSocket = () => {
 		write: vi.fn((_data: string, callback?: Cb) => {
 			if (callback) callback();
 		}),
-		end: vi.fn(),
-		destroy: vi.fn(),
+		end: vi.fn<() => void>(),
+		destroy: vi.fn<() => void>(),
 		on: vi.fn((event: string, handler: Cb) => {
 			if (!socketListeners[event]) {
 				socketListeners[event] = [];

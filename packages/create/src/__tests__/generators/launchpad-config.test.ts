@@ -1,5 +1,5 @@
 import { runInNewContext } from "node:vm";
-import { ModuleKind, transpileModule } from "typescript";
+import { transformSync } from "esbuild";
 import { describe, expect, it, vi } from "vitest";
 import { generateLaunchpadConfig } from "../../generators/launchpad-config.js";
 import type { Answers } from "../../types.js";
@@ -26,12 +26,15 @@ function evaluateObservabilityConfig(environment: NodeJS.ProcessEnv) {
 		"@bluecadet/launchpad/observability/destinations/otlp": { createOtlpDestination },
 	};
 	const generatedConfig = generateLaunchpadConfig({ ...baseAnswers, useObservability: true });
-	const { outputText } = transpileModule(generatedConfig, {
-		compilerOptions: { module: ModuleKind.CommonJS },
+	const { code } = transformSync(generatedConfig, {
+		loader: "ts",
+		format: "cjs",
 	});
 
-	runInNewContext(outputText, {
-		exports: {},
+	const evaluatedModule = { exports: {} };
+	runInNewContext(code, {
+		module: evaluatedModule,
+		exports: evaluatedModule.exports,
 		require: (moduleName: string) => modules[moduleName],
 		process: { env: environment },
 	});

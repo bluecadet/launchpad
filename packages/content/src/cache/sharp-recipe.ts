@@ -3,10 +3,12 @@ import { open } from "node:fs/promises";
 import path from "node:path";
 import type { Sharp } from "sharp";
 
-// Audited against sharp/dist/{constructor,input,composite,operation,output}.cjs 0.35.3.
+// Audited against Sharp 0.35.5's constructor/input/composite/operation/output/resize
+// modules. Since 0.35.3, option slots are unchanged; validation, palette bitdepth,
+// and stream-finish handling changed. Engine identity covers the resulting output.
 // Updating Sharp requires auditing this schema and bumping the adapter version.
-const ADAPTER_VERSION = 1;
-const AUDITED_SHARP_VERSION = "0.35.3";
+const ADAPTER_VERSION = 2;
+const AUDITED_SHARP_VERSION = "0.35.5";
 const OPTION_KEYS = new Set(
 	"topOffsetPre leftOffsetPre widthPre heightPre topOffsetPost leftOffsetPost widthPost heightPost width height canvas position resizeBackground angle rotationAngle rotationBackground rotateBefore orientBefore flip flop extendTop extendBottom extendLeft extendRight extendBackground extendWith withoutEnlargement withoutReduction affineMatrix affineBackground affineIdx affineIdy affineOdx affineOdy affineInterpolator kernel fastShrinkOnLoad tint flatten flattenBackground unflatten negate negateAlpha medianSize blurSigma precision minAmpl sharpenSigma sharpenM1 sharpenM2 sharpenX1 sharpenY2 sharpenY3 threshold thresholdGrayscale trimBackground trimThreshold trimLineArt trimMargin dilateWidth erodeWidth gamma gammaOut greyscale normalise normaliseLower normaliseUpper claheWidth claheHeight claheMaxSlope brightness saturation hue lightness booleanBufferIn booleanFileIn joinChannelIn extractChannel removeAlpha ensureAlpha colourspace colourspacePipeline composite fileOut formatOut streamOut typedArrayOut keepMetadata withMetadataOrientation withMetadataDensity withIccProfile withExif withExifMerge withXmp keepGainMap withGainMap resolveWithObject loop delay jpegQuality jpegProgressive jpegChromaSubsampling jpegTrellisQuantisation jpegOvershootDeringing jpegOptimiseScans jpegOptimiseCoding jpegQuantisationTable pngProgressive pngCompressionLevel pngAdaptiveFiltering pngPalette pngQuality pngEffort pngBitdepth pngDither jp2Quality jp2TileHeight jp2TileWidth jp2Lossless jp2ChromaSubsampling webpQuality webpAlphaQuality webpLossless webpNearLossless webpSmartSubsample webpSmartDeblock webpPreset webpEffort webpMinSize webpMixed webpExact gifBitdepth gifEffort gifDither gifInterFrameMaxError gifInterPaletteMaxError gifKeepDuplicateFrames gifReuse gifProgressive tiffQuality tiffCompression tiffBigtiff tiffPredictor tiffPyramid tiffMiniswhite tiffBitdepth tiffTile tiffTileHeight tiffTileWidth tiffXres tiffYres tiffResolutionUnit heifQuality heifLossless heifCompression heifEffort heifChromaSubsampling heifBitdepth heifTune jxlDistance jxlDecodingTier jxlEffort jxlLossless rawDepth tileSize tileOverlap tileContainer tileLayout tileFormat tileDepth tileAngle tileSkipBlanks tileBackground tileCentre tileId tileBasename timeoutSeconds linearA linearB pdfBackground input boolean booleanOp bandBoolOp join joining convKernel recombMatrix".split(
 		/\s+/,

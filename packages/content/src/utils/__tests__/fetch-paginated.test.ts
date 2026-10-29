@@ -7,7 +7,7 @@ import { fetchPaginated } from "../fetch-paginated.js";
 const server = setupServer();
 
 beforeAll(() => {
-	server.listen({ onUnhandledRequest: "error" });
+	server.listen({ onUnhandledFrame: "error" });
 });
 afterAll(() => server.close());
 afterEach(() => {

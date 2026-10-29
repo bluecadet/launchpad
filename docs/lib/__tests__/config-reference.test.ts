@@ -500,6 +500,40 @@ describe("getConfigReferenceRows", () => {
 		expect(output).toContainEqual(row("nonoptional", "string", true));
 	});
 
+	it.each(["default", "prefault"] as const)(
+		"retains %s input omission through wrappers without evaluating application callbacks",
+		(wrapper) => {
+			const callback = vi.fn(() => {
+				throw new Error("must not execute");
+			});
+			const input = z
+				.string()
+				[wrapper](callback)
+				.meta({ configDocs: { defaultLabel: "Contextual" } });
+			const output = getConfigReferenceRows(
+				z.object({
+					defaulted: input,
+					readonly: input.readonly(),
+					nullable: input.nullable(),
+					union: z.union([z.number(), input]),
+					pipe: input.refine(callback).transform(callback),
+					nonoptional: input.nonoptional(),
+					explicitUndefined: z.undefined(),
+				}),
+			);
+			expect(output.map(({ name, required }) => ({ name, required }))).toEqual([
+				{ name: "defaulted", required: false },
+				{ name: "readonly", required: false },
+				{ name: "nullable", required: false },
+				{ name: "union", required: false },
+				{ name: "pipe", required: false },
+				{ name: "nonoptional", required: true },
+				{ name: "explicitUndefined", required: true },
+			]);
+			expect(callback).not.toHaveBeenCalled();
+		},
+	);
+
 	it("describes non-object roots with an explicit root label without losing collection types", () => {
 		expect(getConfigReferenceRows(z.string())).toContainEqual(row("(root)", "string", true));
 		const object = z.object({ name: z.string() });

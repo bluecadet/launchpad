@@ -8,12 +8,19 @@ import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const require = createRequire(import.meta.url);
-const githubInfo = require("@changesets/get-github-info");
 const { getReleaseLine, getDependencyReleaseLine } = require("./changelog.cjs");
 const options = { repo: "bluecadet/launchpad" };
 const marker = "<!-- changeset: overview -->";
 const execute = promisify(execFile);
-let getInfo;
+let githubFetch;
+let commit;
+let commitNumber = 0;
+
+function mockCommitData(data) {
+	githubFetch.mockResolvedValue(
+		new Response(JSON.stringify({ data: { repo__0: { [`commit__${commit}`]: data } } })),
+	);
+}
 
 function changeset(summary, extra = {}) {
 	return {
@@ -25,22 +32,28 @@ function changeset(summary, extra = {}) {
 }
 
 beforeEach(() => {
-	getInfo = vi
-		.spyOn(githubInfo, "getInfo")
+	// The installed GitHub client caches commits across calls, including failures.
+	// Give each test its own commit while exercising the real, immutable ESM API.
+	commit = `abcdef0${++commitNumber}`;
+	vi.stubEnv("GITHUB_TOKEN", "test-token");
+	vi.stubEnv("GITHUB_GRAPHQL_URL", "https://api.github.com/graphql");
+	githubFetch = vi
+		.spyOn(globalThis, "fetch")
 		.mockRejectedValue(new Error("Unexpected GitHub lookup"));
 });
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("ordinary changesets", () => {
 	it("appends only the associated PR to the summary, preserving author content and code", async () => {
-		getInfo.mockResolvedValue({
-			links: {
-				pull: "[#123](https://github.com/bluecadet/launchpad/pull/123)",
-				commit: "[`abcdef0`](https://github.com/bluecadet/launchpad/commit/abcdef0)",
-				user: "[@author](https://github.com/author)",
+		mockCommitData({
+			commitUrl: `https://github.com/bluecadet/launchpad/commit/${commit}`,
+			author: { user: { login: "author", url: "https://github.com/author" } },
+			associatedPullRequests: {
+				nodes: [{ number: 123, url: "https://github.com/bluecadet/launchpad/pull/123" }],
 			},
 		});
 		const summary = [
@@ -55,11 +68,7 @@ describe("ordinary changesets", () => {
 			"  // author: @person, pr: #99",
 			"```",
 		].join("\n");
-		const result = await getReleaseLine(
-			changeset(summary, { commit: "abcdef0" }),
-			"patch",
-			options,
-		);
+		const result = await getReleaseLine(changeset(summary, { commit }), "patch", options);
 		expect(result).toBe(
 			[
 				"- Fix [author link](https://example.com) and #42 ([#123](https://github.com/bluecadet/launchpad/pull/123))",
@@ -75,28 +84,91 @@ describe("ordinary changesets", () => {
 			].join("\n"),
 		);
 		expect(result).not.toMatch(/abcdef0|Thanks|github.com\/author/);
-		expect(getInfo).toHaveBeenCalledExactlyOnceWith({ repo: options.repo, commit: "abcdef0" });
+		expect(githubFetch).toHaveBeenCalledExactlyOnceWith(
+			"https://api.github.com/graphql",
+			expect.objectContaining({
+				method: "POST",
+				headers: { Authorization: "Token test-token" },
+			}),
+		);
+		const { query } = JSON.parse(githubFetch.mock.calls[0][1].body);
+		expect(query).toContain('owner: "bluecadet"');
+		expect(query).toContain('name: "launchpad"');
+		expect(query).toContain(`object(expression: "${commit}")`);
 	});
 
 	it("preserves CRLF continuation whitespace and places the PR before the line ending", async () => {
-		getInfo.mockResolvedValue({ links: { pull: "[#123](https://example.com/pull/123)" } });
+		mockCommitData({
+			associatedPullRequests: {
+				nodes: [{ number: 123, url: "https://example.com/pull/123" }],
+			},
+		});
 		expect(
-			await getReleaseLine(
-				changeset("Summary\r\n\r\n  Body  \r\n", { commit: "abcdef0" }),
-				"patch",
-				options,
-			),
+			await getReleaseLine(changeset("Summary\r\n\r\n  Body  \r\n", { commit }), "patch", options),
 		).toBe("- Summary ([#123](https://example.com/pull/123))\r\n  \r\n    Body  \r\n  ");
 	});
 
 	it("has no commit or author fallback when there is no associated PR", async () => {
-		getInfo.mockResolvedValue({
-			links: { pull: null, commit: "commit link", user: "author link" },
+		mockCommitData({
+			commitUrl: "https://github.com/bluecadet/launchpad/commit/abcdef0",
+			author: { user: { login: "author", url: "https://github.com/author" } },
+			associatedPullRequests: { nodes: [] },
 		});
-		expect(await getReleaseLine(changeset("Fix it", { commit: "abcdef0" }), "patch", options)).toBe(
+		expect(await getReleaseLine(changeset("Fix it", { commit }), "patch", options)).toBe(
 			"- Fix it",
 		);
-		expect(getInfo).toHaveBeenCalledOnce();
+		expect(githubFetch).toHaveBeenCalledOnce();
+	});
+
+	it.each([null, undefined])(
+		"omits refs when GitHub cannot find the commit or repository: %s",
+		async (data) => {
+			mockCommitData(data);
+			expect(await getReleaseLine(changeset("Fix it", { commit }), "patch", options)).toBe(
+				"- Fix it",
+			);
+			expect(githubFetch).toHaveBeenCalledOnce();
+		},
+	);
+
+	it("preserves the associated PR's fork and enterprise URL instead of rebuilding it", async () => {
+		vi.stubEnv("GITHUB_GRAPHQL_URL", "https://github.example.com/api/graphql");
+		mockCommitData({
+			associatedPullRequests: {
+				nodes: [{ number: 456, url: "https://github.example.com/contributor/fork/pull/456" }],
+			},
+		});
+		expect(await getReleaseLine(changeset("Fix it", { commit }), "patch", options)).toBe(
+			"- Fix it ([#456](https://github.example.com/contributor/fork/pull/456))",
+		);
+		expect(githubFetch).toHaveBeenCalledExactlyOnceWith(
+			"https://github.example.com/api/graphql",
+			expect.any(Object),
+		);
+	});
+
+	it("uses the client's earliest merged associated PR rather than the first response entry", async () => {
+		mockCommitData({
+			associatedPullRequests: {
+				nodes: [
+					{ number: 789, url: "https://github.com/bluecadet/launchpad/pull/789", mergedAt: null },
+					{
+						number: 456,
+						url: "https://github.com/bluecadet/launchpad/pull/456",
+						mergedAt: "2026-03-02T00:00:00Z",
+					},
+					{
+						number: 123,
+						url: "https://github.com/bluecadet/launchpad/pull/123",
+						mergedAt: "2026-03-01T00:00:00Z",
+					},
+				],
+			},
+		});
+		expect(await getReleaseLine(changeset("Fix it", { commit }), "patch", options)).toBe(
+			"- Fix it ([#123](https://github.com/bluecadet/launchpad/pull/123))",
+		);
+		expect(githubFetch).toHaveBeenCalledOnce();
 	});
 
 	it("does not look up a missing commit or interpret author-written metadata", async () => {
@@ -104,15 +176,24 @@ describe("ordinary changesets", () => {
 		expect(await getReleaseLine(changeset(summary), "patch", options)).toBe(
 			"- Fix it\n  \n  pr: #123\n  author: @writer\n  commit: abcdef0",
 		);
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 
 	it("propagates lookup failures", async () => {
 		const failure = new Error("GitHub unavailable");
-		getInfo.mockRejectedValue(failure);
+		githubFetch.mockRejectedValue(failure);
 		await expect(
-			getReleaseLine(changeset("Fix it", { commit: "abcdef0" }), "patch", options),
-		).rejects.toBe(failure);
+			getReleaseLine(changeset("Fix it", { commit }), "patch", options),
+		).rejects.toMatchObject({ message: "Failed to fetch data from GitHub", cause: failure });
+	});
+
+	it("propagates GitHub API errors rather than silently dropping the PR", async () => {
+		githubFetch.mockResolvedValue(
+			new Response(JSON.stringify({ errors: [{ message: "Repository access denied" }] })),
+		);
+		await expect(getReleaseLine(changeset("Fix it", { commit }), "patch", options)).rejects.toThrow(
+			/Fetched data from GitHub returned errors.*Repository access denied/s,
+		);
 	});
 
 	it.each([
@@ -126,7 +207,7 @@ describe("ordinary changesets", () => {
 		expect(await getReleaseLine(changeset("Same summary", { releases }), "major", options)).toBe(
 			"- Same summary",
 		);
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 
 	it("keeps a long unmarked umbrella entry as a bullet", async () => {
@@ -149,7 +230,7 @@ describe("ordinary changesets", () => {
 	])("does not opt in for a marker outside its designated position: %s", async (summary) => {
 		const result = await getReleaseLine(changeset(summary), "major", options);
 		expect(result).toBe(`- ${summary.split("\n").join("\n  ")}`);
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 });
 
@@ -158,12 +239,12 @@ describe("explicit overviews", () => {
 		const body = "#### Section\r\n\r\n- Item  \r\n  - Child";
 		expect(
 			await getReleaseLine(
-				changeset(`Summary\r\n\r\n${marker}\r\n\r\n${body}`, { commit: "abcdef0" }),
+				changeset(`Summary\r\n\r\n${marker}\r\n\r\n${body}`, { commit }),
 				"major",
 				options,
 			),
 		).toBe(`\n\n**Summary**\r\n\r\n${body}\n\n`);
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 
 	it("preserves normal Markdown, code, and list whitespace without a lookup or generated refs", async () => {
@@ -185,13 +266,13 @@ describe("explicit overviews", () => {
 			"Tail paragraph.",
 		].join("\n");
 		const result = await getReleaseLine(
-			changeset(`Release summary\n\n${marker}\n\n${body}`, { commit: "abcdef0" }),
+			changeset(`Release summary\n\n${marker}\n\n${body}`, { commit }),
 			"major",
 			options,
 		);
 		expect(result).toBe(`\n\n**Release summary**\n\n${body}\n\n`);
 		expect(result).not.toContain(marker);
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 
 	it.each(["# Heading", "## Heading", "### Heading", "~~~md\n## Not skipped\n~~~"])(
@@ -200,7 +281,7 @@ describe("explicit overviews", () => {
 			await expect(
 				getReleaseLine(changeset(`Summary\n\n${marker}\n\n${body}`), "major", options),
 			).rejects.toThrow(/example-change.*unsafe heading.*Use H4-H6/);
-			expect(getInfo).not.toHaveBeenCalled();
+			expect(githubFetch).not.toHaveBeenCalled();
 		},
 	);
 
@@ -233,14 +314,14 @@ describe("explicit overviews", () => {
 
 describe("dependency releases", () => {
 	it("returns nothing for no updates", async () => {
-		expect(await getDependencyReleaseLine([changeset("Fix", { commit: "abcdef0" })], [])).toBe("");
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(await getDependencyReleaseLine([changeset("Fix", { commit })], [])).toBe("");
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 
 	it("lists only names and new versions, without lookups or refs", async () => {
 		expect(
 			await getDependencyReleaseLine(
-				[changeset("Fix", { commit: "abcdef0" })],
+				[changeset("Fix", { commit })],
 				[
 					{ name: "@fixture/one", newVersion: "2.0.0" },
 					{ name: "@fixture/two", newVersion: "1.2.3" },
@@ -248,7 +329,7 @@ describe("dependency releases", () => {
 				options,
 			),
 		).toBe("- Updated dependencies:\n  - @fixture/one@2.0.0\n  - @fixture/two@1.2.3");
-		expect(getInfo).not.toHaveBeenCalled();
+		expect(githubFetch).not.toHaveBeenCalled();
 	});
 });
 
@@ -465,7 +546,7 @@ it.each([
 			expect(extractRelease(next, "3.2.1")).toBe(
 				`### Patch Changes${newline}${newline}- Previous umbrella release`,
 			);
-			expect(getInfo).not.toHaveBeenCalled();
+			expect(githubFetch).not.toHaveBeenCalled();
 		} finally {
 			await rm(fixture, { recursive: true, force: true });
 		}

@@ -24,10 +24,19 @@ export interface ControllerConfig {
 	logging?: LogConfig;
 }
 
+// Keep the imported logging schema named in emitted declarations instead of expanding its types.
+type ControllerConfigSchema = z.ZodPrefault<
+	z.ZodObject<{
+		pidFile: z.ZodDefault<z.ZodString>;
+		socketPath: z.ZodDefault<z.ZodString>;
+		logging: typeof logConfigSchema;
+	}>
+>;
+
 /**
  * Controller configuration schema
  */
-export const controllerConfigSchema = configSchema<ControllerConfig>()(
+export const controllerConfigSchema: ControllerConfigSchema = configSchema<ControllerConfig>()(
 	z.object({
 		pidFile: z
 			.string()
@@ -43,8 +52,6 @@ export const controllerConfigSchema = configSchema<ControllerConfig>()(
 
 		// Future: transports array will go here in Phase 2+
 	}),
-)
-	.optional()
-	.prefault({});
+).prefault({});
 
 export type ResolvedControllerConfig = z.output<typeof controllerConfigSchema>;

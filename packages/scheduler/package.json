@@ -42,7 +42,7 @@
   "homepage": "https://github.com/bluecadet/launchpad/packages/scheduler",
   "dependencies": {
     "@bluecadet/launchpad-utils": "~4.1.0",
-    "croner": "^10.0.1",
+    "croner": "^11.0.0",
     "neverthrow": "^8.2.0",
     "zod": "^4.3.6"
   },

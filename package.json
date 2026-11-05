@@ -32,13 +32,13 @@
     "./docs"
   ],
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
+    "@biomejs/biome": "2.6.4",
     "@changesets/cli": "^3.0.3",
     "@changesets/get-github-info": "1.0.1",
     "@emnapi/core": "1.11.3",
     "@emnapi/runtime": "1.11.3",
-    "@types/node": "^26.6.5",
-    "knip": "^6.43.0",
+    "@types/node": "^26.6.6",
+    "knip": "^6.44.1",
     "lefthook": "^2.2.2",
     "sherif": "^1.11.0",
     "typescript": "^7.0.2",

@@ -67,7 +67,7 @@
     "@bluecadet/launchpad-observability": "~4.0.2",
     "@bluecadet/launchpad-testing": "0.1.0",
     "@bluecadet/launchpad-tsconfig": "0.1.0",
-    "fs-native-extensions": "1.5.2",
+    "fs-native-extensions": "1.5.3",
     "memfs": "^4.80.0",
     "vitest": "^5.0.5"
   }
